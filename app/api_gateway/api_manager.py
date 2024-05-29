@@ -1,12 +1,17 @@
 import os
-import json
 
-from fastapi import Request
+from fastapi import Depends, Request
 from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
+from app_common.data_transfer_objects.person import PersonDTO
+from app_common.repositories.persons_repository import PersonsRepository
+from app_common.dependencies.dependencies import persons_repository
 
-from salesforce import get_authorization_url, handle_callback
+# from app.app_common.repositories.persons_repository import PersonsRepository
+# from app.app_common.dependencies.dependencies import persons_repository
+
+from services.salesforce import get_authorization_url, handle_callback
 
 SELF_URL = os.environ.get("self_url", "https://localhost:8444")
 logger.info(f"Self url: {SELF_URL}")
@@ -104,3 +109,27 @@ def callback_salesforce(
     return PlainTextResponse(
         f"Successfully authenticated with Salesforce for {request.session['salesforce_company']}. \nYou can now close this tab"
     )
+
+
+@v1_router.post("/person", response_class=PlainTextResponse)
+async def insert_new_person(
+    request: Request, person_repository: PersonsRepository = Depends(persons_repository)
+) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received person post request")
+    request_body = await request.json()
+    logger.info(f"Request_body: {request_body}")
+    person = PersonDTO.from_dict(request_body["person"])
+    logger.info(f"person: {person}")
+
+    person_id = person_repository.insert_person(person)
+    if person_id:
+        logger.info(f"Person was inserted successfully with id: {person_id}")
+        return PlainTextResponse(
+            f"Person was inserted successfully with id: {person_id}"
+        )
+    else:
+        logger.error(f"Failed to insert person")
+        return PlainTextResponse(f"Failed to insert person")
