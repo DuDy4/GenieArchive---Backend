@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 from starlette.middleware.sessions import SessionMiddleware
 
-from Api_Manager import v1_router
+from api_Manager import v1_router
 
 load_dotenv()
 app = FastAPI()
