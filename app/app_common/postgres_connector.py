@@ -29,7 +29,3 @@ def get_client():
 
 # Connect to the database
 conn = get_client()
-
-# Ensure the connection is closed properly
-if conn:
-    conn.close()
