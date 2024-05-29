@@ -4,6 +4,9 @@ import json
 from fastapi import Request
 from fastapi.routing import APIRouter
 from loguru import logger
+from starlette.responses import PlainTextResponse, RedirectResponse
+
+from salesforce import get_authorization_url, handle_callback
 
 SELF_URL = os.environ.get("self_url", "https://localhost:8444")
 logger.info(f"Self url: {SELF_URL}")
@@ -73,3 +76,31 @@ async def update_profile(uuid: str, request: Request):
         return "Name and company are required"
     logger.info("Got profile PUT request")
     return f"Updated profile: {uuid}: {name} who works at {company}"
+
+
+@v1_router.get("/auth/salesforce/{company}", response_class=RedirectResponse)
+def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
+    """
+    Triggers the salesforce oauth2.0 process
+    """
+    logger.info(f"Beginning salesforce oauth integration for {company}")
+    request.session["salesforce_company"] = company
+    result = get_authorization_url(company)
+    logger.info(f"Redirect url: {result}")
+    return RedirectResponse(url=result)
+
+
+@v1_router.get("/callback/salesforce", response_class=PlainTextResponse)
+def callback_salesforce(
+    request: Request,
+) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(
+        f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
+    )
+    handle_callback(request.session["salesforce_company"], str(request.url))
+    return PlainTextResponse(
+        f"Successfully authenticated with Salesforce for {request.session['salesforce_company']}. \nYou can now close this tab"
+    )
