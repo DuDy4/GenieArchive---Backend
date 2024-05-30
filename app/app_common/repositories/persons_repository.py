@@ -9,7 +9,7 @@ from loguru import logger
 class PersonsRepository:
     def __init__(self, conn):
         self.conn = conn
-        self.cursor = conn.cursor()
+        # self.cursor = conn.cursor()
 
     def __del__(self):
         if self.conn:
@@ -30,9 +30,10 @@ class PersonsRepository:
         );
         """
         try:
-            self.cursor.execute(create_table_query)
-            self.conn.commit()
-            logger.info(f"Created persons table in database")
+            with self.conn.cursor() as cursor:
+                cursor.execute(create_table_query)
+                self.conn.commit()
+                logger.info(f"Created persons table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
@@ -54,16 +55,18 @@ class PersonsRepository:
 
         try:
             if not self.exists(person.uuid):
-                self.cursor.execute(insert_query, person_data)
-                logger.info(f"Cursor was executed")
-                self.conn.commit()
-                # logger.info("Inserted new person")
-                # self.cursor.execute("SELECT LAST_INSERT_ID();")
-                # logger.info("Selected last inserted")
-                # person_id = self.cursor.fetchone()[0]
-                # logger.info(f"Inserted person to database. Person id: {person_id}")
-                # return person_id
-                return "12"
+                with self.conn.cursor() as cursor:
+
+                    cursor.execute(insert_query, person_data)
+                    logger.info(f"Cursor was executed")
+                    self.conn.commit()
+                    # logger.info("Inserted new person")
+                    # cursur.execute("SELECT LAST_INSERT_ID();")
+                    # logger.info("Selected last inserted")
+                    # person_id = cursur.fetchone()[0]
+                    # logger.info(f"Inserted person to database. Person id: {person_id}")
+                    # return person_id
+                    return "12"
             else:
                 logger.warning(f"Person already exists in database. Skipping insert")
         except psycopg2.Error as error:
@@ -74,33 +77,41 @@ class PersonsRepository:
     def exists(self, uuid: str) -> bool:
         logger.info(f"about to check if uuid exists: {uuid}")
         exists_query = "SELECT 1 FROM persons WHERE uuid = %s;"
+
         try:
-            self.cursor.execute(exists_query, (uuid,))
-            logger.info(f"Executed sql query")
-            result = self.cursor.fetchone() is not None
-            logger.info(f"{uuid} existence in database: {result}")
-            return result
+            with self.conn.cursor() as cursor:
+                logger.info(f"about to execute check if uuid exists: {uuid}")
+
+                cursor.execute(exists_query, (uuid,))
+                logger.info(f"Executed sql query")
+                result = cursor.fetchone() is not None
+                logger.info(f"{uuid} existence in database: {result}")
+                return result
         except psycopg2.Error as error:
-            logger.error("Error checking if person exists:", error)
+            logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             return False
 
     def get_person_by_id(self, id: str) -> Optional[PersonDTO]:
         select_query = "SELECT * FROM persons WHERE id = %s;"
         try:
-            self.cursor.execute(select_query, (id,))
-            row = self.cursor.fetchone()
-            if row:
-                logger.info(f"Got {row[1]} from database")
-                return PersonDTO(
-                    uuid=row[1],
-                    name=row[2],
-                    company=row[3],
-                    email=row[4],
-                    position=row[5],
-                    timezone=row[6],
-                    challenges=row[7],
-                    strengths=row[8],
-                )
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (id,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[2]} from database")
+                    return PersonDTO(
+                        uuid=row[1],
+                        name=row[2],
+                        company=row[3],
+                        email=row[4],
+                        position=row[5],
+                        timezone=row[6],
+                        challenges=row[7],
+                        strengths=row[8],
+                    )
         except Exception as error:
             logger.error("Error fetching person by uuid:", error)
         return None
