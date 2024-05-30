@@ -12,6 +12,7 @@ from app_common.repositories.interactions_repository import InteractionsReposito
 from app_common.dependencies.dependencies import (
     persons_repository,
     interactions_repository,
+    salesforce_users_repository,
 )
 
 from redis import Redis
@@ -20,7 +21,12 @@ from redis import Redis
 # from app.app_common.repositories.persons_repository import PersonsRepository
 # from app.app_common.dependencies.dependencies import persons_repository
 
-from services.salesforce import get_authorization_url, handle_callback
+from services.salesforce import (
+    get_authorization_url,
+    handle_callback,
+    create_salesforce_client,
+    SalesforceAgent,
+)
 
 SELF_URL = os.environ.get("self_url", "https://localhost:8444")
 logger.info(f"Self url: {SELF_URL}")
@@ -156,3 +162,24 @@ async def insert_new_person(
     else:
         logger.error(f"Failed to insert person")
         return PlainTextResponse(f"Failed to insert person")
+
+
+@v1_router.get("/salesforce/{company}/contact", response_class=PlainTextResponse)
+async def get_all_contact(
+    request: Request,
+    company: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received get contacts request")
+
+    refresh_token = sf_users_repository.get_refresh_token(company)
+    logger.info(f"refresh_token: {refresh_token}")
+    salesforce_client = create_salesforce_client(company, refresh_token)
+    logger.info(f"salesforce_client: {salesforce_client}")
+
+    salesforce_agent = SalesforceAgent(salesforce_client, sf_users_repository)
+    contacts = salesforce_agent.get_contacts()
+    logger.info(f"contacts: {contacts}")
