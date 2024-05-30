@@ -1,6 +1,7 @@
 from loguru import logger
 
 from ..repositories.persons_repository import PersonsRepository
+from ..repositories.interactions_repository import InteractionsRepository
 from ..postgres_connector import get_db_connection
 
 
@@ -9,6 +10,16 @@ def persons_repository() -> PersonsRepository:
     try:
         with conn:
             return PersonsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def interactions_repository() -> InteractionsRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return InteractionsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

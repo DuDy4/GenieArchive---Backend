@@ -6,7 +6,13 @@ from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
 from app_common.data_transfer_objects.person import PersonDTO
 from app_common.repositories.persons_repository import PersonsRepository
-from app_common.dependencies.dependencies import persons_repository
+from app_common.data_transfer_objects.interaction import InteractionDTO
+from app_common.repositories.interactions_repository import InteractionsRepository
+from app_common.dependencies.dependencies import (
+    persons_repository,
+    interactions_repository,
+)
+
 
 # from app.app_common.repositories.persons_repository import PersonsRepository
 # from app.app_common.dependencies.dependencies import persons_repository
@@ -116,7 +122,7 @@ async def insert_new_person(
     request: Request, person_repository: PersonsRepository = Depends(persons_repository)
 ) -> PlainTextResponse:
     """
-    Triggers the salesforce oauth2.0 callback process
+    Insert a new person to database
     """
     logger.info(f"Received person post request")
     request_body = await request.json()
@@ -133,3 +139,28 @@ async def insert_new_person(
     else:
         logger.error(f"Failed to insert person")
         return PlainTextResponse(f"Failed to insert person")
+
+
+@v1_router.post("/interaction", response_class=PlainTextResponse)
+async def insert_new_interaction(
+    request: Request,
+    interactions_repository: InteractionsRepository = Depends(interactions_repository),
+) -> PlainTextResponse:
+    """
+    Insert a new interaction to database
+    """
+    logger.info(f"Received interaction post request")
+    request_body = await request.json()
+    logger.info(f"Request_body: {request_body}")
+    interaction = InteractionDTO.from_dict(request_body["interaction"])
+    logger.info(f"Interaction: {interaction}")
+
+    interaction_id = interactions_repository.insert(interaction)
+    if interaction_id:
+        logger.info(f"Interaction was inserted successfully with id: {interaction_id}")
+        return PlainTextResponse(
+            f"Interaction was inserted successfully with id: {interaction_id}"
+        )
+    else:
+        logger.error(f"Failed to insert interaction")
+        return PlainTextResponse(f"Failed to insert interaction")
