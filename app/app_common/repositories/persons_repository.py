@@ -35,7 +35,7 @@ class PersonsRepository:
             logger.info(f"Created persons table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def insert_person(self, person: PersonDTO) -> str | None:
         """
@@ -57,17 +57,19 @@ class PersonsRepository:
                 self.cursor.execute(insert_query, person_data)
                 logger.info(f"Cursor was executed")
                 self.conn.commit()
-                logger.info("Inserted new person")
+                # logger.info("Inserted new person")
                 # self.cursor.execute("SELECT LAST_INSERT_ID();")
                 # logger.info("Selected last inserted")
                 # person_id = self.cursor.fetchone()[0]
                 # logger.info(f"Inserted person to database. Person id: {person_id}")
                 # return person_id
+                return "12"
             else:
                 logger.warning(f"Person already exists in database. Skipping insert")
         except psycopg2.Error as error:
-            logger.error("Error inserting person:", error)
-            self.conn.rollback()
+            logger.error("Error inserting person:", error.pgerror)
+            # self.conn.rollback()
+            return None
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"about to check if uuid exists: {uuid}")
@@ -158,7 +160,7 @@ class PersonsRepository:
             logger.info(f"Updated {person.name} in database")
         except Exception as error:
             logger.error("Error updating person:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def delete_person(self, id: str):
         delete_query = "DELETE FROM persons WHERE id = %s;"
@@ -168,7 +170,7 @@ class PersonsRepository:
             logger.info(f"Deleted {id} from database")
         except Exception as error:
             print("Error deleting person:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     # Individual get methods for each attribute
     def get_name(self, uuid: str) -> Optional[str]:
@@ -257,7 +259,7 @@ class PersonsRepository:
             logger.info(f"Updated name for {uuid} to {name}")
         except Exception as error:
             logger.error("Error updating name:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_company(self, uuid: str, company: str):
         update_query = "UPDATE persons SET company = %s WHERE uuid = %s;"
@@ -267,7 +269,7 @@ class PersonsRepository:
             logger.info(f"Updated company for {uuid} to {company}")
         except Exception as error:
             logger.error("Error updating company:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_email(self, uuid: str, email: str):
         update_query = "UPDATE persons SET email = %s WHERE uuid = %s;"
@@ -277,7 +279,7 @@ class PersonsRepository:
             logger.info(f"Updated email for {uuid} to {email}")
         except Exception as error:
             logger.error("Error updating email:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_position(self, uuid: str, position: str):
         update_query = "UPDATE persons SET position = %s WHERE uuid = %s;"
@@ -287,7 +289,7 @@ class PersonsRepository:
             logger.info(f"Updated position for {uuid} to {position}")
         except Exception as error:
             logger.error("Error updating position:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_timezone(self, uuid: str, timezone: str):
         update_query = "UPDATE persons SET timezone = %s WHERE uuid = %s;"
@@ -297,7 +299,7 @@ class PersonsRepository:
             logger.info(f"Updated timezone for {uuid} to {timezone}")
         except Exception as error:
             logger.error("Error updating timezone:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_challenges(self, uuid: str, challenges: list[str]):
         update_query = "UPDATE persons SET challenges = %s WHERE uuid = %s;"
@@ -307,7 +309,7 @@ class PersonsRepository:
             logger.info(f"Updated challenges for {uuid}")
         except Exception as error:
             logger.error("Error updating challenges:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def update_strengths(self, uuid: str, strengths: list[str]):
         update_query = "UPDATE persons SET strengths = %s WHERE uuid = %s;"
@@ -317,4 +319,4 @@ class PersonsRepository:
             logger.info(f"Updated strengths for {uuid}")
         except Exception as error:
             logger.error("Error updating strengths:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
