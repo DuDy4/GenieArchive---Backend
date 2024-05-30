@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette_context import context
 from app_common.data_transfer_objects.person import PersonDTO
 from app_common.repositories.persons_repository import PersonsRepository
 from app_common.data_transfer_objects.interaction import InteractionDTO
@@ -12,6 +13,8 @@ from app_common.dependencies.dependencies import (
     persons_repository,
     interactions_repository,
 )
+
+from redis import Redis
 
 
 # from app.app_common.repositories.persons_repository import PersonsRepository
@@ -23,6 +26,9 @@ SELF_URL = os.environ.get("self_url", "https://localhost:8444")
 logger.info(f"Self url: {SELF_URL}")
 
 v1_router = APIRouter(prefix="/v1")
+
+redis_client = Redis(host="localhost", port=6379, db=0)
+
 
 PROFILE_ID = 0
 
@@ -89,31 +95,42 @@ async def update_profile(uuid: str, request: Request):
     return f"Updated profile: {uuid}: {name} who works at {company}"
 
 
-@v1_router.get("/auth/salesforce/{company}", response_class=RedirectResponse)
+@v1_router.get("/salesforce/auth/{company}", response_class=RedirectResponse)
 def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
     """
     Triggers the salesforce oauth2.0 process
     """
+    logger.debug(f"request.session before start: {request.session}")
+    # request.session.clear()
+    # logger.debug(f"St.session before start: {request.session}")
     logger.info(f"Beginning salesforce oauth integration for {company}")
-    request.session["salesforce_company"] = company
-    result = get_authorization_url(company)
-    logger.info(f"Redirect url: {result}")
-    return RedirectResponse(url=result)
+    context["salesforce_company"] = company
+    logger.debug(f"Context: {context['salesforce_company']}")
+    # logger.info(f"Saved to session: {request.session["salesforce_company"]}")
+    authorization_url = get_authorization_url(company) + f"&company={company}"
+    logger.info(f"Redirect url: {authorization_url}")
+    return RedirectResponse(url=authorization_url)
 
 
-@v1_router.get("/callback/salesforce", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
 def callback_salesforce(
     request: Request,
+    # sf_users_repository = Depends(salesforce_users_repository)
 ) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
+    # logger.debug(f"Request session: {request.session}")
+    # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
+    # )
+    company = context.get("salesforce_company")
     logger.info(
-        f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
+        f"Received callback from salesforce oauth integration. Company: {company}"
     )
-    handle_callback(request.session["salesforce_company"], str(request.url))
+    token_data = handle_callback(company, str(request.url))
+
     return PlainTextResponse(
-        f"Successfully authenticated with Salesforce for {request.session['salesforce_company']}. \nYou can now close this tab"
+        f"Successfully authenticated with Salesforce for {company}. \nYou can now close this tab"
     )
 
 
@@ -122,7 +139,7 @@ async def insert_new_person(
     request: Request, person_repository: PersonsRepository = Depends(persons_repository)
 ) -> PlainTextResponse:
     """
-    Insert a new person to database
+    Triggers the salesforce oauth2.0 callback process
     """
     logger.info(f"Received person post request")
     request_body = await request.json()
@@ -139,28 +156,3 @@ async def insert_new_person(
     else:
         logger.error(f"Failed to insert person")
         return PlainTextResponse(f"Failed to insert person")
-
-
-@v1_router.post("/interaction", response_class=PlainTextResponse)
-async def insert_new_interaction(
-    request: Request,
-    interactions_repository: InteractionsRepository = Depends(interactions_repository),
-) -> PlainTextResponse:
-    """
-    Insert a new interaction to database
-    """
-    logger.info(f"Received interaction post request")
-    request_body = await request.json()
-    logger.info(f"Request_body: {request_body}")
-    interaction = InteractionDTO.from_dict(request_body["interaction"])
-    logger.info(f"Interaction: {interaction}")
-
-    interaction_id = interactions_repository.insert(interaction)
-    if interaction_id:
-        logger.info(f"Interaction was inserted successfully with id: {interaction_id}")
-        return PlainTextResponse(
-            f"Interaction was inserted successfully with id: {interaction_id}"
-        )
-    else:
-        logger.error(f"Failed to insert interaction")
-        return PlainTextResponse(f"Failed to insert interaction")
