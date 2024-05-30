@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union, List
 
 import psycopg2
 
@@ -46,7 +46,8 @@ class PersonsRepository:
         self.create_table_if_not_exists()
         insert_query = """
         INSERT INTO persons (uuid, name, company, email, position, timezone, challenges, strengths)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id;
         """
         logger.info(f"About to insert person: {person}")
         person_data = person.to_tuple()
@@ -56,17 +57,13 @@ class PersonsRepository:
         try:
             if not self.exists(person.uuid):
                 with self.conn.cursor() as cursor:
-
                     cursor.execute(insert_query, person_data)
                     logger.info(f"Cursor was executed")
                     self.conn.commit()
-                    # logger.info("Inserted new person")
-                    # cursur.execute("SELECT LAST_INSERT_ID();")
-                    # logger.info("Selected last inserted")
-                    # person_id = cursur.fetchone()[0]
-                    # logger.info(f"Inserted person to database. Person id: {person_id}")
-                    # return person_id
-                    return "12"
+                    logger.info("Inserted new person")
+                    person_id = cursor.fetchone()[0]
+                    logger.info(f"Inserted person to database. Person id: {person_id}")
+                    return person_id
             else:
                 logger.warning(f"Person already exists in database. Skipping insert")
         except psycopg2.Error as error:
@@ -94,6 +91,22 @@ class PersonsRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
+    def get_person_id(self, uuid):
+        select_query = "SELECT id FROM persons WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[2]} from database")
+                    return
+                else:
+                    logger.error(f"Error with getting person id for {uuid}")
+
+        except Exception as error:
+            logger.error("Error fetching id by uuid:", error)
+        return None
+
     def get_person_by_id(self, id: str) -> Optional[PersonDTO]:
         select_query = "SELECT * FROM persons WHERE id = %s;"
         try:
@@ -102,52 +115,32 @@ class PersonsRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[2]} from database")
-                    return PersonDTO(
-                        uuid=row[1],
-                        name=row[2],
-                        company=row[3],
-                        email=row[4],
-                        position=row[5],
-                        timezone=row[6],
-                        challenges=row[7],
-                        strengths=row[8],
-                    )
+                    return PersonDTO(*row[1:])
+
         except Exception as error:
-            logger.error("Error fetching person by uuid:", error)
+            logger.error("Error fetching person by id:", error)
         return None
 
-    def get_person_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
-        select_query = "SELECT * FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                logger.info(f"Got {row[1]} from database")
-                return PersonDTO(
-                    uuid=row[1],
-                    name=row[2],
-                    company=row[3],
-                    email=row[4],
-                    position=row[5],
-                    timezone=row[6],
-                    challenges=row[7],
-                    strengths=row[8],
-                )
-        except Exception as error:
-            logger.error("Error fetching person by uuid:", error)
-        return None
+    def get_name(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "name")
 
-    def get_person_id_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
-        select_query = "SELECT id FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                logger.info(f"Got id:{row[0]} from database")
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching person by uuid:", error)
-        return None
+    def get_company(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "company")
+
+    def get_email(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "email")
+
+    def get_position(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "position")
+
+    def get_timezone(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "timezone")
+
+    def get_challenges(self, id_or_uuid: str | int) -> Optional[list[str]]:
+        return self._get_attribute(id_or_uuid, "challenges")
+
+    def get_strengths(self, id_or_uuid: str | int) -> Optional[list[str]]:
+        return self._get_attribute(id_or_uuid, "strengths")
 
     def update_person(self, person: PersonDTO):
         update_query = """
@@ -155,179 +148,51 @@ class PersonsRepository:
         SET name = %s, company = %s, email = %s, position = %s, timezone = %s, challenges = %s, strengths = %s
         WHERE uuid = %s;
         """
-        person_data = (
-            person.name,
-            person.company,
-            person.email,
-            person.position,
-            person.timezone,
-            person.challenges,
-            person.strengths,
-            person.uuid,
-        )
+        person_data = person.to_tuple
         try:
-            self.cursor.execute(update_query, person_data)
-            self.conn.commit()
-            logger.info(f"Updated {person.name} in database")
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, person_data)
+                self.conn.commit()
+                logger.info(f"Updated {person.name} in database")
         except Exception as error:
             logger.error("Error updating person:", error)
-            # self.conn.rollback()
+
+    # def _update_attribute_by_uuid(self, uuid, attribute, value):
+    #     select_query = f"UPDATE persons SET {attribute} = %s WHERE uuid = %s;"
+    #     try:
+    #         with self.conn.cursor() as cursor:
+    #             cursor.execute(select_query, (value, uuid))
+    #             self.conn.commit()
+    #             logger.info(f"Updated {attribute} for {uuid}")
+    #     except Exception as error:
+    #         logger.error(f"Error fetching {attribute} by uuid:", error)
+    #     return None
 
     def delete_person(self, id: str):
         delete_query = "DELETE FROM persons WHERE id = %s;"
         try:
-            self.cursor.execute(delete_query, (id,))
-            self.conn.commit()
-            logger.info(f"Deleted {id} from database")
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (id,))
+                self.conn.commit()
+                logger.info(f"Deleted {id} from database")
         except Exception as error:
-            print("Error deleting person:", error)
+            logger.error("Error deleting person:", error)
             # self.conn.rollback()
 
-    # Individual get methods for each attribute
-    def get_name(self, uuid: str) -> Optional[str]:
-        select_query = "SELECT name FROM persons WHERE uuid = %s;"
+    def _get_attribute(
+        self, id_or_uuid: str | int, attribute: str
+    ) -> Optional[Union[str, List[str]]]:
+        select_query = (
+            f"SELECT {attribute} FROM persons WHERE "
+            f"{'id' if isinstance(id_or_uuid, int) else 'uuid'} = %s;"
+        )
+
         try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (id_or_uuid,))
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
         except Exception as error:
-            logger.error("Error fetching name by uuid:", error)
+            logger.error(f"Error fetching {attribute} by uuid:", error)
         return None
-
-    def get_company(self, uuid: str) -> Optional[str]:
-        select_query = "SELECT company FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching company by uuid:", error)
-        return None
-
-    def get_email(self, uuid: str) -> Optional[str]:
-        select_query = "SELECT email FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching email by uuid:", error)
-        return None
-
-    def get_position(self, uuid: str) -> Optional[str]:
-        select_query = "SELECT position FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching position by uuid:", error)
-        return None
-
-    def get_timezone(self, uuid: str) -> Optional[str]:
-        select_query = "SELECT timezone FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching timezone by uuid:", error)
-        return None
-
-    def get_challenges(self, uuid: str) -> Optional[list[str]]:
-        select_query = "SELECT challenges FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching challenges by uuid:", error)
-        return None
-
-    def get_strengths(self, uuid: str) -> Optional[list[str]]:
-        select_query = "SELECT strengths FROM persons WHERE uuid = %s;"
-        try:
-            self.cursor.execute(select_query, (uuid,))
-            row = self.cursor.fetchone()
-            if row:
-                return row[0]
-        except Exception as error:
-            logger.error("Error fetching strengths by uuid:", error)
-        return None
-
-    # Individual update methods for each attribute
-    def update_name(self, uuid: str, name: str):
-        update_query = "UPDATE persons SET name = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (name, uuid))
-            self.conn.commit()
-            logger.info(f"Updated name for {uuid} to {name}")
-        except Exception as error:
-            logger.error("Error updating name:", error)
-            # self.conn.rollback()
-
-    def update_company(self, uuid: str, company: str):
-        update_query = "UPDATE persons SET company = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (company, uuid))
-            self.conn.commit()
-            logger.info(f"Updated company for {uuid} to {company}")
-        except Exception as error:
-            logger.error("Error updating company:", error)
-            # self.conn.rollback()
-
-    def update_email(self, uuid: str, email: str):
-        update_query = "UPDATE persons SET email = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (email, uuid))
-            self.conn.commit()
-            logger.info(f"Updated email for {uuid} to {email}")
-        except Exception as error:
-            logger.error("Error updating email:", error)
-            # self.conn.rollback()
-
-    def update_position(self, uuid: str, position: str):
-        update_query = "UPDATE persons SET position = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (position, uuid))
-            self.conn.commit()
-            logger.info(f"Updated position for {uuid} to {position}")
-        except Exception as error:
-            logger.error("Error updating position:", error)
-            # self.conn.rollback()
-
-    def update_timezone(self, uuid: str, timezone: str):
-        update_query = "UPDATE persons SET timezone = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (timezone, uuid))
-            self.conn.commit()
-            logger.info(f"Updated timezone for {uuid} to {timezone}")
-        except Exception as error:
-            logger.error("Error updating timezone:", error)
-            # self.conn.rollback()
-
-    def update_challenges(self, uuid: str, challenges: list[str]):
-        update_query = "UPDATE persons SET challenges = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (challenges, uuid))
-            self.conn.commit()
-            logger.info(f"Updated challenges for {uuid}")
-        except Exception as error:
-            logger.error("Error updating challenges:", error)
-            # self.conn.rollback()
-
-    def update_strengths(self, uuid: str, strengths: list[str]):
-        update_query = "UPDATE persons SET strengths = %s WHERE uuid = %s;"
-        try:
-            self.cursor.execute(update_query, (strengths, uuid))
-            self.conn.commit()
-            logger.info(f"Updated strengths for {uuid}")
-        except Exception as error:
-            logger.error("Error updating strengths:", error)
-            # self.conn.rollback()
