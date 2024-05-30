@@ -37,7 +37,7 @@ class SalesforceUsersRepository:
     def insert(self, uuid, name, company, client_url, refresh_token, access_token):
         self.create_table_if_not_exists()
         insert_query = """
-        INSERT INTO "sf_users" (uuid, name, company, salesforce_client_url, salesforce_refresh_token, salesforce_access_token)
+        INSERT INTO sf_users (uuid, name, company, salesforce_client_url, salesforce_refresh_token, salesforce_access_token)
         VALUES (%s, %s, %s, %s, %s, %s)
         """
         try:
@@ -58,11 +58,13 @@ class SalesforceUsersRepository:
             )  # Log specific error message
 
     def exists(self, uuid):
-        select_query = """SELECT uuid FROM "sf_users" WHERE uuid = %s"""
+        select_query = """SELECT uuid FROM sf_users WHERE uuid = %s"""
         try:
+            logger.debug(f"Checking existence of Salesforce user with UUID: {uuid}")
             with self.conn.cursor() as cursor:
                 logger.debug(f"Executing SQL query: {select_query}, UUID: {uuid}")
                 cursor.execute(select_query, (uuid,))
+                logger.debug(f"Executed SQL query: {select_query}, UUID: {uuid}")
                 result = cursor.fetchone()
                 logger.info(f"Result of existence check: {result}")
                 if result is not None:
@@ -75,3 +77,23 @@ class SalesforceUsersRepository:
                 f"Specific error message: {error.pgerror}"
             )  # Log specific error message
             return False
+
+    def get_refresh_token(self, company):
+        select_query = (
+            """SELECT salesforce_refresh_token FROM sf_users WHERE company = %s"""
+        )
+        try:
+            logger.debug(f"Getting refresh token for company: {company}")
+            with self.conn.cursor() as cursor:
+                logger.debug(f"Executing SQL query: {select_query}, Company: {company}")
+                cursor.execute(select_query, (company,))
+                logger.debug(f"Executed SQL query: {select_query}, Company: {company}")
+                result = cursor.fetchone()
+                logger.info(f"Result of refresh token query: {result}")
+                if result is not None:
+                    return result[0]
+                else:
+                    return None
+        except psycopg2.Error as error:
+            logger.error("Error getting refresh token:", error)
+            logger.error(f"Specific error message: {error.pgerror}")

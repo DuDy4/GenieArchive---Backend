@@ -151,6 +151,8 @@ def handle_callback(company: str, response_url: str) -> None:
     )
     logger.info(f"About to insert new user to salesforce repository")
 
+    logger.info(f"{token_data}")
+
     sf_users_repository.insert(
         uuid=uuid.uuid4(),
         name="Asaf",
