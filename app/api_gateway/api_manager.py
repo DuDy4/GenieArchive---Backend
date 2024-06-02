@@ -5,23 +5,19 @@ from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette_context import context
-from app_common.data_transfer_objects.person import PersonDTO
-from app_common.repositories.persons_repository import PersonsRepository
-from app_common.data_transfer_objects.interaction import InteractionDTO
-from app_common.repositories.interactions_repository import InteractionsRepository
-from app_common.dependencies.dependencies import (
-    persons_repository,
+from app.app_common.data_transfer_objects.person import PersonDTO
+from app.app_common.repositories.contacts_repository import ContactsRepository
+from app.app_common.data_transfer_objects.interaction import InteractionDTO
+from app.app_common.repositories.interactions_repository import InteractionsRepository
+from app.app_common.dependencies.dependencies import (
+    contacts_repository,
     interactions_repository,
     salesforce_users_repository,
 )
 
 from redis import Redis
 
-
-# from app.app_common.repositories.persons_repository import PersonsRepository
-# from app.app_common.dependencies.dependencies import persons_repository
-
-from services.salesforce import (
+from app.services.salesforce import (
     get_authorization_url,
     handle_callback,
     create_salesforce_client,
@@ -141,7 +137,8 @@ def callback_salesforce(
 
 @v1_router.post("/person", response_class=PlainTextResponse)
 async def insert_new_person(
-    request: Request, person_repository: PersonsRepository = Depends(persons_repository)
+    request: Request,
+    person_repository: ContactsRepository = Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
@@ -171,7 +168,7 @@ async def get_all_contact(
     request: Request,
     company: str,
     sf_users_repository=Depends(salesforce_users_repository),
-    persons_repository=Depends(persons_repository),
+    contacts_repository=Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
@@ -186,5 +183,6 @@ async def get_all_contact(
     salesforce_agent = SalesforceAgent(salesforce_client, sf_users_repository)
     contacts = await salesforce_agent.get_contacts()
 
-    persons_repository.handle_sf_contacts_list(contacts)
+    contacts_repository.handle_sf_contacts_list(contacts)
     logger.info(f"contacts: {contacts}")
+    return PlainTextResponse("Contacts fetched successfully")

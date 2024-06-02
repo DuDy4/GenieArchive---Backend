@@ -5,6 +5,7 @@ Module for interacting with the Salesforce API.
 import os
 import uuid
 
+
 from dotenv import load_dotenv
 import requests
 from loguru import logger
@@ -13,10 +14,9 @@ from app_common.repositories.salesforce_users_repository import (
     SalesforceUsersRepository,
 )
 from app_common.dependencies.dependencies import salesforce_users_repository
-
+from app_common.utils.str_utils import get_uuid4
 from app_common.postgres_connector import get_db_connection
-
-from app_common.repositories.persons_repository import PersonsRepository
+from app_common.repositories.contacts_repository import ContactsRepository
 
 load_dotenv()
 
@@ -159,7 +159,7 @@ def handle_callback(company: str, response_url: str) -> None:
     logger.info(f"{token_data}")
 
     sf_users_repository.insert(
-        uuid=uuid.uuid4(),
+        uuid=get_uuid4(),
         name="Asaf",
         company="Definitely not Kubiya.ai",
         client_url=token_data["instance_url"],

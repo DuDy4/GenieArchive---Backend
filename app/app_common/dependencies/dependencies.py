@@ -1,16 +1,16 @@
 from loguru import logger
 
-from ..repositories.persons_repository import PersonsRepository
+from ..repositories.contacts_repository import ContactsRepository
 from ..repositories.interactions_repository import InteractionsRepository
 from ..repositories.salesforce_users_repository import SalesforceUsersRepository
 from ..postgres_connector import get_db_connection
 
 
-def persons_repository() -> PersonsRepository:
+def contacts_repository() -> ContactsRepository:
     conn = get_db_connection()  # Establish the database connection
     try:
         with conn:
-            return PersonsRepository(conn=conn)
+            return ContactsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

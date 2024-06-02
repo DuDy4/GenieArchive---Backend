@@ -6,7 +6,7 @@ from ..data_transfer_objects.person import PersonDTO
 from loguru import logger
 
 
-class PersonsRepository:
+class ContactsRepository:
     def __init__(self, conn):
         self.conn = conn
         # self.cursor = conn.cursor()
@@ -108,6 +108,20 @@ class PersonsRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (id,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[2]} from database")
+                    return PersonDTO(*row[1:])
+
+        except Exception as error:
+            logger.error("Error fetching person by id:", error)
+        return None
+
+    def get_person_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
+        select_query = "SELECT * FROM persons WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[2]} from database")

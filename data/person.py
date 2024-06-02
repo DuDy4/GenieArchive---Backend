@@ -14,9 +14,9 @@ from ai.langsmith.langsmith_loader import Langsmith
 from common.utils.json_utils import json_to_python
 from common.events.topics import Topic
 from common.events.genie_consumer import GenieConsumer
-from app.app_common.repositories.persons_repository import PersonsRepository
+from app.app_common.repositories.contacts_repository import ContactsRepository
 
-from app.app_common.dependencies.dependencies import persons_repository
+from app.app_common.dependencies.dependencies import contacts_repository
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8000)
 
@@ -43,7 +43,7 @@ app = FastAPI()
 async def get_profile(
     request: Request,
     uuid: str,
-    person_repository: PersonsRepository = Depends(persons_repository),
+    person_repository: ContactsRepository = Depends(contacts_repository),
 ):
     try:
         profile = person_repository.get_person_by_uuid(uuid)
