@@ -3,7 +3,7 @@ import asyncio
 
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
-from topics import Topic
+from common.events.topics import Topic
 
 load_dotenv()
 
@@ -11,7 +11,7 @@ connection_str = os.environ.get("EVENTHUB_CONNTECTION_STRING", "")
 eventhub_name = os.environ.get("EVENTHUB_NAME", "")
 producer = EventHubProducerClient.from_connection_string(conn_str=connection_str, eventhub_name=eventhub_name)
 
-class genie_event:
+class GenieEvent:
     def __init__(self, topic, data, scope):
         self.topic = topic
         self.data = data
@@ -22,7 +22,7 @@ class genie_event:
         event_data_batch = producer.create_batch()
 
         event = EventData(body=self.data)
-        event.properties = {'topic': self.topic, 'scope': self.scope}
+        print(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope}]")
         event_data_batch.add(event)
 
         # Send the batch
