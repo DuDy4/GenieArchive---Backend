@@ -3,8 +3,6 @@ import os
 from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
-
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +12,6 @@ class Langsmith:
         self.api_key = os.environ.get('LANGSMITH_API_KEY')
         self.base_url = 'https://api.langsmith.com/v1'
         self.model = ChatOpenAI(model=Models.GPT_4O)
-
 
     def run_prompt_test(self, person_data):
         prompt = hub.pull("profile_person")
