@@ -172,6 +172,7 @@ async def get_all_contact(
     request: Request,
     company: str,
     sf_users_repository=Depends(salesforce_users_repository),
+    persons_repository=Depends(persons_repository),
 ) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
@@ -185,4 +186,6 @@ async def get_all_contact(
 
     salesforce_agent = SalesforceAgent(salesforce_client, sf_users_repository)
     contacts = await salesforce_agent.get_contacts()
+
+    persons_repository.handle_sf_contacts_list(contacts)
     logger.info(f"contacts: {contacts}")
