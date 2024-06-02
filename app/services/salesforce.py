@@ -39,7 +39,6 @@ class SalesforceClient:
         self,
         access_token: str,
         instance_url: str,
-        sf_users_repository: SalesforceUsersRepository,
     ):
         """
         Initializes the SalesforceClient with the given parameters.
@@ -153,10 +152,13 @@ def handle_callback(company: str, response_url: str) -> None:
 
     logger.info(f"{token_data}")
 
+    generated_uuid = uuid.uuid4()  # Using a different variable name to avoid conflict
+    new_uuid = str(generated_uuid)
+    logger.debug(f"UUID: {new_uuid}")
     sf_users_repository.insert(
-        uuid=uuid.uuid4(),
-        name="Asaf",
-        company="Definitely not Kubiya.ai",
+        uuid=new_uuid,
+        name="Dan",
+        company="GenieAI",
         client_url=token_data["instance_url"],
         refresh_token=token_data["refresh_token"],
         access_token=token_data["access_token"],
@@ -167,9 +169,36 @@ def handle_callback(company: str, response_url: str) -> None:
     return token_data
 
 
-def get_authorization_code(company: str, response_url: str) -> None:
-    logger.info(f"Started getting authorization code")
-    return token_data
+# def get_authorization_code():
+#     params = {
+#         'response_type': 'code',
+#         'client_id': SALESFORCE_CLIENT_ID,
+#         'redirect_uri': SALESFORCE_REDIRECT_URI,
+#         'scope': 'full'
+#     }
+#     url = f"{SALESFORCE_LOGIN_URL}?{urlencode(params)}"
+#     print(f"Open the following URL in a browser and authorize the app:\n{url}")
+#     webbrowser.open(url)
+#     authorization_code = input("Enter the authorization code you received: ")
+#     return authorization_code
+#
+#
+# def get_tokens(authorization_code):
+#     data = {
+#         'grant_type': 'authorization_code',
+#         'code': authorization_code,
+#         'client_id': CLIENT_ID,
+#         'client_secret': CLIENT_SECRET,
+#         'redirect_uri': REDIRECT_URI
+#     }
+#     response = requests.post(TOKEN_URL, data=data)
+#     response_data = response.json()
+#     if response.status_code == 200:
+#         return response_data['access_token'], response_data['refresh_token']
+#     else:
+#         print("Error obtaining tokens:")
+#         print(response_data)
+#         return None, None
 
 
 def create_salesforce_client(
@@ -189,16 +218,19 @@ def create_salesforce_client(
     if not refresh_token:
         logger.warning(f"No Salesforce refresh token found for {company_name}.")
         return None
+    logger.debug(f"Creating Salesforce client for {company_name}")
     sf = OAuth2Session(
         client_id=SALESFORCE_CLIENT_ID,
         redirect_uri=SALESFORCE_REDIRECT_URI,
     )
+    logger.debug(f"About to refresh token for {company_name}")
     token_data = sf.refresh_token(
         SALESFORCE_TOKEN_URL,
         refresh_token=refresh_token,
         client_id=SALESFORCE_CLIENT_ID,
         client_secret=SALESFORCE_CLIENT_SECRET,
     )
+    logger.debug(f"Token data: {token_data}")
     return SalesforceClient(
         access_token=token_data["access_token"],
         instance_url=token_data["instance_url"],

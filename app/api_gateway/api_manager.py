@@ -184,5 +184,5 @@ async def get_all_contact(
     logger.info(f"salesforce_client: {salesforce_client}")
 
     salesforce_agent = SalesforceAgent(salesforce_client, sf_users_repository)
-    contacts = salesforce_agent.get_contacts()
+    contacts = await salesforce_agent.get_contacts()
     logger.info(f"contacts: {contacts}")
