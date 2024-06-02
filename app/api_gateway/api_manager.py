@@ -152,8 +152,11 @@ async def insert_new_person(
     logger.info(f"Request_body: {request_body}")
     person = PersonDTO.from_dict(request_body["person"])
     logger.info(f"person: {person}")
-
-    person_id = person_repository.insert_person(person)
+    try:
+        person_id = person_repository.insert_person(person)
+    except Exception as e:
+        logger.error(f"Failed to insert person: {e}")
+        return PlainTextResponse(f"Failed to insert person, because: {e}")
     if person_id:
         logger.info(f"Person was inserted successfully with id: {person_id}")
         return PlainTextResponse(

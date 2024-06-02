@@ -167,6 +167,11 @@ def handle_callback(company: str, response_url: str) -> None:
     return token_data
 
 
+def get_authorization_code(company: str, response_url: str) -> None:
+    logger.info(f"Started getting authorization code")
+    return token_data
+
+
 def create_salesforce_client(
     company_name: str,
     refresh_token: str,

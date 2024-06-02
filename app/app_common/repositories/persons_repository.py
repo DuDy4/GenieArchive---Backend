@@ -66,13 +66,14 @@ class PersonsRepository:
                     return person_id
             else:
                 logger.warning(f"Person already exists in database. Skipping insert")
+                raise Exception("Person already exists in database")
         except psycopg2.Error as error:
             logger.error("Error inserting person:", error.pgerror)
             # self.conn.rollback()
-            return None
+            raise Exception(f"Error inserting person, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
-        logger.info(f"about to check if uuid exists: {uuid}")
+        logger.info(f"About to check if uuid exists: {uuid}")
         exists_query = "SELECT 1 FROM persons WHERE uuid = %s;"
 
         try:
