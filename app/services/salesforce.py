@@ -73,7 +73,7 @@ class SalesforceAgent:
         """
 
         url = f"{self.sf_client.instance_url}/services/data/v60.0/query/"
-        query = "SELECT Id, FirstName, LastName, Email FROM Contact LIMIT 100"
+        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name FROM Contact LIMIT 100"
         headers = {
             "Authorization": f"Bearer {self.sf_client.access_token}",
             "Content-Type": "application/json",
@@ -85,6 +85,12 @@ class SalesforceAgent:
             logger.info(f"Response: {response}")
             response.raise_for_status()
             contacts = response.json()["records"]
+            for contact in contacts:
+                if contact["Account"] is not None:
+                    # Access the Name field of Account
+                    contact["AccountName"] = contact["Account"]["Name"]
+                else:
+                    contact["AccountName"] = None
             return contacts
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")

@@ -63,9 +63,9 @@ class PersonDTO:
     def from_sf_contact(contact: dict):
         return PersonDTO(
             uuid=contact["Id"],
-            name=f"{contact['FirstName']} {contact['LastName']}",
-            company="",
+            name=f"{contact.get('FirstName')} {contact.get('LastName')}",
+            company=f"{contact.get('AccountName') or contact.get('Account', {}).get('Name', '') if contact.get('Account') else ''}",
             email=contact["Email"],
-            position="",
+            position=f"{contact.get('Title') or ''}",
             timezone="",
         )
