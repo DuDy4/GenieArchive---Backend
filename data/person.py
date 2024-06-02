@@ -17,8 +17,8 @@ class Person(GenieConsumer):
         print(f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}")
         response = self.langsmith.run_prompt_test(event.body_as_str())
         print(f"Response: {response}")
-        strength = json_to_python(response)
-        print(f"Strength: {strength}")
+        #strength = json_to_python(response)
+        #print(f"Strength: {strength}")
         return response
 
 if __name__ == "__main__":

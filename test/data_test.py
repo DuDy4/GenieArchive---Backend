@@ -5,7 +5,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
-from common.utils.json_utils import remove_empty_keys
 
 def test_new_contact():
     
