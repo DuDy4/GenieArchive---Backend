@@ -107,12 +107,11 @@ def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
     Triggers the salesforce oauth2.0 process
     """
     logger.debug(f"request.session before start: {request.session}")
-    # request.session.clear()
-    # logger.debug(f"St.session before start: {request.session}")
+
     logger.info(f"Beginning salesforce oauth integration for {company}")
     context["salesforce_company"] = company
     logger.debug(f"Context: {context['salesforce_company']}")
-    # logger.info(f"Saved to session: {request.session["salesforce_company"]}")
+
     authorization_url = get_authorization_url(company) + f"&company={company}"
     logger.info(f"Redirect url: {authorization_url}")
     return RedirectResponse(url=authorization_url)

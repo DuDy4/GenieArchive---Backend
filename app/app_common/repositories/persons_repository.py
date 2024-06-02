@@ -58,17 +58,13 @@ class PersonsRepository:
             if not self.exists(person.uuid):
                 with self.conn.cursor() as cursor:
                     cursor.execute(insert_query, person_data)
-                    logger.info(f"Cursor was executed")
                     self.conn.commit()
-                    logger.info("Inserted new person")
                     person_id = cursor.fetchone()[0]
                     logger.info(f"Inserted person to database. Person id: {person_id}")
                     return person_id
             else:
-                logger.warning(f"Person already exists in database. Skipping insert")
                 raise Exception("Person already exists in database")
         except psycopg2.Error as error:
-            logger.error("Error inserting person:", error.pgerror)
             # self.conn.rollback()
             raise Exception(f"Error inserting person, because: {error.pgerror}")
 
@@ -81,7 +77,6 @@ class PersonsRepository:
                 logger.info(f"about to execute check if uuid exists: {uuid}")
 
                 cursor.execute(exists_query, (uuid,))
-                logger.info(f"Executed sql query")
                 result = cursor.fetchone() is not None
                 logger.info(f"{uuid} existence in database: {result}")
                 return result
@@ -187,7 +182,7 @@ class PersonsRepository:
                 self.insert_person(person)
                 logger.info(f"Inserted person: {person.name}")
             except Exception as e:
-                logger.error(f"Failed to insert person: {e}")
+                logger.warning(f"Failed to insert person: {e}")
 
     def _get_attribute(
         self, id_or_uuid: str | int, attribute: str

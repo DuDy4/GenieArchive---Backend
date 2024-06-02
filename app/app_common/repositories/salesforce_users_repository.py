@@ -48,7 +48,6 @@ class SalesforceUsersRepository:
                         insert_query,
                         (uuid, name, company, client_url, refresh_token, access_token),
                     )
-                    logger.debug("About to commit the sql command")
                     self.conn.commit()
                     logger.info("Inserted Salesforce user into database")
         except psycopg2.Error as error:
@@ -62,9 +61,7 @@ class SalesforceUsersRepository:
         try:
             logger.debug(f"Checking existence of Salesforce user with UUID: {uuid}")
             with self.conn.cursor() as cursor:
-                logger.debug(f"Executing SQL query: {select_query}, UUID: {uuid}")
                 cursor.execute(select_query, (uuid,))
-                logger.debug(f"Executed SQL query: {select_query}, UUID: {uuid}")
                 result = cursor.fetchone()
                 logger.info(f"Result of existence check: {result}")
                 if result is not None:
@@ -85,9 +82,7 @@ class SalesforceUsersRepository:
         try:
             logger.debug(f"Getting refresh token for company: {company}")
             with self.conn.cursor() as cursor:
-                logger.debug(f"Executing SQL query: {select_query}, Company: {company}")
                 cursor.execute(select_query, (company,))
-                logger.debug(f"Executed SQL query: {select_query}, Company: {company}")
                 result = cursor.fetchone()
                 logger.info(f"Result of refresh token query: {result}")
                 if result is not None:
