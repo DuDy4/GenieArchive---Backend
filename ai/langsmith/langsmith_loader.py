@@ -1,10 +1,8 @@
 import os
 
-from models import Models
+from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
-
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,15 +13,14 @@ class Langsmith:
         self.base_url = 'https://api.langsmith.com/v1'
         self.model = ChatOpenAI(model=Models.GPT_4O)
 
-
     def run_prompt_test(self, person_data):
         prompt = hub.pull("profile_person")
-        print(prompt)
-        runnable = prompt | self.model
-        response = runnable.invoke({
-	        "person_data": person_data,
-        })
-        print(response)
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke({person_data})
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
 
 
 # Example usage

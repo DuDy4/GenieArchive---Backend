@@ -1,5 +1,6 @@
 import os
 import asyncio
+import traceback
 from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 
@@ -21,8 +22,14 @@ class GenieConsumer:
 
     async def on_event(self, partition_context, event):
         topic = event.properties.get(b'topic')
-        if topic and topic.decode('utf-8') in self.topics:
-            await self.process_event(event)
+        try: 
+            if topic and topic.decode('utf-8') in self.topics:
+                event_result = await self.process_event(event)
+                print(f"Event processed. Result: {event_result}")
+        except Exception as e:
+                print("Exception occurred:", e)
+                print("Detailed traceback information:")
+                traceback.print_exc()
         await partition_context.update_checkpoint(event)
 
     async def process_event(self, event):

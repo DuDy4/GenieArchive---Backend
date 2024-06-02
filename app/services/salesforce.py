@@ -169,38 +169,6 @@ def handle_callback(company: str, response_url: str) -> None:
     return token_data
 
 
-# def get_authorization_code():
-#     params = {
-#         'response_type': 'code',
-#         'client_id': SALESFORCE_CLIENT_ID,
-#         'redirect_uri': SALESFORCE_REDIRECT_URI,
-#         'scope': 'full'
-#     }
-#     url = f"{SALESFORCE_LOGIN_URL}?{urlencode(params)}"
-#     print(f"Open the following URL in a browser and authorize the app:\n{url}")
-#     webbrowser.open(url)
-#     authorization_code = input("Enter the authorization code you received: ")
-#     return authorization_code
-#
-#
-# def get_tokens(authorization_code):
-#     data = {
-#         'grant_type': 'authorization_code',
-#         'code': authorization_code,
-#         'client_id': CLIENT_ID,
-#         'client_secret': CLIENT_SECRET,
-#         'redirect_uri': REDIRECT_URI
-#     }
-#     response = requests.post(TOKEN_URL, data=data)
-#     response_data = response.json()
-#     if response.status_code == 200:
-#         return response_data['access_token'], response_data['refresh_token']
-#     else:
-#         print("Error obtaining tokens:")
-#         print(response_data)
-#         return None, None
-
-
 def create_salesforce_client(
     company_name: str,
     refresh_token: str,
