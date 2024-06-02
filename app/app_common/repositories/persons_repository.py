@@ -44,6 +44,9 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         self.create_table_if_not_exists()
+        if self.exists(person.uuid):
+            logger.warning(f"Person already exists in database. Skipping insert")
+            raise Exception("Person already exists in database")
         insert_query = """
         INSERT INTO persons (uuid, name, company, email, position, timezone, challenges, strengths)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -55,18 +58,12 @@ class PersonsRepository:
         logger.info(f"About to insert person data: {person_data}")
 
         try:
-            if not self.exists(person.uuid):
-                with self.conn.cursor() as cursor:
-                    cursor.execute(insert_query, person_data)
-                    logger.info(f"Cursor was executed")
-                    self.conn.commit()
-                    logger.info("Inserted new person")
-                    person_id = cursor.fetchone()[0]
-                    logger.info(f"Inserted person to database. Person id: {person_id}")
-                    return person_id
-            else:
-                logger.warning(f"Person already exists in database. Skipping insert")
-                raise Exception("Person already exists in database")
+            with self.conn.cursor() as cursor:
+                cursor.execute(insert_query, person_data)
+                self.conn.commit()
+                person_id = cursor.fetchone()[0]
+                logger.info(f"Inserted person to database. Person id: {person_id}")
+                return person_id
         except psycopg2.Error as error:
             logger.error("Error inserting person:", error.pgerror)
             # self.conn.rollback()
@@ -81,7 +78,6 @@ class PersonsRepository:
                 logger.info(f"about to execute check if uuid exists: {uuid}")
 
                 cursor.execute(exists_query, (uuid,))
-                logger.info(f"Executed sql query")
                 result = cursor.fetchone() is not None
                 logger.info(f"{uuid} existence in database: {result}")
                 return result
@@ -179,6 +175,15 @@ class PersonsRepository:
         except Exception as error:
             logger.error("Error deleting person:", error)
             # self.conn.rollback()
+
+    def handle_sf_contacts_list(self, persons_list: list[dict]):
+        for contact in persons_list:
+            person = PersonDTO.from_sf_contact(contact)
+            try:
+                self.insert_person(person)
+                logger.info(f"Inserted person: {person.name}")
+            except Exception as e:
+                logger.error(f"Failed to insert person: {e}")
 
     def _get_attribute(
         self, id_or_uuid: str | int, attribute: str

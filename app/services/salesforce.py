@@ -39,7 +39,6 @@ class SalesforceClient:
         self,
         access_token: str,
         instance_url: str,
-        sf_users_repository: SalesforceUsersRepository,
     ):
         """
         Initializes the SalesforceClient with the given parameters.
@@ -153,10 +152,13 @@ def handle_callback(company: str, response_url: str) -> None:
 
     logger.info(f"{token_data}")
 
+    generated_uuid = uuid.uuid4()  # Using a different variable name to avoid conflict
+    new_uuid = str(generated_uuid)
+    logger.debug(f"UUID: {new_uuid}")
     sf_users_repository.insert(
-        uuid=uuid.uuid4(),
-        name="Asaf",
-        company="Definitely not Kubiya.ai",
+        uuid=new_uuid,
+        name="Dan",
+        company="GenieAI",
         client_url=token_data["instance_url"],
         refresh_token=token_data["refresh_token"],
         access_token=token_data["access_token"],
@@ -184,16 +186,19 @@ def create_salesforce_client(
     if not refresh_token:
         logger.warning(f"No Salesforce refresh token found for {company_name}.")
         return None
+    logger.debug(f"Creating Salesforce client for {company_name}")
     sf = OAuth2Session(
         client_id=SALESFORCE_CLIENT_ID,
         redirect_uri=SALESFORCE_REDIRECT_URI,
     )
+    logger.debug(f"About to refresh token for {company_name}")
     token_data = sf.refresh_token(
         SALESFORCE_TOKEN_URL,
         refresh_token=refresh_token,
         client_id=SALESFORCE_CLIENT_ID,
         client_secret=SALESFORCE_CLIENT_SECRET,
     )
+    logger.debug(f"Token data: {token_data}")
     return SalesforceClient(
         access_token=token_data["access_token"],
         instance_url=token_data["instance_url"],
