@@ -60,9 +60,7 @@ class PersonsRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(insert_query, person_data)
-                logger.info(f"Cursor was executed")
                 self.conn.commit()
-                logger.info("Inserted new person")
                 person_id = cursor.fetchone()[0]
                 logger.info(f"Inserted person to database. Person id: {person_id}")
                 return person_id
@@ -80,7 +78,6 @@ class PersonsRepository:
                 logger.info(f"about to execute check if uuid exists: {uuid}")
 
                 cursor.execute(exists_query, (uuid,))
-                logger.info(f"Executed sql query")
                 result = cursor.fetchone() is not None
                 logger.info(f"{uuid} existence in database: {result}")
                 return result

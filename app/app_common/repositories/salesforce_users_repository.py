@@ -49,7 +49,6 @@ class SalesforceUsersRepository:
                         insert_query,
                         (uuid, name, company, client_url, refresh_token, access_token),
                     )
-                    logger.debug("About to commit the sql command")
                     self.conn.commit()
                     logger.info("Inserted Salesforce user into database")
         except psycopg2.Error as error:
