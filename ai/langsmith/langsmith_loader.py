@@ -1,6 +1,6 @@
 import os
 
-from ..models import Models
+from models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
 
@@ -18,12 +18,12 @@ class Langsmith:
 
     def run_prompt_test(self, person_data):
         prompt = hub.pull("profile_person")
-        try:
-            runnable = prompt | self.model
-            response = runnable.invoke({person_data})
-        except Exception as e:
-            response = f"Error: {e}"
-        return response
+        print(prompt)
+        runnable = prompt | self.model
+        response = runnable.invoke({
+	        "person_data": person_data,
+        })
+        print(response)
 
 
 # Example usage
