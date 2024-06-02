@@ -3,6 +3,7 @@ import asyncio
 
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
+from topics import Topic
 
 load_dotenv()
 
@@ -32,7 +33,7 @@ def send_event():
     event1.properties = {'topic': 'topic1'}
 
     event2 = EventData(body='Hello World from topic2!')
-    event2.properties = {'topic': 'topic2'}
+    event2.properties = {'topic': Topic.NEW_CONTACT, 'scope': 'public'}
 
     # Add events to the batch
     event_data_batch.add(event1)

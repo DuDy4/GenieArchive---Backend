@@ -22,7 +22,8 @@ class GenieConsumer:
     async def on_event(self, partition_context, event):
         topic = event.properties.get(b'topic')
         if topic and topic.decode('utf-8') in self.topics:
-            await self.process_event(event)
+            event_result = await self.process_event(event)
+            print(f"Event processed. Result: {event_result}")
         await partition_context.update_checkpoint(event)
 
     async def process_event(self, event):
