@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List
 import json
+from ..utils.str_utils import get_uuid4
 
 
 @dataclass
@@ -62,7 +63,7 @@ class PersonDTO:
     @staticmethod
     def from_sf_contact(contact: dict):
         return PersonDTO(
-            uuid=contact["Id"],
+            uuid=get_uuid4(),
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
             company=f"{contact.get('AccountName') or contact.get('Account', {}).get('Name', '') if contact.get('Account') else ''}",
             email=contact["Email"],
