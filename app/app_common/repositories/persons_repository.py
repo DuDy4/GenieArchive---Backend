@@ -180,6 +180,15 @@ class PersonsRepository:
             logger.error("Error deleting person:", error)
             # self.conn.rollback()
 
+    def handle_sf_contacts_list(self, persons_list: list[dict]):
+        for contact in persons_list:
+            person = PersonDTO.from_sf_contact(contact)
+            try:
+                self.insert_person(person)
+                logger.info(f"Inserted person: {person.name}")
+            except Exception as e:
+                logger.error(f"Failed to insert person: {e}")
+
     def _get_attribute(
         self, id_or_uuid: str | int, attribute: str
     ) -> Optional[Union[str, List[str]]]:

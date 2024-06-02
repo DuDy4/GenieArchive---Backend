@@ -39,7 +39,6 @@ class SalesforceClient:
         self,
         access_token: str,
         instance_url: str,
-        sf_users_repository: SalesforceUsersRepository,
     ):
         """
         Initializes the SalesforceClient with the given parameters.

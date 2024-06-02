@@ -58,3 +58,14 @@ class PersonDTO:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return PersonDTO.from_dict(data)
+
+    @staticmethod
+    def from_sf_contact(contact: dict):
+        return PersonDTO(
+            uuid=contact["Id"],
+            name=f"{contact['FirstName']} {contact['LastName']}",
+            company="",
+            email=contact["Email"],
+            position="",
+            timezone="",
+        )
