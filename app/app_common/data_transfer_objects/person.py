@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 import json
 from ..utils.str_utils import get_uuid4
 
@@ -12,8 +11,6 @@ class PersonDTO:
     email: str
     position: str
     timezone: str
-    challenges: List[str] = field(default_factory=list)
-    strengths: List[str] = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -23,8 +20,6 @@ class PersonDTO:
             "email": self.email,
             "position": self.position,
             "timezone": self.timezone,
-            "challenges": self.challenges,
-            "strengths": self.strengths,
         }
 
     @staticmethod
@@ -36,11 +31,9 @@ class PersonDTO:
             email=data.get("email", ""),
             position=data.get("position", ""),
             timezone=data.get("timezone", ""),
-            challenges=data.get("challenges", []),
-            strengths=data.get("strengths", []),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str, str, List[str], List[str]]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str]:
         return (
             self.uuid,
             self.name,
@@ -48,8 +41,6 @@ class PersonDTO:
             self.email,
             self.position,
             self.timezone,
-            self.challenges,
-            self.strengths,
         )
 
     def to_json(self):
