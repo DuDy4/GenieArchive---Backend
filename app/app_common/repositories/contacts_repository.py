@@ -17,7 +17,7 @@ class ContactsRepository:
 
     def create_table_if_not_exists(self):
         create_table_query = """
-        CREATE TABLE IF NOT EXISTS persons (
+        CREATE TABLE IF NOT EXISTS contacts (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
@@ -33,44 +33,46 @@ class ContactsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info(f"Created persons table in database")
+                logger.info(f"Created contacts table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
 
-    def insert_person(self, person: PersonDTO) -> str | None:
+    def insert_contact(self, contact: PersonDTO) -> str | None:
         """
-        :param person:
-        :return the id of the newly created person in database:
+        :param contact: PersonDTO object with contact data to insert into database
+        :return the id of the newly created contact in database:
         """
         self.create_table_if_not_exists()
         insert_query = """
-        INSERT INTO persons (uuid, name, company, email, position, timezone, challenges, strengths)
+        INSERT INTO contacts (uuid, name, company, email, position, timezone, challenges, strengths)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert person: {person}")
-        person_data = person.to_tuple()
+        logger.info(f"About to insert contact: {contact}")
+        contact_data = contact.to_tuple()
 
-        logger.info(f"About to insert person data: {person_data}")
+        logger.info(f"About to insert contact data: {contact_data}")
 
         try:
-            if not self.exists(person.uuid):
+            if not self.exists(contact.uuid):
                 with self.conn.cursor() as cursor:
-                    cursor.execute(insert_query, person_data)
+                    cursor.execute(insert_query, contact_data)
                     self.conn.commit()
-                    person_id = cursor.fetchone()[0]
-                    logger.info(f"Inserted person to database. Person id: {person_id}")
-                    return person_id
+                    contact_id = cursor.fetchone()[0]
+                    logger.info(
+                        f"Inserted contact to database. contact id: {contact_id}"
+                    )
+                    return contact_id
             else:
-                raise Exception("Person already exists in database")
+                raise Exception("contact already exists in database")
         except psycopg2.Error as error:
             # self.conn.rollback()
-            raise Exception(f"Error inserting person, because: {error.pgerror}")
+            raise Exception(f"Error inserting contact, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"About to check if uuid exists: {uuid}")
-        exists_query = "SELECT 1 FROM persons WHERE uuid = %s;"
+        exists_query = "SELECT 1 FROM contacts WHERE uuid = %s;"
 
         try:
             with self.conn.cursor() as cursor:
@@ -87,8 +89,8 @@ class ContactsRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
-    def get_person_id(self, uuid):
-        select_query = "SELECT id FROM persons WHERE uuid = %s;"
+    def get_contact_id(self, uuid):
+        select_query = "SELECT id FROM contacts WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
@@ -97,14 +99,14 @@ class ContactsRepository:
                     logger.info(f"Got {row[2]} from database")
                     return
                 else:
-                    logger.error(f"Error with getting person id for {uuid}")
+                    logger.error(f"Error with getting contact id for {uuid}")
 
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
         return None
 
-    def get_person_by_id(self, id: str) -> Optional[PersonDTO]:
-        select_query = "SELECT * FROM persons WHERE id = %s;"
+    def get_contact_by_id(self, id: str) -> Optional[PersonDTO]:
+        select_query = "SELECT * FROM contacts WHERE id = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (id,))
@@ -114,11 +116,11 @@ class ContactsRepository:
                     return PersonDTO(*row[1:])
 
         except Exception as error:
-            logger.error("Error fetching person by id:", error)
+            logger.error("Error fetching contact by id:", error)
         return None
 
-    def get_person_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
-        select_query = "SELECT * FROM persons WHERE uuid = %s;"
+    def get_contact_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
+        select_query = "SELECT * FROM contacts WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
@@ -128,7 +130,7 @@ class ContactsRepository:
                     return PersonDTO(*row[1:])
 
         except Exception as error:
-            logger.error("Error fetching person by id:", error)
+            logger.error("Error fetching contact by id:", error)
         return None
 
     def get_name(self, id_or_uuid: str | int) -> Optional[str]:
@@ -152,23 +154,23 @@ class ContactsRepository:
     def get_strengths(self, id_or_uuid: str | int) -> Optional[list[str]]:
         return self._get_attribute(id_or_uuid, "strengths")
 
-    def update_person(self, person: PersonDTO):
+    def update_contact(self, contact: PersonDTO):
         update_query = """
-        UPDATE persons
+        UPDATE contacts
         SET name = %s, company = %s, email = %s, position = %s, timezone = %s, challenges = %s, strengths = %s
         WHERE uuid = %s;
         """
-        person_data = person.to_tuple
+        contact_data = contact.to_tuple
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, person_data)
+                cursor.execute(update_query, contact_data)
                 self.conn.commit()
-                logger.info(f"Updated {person.name} in database")
+                logger.info(f"Updated {contact.name} in database")
         except Exception as error:
-            logger.error("Error updating person:", error)
+            logger.error("Error updating contact:", error)
 
     # def _update_attribute_by_uuid(self, uuid, attribute, value):
-    #     select_query = f"UPDATE persons SET {attribute} = %s WHERE uuid = %s;"
+    #     select_query = f"UPDATE contacts SET {attribute} = %s WHERE uuid = %s;"
     #     try:
     #         with self.conn.cursor() as cursor:
     #             cursor.execute(select_query, (value, uuid))
@@ -178,31 +180,31 @@ class ContactsRepository:
     #         logger.error(f"Error fetching {attribute} by uuid:", error)
     #     return None
 
-    def delete_person(self, id: str):
-        delete_query = "DELETE FROM persons WHERE id = %s;"
+    def delete_contact(self, id: str):
+        delete_query = "DELETE FROM contacts WHERE id = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(delete_query, (id,))
                 self.conn.commit()
                 logger.info(f"Deleted {id} from database")
         except Exception as error:
-            logger.error("Error deleting person:", error)
+            logger.error("Error deleting contact:", error)
             # self.conn.rollback()
 
-    def handle_sf_contacts_list(self, persons_list: list[dict]):
-        for contact in persons_list:
-            person = PersonDTO.from_sf_contact(contact)
+    def handle_sf_contacts_list(self, contacts_list: list[dict]):
+        for contact in contacts_list:
+            contact = PersonDTO.from_sf_contact(contact)
             try:
-                self.insert_person(person)
-                logger.info(f"Inserted person: {person.name}")
+                self.insert_contact(contact)
+                logger.info(f"Inserted person: {contact.name}")
             except Exception as e:
-                logger.warning(f"Failed to insert person: {e}")
+                logger.warning(f"Failed to insert contact: {e}")
 
     def _get_attribute(
         self, id_or_uuid: str | int, attribute: str
     ) -> Optional[Union[str, List[str]]]:
         select_query = (
-            f"SELECT {attribute} FROM persons WHERE "
+            f"SELECT {attribute} FROM contacts WHERE "
             f"{'id' if isinstance(id_or_uuid, int) else 'uuid'} = %s;"
         )
 

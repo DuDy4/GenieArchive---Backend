@@ -149,7 +149,7 @@ async def insert_new_person(
     person = PersonDTO.from_dict(request_body["person"])
     logger.info(f"person: {person}")
     try:
-        person_id = person_repository.insert_person(person)
+        person_id = person_repository.insert_contact(person)
     except Exception as e:
         logger.error(f"Failed to insert person: {e}")
         return PlainTextResponse(f"Failed to insert person, because: {e}")
