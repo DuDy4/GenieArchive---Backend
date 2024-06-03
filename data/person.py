@@ -1,8 +1,9 @@
+import json
 import sys
 import os
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, Depends, Request
 from fastapi.routing import APIRouter
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
@@ -14,11 +15,11 @@ from ai.langsmith.langsmith_loader import Langsmith
 from common.utils.json_utils import json_to_python
 from common.events.topics import Topic
 from common.events.genie_consumer import GenieConsumer
-from app.app_common.repositories.contacts_repository import ContactsRepository
+from common.repositories.personal_data_repository import PersonalDataRepository
+from common.dependencies.dependencies import profiles_repository
 
-from app.app_common.dependencies.dependencies import contacts_repository
 
-PERSON_PORT = os.environ.get("PERSON_PORT", 8000)
+PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
 
 class Person(GenieConsumer):
@@ -43,11 +44,29 @@ app = FastAPI()
 async def get_profile(
     request: Request,
     uuid: str,
-    person_repository: ContactsRepository = Depends(contacts_repository),
+    profiles_repository: PersonalDataRepository = Depends(profiles_repository),
 ):
     try:
-        profile = person_repository.get_person_by_uuid(uuid)
+        profile = profiles_repository.get_personal_data(uuid)
         return profile
+    except Exception as e:
+        logger.error(f"Failed to get profile: {e}")
+
+
+@v1_router.post("/profile/")
+async def get_profile(
+    request: Request,
+    profiles_repository: PersonalDataRepository = Depends(profiles_repository),
+):
+    request_body = await request.json()
+    # logger.debug(f"Request body: {request_body}")
+
+    uuid = request_body.get("uuid")
+    name = request_body.get("name")
+    personal_data = request_body.get("personal_data")
+    try:
+        profiles_repository.insert(uuid, name, json.dumps(personal_data))
+        logger.info("Inserted profile into database")
     except Exception as e:
         logger.error(f"Failed to get profile: {e}")
 
@@ -61,8 +80,8 @@ if __name__ == "__main__":
         "person:app",
         host="0.0.0.0",
         port=PERSON_PORT,
-        reload=True,
         ssl_keyfile="../key.pem",
         ssl_certfile="../cert.pem",
     )
+    print("Running person service")
     person.run()
