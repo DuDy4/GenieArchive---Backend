@@ -21,6 +21,7 @@ class PersonalDataRepository:
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
             personal_data JSONB
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
         with self.conn.cursor() as cursor:
@@ -61,6 +62,7 @@ class PersonalDataRepository:
         :param uuid: Unique identifier for the profile.
         :return: True if profile exists, False otherwise.
         """
+        self.create_table_if_not_exists()
         select_query = """
         SELECT EXISTS (
             SELECT 1
@@ -117,7 +119,7 @@ class PersonalDataRepository:
         """
         update_query = """
         UPDATE profiles
-        SET personal_data = %s
+        SET personal_data = %s, last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
         try:
@@ -146,3 +148,29 @@ class PersonalDataRepository:
             return
         self.update(uuid, personal_data)
         return
+
+    def get_last_updated(self, uuid):
+        """
+        Retrieve the last updated timestamp for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :return: Timestamp if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT last_updated
+        FROM profiles
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                last_updated = cursor.fetchone()
+                if last_updated:
+                    return last_updated[0]
+                else:
+                    logger.warning("Profile was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving last updated timestamp: {e}", e)
+            traceback.format_exc()
+            return None
