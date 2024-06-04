@@ -5,19 +5,20 @@ from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette_context import context
-from app.app_common.data_transfer_objects.person import PersonDTO
-from app.app_common.repositories.contacts_repository import ContactsRepository
-from app.app_common.data_transfer_objects.interaction import InteractionDTO
-from app.app_common.repositories.interactions_repository import InteractionsRepository
-from app.app_common.dependencies.dependencies import (
+from app_common.data_transfer_objects.person import PersonDTO
+from app_common.repositories.contacts_repository import ContactsRepository
+from app_common.dependencies.dependencies import (
     contacts_repository,
     interactions_repository,
     salesforce_users_repository,
 )
+from events.genie_event import GenieEvent
+from events.topics import Topic
+from events.genie_consumer import GenieConsumer
 
 from redis import Redis
 
-from app.services.salesforce import (
+from services.salesforce import (
     get_authorization_url,
     handle_callback,
     create_salesforce_client,
@@ -184,5 +185,7 @@ async def get_all_contact(
     contacts = await salesforce_agent.get_contacts()
 
     contacts_repository.handle_sf_contacts_list(contacts)
+    # event = GenieEvent(Topic.NEW_CONTACT, contacts, "public")
+    # event.send()
     logger.info(f"contacts: {contacts}")
     return PlainTextResponse("Contacts fetched successfully")

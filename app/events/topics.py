@@ -1,0 +1,10 @@
+class Topic:
+    NEW_CONTACTS_TO_CHECK = "new-contacts-to-check"
+    NEW_CONTACT = "new-contact"
+    PDL_WITH_LINKEDIN = "new-contact-pdl-with-linkedin"
+    PDL_WITHOUT_LINKEDIN = "new-contact-pdl-without-linkedin"
+    NEW_INTERACTION = "new-interaction"
+    UPDATED_ENRICHED_DATA = "got-updated-enriched-data"
+    NEW_PERSONAL_DATA = "new-personal-data-to-process"
+    NEW_PROCESSED_DATA = "new-processed-data"
+    NEW_PROCESSED_PROFILE = "new-processed-profile"

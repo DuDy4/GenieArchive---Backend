@@ -9,6 +9,7 @@ class PersonDTO:
     name: str
     company: str
     email: str
+    linkedin: str
     position: str
     timezone: str
 
@@ -18,6 +19,7 @@ class PersonDTO:
             "name": self.name,
             "company": self.company,
             "email": self.email,
+            "linkedin": self.linkedin,
             "position": self.position,
             "timezone": self.timezone,
         }
@@ -29,16 +31,18 @@ class PersonDTO:
             name=data.get("name", ""),
             company=data.get("company", ""),
             email=data.get("email", ""),
+            linkedin=data.get("linkedin", ""),
             position=data.get("position", ""),
             timezone=data.get("timezone", ""),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str, str]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str, str]:
         return (
             self.uuid,
             self.name,
             self.company,
             self.email,
+            self.linkedin,
             self.position,
             self.timezone,
         )
@@ -58,6 +62,7 @@ class PersonDTO:
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
             company=f"{contact.get('AccountName') or contact.get('Account', {}).get('Name', '') if contact.get('Account') else ''}",
             email=contact["Email"],
+            linkedin=contact.get("LinkedInUrl") or "",
             position=f"{contact.get('Title') or ''}",
             timezone="",
         )

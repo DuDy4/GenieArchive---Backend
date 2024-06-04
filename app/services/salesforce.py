@@ -15,8 +15,10 @@ from app_common.repositories.salesforce_users_repository import (
 )
 from app_common.dependencies.dependencies import salesforce_users_repository
 from app_common.utils.str_utils import get_uuid4
-from app_common.postgres_connector import get_db_connection
 from app_common.repositories.contacts_repository import ContactsRepository
+
+from events.genie_event import GenieEvent
+from events.topics import Topic
 
 load_dotenv()
 
@@ -73,7 +75,7 @@ class SalesforceAgent:
         """
 
         url = f"{self.sf_client.instance_url}/services/data/v60.0/query/"
-        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name FROM Contact LIMIT 100"
+        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name, LinkedInUrl__c FROM Contact LIMIT 100"
         headers = {
             "Authorization": f"Bearer {self.sf_client.access_token}",
             "Content-Type": "application/json",
@@ -91,6 +93,8 @@ class SalesforceAgent:
                     contact["AccountName"] = contact["Account"]["Name"]
                 else:
                     contact["AccountName"] = None
+            event = GenieEvent(Topic.NEW_CONTACTS_TO_CHECK, contacts, "public")
+            event.send()
             return contacts
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")
