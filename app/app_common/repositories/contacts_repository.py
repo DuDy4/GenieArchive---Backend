@@ -23,10 +23,9 @@ class ContactsRepository:
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
+            linkedin VARCHAR,
             position VARCHAR,
             timezone VARCHAR,
-            challenges TEXT[],
-            strengths TEXT[]
         );
         """
         try:
@@ -45,8 +44,8 @@ class ContactsRepository:
         """
         self.create_table_if_not_exists()
         insert_query = """
-        INSERT INTO contacts (uuid, name, company, email, position, timezone, challenges, strengths)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO contacts (uuid, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert contact: {contact}")
@@ -142,22 +141,19 @@ class ContactsRepository:
     def get_email(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "email")
 
+    def get_linkedin_url(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "linkedin")
+
     def get_position(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "position")
 
     def get_timezone(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "timezone")
 
-    def get_challenges(self, id_or_uuid: str | int) -> Optional[list[str]]:
-        return self._get_attribute(id_or_uuid, "challenges")
-
-    def get_strengths(self, id_or_uuid: str | int) -> Optional[list[str]]:
-        return self._get_attribute(id_or_uuid, "strengths")
-
     def update_contact(self, contact: PersonDTO):
         update_query = """
         UPDATE contacts
-        SET name = %s, company = %s, email = %s, position = %s, timezone = %s, challenges = %s, strengths = %s
+        SET name = %s, company = %s, email = %s, linkedin = %s position = %s, timezone = %s
         WHERE uuid = %s;
         """
         contact_data = contact.to_tuple
@@ -169,17 +165,6 @@ class ContactsRepository:
         except Exception as error:
             logger.error("Error updating contact:", error)
 
-    # def _update_attribute_by_uuid(self, uuid, attribute, value):
-    #     select_query = f"UPDATE contacts SET {attribute} = %s WHERE uuid = %s;"
-    #     try:
-    #         with self.conn.cursor() as cursor:
-    #             cursor.execute(select_query, (value, uuid))
-    #             self.conn.commit()
-    #             logger.info(f"Updated {attribute} for {uuid}")
-    #     except Exception as error:
-    #         logger.error(f"Error fetching {attribute} by uuid:", error)
-    #     return None
-
     def delete_contact(self, id: str):
         delete_query = "DELETE FROM contacts WHERE id = %s;"
         try:
@@ -190,6 +175,30 @@ class ContactsRepository:
         except Exception as error:
             logger.error("Error deleting contact:", error)
             # self.conn.rollback()
+
+    def search_contact(
+        self, name: str, company: str, email: str
+    ) -> Optional[PersonDTO]:
+        search_query = (
+            "SELECT * FROM contacts WHERE name = %s OR company = %s OR email = %s;"
+        )
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(search_query, (name, company, email))
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Found {len(rows)} contacts")
+                    persons_list = [PersonDTO(*row[1:]) for row in rows]
+                    if len(persons_list) > 1:
+                        logger.warning(
+                            "Multiple contacts found by the same credentials"
+                        )
+                    return True
+                else:
+                    logger.info("No contact found")
+                    return None
+        except Exception as error:
+            logger.error("Error searching contact:", error)
 
     def handle_sf_contacts_list(self, contacts_list: list[dict]):
         for contact in contacts_list:
