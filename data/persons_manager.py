@@ -2,15 +2,19 @@ from loguru import logger
 
 from ai.langsmith.langsmith_loader import Langsmith
 from common.events.genie_consumer import GenieConsumer
+from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
+from common.data_transfer_objects.person import PersonDTO
 from common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     profiles_repository,
+    interactions_repository,
 )
 from common.repositories.persons_repository import PersonsRepository
 from common.repositories.personal_data_repository import PersonalDataRepository
 from common.repositories.profiles_repository import ProfilesRepository
+from common.repositories.interactions_repository import InteractionsRepository
 
 
 class PersonManager(GenieConsumer):
@@ -18,35 +22,59 @@ class PersonManager(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT, "updated_enriched_data", "new_processed_data"]
+            topics=[
+                Topic.NEW_CONTACT,
+                Topic.NEW_INTERACTION,
+                Topic.UPDATED_ENRICHED_DATA,
+                Topic.NEW_PROCESSED_DATA,
+            ]
         )
-        self.langsmith = Langsmith()
+        # self.langsmith = Langsmith()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
+        self.interactions_repository = interactions_repository()
 
     async def process_event(self, event):
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
+        # Should use Topic class
 
-        if topic == "new_salesforce_contact":
-            await self.handle_new_salesforce_contact(event)
-        elif topic == "updated_enriched_data":
-            await self.handle_updated_enriched_data(event)
-        elif topic == "new_processed_data":
-            await self.handle_new_processed_data(event)
-        else:
-            logger.info(f"Unknown topic: {topic}")
+        match topic:
+            case Topic.NEW_CONTACT:
+                await self.handle_new_salesforce_contact(event)
+            case Topic.NEW_INTERACTION:
+                await self.handle_new_interaction(event)
+            case Topic.UPDATED_ENRICHED_DATA:
+                await self.handle_updated_enriched_data(event)
+            case Topic.NEW_PROCESSED_DATA:
+                await self.handle_new_processed_data(event)
+            case _:
+                logger.info(f"Unknown topic: {topic}")
 
     async def handle_new_salesforce_contact(self, event):
         # Assuming the event body contains a JSON string with the contact data
-        contact_data = event.body_as_str()
-        self.persons_repository.save_person(contact_data)
+        contact_data_str = event.body_as_str
+        contact_data = dict(contact_data_str)
+        new_person = PersonDTO.from_dict(contact_data)
+        self.persons_repository.save_person(new_person)
         logger.info("Inserted new Salesforce contact to persons_repository")
 
         # Send "pdl" event to the event queue
-        await self.consumer.send_event("pdl", contact_data)
+        person_json = new_person.to_json()
+        event = GenieEvent(Topic.PDL, person_json, "public")
+        event.send()
         logger.info("Sent 'pdl' event to the event queue")
+
+    async def handle_new_interaction(self, event):
+        # Assuming the event body contains a JSON string with the contact data
+        interaction_data = event.body_as_str()
+        self.interactions_repository.save_interaction(interaction_data)
+        logger.info("Saved interaction to interactions_repository")
+
+        # Here we should implement whatever we want to do with the interaction data
+        # event = GenieEvent(Topic., interaction_data, "public")
+        # event.send()
 
     async def handle_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
@@ -57,14 +85,15 @@ class PersonManager(GenieConsumer):
         logger.info("Inserted/Updated enriched data in personal_data_repository")
 
         # Send "new_personal_data" event to the event queue
-        await self.event_queue.send_event("new_personal_data", personal_data)
+        event = GenieEvent(Topic.NEW_PERSONAL_DATA, personal_data, "public")
+        event.send()
         logger.info("Sent 'new_personal_data' event to the event queue")
 
     async def handle_new_processed_data(self, event):
         # Assuming the event body contains a JSON string with the processed data
-        processed_data = event.body_as_str()
-        self.profiles_repository.sa(processed_data)
+        event_body = event.body_as_str()
+        processed_person = PersonDTO.from_dict(event_body)
+        self.profiles_repository.save_profile(processed_person)
+        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, processed_person, "public")
+        event.send()
         logger.info("Saved new processed data to profiles_repository")
-
-    async def close(self):
-        await self.event_queue.close()
