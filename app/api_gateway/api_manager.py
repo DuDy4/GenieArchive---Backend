@@ -186,7 +186,9 @@ async def get_all_contact(
     salesforce_client = create_salesforce_client(company, refresh_token)
     logger.info(f"salesforce_client: {salesforce_client}")
 
-    salesforce_agent = SalesforceAgent(salesforce_client, sf_users_repository)
+    salesforce_agent = SalesforceAgent(
+        salesforce_client, sf_users_repository, contacts_repository
+    )
     contacts = await salesforce_agent.get_contacts()
 
     contacts_repository.handle_sf_contacts_list(contacts)

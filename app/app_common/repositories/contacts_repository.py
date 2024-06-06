@@ -10,6 +10,7 @@ class ContactsRepository:
     def __init__(self, conn):
         self.conn = conn
         # self.cursor = conn.cursor()
+        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:
@@ -25,14 +26,13 @@ class ContactsRepository:
             email VARCHAR,
             linkedin VARCHAR,
             position VARCHAR,
-            timezone VARCHAR,
+            timezone VARCHAR
         );
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info(f"Created contacts table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
@@ -42,7 +42,6 @@ class ContactsRepository:
         :param contact: PersonDTO object with contact data to insert into database
         :return the id of the newly created contact in database:
         """
-        self.create_table_if_not_exists()
         insert_query = """
         INSERT INTO contacts (uuid, name, company, email, linkedin, position, timezone)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -64,7 +63,7 @@ class ContactsRepository:
                     )
                     return contact_id
             else:
-                raise Exception("contact already exists in database")
+                logger.error(f"Contact with uuid {contact.uuid} already exists")
         except psycopg2.Error as error:
             # self.conn.rollback()
             raise Exception(f"Error inserting contact, because: {error.pgerror}")
@@ -87,6 +86,56 @@ class ContactsRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False
+
+    def exists_identity(self, name, email):
+        """
+        Check if an identity with the same name and email already exists in the database
+        (Assuming that name and email are unique identifiers for a person)
+        """
+
+        if email is None:
+            exists_query = (
+                "SELECT uuid FROM contacts WHERE name = %s AND email IS NULL;"
+            )
+            query_params = (name,)
+        else:
+            exists_query = "SELECT uuid FROM contacts WHERE name = %s AND email = %s;"
+            query_params = (name, email)
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug(f"Exist query: {exists_query} with values: {query_params}")
+                cursor.execute(exists_query, query_params)
+                result = cursor.fetchone()
+                logger.info(
+                    f"Identity existence in database for {name} and {email}: {result}"
+                )
+                return result[0] if result else None
+        except Exception as error:
+            logger.error("Error checking existence of identity:", error)
+        return False
+
+    def exists_all(self, person: PersonDTO):
+        """
+        Check if a person with all the same attributes already exists in the database
+        """
+        exists_query = """
+        SELECT 1 FROM contacts
+        WHERE uuid = %s AND name = %s AND company = %s AND email = %s
+        AND linkedin = %s AND position = %s AND timezone = %s;
+        """
+        if person.email is None:
+            exists_query.replace("AND email = %s", "AND email IS NULL")
+        person_data = person.to_tuple()
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug(f"About to execute check if person exists: {person_data}")
+                cursor.execute(exists_query, person_data)
+                result = cursor.fetchone() is not None
+                logger.info(f"Person existence in database: {result}")
+                return bool(result)
+        except Exception as error:
+            logger.error("Error checking existence of person:", error)
+        return False
 
     def get_contact_id(self, uuid):
         select_query = "SELECT id FROM contacts WHERE uuid = %s;"
@@ -179,6 +228,7 @@ class ContactsRepository:
     def search_contact(
         self, name: str, company: str, email: str
     ) -> Optional[PersonDTO]:
+        self.create_table_if_not_exists()
         search_query = (
             "SELECT * FROM contacts WHERE name = %s OR company = %s OR email = %s;"
         )
@@ -201,13 +251,33 @@ class ContactsRepository:
             logger.error("Error searching contact:", error)
 
     def handle_sf_contacts_list(self, contacts_list: list[dict]):
+        """
+        Insert or update contacts from Salesforce to the database,
+        and return the list of changed contacts (from last time we fetched contact from salesforce) that we need to
+        check if the personal data has changed
+
+        :param contacts_list: list of contacts from Salesforce
+        :return: list of changed contacts
+        """
+        self.create_table_if_not_exists()
+        changed_contacts = []
         for contact in contacts_list:
             contact = PersonDTO.from_sf_contact(contact)
             try:
-                self.insert_contact(contact)
-                logger.info(f"Inserted person: {contact.name}")
+                uuid = self.exists_identity(contact.name, contact.email)
+                if uuid:
+                    contact.uuid = uuid
+                    if not self.exists_all(contact):
+                        self.update_contact(contact)
+                        logger.info(f"Updated person: {contact.name}")
+                        changed_contacts.append(contact)
+                else:
+                    self.insert_contact(contact)
+                    logger.info(f"Inserted person: {contact.name}")
+                    changed_contacts.append(contact)
             except Exception as e:
                 logger.warning(f"Failed to insert contact: {e}")
+        return changed_contacts
 
     def _get_attribute(
         self, id_or_uuid: str | int, attribute: str

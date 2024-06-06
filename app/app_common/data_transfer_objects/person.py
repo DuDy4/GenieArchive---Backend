@@ -60,9 +60,9 @@ class PersonDTO:
         return PersonDTO(
             uuid=get_uuid4(),
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
-            company=f"{contact.get('AccountName') or contact.get('Account', {}).get('Name', '') if contact.get('Account') else ''}",
+            company=f"{contact.get('AccountName') or (contact.get('Account', {}).get('Name', '') if contact.get('Account') else '')}",
             email=contact["Email"],
-            linkedin=contact.get("LinkedInUrl") or "",
+            linkedin=contact.get("LinkedInUrl__c") or "",
             position=f"{contact.get('Title') or ''}",
             timezone="",
         )

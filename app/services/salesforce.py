@@ -62,9 +62,11 @@ class SalesforceAgent:
         self,
         sf_client: SalesforceClient,
         sf_users_repository: SalesforceUsersRepository,
+        contacts_repository: ContactsRepository,
     ):
         self.sf_client = sf_client
         self.sf_users_repository = sf_users_repository
+        self.contacts_repository = contacts_repository
 
     async def get_contacts(self):
         """
@@ -73,9 +75,11 @@ class SalesforceAgent:
         Returns:
         list: List of contact records.
         """
-
+        # fields_info = get_all_fields(self.sf_client.access_token, self.sf_client.instance_url, "Contact")
+        # fields = [field["name"] for field in fields_info["fields"]]
+        # logger.debug(f"Fields: {fields}")
         url = f"{self.sf_client.instance_url}/services/data/v60.0/query/"
-        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name, LinkedInUrl__c FROM Contact LIMIT 100"
+        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name, linkedInUrl__c FROM Contact LIMIT 100"
         headers = {
             "Authorization": f"Bearer {self.sf_client.access_token}",
             "Content-Type": "application/json",
@@ -87,12 +91,15 @@ class SalesforceAgent:
             logger.info(f"Response: {response}")
             response.raise_for_status()
             contacts = response.json()["records"]
+            logger.debug(f"Contacts: {contacts}")
             for contact in contacts:
                 if contact["Account"] is not None:
-                    # Access the Name field of Account
                     contact["AccountName"] = contact["Account"]["Name"]
                 else:
                     contact["AccountName"] = None
+            changed_contacts = self.contacts_repository.handle_sf_contacts_list(
+                contacts
+            )
             event = GenieEvent(Topic.NEW_CONTACTS_TO_CHECK, contacts, "public")
             event.send()
             return contacts
@@ -100,28 +107,17 @@ class SalesforceAgent:
             print(f"Failed to retrieve contacts: {e}")
             return []
 
-        # if response.status_code == 200:
-        #     results = response.json()
-        #     if results["totalSize"] > 0:
-        #         # Contact exists, so update it
-        #         contact_id = results["records"][0]["Id"]
-        #         update_response = await requests.patch(
-        #             f"{customer_base_url}/services/data/v60.0/sobjects/Contact/{contact_id}",
-        #             json=contact_data,
-        #             headers=headers,
-        #         )
-        #         return update_response.json()
-        #     else:
-        #         # Contact does not exist, create a new one
-        #         create_response = await requests.post(
-        #             f"{customer_base_url}/services/data/v60.0/sobjects/Contact/",
-        #             json=contact_data,
-        #             headers=headers,
-        #         )
-        #         return create_response.json()
-        # else:
-        #     # Handle errors
-        #     return response.json()
+
+# def get_all_fields(access_token, instance_url, object_name):
+#     url = f"{instance_url}/services/data/v56.0/sobjects/{object_name}/describe"
+#     headers = {
+#         "Authorization": f"Bearer {access_token}",
+#         "Content-Type": "application/json",
+#     }
+#
+#     response = requests.get(url, headers=headers)
+#     response.raise_for_status()
+#     return response.json()
 
 
 def get_authorization_url(company: str) -> str:
