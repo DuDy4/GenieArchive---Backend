@@ -47,11 +47,7 @@ class ContactsRepository:
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert contact: {contact}")
         contact_data = contact.to_tuple()
-
-        logger.info(f"About to insert contact data: {contact_data}")
-
         try:
             if not self.exists(contact.uuid):
                 with self.conn.cursor() as cursor:
@@ -69,16 +65,12 @@ class ContactsRepository:
             raise Exception(f"Error inserting contact, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
-        logger.info(f"About to check if uuid exists: {uuid}")
         exists_query = "SELECT 1 FROM contacts WHERE uuid = %s;"
 
         try:
             with self.conn.cursor() as cursor:
-                logger.info(f"about to execute check if uuid exists: {uuid}")
-
                 cursor.execute(exists_query, (uuid,))
                 result = cursor.fetchone() is not None
-                logger.info(f"{uuid} existence in database: {result}")
                 return result
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of uuid {uuid}: {error}")
@@ -103,7 +95,6 @@ class ContactsRepository:
             query_params = (name, email)
         try:
             with self.conn.cursor() as cursor:
-                logger.debug(f"Exist query: {exists_query} with values: {query_params}")
                 cursor.execute(exists_query, query_params)
                 result = cursor.fetchone()
                 logger.info(
@@ -128,7 +119,6 @@ class ContactsRepository:
         person_data = person.to_tuple()
         try:
             with self.conn.cursor() as cursor:
-                logger.debug(f"About to execute check if person exists: {person_data}")
                 cursor.execute(exists_query, person_data)
                 result = cursor.fetchone() is not None
                 logger.info(f"Person existence in database: {result}")
@@ -205,6 +195,8 @@ class ContactsRepository:
         SET name = %s, company = %s, email = %s, linkedin = %s position = %s, timezone = %s
         WHERE uuid = %s;
         """
+        if contact.email is None:
+            update_query = update_query.replace("email = %s,", "email IS NULL,")
         contact_data = contact.to_tuple
         try:
             with self.conn.cursor() as cursor:
@@ -269,7 +261,6 @@ class ContactsRepository:
                     contact.uuid = uuid
                     if not self.exists_all(contact):
                         self.update_contact(contact)
-                        logger.info(f"Updated person: {contact.name}")
                         changed_contacts.append(contact)
                 else:
                     self.insert_contact(contact)

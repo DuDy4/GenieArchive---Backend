@@ -88,10 +88,9 @@ class SalesforceAgent:
 
         try:
             response = requests.get(url, headers=headers, params=params)
-            logger.info(f"Response: {response}")
             response.raise_for_status()
             contacts = response.json()["records"]
-            logger.debug(f"Contacts: {contacts}")
+            logger.info(f"Retrieved contacts: {len(contacts)}")
             for contact in contacts:
                 if contact["Account"] is not None:
                     contact["AccountName"] = contact["Account"]["Name"]
@@ -103,7 +102,7 @@ class SalesforceAgent:
             logger.info(f"New contacts to handle: {changed_contacts}")
             if len(changed_contacts) > 0:
                 event = GenieEvent(
-                    Topic.NEW_CONTACTS_TO_CHECK, changed_contacts, "public"
+                    Topic.NEW_CONTACTS_TO_CHECK, str(changed_contacts), "public"
                 )
                 event.send()
             return contacts

@@ -182,17 +182,12 @@ async def get_all_contact(
     logger.info(f"Received get contacts request")
 
     refresh_token = sf_users_repository.get_refresh_token(company)
-    logger.info(f"refresh_token: {refresh_token}")
     salesforce_client = create_salesforce_client(company, refresh_token)
-    logger.info(f"salesforce_client: {salesforce_client}")
 
     salesforce_agent = SalesforceAgent(
         salesforce_client, sf_users_repository, contacts_repository
     )
     contacts = await salesforce_agent.get_contacts()
 
-    contacts_repository.handle_sf_contacts_list(contacts)
-    # event = GenieEvent(Topic.NEW_CONTACT, contacts, "public")
-    # event.send()
-    logger.info(f"contacts: {contacts}")
-    return PlainTextResponse("Contacts fetched successfully")
+    logger.info(f"Got contacts: {len(contacts)}")
+    return PlainTextResponse(f"Got contacts: {len(contacts)}")
