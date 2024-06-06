@@ -8,7 +8,7 @@ from loguru import logger
 
 class GenieConsumer:
     def __init__(self, topics):
-        connection_str = os.environ.get("EVENTHUB_CONNTECTION_STRING", "")
+        connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
         eventhub_name = os.environ.get("EVENTHUB_NAME", "")
         consumer_group = "$Default"
         storage_connection_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
@@ -45,4 +45,5 @@ class GenieConsumer:
             await self.consumer.receive(on_event=self.on_event, starting_position="-1")
 
     def run(self):
+        logger.info(f"Starting consumer for topics: {self.topics}")
         asyncio.run(self.start())
