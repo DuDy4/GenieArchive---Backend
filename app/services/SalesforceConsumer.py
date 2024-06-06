@@ -12,7 +12,7 @@ class SalesforceConsumer(GenieConsumer):
     Class for producing events to the Salesforce event queue.
     """
 
-    def __init__(self, redis_client):
+    def __init__(self):
         super().__init__(topics=[Topic.NEW_CONTACTS_TO_CHECK])
         self.contacts_repository = contacts_repository()
 
@@ -23,8 +23,13 @@ class SalesforceConsumer(GenieConsumer):
         Args:
             event: The event to produce.
         """
+        logger.info(
+            f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
+        )
+
         # for each contact - check if exists in our db
         contacts = event.body_as_str
+        logger.debug(f"Contacts: {contacts} as type: {type(contacts)}")
         for contact in contacts:
             person = PersonDTO.from_sf_contact(contact)
             if self.contacts_repository.search_contact(
