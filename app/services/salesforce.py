@@ -4,7 +4,7 @@ Module for interacting with the Salesforce API.
 
 import os
 import uuid
-
+from urllib.parse import urlencode
 
 from dotenv import load_dotenv
 import requests
@@ -135,13 +135,13 @@ def get_authorization_url(company: str) -> str:
         str: The authorization URL.
     """
     logger.info(f"Getting authorization URL for {company}")
-    sf = OAuth2Session(
-        client_id=SALESFORCE_CLIENT_ID,
-        redirect_uri=SALESFORCE_REDIRECT_URI,
-    )
-    authorization_url, _ = sf.authorization_url(SALESFORCE_LOGIN_URL)
-    logger.debug(f"Authorization URL for {company}: {authorization_url}")
-    return authorization_url
+    params = {
+        "response_type": "code",
+        "client_id": SALESFORCE_CLIENT_ID,
+        "redirect_uri": SALESFORCE_REDIRECT_URI,
+        "state": company,
+    }
+    return f"https://login.salesforce.com/services/oauth2/authorize?{urlencode(params)}"
 
 
 def handle_callback(company: str, response_url: str) -> None:
@@ -162,18 +162,23 @@ def handle_callback(company: str, response_url: str) -> None:
 
     logger.info(f"{token_data}")
 
-    sf_users_repository.insert(
-        uuid=get_uuid4(),
-        name="Asaf",
-        company="Definitely not Kubiya.ai",
-        client_url=token_data["instance_url"],
-        refresh_token=token_data["refresh_token"],
-        access_token=token_data["access_token"],
-    )
-
-    logger.info(f"Inserted user to repository")
-
-    return token_data
+    uuid = sf_users_repository.exists(company, token_data["instance_url"])
+    if uuid:
+        sf_users_repository.update_token(
+            uuid, token_data["refresh_token"], token_data["access_token"]
+        )
+        logger.info(f"Updated user in repository")
+        return token_data
+    else:
+        sf_users_repository.insert(
+            uuid=get_uuid4(),
+            company=company,
+            client_url=token_data["instance_url"],
+            refresh_token=token_data["refresh_token"],
+            access_token=token_data["access_token"],
+        )
+        logger.info(f"Inserted user to repository")
+        return token_data
 
 
 def create_salesforce_client(

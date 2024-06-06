@@ -19,7 +19,6 @@ class SalesforceUsersRepository:
         CREATE TABLE IF NOT EXISTS "sf_users" (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            name VARCHAR,
             company VARCHAR,
             salesforce_client_url VARCHAR,
             salesforce_refresh_token VARCHAR,
@@ -34,19 +33,19 @@ class SalesforceUsersRepository:
         except psycopg2.Error as error:
             logger.error("Error creating table:", error)
 
-    def insert(self, uuid, name, company, client_url, refresh_token, access_token):
+    def insert(self, uuid, company, client_url, refresh_token, access_token):
         self.create_table_if_not_exists()
         insert_query = """
-        INSERT INTO sf_users (uuid, name, company, salesforce_client_url, salesforce_refresh_token, salesforce_access_token)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO sf_users (uuid, company, salesforce_client_url, salesforce_refresh_token, salesforce_access_token)
+        VALUES (%s, %s, %s, %s, %s)
         """
         try:
-            if not self.exists(uuid):
+            if not self.exists(company, client_url):
                 with self.conn.cursor() as cursor:
                     logger.debug(f"About to insert Salesforce user: {uuid}")
                     cursor.execute(
                         insert_query,
-                        (uuid, name, company, client_url, refresh_token, access_token),
+                        (uuid, company, client_url, refresh_token, access_token),
                     )
                     self.conn.commit()
                     logger.info("Inserted Salesforce user into database")
@@ -56,16 +55,19 @@ class SalesforceUsersRepository:
                 f"Specific error message: {error.pgerror}"
             )  # Log specific error message
 
-    def exists(self, uuid):
-        select_query = """SELECT uuid FROM sf_users WHERE uuid = %s"""
+    def exists(self, company: str, client_url: str):
+        self.create_table_if_not_exists()
+        select_query = """SELECT uuid FROM sf_users WHERE company = %s AND salesforce_client_url = %s"""
         try:
-            logger.debug(f"Checking existence of Salesforce user with UUID: {uuid}")
+            logger.debug(
+                f"Checking existence of Salesforce user with company: {company} and client_url: {client_url}"
+            )
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (company, client_url))
                 result = cursor.fetchone()
                 logger.info(f"Result of existence check: {result}")
                 if result is not None:
-                    return True
+                    return result[0]
                 else:
                     return False
         except psycopg2.Error as error:
@@ -91,4 +93,20 @@ class SalesforceUsersRepository:
                     return None
         except psycopg2.Error as error:
             logger.error("Error getting refresh token:", error)
+            logger.error(f"Specific error message: {error.pgerror}")
+
+    def update_token(self, uuid, refresh_token, access_token):
+        update_query = """
+        UPDATE sf_users
+        SET salesforce_refresh_token = %s, salesforce_access_token = %s
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug(f"About to update Salesforce user: {uuid}")
+                cursor.execute(update_query, (refresh_token, access_token, uuid))
+                self.conn.commit()
+                logger.info("Updated Salesforce user in database")
+        except psycopg2.Error as error:
+            logger.error("Error updating user:", error)
             logger.error(f"Specific error message: {error.pgerror}")

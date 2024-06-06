@@ -1,4 +1,6 @@
 import os
+import secrets
+
 
 from fastapi import Depends, Request
 from fastapi.routing import APIRouter
@@ -106,6 +108,11 @@ def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
     logger.debug(f"request.session before start: {request.session}")
 
     logger.info(f"Beginning salesforce oauth integration for {company}")
+    request.session["salesforce_company"] = company
+
+    state = secrets.token_urlsafe(32)
+    request.session["salesforce_state"] = state  # Store state in session
+
     context["salesforce_company"] = company
     logger.debug(f"Context: {context['salesforce_company']}")
 
@@ -115,20 +122,18 @@ def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
 
 
 @v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
-def callback_salesforce(
-    request: Request,
-    # sf_users_repository = Depends(salesforce_users_repository)
-) -> PlainTextResponse:
+def callback_salesforce(request: Request) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
     # logger.debug(f"Request session: {request.session}")
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
-    company = context.get("salesforce_company")
-    logger.info(
-        f"Received callback from salesforce oauth integration. Company: {company}"
-    )
+
+    #  company's name supposed to be save in the state parameter
+    company = request.query_params.get("state")
+    logger.debug(f"Company: {company}")
+
     token_data = handle_callback(company, str(request.url))
 
     return PlainTextResponse(
