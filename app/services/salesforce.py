@@ -100,8 +100,12 @@ class SalesforceAgent:
             changed_contacts = self.contacts_repository.handle_sf_contacts_list(
                 contacts
             )
-            event = GenieEvent(Topic.NEW_CONTACTS_TO_CHECK, contacts, "public")
-            event.send()
+            logger.info(f"New contacts to handle: {changed_contacts}")
+            if len(changed_contacts) > 0:
+                event = GenieEvent(
+                    Topic.NEW_CONTACTS_TO_CHECK, changed_contacts, "public"
+                )
+                event.send()
             return contacts
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")
