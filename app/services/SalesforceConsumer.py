@@ -1,3 +1,6 @@
+import ast
+import json
+
 from loguru import logger
 
 from app.app_common.dependencies.dependencies import contacts_repository
@@ -16,6 +19,8 @@ class SalesforceConsumer(GenieConsumer):
         super().__init__(topics=[Topic.NEW_CONTACTS_TO_CHECK])
         self.contacts_repository = contacts_repository()
 
+    #     logger.info(f"SalesforceConsumer initialized with topics: {self.topics}")
+
     def process_event(self, event):
         """
         Produces an event to the Salesforce event queue.
@@ -23,15 +28,29 @@ class SalesforceConsumer(GenieConsumer):
         Args:
             event: The event to produce.
         """
+        logger.info(f"SalesforceConsumer processing event: {event}")
         logger.info(
             f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
         )
 
         # for each contact - check if exists in our db
-        contacts = event.body_as_str
-        logger.debug(f"Contacts: {contacts} as type: {type(contacts)}")
+        contacts_str = event.body_as_str()
+        logger.debug(f"Contacts: {contacts_str} as type: {type(contacts_str)}")
+        try:
+            # Safely evaluate the string to a list of dictionaries
+            contacts_list = ast.literal_eval(contacts_str)
+        except Exception as e:
+            logger.error(f"Error parsing contacts string: {e}")
+            return
+        contacts_dicts = [contact.to_dict() for contact in contacts_list]
+        contacts_json = json.dumps(contacts_dicts)
+        contacts = json.loads(contacts_json)
+        logger.debug(
+            f"Contacts: {contacts} as type: {type(contacts)}, and inside: {type(contacts[0])}"
+        )
         for contact in contacts:
-            person = PersonDTO.from_sf_contact(contact)
+            logger.debug(f"Contact: {contact}, type: {type(contact)}")
+            person = PersonDTO.from_dict(contact)
             if self.contacts_repository.search_contact(
                 person.name, person.company, person.email
             ):
@@ -48,7 +67,7 @@ class SalesforceConsumer(GenieConsumer):
 
         # if not - insert to db and send new contact event
 
-        self.redis_client.publish("salesforce", event)
+        # self.redis_client.publish("salesforce", event)
 
     def get_linkedin(self, contact):
         contact_linkedin = contact.get("LinkedInUrl")
@@ -58,3 +77,16 @@ class SalesforceConsumer(GenieConsumer):
                     contact_linkedin = contact.get(key)
                     return contact_linkedin
         return contact_linkedin
+
+
+# if __name__ == "__main__":
+
+# uvicorn.run(
+#     "person:app",
+#     host="0.0.0.0",
+#     port=PERSON_PORT,
+#     ssl_keyfile="../key.pem",
+#     ssl_certfile="../cert.pem",
+# )
+# print("Running person service")
+# person.run()
