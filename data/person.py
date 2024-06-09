@@ -9,6 +9,8 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from loguru import logger
 
+from common.events.genie_event import GenieEvent
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ai.langsmith.langsmith_loader import Langsmith
@@ -24,15 +26,18 @@ PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
 class Person(GenieConsumer):
     def __init__(self):
-        super().__init__(topics=[Topic.NEW_CONTACT])
+        super().__init__(topics=[Topic.NEW_PROCESSED_DATA])
         self.langsmith = Langsmith()
 
     async def process_event(self, event):
-        print(
+        logger.info(f"Person processing event: {event}")
+        logger.info(
             f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
         )
         response = self.langsmith.run_prompt_test(event.body_as_str())
-        print(f"Response: {response}")
+        logger.info(f"Response: {response}")
+        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, response, "public")
+        event.send()
         return response
 
 
