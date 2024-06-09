@@ -1,6 +1,9 @@
+import json
+import os
+import sys
+
 from loguru import logger
 
-from ai.langsmith.langsmith_loader import Langsmith
 from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
@@ -11,6 +14,9 @@ from common.dependencies.dependencies import (
     profiles_repository,
     interactions_repository,
 )
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from common.repositories.persons_repository import PersonsRepository
 from common.repositories.personal_data_repository import PersonalDataRepository
 from common.repositories.profiles_repository import ProfilesRepository
@@ -29,35 +35,44 @@ class PersonManager(GenieConsumer):
                 Topic.NEW_PROCESSED_DATA,
             ]
         )
-        # self.langsmith = Langsmith()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
         self.interactions_repository = interactions_repository()
 
     async def process_event(self, event):
+        logger.info(f"PersonManager processing event: {event}")
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         # Should use Topic class
 
         match topic:
             case Topic.NEW_CONTACT:
+                logger.info("Handling new Salesforce contact")
                 await self.handle_new_salesforce_contact(event)
             case Topic.NEW_INTERACTION:
+                logger.info("Handling new interaction")
                 await self.handle_new_interaction(event)
             case Topic.UPDATED_ENRICHED_DATA:
+                logger.info("Handling updated enriched data")
                 await self.handle_updated_enriched_data(event)
             case Topic.NEW_PROCESSED_DATA:
+                logger.info("Handling new processed data")
                 await self.handle_new_processed_data(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
     async def handle_new_salesforce_contact(self, event):
         # Assuming the event body contains a JSON string with the contact data
-        contact_data_str = event.body_as_str
-        contact_data = dict(contact_data_str)
+        logger.info("Handling new Salesforce contact")
+        contact_data_str = event.body_as_str()
+        logger.debug(f"Contact data: {contact_data_str}")
+        contact_data = json.loads(contact_data_str)
         new_person = PersonDTO.from_dict(contact_data)
         self.persons_repository.save_person(new_person)
+        if not new_person.linkedin:
+            logger.error("Person got no LinkedIn profile, skipping PDL enrichment")
+            return
         logger.info("Inserted new Salesforce contact to persons_repository")
 
         # Send "pdl" event to the event queue
@@ -97,3 +112,16 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, processed_person, "public")
         event.send()
         logger.info("Saved new processed data to profiles_repository")
+
+
+if __name__ == "__main__":
+    person_manager = PersonManager()
+    # uvicorn.run(
+    #     "person:app",
+    #     host="0.0.0.0",
+    #     port=PERSON_PORT,
+    #     ssl_keyfile="../key.pem",
+    #     ssl_certfile="../cert.pem",
+    # )
+    # print("Running person service")
+    person_manager.run()
