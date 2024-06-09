@@ -5,8 +5,13 @@ import traceback
 
 from loguru import logger
 
+from common.data_transfer_objects.personDTO import PersonDTO
+
 
 class PersonalDataRepository:
+    FETCHED = "FETCHED"
+    TRIED_BUT_FAILED = "TRIED_BUT_FAILED"
+
     def __init__(self, conn):
         self.conn = conn
 
@@ -20,53 +25,70 @@ class PersonalDataRepository:
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
-            personal_data JSONB
+            linkedin_url VARCHAR,
+            personal_data JSONB,
+            status TEXT,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
-        with self.conn.cursor() as cursor:
-            cursor.execute(create_table_query)
-            self.conn.commit()
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug("About to create personalData table")
+                cursor.execute(create_table_query)
+                logger.debug("About to commit")
+                self.conn.commit()
+                logger.info("Created personalData table")
+        except psycopg2.Error as e:
+            logger.error(f"Error creating table: {e.pgcode}: {e.pgerror}")
+        except Exception as e:
+            logger.error(f"Error creating table: {repr(e)}")
 
-        # self.conn.rollback()
-
-    def insert(self, uuid: str, name: Optional[str] = None, personal_data: json = None):
+    def insert(
+        self,
+        uuid: str,
+        name: Optional[str] = None,
+        linkedin_url: str = None,
+        personal_data: json = None,
+        status: str = "FETCHED",
+    ):
         """
         Insert a new personalData into the database.
 
-        :param uuid: Unique identifier for the profile.
+        :param uuid: Unique identifier for the personalData.
         :param name: Name of the person (optional).
         :param personal_data: Personal data of the person (optional).
         """
         insert_query = """
-        INSERT INTO profiles (uuid, name, personal_data)
-        VALUES (%s, %s, %s)
+        INSERT INTO personalData (uuid, name,linkedin_url, personal_data, status)
+        VALUES (%s, %s, %s, %s, %s)
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, (uuid, name, personal_data))
+                cursor.execute(
+                    insert_query, (uuid, name, linkedin_url, personal_data, status)
+                )
                 self.conn.commit()
-                logger.info("Inserted profile into database")
+                logger.info("Inserted personalData into database")
         except psycopg2.IntegrityError as e:
-            logger.error("Profile with this UUID already exists")
+            logger.error("personalData with this UUID already exists")
             self.conn.rollback()
         except Exception as e:
-            logger.error("Error inserting profile:", e)
+            logger.error("Error inserting personalData:", e)
             # logger.error(traceback.format_exc())
             # self.conn.rollback()
 
-    def exists(self, uuid: str) -> bool:
+    def exists_uuid(self, uuid: str) -> bool:
         """
         Check if a personalData with the given UUID exists in the database.
 
-        :param uuid: Unique identifier for the profile.
-        :return: True if profile exists, False otherwise.
+        :param uuid: Unique identifier for the personalData.
+        :return: True if personalData exists, False otherwise.
         """
         self.create_table_if_not_exists()
         select_query = """
         SELECT EXISTS (
             SELECT 1
-            FROM profiles
+            FROM personalData
             WHERE uuid = %s
         )
         """
@@ -76,24 +98,51 @@ class PersonalDataRepository:
                 exists = cursor.fetchone()[0]
                 return exists
         except psycopg2.Error as e:
-            logger.error("Error checking for existing profile:", e)
+            logger.error("Error checking for existing personalData:", e)
             return False
         except Exception as e:
-            logger.error("Error checking profile existence:", e)
+            logger.error("Error checking personalData existence:", e)
+            return False
+
+    def exists_linkedin_url(self, linkedin_url: str) -> bool:
+        """
+        Check if a personalData with the given linkedin_url exists in the database.
+
+        :param linkedin_url: Unique identifier for the personalData.
+        :return: True if personalData exists, False otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM personalData
+            WHERE linkedin_url = %s
+        )
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (linkedin_url,))
+                exists = cursor.fetchone()[0]
+                return exists
+        except psycopg2.Error as e:
+            logger.error("Error checking for existing personalData:", e)
+            return False
+        except Exception as e:
+            logger.error("Error checking personalData existence:", e)
             return False
 
     def get_personal_data(self, uuid: str) -> Optional[dict]:
         """
         Retrieve personal data associated with an uuid.
 
-        :param uuid: Unique identifier for the profile.
-        :return: Personal data as a json if profile exists, None otherwise.
+        :param uuid: Unique identifier for the personalData.
+        :return: Personal data as a json if personalData exists, None otherwise.
         """
         logger.info(f"Got get request for {uuid}")
         self.create_table_if_not_exists()
         select_query = """
         SELECT personal_data
-        FROM profiles
+        FROM personalData
         WHERE uuid = %s
         """
         try:
@@ -103,7 +152,7 @@ class PersonalDataRepository:
                 if personal_data:
                     return personal_data[0]
                 else:
-                    logger.warning("Profile was not found")
+                    logger.warning("personalData was not found")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -114,12 +163,12 @@ class PersonalDataRepository:
         """
         Save personal data to the database.
 
-        :param uuid: Unique identifier for the profile.
+        :param uuid: Unique identifier for the personalData.
         :param personal_data: Personal data to save.
         """
         update_query = """
-        UPDATE profiles
-        SET personal_data = %s, last_updated = CURRENT_TIMESTAMP
+        UPDATE personalData
+        SET personal_data = %s, last_updated = CURRENT_TIMESTAMP, status = 'FETCHED'
         WHERE uuid = %s
         """
         try:
@@ -135,16 +184,16 @@ class PersonalDataRepository:
             self.conn.rollback()
         return
 
-    def save_personal_data(self, uuid, personal_data):
+    def save_personal_data(self, uuid, personal_data: dict):
         """
         Save personal data to the database.
 
-        :param uuid: Unique identifier for the profile.
+        :param uuid: Unique identifier for the personal_data.
         :param personal_data: Personal data to save.
         """
         self.create_table_if_not_exists()
-        if not self.exists(uuid):
-            logger.error("Profile with this UUID does not exist")
+        if not self.exists_uuid(uuid):
+            logger.error("Person with this UUID does not exist in Personal_data table")
             return
         self.update(uuid, personal_data)
         return
@@ -158,7 +207,7 @@ class PersonalDataRepository:
         """
         select_query = """
         SELECT last_updated
-        FROM profiles
+        FROM personalData
         WHERE uuid = %s
         """
         try:
