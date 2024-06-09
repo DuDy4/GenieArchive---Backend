@@ -102,10 +102,9 @@ class SalesforceAgent:
             )
             logger.info(f"New contacts to handle: {changed_contacts}")
             if len(changed_contacts) > 0:
-                event = GenieEvent(
-                    Topic.NEW_CONTACTS_TO_CHECK, str(changed_contacts), "public"
-                )
-                event.send()
+                handle_new_contacts_event(
+                    changed_contacts
+                )  # send new-contact events to eventhub
             return contacts
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")
@@ -122,6 +121,20 @@ class SalesforceAgent:
 #     response = requests.get(url, headers=headers)
 #     response.raise_for_status()
 #     return response.json()
+
+
+def handle_new_contacts_event(new_contacts: list[PersonDTO]):
+    try:
+        for i in range(0, len(new_contacts)):
+            contact = new_contacts[i].to_dict()
+            event = GenieEvent(
+                Topic.NEW_CONTACT,
+                str(contact),
+                "public",
+            )
+            event.send()
+    except Exception as e:
+        logger.error(f"Error handling new contacts event: {e}")
 
 
 def get_authorization_url(company: str) -> str:
