@@ -59,9 +59,12 @@ class PersonalDataRepository:
         :param personal_data: Personal data of the person (optional).
         """
         insert_query = """
-        INSERT INTO personalData (uuid, name,linkedin_url, personal_data, status)
+        INSERT INTO personalData (uuid, name, linkedin_url, personal_data, status)
         VALUES (%s, %s, %s, %s, %s)
         """
+        if self.exists_uuid(uuid):
+            logger.error("Personal data with this UUID already exists")
+            return
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(

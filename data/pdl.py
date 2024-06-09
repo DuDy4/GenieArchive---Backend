@@ -30,10 +30,15 @@ class PDLConsumer(GenieConsumer):
 
     async def process_event(self, event):
         logger.info(f"Processing event on topic {self.topics}")
-        event_body_str = event.body_as_str()
-        logger.info(f"Event body: {event_body_str}, type: {type(event_body_str)}")
-        event_json = json.loads(event_body_str)
-        person = DTOPerson.from_json(event_json)
+        event_body = event.body_as_str()
+        if isinstance(event_body, str):
+            try:
+                logger.info(f"Event body is string")
+                event_body = json.loads(event_body)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON: {event_body}")
+                return
+        person = DTOPerson.from_json(event_body)
         logger.info(f"Person: {person}")
 
         # """
@@ -63,7 +68,7 @@ class PDLConsumer(GenieConsumer):
                     return
                 else:
                     profile = self.pdl_client.fetch_profile(person)
-                    data_to_transfer = {"person": person, "profile": profile}
+                    data_to_transfer = {"person": person.to_json(), "profile": profile}
                     event = GenieEvent(
                         Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
                     )
@@ -71,7 +76,8 @@ class PDLConsumer(GenieConsumer):
                     logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
         else:
             profile = self.pdl_client.fetch_profile(person)
-            data_to_transfer = {"person": person, "profile": profile}
+            logger.debug(f"Profile type: {type(profile)}")
+            data_to_transfer = {"person": person.to_json(), "profile": profile}
             event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
             event.send()
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
@@ -96,23 +102,18 @@ class PDLClient:
 
     def fetch_profile(self, person):
         profile = self.get_single_profile(person.linkedin)
-        logger.info(f"Fetched profile from PDL: {profile}")
-        if profile:
-            self.personal_data_repository.insert(
-                uuid=person.uuid,
-                name=person.name,
-                linkedin_url=person.linkedin,
-                personal_data=profile,
-                status=PersonalDataRepository.FETCHED,
-            )
-        else:
-            self.personal_data_repository.insert(
-                uuid=person.uuid,
-                name=person.name,
-                linkedin_url=person.linkedin,
-                personal_data=profile,
-                status=PersonalDataRepository.TRIED_BUT_FAILED,
-            )
+        status = (
+            self.personal_data_repository.FETCHED
+            if profile
+            else self.personal_data_repository.TRIED_BUT_FAILED
+        )
+        self.personal_data_repository.insert(
+            uuid=person.uuid,
+            name=person.name,
+            linkedin_url=person.linkedin,
+            personal_data=json.dumps(profile),
+            status=status,
+        )
         return profile
 
     def identify_person(
