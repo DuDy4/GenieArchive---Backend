@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from ..data_transfer_objects.person import PersonDTO
+from ..data_transfer_objects.personDTO import PersonDTO
 from loguru import logger
 
 
@@ -21,8 +21,8 @@ class ProfilesRepository:
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
-            challenges TEXT[],
-            strengths TEXT[],
+            challenges JSONB,
+            strengths JSONB,
             summary TEXT;
         );
         """
