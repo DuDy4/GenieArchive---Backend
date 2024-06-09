@@ -7,10 +7,11 @@ from loguru import logger
 from peopledatalabs import PDLPY
 
 from common.dependencies.dependencies import personal_data_repository
+from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
 from common.repositories.personal_data_repository import PersonalDataRepository
 from common.events.genie_consumer import GenieConsumer
-from common.data_transfer_objects.person import PersonDTO as DTOPerson
+from common.data_transfer_objects.personDTO import PersonDTO as DTOPerson
 
 load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")
@@ -23,18 +24,30 @@ class PDLConsumer(GenieConsumer):
     def __init__(
         self,
     ):
-        super().__init__(topics=[Topic.PDL_WITH_LINKEDIN, Topic.PDL_WITHOUT_LINKEDIN])
+        super().__init__(topics=[Topic.PDL])
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
     async def process_event(self, event):
-        logger.info(f"Processing event on topic {Topic.PDL}")
-        event_body = event.body_as_str()
-        logger.info(f"Event body: {event_body}")
-        person = DTOPerson.from_json(event_body)
+        logger.info(f"Processing event on topic {self.topics}")
+        event_body_str = event.body_as_str()
+        logger.info(f"Event body: {event_body_str}, type: {type(event_body_str)}")
+        event_json = json.loads(event_body_str)
+        person = DTOPerson.from_json(event_json)
         logger.info(f"Person: {person}")
 
-        if self.personal_data_repository.exists(person.uuid):
+        # """
+        # The flow is as follows:
+        # 1. Check if the person exists in the database.
+        #     2. If the person exists, check the status and the last updated timestamp.
+        #     3. decide if we want to send a request.
+        #     4. if the result is good, save it to the database.
+        # 5. if does not exists in database, send a request.
+        # 6. if the result is good, save it to the database.
+        # 7. if the result is bad, save it to the database.
+        # """
+        person.linkedin = self.pdl_client.fix_linkedin_url(person.linkedin)
+        if self.personal_data_repository.exists_linkedin_url(person.linkedin):
             last_updated_timestamp = self.personal_data_repository.get_last_updated(
                 person.uuid
             )
@@ -49,25 +62,25 @@ class PDLConsumer(GenieConsumer):
                     # add to daily queue?
                     return
                 else:
-                    profiles = self.pdl_client.identify_person(
-                        person.email,
-                        person.first_name,
-                        person.last_name,
-                        person.company,
+                    profile = self.pdl_client.fetch_profile(person)
+                    data_to_transfer = {"person": person, "profile": profile}
+                    event = GenieEvent(
+                        Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
                     )
-            else:
-                logger.info(
-                    f"No last updated timestamp for {person.uuid}, proceeding with update."
-                )
-        logger.info(f"Fetching profiles for {person.uuid}")
-
-    # this is not finished - need to decide what to do if time_since_last_update < MIN_INTERVAL_TO_FETCH_PROFILES.
+                    event.send()
+                    logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
+        else:
+            profile = self.pdl_client.fetch_profile(person)
+            data_to_transfer = {"person": person, "profile": profile}
+            event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
+            event.send()
+            logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
 
 
 class PDLClient:
     """Class for interacting with the People Data Labs API."""
 
-    def __init__(self, api_key: str, profiles_repository: PersonalDataRepository):
+    def __init__(self, api_key: str, personal_data_repository: PersonalDataRepository):
         """
         Initializes the PDLClient with the given API key and profiles repository.
 
@@ -75,42 +88,32 @@ class PDLClient:
             api_key (str): The API key for the People Data Labs API.
             profiles_repository (PersonalDataRepository): The repository for storing profiles.
         """
-        self.profiles_repository = profiles_repository
+        self.personal_data_repository = personal_data_repository
 
         self._client = PDLPY(api_key=api_key)
         self._tried_but_failed = set()
         self._fetched_profiles = set()
 
-    def _filter_out_profile_urls(self, linkedin_profile_urls: list[str]) -> list[str]:
-        """
-        Filters out profile URLs that are already in the database.
-
-        Args:
-            linkedin_profile_urls (list[str]): A list of LinkedIn profile URLs.
-
-        Returns:
-            list[str]: A list of filtered profile URLs.
-        """
-        already_fetched_profile_urls = (
-            self.profiles_repository.get_fetched_profile_urls()
-        )
-        already_tried_but_failed_profile_urls = (
-            self.profiles_repository.get_tried_but_failed_profile_urls()
-        )
-
-        logger.warning(
-            f"Already fetched {len([url for url in already_fetched_profile_urls])} profile urls"
-        )
-        logger.warning(
-            f"Already tried but failed {len([url for url in already_tried_but_failed_profile_urls])} profile urls"
-        )
-
-        return [
-            url
-            for url in linkedin_profile_urls
-            if url not in already_fetched_profile_urls
-            and url not in already_tried_but_failed_profile_urls
-        ]
+    def fetch_profile(self, person):
+        profile = self.get_single_profile(person.linkedin)
+        logger.info(f"Fetched profile from PDL: {profile}")
+        if profile:
+            self.personal_data_repository.insert(
+                uuid=person.uuid,
+                name=person.name,
+                linkedin_url=person.linkedin,
+                personal_data=profile,
+                status=PersonalDataRepository.FETCHED,
+            )
+        else:
+            self.personal_data_repository.insert(
+                uuid=person.uuid,
+                name=person.name,
+                linkedin_url=person.linkedin,
+                personal_data=profile,
+                status=PersonalDataRepository.TRIED_BUT_FAILED,
+            )
+        return profile
 
     def identify_person(
         self, email, first_name, last_name, company
@@ -141,111 +144,44 @@ class PDLClient:
             logger.info("error:", response)
 
     def get_single_profile(self, linkedin_profile_url: str) -> dict[str, dict] | None:
-        linkedin_profile_url = self.profiles_repository._fix_linkedin_url(
-            linkedin_profile_url
-        )
-        existing_profile = self.profiles_repository.get_profile_data(
-            linkedin_profile_url
-        )
-        if existing_profile:
-            return existing_profile
-
+        linkedin_profile_url = self.fix_linkedin_url(linkedin_profile_url)
         params = {"profile": [linkedin_profile_url]}
 
         # Pass the parameters object to the Person Enrichment API
         response = self._client.person.enrichment(**params).json()
         if response["status"] == 404:
             logger.warning(f"Cannot find profiles for {linkedin_profile_url}")
-            self.profiles_repository.insert_tried_but_failed_profiles(
-                [linkedin_profile_url]
-            )
             return
         else:
-            self.profiles_repository.insert_fetched_profiles(
-                {linkedin_profile_url: response["data"]}
-            )
+            logger.info(f"Got profile for {linkedin_profile_url} from PDL")
             return response["data"]
 
-    def get_profiles(self, linkedin_profile_urls: list[str]) -> dict[str, dict] | None:
+    def fix_linkedin_url(self, linkedin_url: str) -> str:
         """
-        Retrieves profiles from the People Data Labs API for the given LinkedIn profile URLs.
+        Converts a full LinkedIn URL to a shortened URL.
 
         Args:
-            linkedin_profile_urls (list[str]): A list of LinkedIn profile URLs.
+            linkedin_url (str): The full LinkedIn URL.
 
         Returns:
-            dict[str, dict] | None: A mapping of profile URLs to profile data, or None if an error occurred.
+            str: The shortened URL.
         """
-        linkedin_profile_urls = list(
-            map(self.profiles_repository._fix_linkedin_url, linkedin_profile_urls)
+        linkedin_url = linkedin_url.replace(
+            "http://www.linkedin.com/in/", "linkedin.com/in/"
         )
-        linkedin_profile_urls = self._filter_out_profile_urls(linkedin_profile_urls)
-        batches = [
-            linkedin_profile_urls[i : i + 100]
-            for i in range(0, len(linkedin_profile_urls), 100)
-        ]
-        profiles = {}
-        logger.info(
-            f"Retrieving profiles from People Data Labs for {len(linkedin_profile_urls)} URL(s)"
+        linkedin_url = linkedin_url.replace(
+            "https://www.linkedin.com/in/", "linkedin.com/in/"
         )
-        for i, batch in enumerate(batches, start=1):
-            logger.info(
-                f"Retrieving profiles from People Data Labs for batch #{i} of {len(batches)}"
-            )
-            fetched_profiles = self._get_profiles(linkedin_profile_urls=batch)
-            if fetched_profiles:
-                profiles.update(fetched_profiles)
-
-        self.profiles_repository.create_table_if_not_exists()
-        logger.debug("Updating database... Saving fetched profiles")
-        self.profiles_repository.insert_fetched_profiles(profiles)
-        logger.debug("Updating database... Saving tried but failed profiles")
-        self.profiles_repository.insert_tried_but_failed_profiles(
-            linkedin_profile_urls=list(self._tried_but_failed)
+        linkedin_url = linkedin_url.replace(
+            "http://linkedin.com/in/", "linkedin.com/in/"
         )
-        # Reset the fetched and tried but failed sets
-        self._fetched_profiles = set()
-        self._tried_but_failed = set()
-        return profiles
-
-    def _get_profiles(self, linkedin_profile_urls: list[str]) -> dict[str, dict] | None:
-        linkedin_profile_urls = [
-            lpu for lpu in linkedin_profile_urls if lpu not in self._fetched_profiles
-        ]
-        if not linkedin_profile_urls:
-            logger.warning("No new profiles to fetch")
-            return None
-
-        linkedin_profile_urls_query = ", ".join(
-            f"'{url}'" for url in linkedin_profile_urls
+        linkedin_url = linkedin_url.replace(
+            "https://linkedin.com/in/", "linkedin.com/in/"
         )
-        sql_query = f"SELECT * FROM person WHERE (linkedin_url in ({linkedin_profile_urls_query}))"
-        params = {
-            "dataset": "resume",
-            "sql": sql_query,
-            "size": len(linkedin_profile_urls),
-        }
-        response = self._client.person.search(**params).json()
-        if response["status"] == 200:
-            logger.debug(
-                f"Data retrieved from People Data Labs ({len(response['data'])} records) from sinlge batch of {len(linkedin_profile_urls)} URL(s)"
-            )
-            profiles = {}
-            for d in response["data"]:
-                profiles[d["linkedin_url"]] = d
-                self._fetched_profiles.add(d["linkedin_url"])
 
-            for url in linkedin_profile_urls:
-                if url not in profiles:
-                    logger.warning(f"Profile not found for {url}")
-                    self._tried_but_failed.add(url)
-            return profiles
-        elif response["status"] == 404:
-            logger.warning(f"Cannot find profiles for {linkedin_profile_urls}")
-            self._tried_but_failed.update(linkedin_profile_urls)
-        else:
-            logger.error(f"Error retrieving profiles from People Data Labs: {response}")
-            return None
+        if linkedin_url[-1] == "/":
+            linkedin_url = linkedin_url[:-1:]
+        return linkedin_url
 
     def get_company_profile(self, company_website: str) -> dict[str, dict] | None:
         # linkedin_profile_url = self.profiles_repository._fix_linkedin_url(linkedin_profile_url)
@@ -266,14 +202,29 @@ class PDLClient:
             return response["summary"]
 
 
-def create_pdl_client(profiles_repository: PersonalDataRepository) -> PDLClient:
+def create_pdl_client(personal_data_repository: PersonalDataRepository) -> PDLClient:
     """
     Factory method to create a PDLClient object.
 
     Args:
-        profiles_repository (PersonalDataRepository): The repository for storing profiles.
+        personal_data_repository (PersonalDataRepository): The repository for storing profiles.
 
     Returns:
         PDLClient: The PDLClient object.
     """
-    return PDLClient(api_key=PDL_API_KEY, profiles_repository=profiles_repository)
+    return PDLClient(
+        api_key=PDL_API_KEY, personal_data_repository=personal_data_repository
+    )
+
+
+if __name__ == "__main__":
+    pdl_consumer = PDLConsumer()
+    # uvicorn.run(
+    #     "person:app",
+    #     host="0.0.0.0",
+    #     port=PERSON_PORT,
+    #     ssl_keyfile="../key.pem",
+    #     ssl_certfile="../cert.pem",
+    # )
+    # print("Running person service")
+    pdl_consumer.run()

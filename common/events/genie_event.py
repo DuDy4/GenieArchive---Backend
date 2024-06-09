@@ -17,7 +17,7 @@ producer = EventHubProducerClient.from_connection_string(
 
 
 class GenieEvent:
-    def __init__(self, topic, data: str | dict | json, scope):
+    def __init__(self, topic, data: str | dict, scope):
         self.topic = topic
         self.data: str = self.ensure_json_format(data)
         self.scope = scope
