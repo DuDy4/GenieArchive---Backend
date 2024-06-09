@@ -1,3 +1,4 @@
+import json
 import os
 import asyncio
 
@@ -16,14 +17,14 @@ producer = EventHubProducerClient.from_connection_string(
 
 
 class GenieEvent:
-    def __init__(self, topic, data, scope):
+    def __init__(self, topic, data: str | dict | json, scope):
         self.topic = topic
-        self.data = data
+        self.data: str = self.ensure_json_format(data)
         self.scope = scope
 
     def send(self):
-        event_data_batch = producer.create_batch()
 
+        event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
         event.properties = {"topic": self.topic, "scope": self.scope}
         logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope}]")
@@ -32,3 +33,27 @@ class GenieEvent:
         # Send the batch
         producer.send_batch(event_data_batch)
         logger.info(f"Batch sent successfully [TOPIC={self.topic}]")
+
+    def ensure_json_format(self, data):
+        """
+        Ensure that data is a valid JSON string. If it's a dictionary, convert it to a JSON string.
+        """
+        return json.dumps(self.convert_to_json(data))
+
+    def convert_to_json(self, data):
+        if isinstance(data, dict):
+            try:
+                return json.dumps(data)
+            except (TypeError, ValueError) as e:
+                logger.error(f"Failed to convert data to JSON: {e}")
+                raise
+        elif isinstance(data, str):
+            try:
+                json.loads(data)
+                return data
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON string: {e}")
+                raise
+        else:
+            logger.error("Data must be a dictionary or a JSON string")
+            raise TypeError("Data must be a dictionary or a JSON string")
