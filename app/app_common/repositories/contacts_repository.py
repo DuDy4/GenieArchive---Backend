@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from ..data_transfer_objects.person import PersonDTO
+from ..data_transfer_objects.personDTO import PersonDTO
 from loguru import logger
 
 

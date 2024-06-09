@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 import json
 from ..utils.str_utils import get_uuid4
 
@@ -10,10 +9,9 @@ class PersonDTO:
     name: str
     company: str
     email: str
+    linkedin: str
     position: str
     timezone: str
-    challenges: List[str] = field(default_factory=list)
-    strengths: List[str] = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -21,10 +19,9 @@ class PersonDTO:
             "name": self.name,
             "company": self.company,
             "email": self.email,
+            "linkedin": self.linkedin,
             "position": self.position,
             "timezone": self.timezone,
-            "challenges": self.challenges,
-            "strengths": self.strengths,
         }
 
     @staticmethod
@@ -34,22 +31,20 @@ class PersonDTO:
             name=data.get("name", ""),
             company=data.get("company", ""),
             email=data.get("email", ""),
+            linkedin=data.get("linkedin", ""),
             position=data.get("position", ""),
             timezone=data.get("timezone", ""),
-            challenges=data.get("challenges", []),
-            strengths=data.get("strengths", []),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str, str, List[str], List[str]]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str, str]:
         return (
             self.uuid,
             self.name,
             self.company,
             self.email,
+            self.linkedin,
             self.position,
             self.timezone,
-            self.challenges,
-            self.strengths,
         )
 
     def to_json(self):
@@ -65,8 +60,9 @@ class PersonDTO:
         return PersonDTO(
             uuid=get_uuid4(),
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
-            company=f"{contact.get('AccountName') or contact.get('Account', {}).get('Name', '') if contact.get('Account') else ''}",
-            email=contact["Email"],
-            position=f"{contact.get('Title') or ''}",
+            company=f"{contact.get('AccountName') or (contact.get('Account', {}).get('Name', '') if contact.get('Account') else '')}",
+            email=contact.get("Email") or "",
+            linkedin=contact.get("LinkedInUrl__c") or "",
+            position=contact.get("Title") or "",
             timezone="",
         )

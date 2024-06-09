@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from ..data_transfer_objects.person import PersonDTO
+from ..data_transfer_objects.personDTO import PersonDTO
 from loguru import logger
 
 
@@ -23,8 +23,9 @@ class PersonsRepository:
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
+            linkedin VARCHAR,
             position VARCHAR,
-            timezone VARCHAR,
+            timezone VARCHAR
         );
         """
         try:
@@ -42,8 +43,8 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, name, company, email, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO persons (uuid, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert person: {person}")
@@ -53,13 +54,16 @@ class PersonsRepository:
 
         try:
             with self.conn.cursor() as cursor:
+                # logger.debug(f"About to execute insert query: {insert_query}")
                 cursor.execute(insert_query, person_data)
+                # logger.debug(f"About to commit")
                 self.conn.commit()
                 person_id = cursor.fetchone()[0]
                 logger.info(f"Inserted person to database. Person id: {person_id}")
                 return person_id
         except psycopg2.Error as error:
             # self.conn.rollback()
+            logger.error(f"Error inserting person: {error.pgerror}")
             raise Exception(f"Error inserting person, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
@@ -99,7 +103,7 @@ class PersonsRepository:
     def update(self, person: PersonDTO):
         update_query = """
         UPDATE persons
-        SET name = %s, company = %s, email = %s, position = %s, timezone = %s
+        SET name = %s, company = %s, email = %s, linkedin = %s position = %s, timezone = %s
         WHERE uuid = %s
         """
         person_data = person.to_tuple()

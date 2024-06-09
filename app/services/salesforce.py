@@ -16,6 +16,7 @@ from app_common.repositories.salesforce_users_repository import (
 from app_common.dependencies.dependencies import salesforce_users_repository
 from app_common.utils.str_utils import get_uuid4
 from app_common.repositories.contacts_repository import ContactsRepository
+from app_commin.data_transfer_objects.person import PersonDTO
 
 from events.genie_event import GenieEvent
 from events.topics import Topic

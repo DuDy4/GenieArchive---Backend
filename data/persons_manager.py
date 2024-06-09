@@ -4,7 +4,7 @@ from ai.langsmith.langsmith_loader import Langsmith
 from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
-from common.data_transfer_objects.person import PersonDTO
+from common.data_transfer_objects.personDTO import PersonDTO
 from common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
