@@ -94,4 +94,4 @@ class GenieConsumer:
         # await aiohttp.ClientSession.close_all()
 
         # Close any open aiohttp Connector instances
-        aiohttp.connector.BaseConnector.close_all()
+        # aiohttp.connector.BaseConnector.close_all()
