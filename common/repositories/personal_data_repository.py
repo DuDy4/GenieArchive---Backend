@@ -33,11 +33,9 @@ class PersonalDataRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                logger.debug("About to create personalData table")
                 cursor.execute(create_table_query)
-                logger.debug("About to commit")
                 self.conn.commit()
-                logger.info("Created personalData table")
+                # logger.info("Created personalData table")
         except psycopg2.Error as e:
             logger.error(f"Error creating table: {e.pgcode}: {e.pgerror}")
         except Exception as e:
@@ -187,7 +185,7 @@ class PersonalDataRepository:
             self.conn.rollback()
         return
 
-    def save_personal_data(self, uuid, personal_data: dict):
+    def save_personal_data(self, uuid, personal_data: dict | str):
         """
         Save personal data to the database.
 
