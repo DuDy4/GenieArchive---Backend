@@ -67,8 +67,12 @@ class PDLConsumer(GenieConsumer):
                     # add to daily queue?
                     return
                 else:
-                    profile = self.pdl_client.fetch_profile(person)
-                    data_to_transfer = {"person": person.to_json(), "profile": profile}
+                    personal_data = self.pdl_client.fetch_profile(person)
+                    data_to_transfer = {
+                        "person": person.to_dict(),
+                        "personal_data": personal_data,
+                    }
+                    logger.debug(f"Profile type: {type(personal_data)}")
                     event = GenieEvent(
                         Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
                     )
@@ -92,7 +96,7 @@ class PDLClient:
 
         Args:
             api_key (str): The API key for the People Data Labs API.
-            profiles_repository (PersonalDataRepository): The repository for storing profiles.
+            personal_data_repository (PersonalDataRepository): The repository for storing profiles.
         """
         self.personal_data_repository = personal_data_repository
 
