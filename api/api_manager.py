@@ -8,6 +8,7 @@ from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
 from common.repositories.profiles_repository import ProfilesRepository
 from common.dependencies.dependencies import profiles_repository
+from common.events.topics import Topic
 
 from redis import Redis
 
@@ -34,3 +35,12 @@ def get_profile(
         return profile.to_dict()
     else:
         return {"error": "Profile not found"}
+
+
+@v1_router.get("/topics", response_model=dict)
+def get_all_topics():
+    """
+    Fetches and returns a specific profile.
+    """
+    logger.info("Got topic request")
+    return Topic
