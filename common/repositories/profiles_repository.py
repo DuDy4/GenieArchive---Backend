@@ -2,7 +2,8 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from ..data_transfer_objects.personDTO import PersonDTO
+from ..data_transfer_objects.person_dto import PersonDTO
+from ..data_transfer_objects.profile_dto import ProfileDTO
 from loguru import logger
 
 
@@ -93,6 +94,26 @@ class ProfilesRepository:
 
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
+        return None
+
+    def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
+        select_query = """
+        SELECT name, challenges, strengths, summary
+        FROM persons
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[0]} from database")
+                    return ProfileDTO.from_tuple(row)
+                else:
+                    logger.error(f"Error with getting person data for {uuid}")
+
+        except Exception as error:
+            logger.error("Error fetching profile data by uuid:", error)
         return None
 
     def update(self, person):
