@@ -124,12 +124,13 @@ class SalesforceAgent:
 
 
 def handle_new_contacts_event(new_contacts: list[PersonDTO]):
+    logger.info(f"Topic: {Topic.NEW_CONTACT}")
     try:
         for i in range(0, len(new_contacts)):
-            contact = new_contacts[i].to_dict()
+            contact = new_contacts[i].to_json()
             event = GenieEvent(
                 Topic.NEW_CONTACT,
-                str(contact),
+                contact,
                 "public",
             )
             event.send()
