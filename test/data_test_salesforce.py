@@ -16,9 +16,7 @@ def test_new_contacts():
     company='GenieAI', email='asaf@trywonder.ai', linkedin='https://www.linkedin.com/in/asaf-savich/',
     position='CTO', timezone='')]"""
 
-    event = GenieEvent(
-        topic=Topic.NEW_CONTACTS_TO_CHECK, data=test_data, scope="public"
-    )
+    event = GenieEvent(topic=Topic.NEW_CONTACT_TO_CHECK, data=test_data, scope="public")
     event.send()
 
 

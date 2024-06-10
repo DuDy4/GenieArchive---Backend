@@ -24,7 +24,7 @@ class PDLConsumer(GenieConsumer):
     def __init__(
         self,
     ):
-        super().__init__(topics=[Topic.PDL])
+        super().__init__(topics=[Topic.NEW_CONTACT_TO_ENRICH])
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
