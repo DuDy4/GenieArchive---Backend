@@ -23,7 +23,7 @@ from events.topics import Topic
 
 load_dotenv()
 
-SELF_URL = os.environ.get("self_url", "https://localhost:8444")
+SELF_URL = os.environ.get("self_url", "https://localhost:3000")
 SALESFORCE_CLIENT_ID = os.environ.get("SALESFORCE_CLIENT_ID")
 SALESFORCE_CLIENT_SECRET = os.environ.get("SALESFORCE_CLIENT_SECRET")
 SALESFORCE_LOGIN_URL = os.environ.get("SALESFORCE_LOGIN_URL")
