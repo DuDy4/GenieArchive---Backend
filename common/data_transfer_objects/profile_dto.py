@@ -54,3 +54,6 @@ class ProfileDTO:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return ProfileDTO.from_dict(data)
+
+    def __str__(self):
+        return f"ProfileDTO(uuid={self.uuid}, name={self.name}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary})"

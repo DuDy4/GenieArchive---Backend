@@ -20,7 +20,6 @@ from common.events.genie_consumer import GenieConsumer
 from common.repositories.personal_data_repository import PersonalDataRepository
 from common.dependencies.dependencies import profiles_repository
 
-
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
 
@@ -34,11 +33,25 @@ class Person(GenieConsumer):
         logger.info(
             f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
         )
-        response = self.langsmith.run_prompt_test(event.body_as_str())
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {event_body}")
+        if type(event_body) == str:
+            event_body = json.loads(event_body)
+        personal_data = event_body.get("personal_data")
+        response = self.langsmith.run_prompt_test(personal_data)
         logger.info(f"Response: {response}")
-        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, response, "public")
+
+        event_body = json_to_python(event_body)
+        if type(event_body) == str:
+            event_body = json.loads(event_body)
+        person = event_body.get("person")
+        logger.debug(f"Person: {person}")
+
+        data_to_send = {"person": person, "profile": response}
+
+        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()
-        return response
+        return data_to_send
 
 
 #
@@ -82,12 +95,4 @@ class Person(GenieConsumer):
 
 if __name__ == "__main__":
     person = Person()
-    # uvicorn.run(
-    #     "person:app",
-    #     host="0.0.0.0",
-    #     port=PERSON_PORT,
-    #     ssl_keyfile="../key.pem",
-    #     ssl_certfile="../cert.pem",
-    # )
-    # print("Running person service")
     person.run()

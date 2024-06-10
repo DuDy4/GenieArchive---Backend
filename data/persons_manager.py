@@ -8,6 +8,7 @@ from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
 from common.data_transfer_objects.person_dto import PersonDTO
+from common.data_transfer_objects.profile_dto import ProfileDTO
 from common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -32,7 +33,7 @@ class PersonManager(GenieConsumer):
                 Topic.NEW_CONTACT,
                 Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
-                Topic.NEW_PROCESSED_DATA,
+                Topic.NEW_PROCESSED_PROFILE,
             ]
         )
         self.persons_repository = persons_repository()
@@ -56,7 +57,7 @@ class PersonManager(GenieConsumer):
             case Topic.UPDATED_ENRICHED_DATA:
                 logger.info("Handling updated enriched data")
                 await self.handle_updated_enriched_data(event)
-            case Topic.NEW_PROCESSED_DATA:
+            case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
                 await self.handle_new_processed_data(event)
             case _:
@@ -77,7 +78,7 @@ class PersonManager(GenieConsumer):
 
         # Send "pdl" event to the event queue
         person_json = new_person.to_json()
-        event = GenieEvent(Topic.PDL, person_json, "public")
+        event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
 
@@ -93,23 +94,57 @@ class PersonManager(GenieConsumer):
 
     async def handle_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
-        event_body = event.body_as_str()
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
-        uuid = event_body.get("uuid")
-        self.personal_data_repository.save_personal_data(uuid, personal_data)
-        logger.info("Inserted/Updated enriched data in personal_data_repository")
-
+        logger.info(f"Personal data's type: {type(personal_data)}")
+        person: PersonDTO = PersonDTO.from_dict(json.loads(event_body.get("person")))
+        logger.info(f"Person: {person}")
+        personal_data_in_database = self.personal_data_repository.get_personal_data(
+            person.uuid
+        )
+        logger.debug(
+            f"Personal data in database's type: {type(personal_data_in_database)}"
+        )
+        if personal_data_in_database != personal_data:
+            logger.error(
+                "Personal data in database does not match the one received from event"
+            )
+            logger.debug(f"Personal data in database: {personal_data_in_database}")
+            logger.debug(f"Personal data received: {personal_data}")
+        data_to_send = {"person": person, "personal_data": personal_data}
         # Send "new_personal_data" event to the event queue
-        event = GenieEvent(Topic.NEW_PERSONAL_DATA, personal_data, "public")
+        event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
         logger.info("Sent 'new_personal_data' event to the event queue")
 
     async def handle_new_processed_data(self, event):
         # Assuming the event body contains a JSON string with the processed data
-        event_body = event.body_as_str()
-        processed_person = PersonDTO.from_dict(event_body)
-        self.profiles_repository.save_profile(processed_person)
-        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, processed_person, "public")
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        # logger.debug(f"Event body: {event_body}, event_body's type: {type(event_body)}")
+        person = json.loads(event_body.get("person"))
+        profile = json.loads(event_body.get("profile"))
+        logger.debug(f"Profile: {profile}, profile's type: {type(profile)}")
+        # logger.debug(f"Person: {person}", f"Person's type: {type(person)}")
+
+        profile_person = ProfileDTO.from_dict(
+            {
+                "uuid": person.get("uuid"),
+                "name": person.get("name"),
+                "challenges": profile.get("challenges", []),
+                "strengths": profile.get("strengths", []),
+                "summary": profile.get("summary", ""),
+            }
+        )
+        logger.debug(f"Profile person: {profile_person}")
+        self.profiles_repository.save_profile(profile_person)
+        json_profile = profile_person.to_json()
+        event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         logger.info("Saved new processed data to profiles_repository")
 

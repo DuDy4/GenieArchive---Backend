@@ -1,3 +1,5 @@
+import json
+import traceback
 from typing import Optional, Union, List
 
 import psycopg2
@@ -24,7 +26,7 @@ class ProfilesRepository:
             name VARCHAR,
             challenges JSONB,
             strengths JSONB,
-            summary TEXT;
+            summary TEXT
         );
         """
         try:
@@ -36,35 +38,35 @@ class ProfilesRepository:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
 
-    def insert_profile(self, person: PersonDTO) -> str | None:
+    def insert_profile(self, profile: ProfileDTO) -> str | None:
         """
-        :param person: PersonDTO object with person data to insert into database
-        :return the id of the newly created person in database:
+        :param profile: ProfileDTO object with profile data to insert into database
+        :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, name, challenges, strengths, summary)
+        INSERT INTO profiles (uuid, name, challenges, strengths, summary)
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert profile: {person}")
-        person_data = person.to_tuple()
+        logger.info(f"About to insert profile: {profile}")
+        profile_data = profile.to_tuple()
 
-        logger.info(f"About to insert person data: {person_data}")
+        logger.info(f"About to insert profile data: {profile_data}")
 
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, person_data)
+                cursor.execute(insert_query, profile_data)
                 self.conn.commit()
-                person_id = cursor.fetchone()[0]
-                logger.info(f"Inserted person to database. Person id: {person_id}")
-                return person_id
+                profile_id = cursor.fetchone()[0]
+                logger.info(f"Inserted profile to database. profile id: {profile_id}")
+                return profile_id
         except psycopg2.Error as error:
             # self.conn.rollback()
-            raise Exception(f"Error inserting person, because: {error.pgerror}")
+            raise Exception(f"Error inserting profile, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"About to check if uuid exists: {uuid}")
-        exists_query = "SELECT 1 FROM persons WHERE uuid = %s;"
+        exists_query = "SELECT 1 FROM profiles WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
                 logger.info(f"about to execute check if uuid exists: {uuid}")
@@ -80,8 +82,8 @@ class ProfilesRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
-    def get_person_id(self, uuid):
-        select_query = "SELECT id FROM persons WHERE uuid = %s;"
+    def get_profile_id(self, uuid):
+        select_query = "SELECT id FROM profiles WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
@@ -90,7 +92,7 @@ class ProfilesRepository:
                     logger.info(f"Got {row[2]} from database")
                     return
                 else:
-                    logger.error(f"Error with getting person id for {uuid}")
+                    logger.error(f"Error with getting profile id for {uuid}")
 
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
@@ -98,8 +100,8 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT name, challenges, strengths, summary
-        FROM persons
+        SELECT uuid, name, challenges, strengths, summary
+        FROM profiles
         WHERE uuid = %s;
         """
         try:
@@ -110,31 +112,38 @@ class ProfilesRepository:
                     logger.info(f"Got {row[0]} from database")
                     return ProfileDTO.from_tuple(row)
                 else:
-                    logger.error(f"Error with getting person data for {uuid}")
-
+                    logger.error(f"Error with getting profile data for {uuid}")
         except Exception as error:
             logger.error("Error fetching profile data by uuid:", error)
+            traceback.print_exception(error)
         return None
 
-    def update(self, person):
+    def update(self, profile):
         update_query = """
-        UPDATE persons
+        UPDATE profiles
         SET name = %s, challenges = %s, strengths = %s, summary = %s
         WHERE uuid = %s;
         """
-        person_data = person.to_tuple()
+        profile_data = profile.to_tuple()
+        profile_data = profile_data[1:] + (profile_data[0],)  # move uuid to the end
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, person_data)
+                cursor.execute(update_query, profile_data)
                 self.conn.commit()
-                logger.info(f"Updated person with uuid: {person.uuid}")
+                logger.info(f"Updated profile with uuid: {profile.uuid}")
         except psycopg2.Error as error:
             # self.conn.rollback()
-            raise Exception(f"Error updating person, because: {error.pgerror}")
+            raise Exception(f"Error updating profile, because: {error.pgerror}")
 
-    def save_profile(self, person: PersonDTO):
+    def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
-        if self.exists(person.uuid):
-            self.update(person)
+        if self.exists(profile.uuid):
+            profile.strengths = json.dumps(
+                profile.strengths
+            )  # convert to json to insert to JSONB
+            self.update(profile)
         else:
-            self.insert_profile(person)
+            profile.strengths = json.dumps(
+                profile.strengths
+            )  # convert to json to insert to JSONB
+            self.insert_profile(profile)

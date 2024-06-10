@@ -38,7 +38,7 @@ class GenieConsumer:
             if topic and (topic.decode("utf-8") in self.topics):
                 # logger.info(f"About to process event: {event}")
                 event_result = await self.process_event(event)
-                logger.info(f"Event processed. Result: {event_result}")
+                logger.info(f"Event processed. Body: {event_result}")
         except Exception as e:
             logger.info("Exception occurred:", e)
             logger.info("Detailed traceback information:")
