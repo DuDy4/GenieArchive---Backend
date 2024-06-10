@@ -11,7 +11,7 @@ from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
 from common.repositories.personal_data_repository import PersonalDataRepository
 from common.events.genie_consumer import GenieConsumer
-from common.data_transfer_objects.personDTO import PersonDTO as DTOPerson
+from common.data_transfer_objects.person_dto import PersonDTO as DTOPerson
 
 load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")

@@ -7,7 +7,7 @@ from app.app_common.dependencies.dependencies import contacts_repository
 from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
-from app.app_common.data_transfer_objects.personDTO import PersonDTO
+from app.app_common.data_transfer_objects.person_dto import PersonDTO
 
 
 class SalesforceConsumer(GenieConsumer):

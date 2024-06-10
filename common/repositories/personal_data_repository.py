@@ -5,7 +5,7 @@ import traceback
 
 from loguru import logger
 
-from common.data_transfer_objects.personDTO import PersonDTO
+from common.data_transfer_objects.person_dto import PersonDTO
 
 
 class PersonalDataRepository:

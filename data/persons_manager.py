@@ -7,7 +7,7 @@ from loguru import logger
 from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
-from common.data_transfer_objects.personDTO import PersonDTO
+from common.data_transfer_objects.person_dto import PersonDTO
 from common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
