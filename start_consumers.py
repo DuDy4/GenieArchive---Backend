@@ -5,7 +5,7 @@ from loguru import logger
 from data.pdl import PDLConsumer
 from data.persons_manager import PersonManager
 from app.services.SalesforceConsumer import SalesforceConsumer
-from data.person import Person
+from data.person_langsmith import Person
 
 
 async def run_all_consumers(consumers):
@@ -22,7 +22,10 @@ def start_consumers():
     person = Person()
     pdl_consumer = PDLConsumer()
 
-    asyncio.run(run_all_consumers([person_manager, person, pdl_consumer]))
+    # asyncio.run(run_all_consumers([person_manager, person, pdl_consumer]))
+    # person_manager.run()
+    person.run()
+    # pdl_consumer.run()
 
 
 if __name__ == "__main__":
