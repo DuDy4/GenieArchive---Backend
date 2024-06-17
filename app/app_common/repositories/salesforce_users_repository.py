@@ -42,7 +42,6 @@ class SalesforceUsersRepository:
         try:
             if not self.exists(company, client_url):
                 with self.conn.cursor() as cursor:
-                    logger.debug(f"About to insert Salesforce user: {uuid}")
                     cursor.execute(
                         insert_query,
                         (uuid, company, client_url, refresh_token, access_token),
@@ -59,9 +58,6 @@ class SalesforceUsersRepository:
         self.create_table_if_not_exists()
         select_query = """SELECT uuid FROM sf_users WHERE company = %s AND salesforce_client_url = %s"""
         try:
-            logger.debug(
-                f"Checking existence of Salesforce user with company: {company} and client_url: {client_url}"
-            )
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (company, client_url))
                 result = cursor.fetchone()
@@ -103,7 +99,6 @@ class SalesforceUsersRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                logger.debug(f"About to update Salesforce user: {uuid}")
                 cursor.execute(update_query, (refresh_token, access_token, uuid))
                 self.conn.commit()
                 logger.info("Updated Salesforce user in database")

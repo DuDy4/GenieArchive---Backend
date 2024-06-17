@@ -4,6 +4,8 @@ import sys
 
 from loguru import logger
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from common.events.genie_consumer import GenieConsumer
 from common.events.genie_event import GenieEvent
 from common.events.topics import Topic
@@ -34,7 +36,8 @@ class PersonManager(GenieConsumer):
                 Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
-            ]
+            ],
+            consumer_group="personmanagerconsumergroup",
         )
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
@@ -59,7 +62,7 @@ class PersonManager(GenieConsumer):
                 await self.handle_updated_enriched_data(event)
             case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
-                await self.handle_new_processed_data(event)
+                await self.handle_new_processed_profile(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -67,10 +70,12 @@ class PersonManager(GenieConsumer):
         # Assuming the event body contains a JSON string with the contact data
         logger.info("Handling new Salesforce contact")
         contact_data_str = event.body_as_str()
-        logger.debug(f"Contact data: {contact_data_str}")
         contact_data = json.loads(contact_data_str)
+        if isinstance(contact_data, str):
+            contact_data = json.loads(contact_data)
         new_person = PersonDTO.from_dict(contact_data)
-        self.persons_repository.save_person(new_person)
+        uuid = self.persons_repository.save_person(new_person)
+        new_person.uuid = uuid
         if not new_person.linkedin:
             logger.error("Person got no LinkedIn profile, skipping PDL enrichment")
             return
@@ -99,43 +104,39 @@ class PersonManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
-        logger.info(f"Personal data's type: {type(personal_data)}")
-        person: PersonDTO = PersonDTO.from_dict(json.loads(event_body.get("person")))
-        logger.info(f"Person: {person}")
+        person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
+        person: PersonDTO = PersonDTO.from_dict(person_dict)
         personal_data_in_database = self.personal_data_repository.get_personal_data(
             person.uuid
         )
-        logger.debug(
-            f"Personal data in database's type: {type(personal_data_in_database)}"
-        )
+
         if personal_data_in_database != personal_data:
             logger.error(
                 "Personal data in database does not match the one received from event"
             )
             logger.debug(f"Personal data in database: {personal_data_in_database}")
             logger.debug(f"Personal data received: {personal_data}")
-        data_to_send = {"person": person, "personal_data": personal_data}
+        data_to_send = {"person": person.to_dict(), "personal_data": personal_data}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
         logger.info("Sent 'new_personal_data' event to the event queue")
 
-    async def handle_new_processed_data(self, event):
+    async def handle_new_processed_profile(self, event):
         # Assuming the event body contains a JSON string with the processed data
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        # logger.debug(f"Event body: {event_body}, event_body's type: {type(event_body)}")
-        person = json.loads(event_body.get("person"))
-        profile = json.loads(event_body.get("profile"))
-        logger.debug(f"Profile: {profile}, profile's type: {type(profile)}")
-        # logger.debug(f"Person: {person}", f"Person's type: {type(person)}")
+        person_dict = event_body.get("person")
+        profile = event_body.get("profile")
 
         profile_person = ProfileDTO.from_dict(
             {
-                "uuid": person.get("uuid"),
-                "name": person.get("name"),
+                "uuid": person_dict.get("uuid"),
+                "name": person_dict.get("name"),
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
                 "summary": profile.get("summary", ""),

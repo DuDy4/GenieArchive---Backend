@@ -1,10 +1,13 @@
 """Module for interacting with the People Data Labs API."""
 import json
 import os
+import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from loguru import logger
 from peopledatalabs import PDLPY
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from common.dependencies.dependencies import personal_data_repository
 from common.events.genie_event import GenieEvent
@@ -24,7 +27,9 @@ class PDLConsumer(GenieConsumer):
     def __init__(
         self,
     ):
-        super().__init__(topics=[Topic.NEW_CONTACT_TO_ENRICH])
+        super().__init__(
+            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup"
+        )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
@@ -41,22 +46,16 @@ class PDLConsumer(GenieConsumer):
         person = DTOPerson.from_json(event_body)
         logger.info(f"Person: {person}")
 
-        # """
-        # The flow is as follows:
-        # 1. Check if the person exists in the database.
-        #     2. If the person exists, check the status and the last updated timestamp.
-        #     3. decide if we want to send a request.
-        #     4. if the result is good, save it to the database.
-        # 5. if does not exists in database, send a request.
-        # 6. if the result is good, save it to the database.
-        # 7. if the result is bad, save it to the database.
-        # """
         person.linkedin = self.pdl_client.fix_linkedin_url(person.linkedin)
         if self.personal_data_repository.exists_linkedin_url(person.linkedin):
+            logger.info(
+                f"Profile for {person.linkedin} already exists in the database."
+            )
             last_updated_timestamp = self.personal_data_repository.get_last_updated(
-                person.uuid
+                person.linkedin
             )
             if last_updated_timestamp:
+                logger.debug(f"Last updated: {last_updated_timestamp}")
                 time_since_last_update = datetime.now() - last_updated_timestamp
                 if time_since_last_update < timedelta(
                     seconds=MIN_INTERVAL_TO_FETCH_PROFILES
@@ -72,16 +71,15 @@ class PDLConsumer(GenieConsumer):
                         "person": person.to_dict(),
                         "personal_data": personal_data,
                     }
-                    logger.debug(f"Profile type: {type(personal_data)}")
                     event = GenieEvent(
                         Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
                     )
                     event.send()
                     logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
         else:
+
             profile = self.pdl_client.fetch_profile(person)
-            logger.debug(f"Profile type: {type(profile)}")
-            data_to_transfer = {"person": person.to_json(), "profile": profile}
+            data_to_transfer = {"person": person.to_json(), "personal_data": profile}
             event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
             event.send()
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")

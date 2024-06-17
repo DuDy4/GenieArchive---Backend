@@ -76,9 +76,6 @@ class SalesforceAgent:
         Returns:
         list: List of contact records.
         """
-        # fields_info = get_all_fields(self.sf_client.access_token, self.sf_client.instance_url, "Contact")
-        # fields = [field["name"] for field in fields_info["fields"]]
-        # logger.debug(f"Fields: {fields}")
         url = f"{self.sf_client.instance_url}/services/data/v60.0/query/"
         query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name, linkedInUrl__c FROM Contact LIMIT 100"
         headers = {

@@ -54,13 +54,11 @@ class PersonsRepository:
 
         try:
             with self.conn.cursor() as cursor:
-                # logger.debug(f"About to execute insert query: {insert_query}")
                 cursor.execute(insert_query, person_data)
-                # logger.debug(f"About to commit")
                 self.conn.commit()
                 person_id = cursor.fetchone()[0]
                 logger.info(f"Inserted person to database. Person id: {person_id}")
-                return person_id
+                return person.uuid
         except psycopg2.Error as error:
             # self.conn.rollback()
             logger.error(f"Error inserting person: {error.pgerror}")
@@ -79,6 +77,21 @@ class PersonsRepository:
                 return result
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
+    def exists_properties(self, person: PersonDTO) -> bool:
+        logger.info(f"About to check if person exists: {person}")
+        exists_query = "SELECT uuid FROM persons WHERE name = %s AND linkedin = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(exists_query, (person.name, person.linkedin))
+                result = cursor.fetchone()
+                return result[0]
+        except psycopg2.Error as error:
+            logger.error(f"Error checking existence of person ({person.name}): {error}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
@@ -103,7 +116,7 @@ class PersonsRepository:
     def update(self, person: PersonDTO):
         update_query = """
         UPDATE persons
-        SET name = %s, company = %s, email = %s, linkedin = %s position = %s, timezone = %s
+        SET name = %s, company = %s, email = %s, linkedin = %s, position = %s, timezone = %s
         WHERE uuid = %s
         """
         person_data = person.to_tuple()
@@ -120,7 +133,10 @@ class PersonsRepository:
 
     def save_person(self, person: PersonDTO):
         self.create_table_if_not_exists()
-        if self.exists(person.uuid):
-            return self.update(person)
+        uuid = self.exists_properties(person)
+        logger.info(f"Person exists: {uuid}")
+        if uuid:
+            self.update(person)
+            return uuid
         else:
             return self.insert(person)

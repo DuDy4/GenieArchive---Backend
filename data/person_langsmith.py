@@ -9,23 +9,23 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from loguru import logger
 
-from common.events.genie_event import GenieEvent
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ai.langsmith.langsmith_loader import Langsmith
+from common.events.genie_event import GenieEvent
 from common.utils.json_utils import json_to_python
 from common.events.topics import Topic
 from common.events.genie_consumer import GenieConsumer
-from common.repositories.personal_data_repository import PersonalDataRepository
-from common.dependencies.dependencies import profiles_repository
+
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
 
-class Person(GenieConsumer):
+class LangsmithConsumer(GenieConsumer):
     def __init__(self):
-        super().__init__(topics=[Topic.NEW_PROCESSED_DATA])
+        super().__init__(
+            topics=[Topic.NEW_PERSONAL_DATA], consumer_group="langsmithconsumergroup"
+        )
         self.langsmith = Langsmith()
 
     async def process_event(self, event):
@@ -35,15 +35,12 @@ class Person(GenieConsumer):
         )
         event_body = event.body_as_str()
         logger.info(f"Event body: {event_body}")
-        if type(event_body) == str:
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
-        response = self.langsmith.run_prompt_test(personal_data)
+        response = self.langsmith.run_prompt_test(str(personal_data))
         logger.info(f"Response: {response}")
-
-        event_body = json_to_python(event_body)
-        if type(event_body) == str:
-            event_body = json.loads(event_body)
         person = event_body.get("person")
         logger.debug(f"Person: {person}")
 
@@ -94,5 +91,5 @@ class Person(GenieConsumer):
 
 
 if __name__ == "__main__":
-    person = Person()
-    person.run()
+    langsmith_consumer = LangsmithConsumer()
+    langsmith_consumer.run()

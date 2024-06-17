@@ -261,7 +261,7 @@ class ContactsRepository:
                     contact.uuid = uuid
                     if not self.exists_all(contact):
                         self.update_contact(contact)
-                        changed_contacts.append(contact)
+                        changed_contacts.append(contact.to_dict())
                 else:
                     self.insert_contact(contact)
                     logger.info(f"Inserted person: {contact.name}")

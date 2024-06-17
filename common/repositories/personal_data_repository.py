@@ -199,7 +199,7 @@ class PersonalDataRepository:
         self.update(uuid, personal_data)
         return
 
-    def get_last_updated(self, uuid):
+    def get_last_updated(self, linkedin_url: str):
         """
         Retrieve the last updated timestamp for a profile.
 
@@ -209,11 +209,11 @@ class PersonalDataRepository:
         select_query = """
         SELECT last_updated
         FROM personalData
-        WHERE uuid = %s
+        WHERE linkedin_url = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (linkedin_url,))
                 last_updated = cursor.fetchone()
                 if last_updated:
                     return last_updated[0]

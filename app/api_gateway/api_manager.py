@@ -140,7 +140,6 @@ def callback_salesforce(request: Request) -> PlainTextResponse:
 
     #  company's name supposed to be save in the state parameter
     company = request.query_params.get("state")
-    logger.debug(f"Company: {company}")
 
     token_data = handle_callback(company, str(request.url))
 

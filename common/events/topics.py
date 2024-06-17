@@ -5,5 +5,4 @@ class Topic:
     NEW_INTERACTION = "new-interaction"
     UPDATED_ENRICHED_DATA = "got-updated-enriched-data"
     NEW_PERSONAL_DATA = "new-personal-data-to-process"
-    NEW_PROCESSED_DATA = "new-processed-data"
     NEW_PROCESSED_PROFILE = "new-processed-profile"
