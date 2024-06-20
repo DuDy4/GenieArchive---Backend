@@ -198,3 +198,21 @@ async def get_all_contact(
 
     logger.info(f"Got contacts: {len(contacts)}")
     return PlainTextResponse(f"Got contacts: {len(contacts)}")
+
+
+@v1_router.post("/salesforce/webhook", response_model=dict)
+async def salesforce_webhook(request: Request):
+    """
+    Endpoint to receive and process Salesforce Platform Events.
+    """
+    try:
+        event_data = await request.json()
+        logger.info(f"Received event data: {event_data}")
+
+        # Process the event data as needed
+        # For example, you can log it or store it in a database
+
+        return {"status": "success", "message": "Event received"}
+    except Exception as e:
+        logger.error(f"Error processing webhook event: {e}")
+        return {"status": "error", "message": str(e)}

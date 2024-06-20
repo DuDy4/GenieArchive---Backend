@@ -21,6 +21,7 @@ class ContactsRepository:
         CREATE TABLE IF NOT EXISTS contacts (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
+            salesforce_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
@@ -37,21 +38,22 @@ class ContactsRepository:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
 
-    def insert_contact(self, contact: PersonDTO) -> str | None:
+    def insert_contact(self, contact: PersonDTO, salesforce_id) -> str | None:
         """
         :param contact: PersonDTO object with contact data to insert into database
+        :param salesforce_id: salesforce id of the contact
         :return the id of the newly created contact in database:
         """
         insert_query = """
-        INSERT INTO contacts (uuid, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO contacts (salesforce_id, uuid, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         contact_data = contact.to_tuple()
         try:
             if not self.exists(contact.uuid):
                 with self.conn.cursor() as cursor:
-                    cursor.execute(insert_query, contact_data)
+                    cursor.execute(insert_query, (salesforce_id,) + contact_data)
                     self.conn.commit()
                     contact_id = cursor.fetchone()[0]
                     logger.info(
@@ -74,6 +76,23 @@ class ContactsRepository:
                 return result
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
+    def exists_salesforce_id(self, salesforce_id) -> bool:
+        exists_query = "SELECT uuid FROM contacts WHERE salesforce_id = %s;"
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(exists_query, (salesforce_id,))
+                result = cursor.fetchone()
+                return result[0] if result else False
+        except psycopg2.Error as error:
+            logger.error(
+                f"Error checking existence of salesforce_id {salesforce_id}: {error}"
+            )
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
@@ -174,6 +193,9 @@ class ContactsRepository:
     def get_name(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "name")
 
+    def get_salesforce_id(self, id_or_uuid: str | int) -> Optional[str]:
+        return self._get_attribute(id_or_uuid, "salesforce_id")
+
     def get_company(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "company")
 
@@ -254,16 +276,21 @@ class ContactsRepository:
         self.create_table_if_not_exists()
         changed_contacts = []
         for contact in contacts_list:
+            logger.info(f"Handling contact: {contact}")
+            contact_id = contact.get("Id")
             contact = PersonDTO.from_sf_contact(contact)
+            logger.info(f"Contact: {contact}")
             try:
-                uuid = self.exists_identity(contact.name, contact.email)
+                uuid = self.exists_salesforce_id(contact_id)
                 if uuid:
                     contact.uuid = uuid
+
+                    # check if the contact was changed since the last time we fetched it
                     if not self.exists_all(contact):
                         self.update_contact(contact)
                         changed_contacts.append(contact.to_dict())
                 else:
-                    self.insert_contact(contact)
+                    self.insert_contact(contact, contact_id)
                     logger.info(f"Inserted person: {contact.name}")
                     changed_contacts.append(contact)
             except Exception as e:
