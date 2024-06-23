@@ -2,20 +2,14 @@ import json
 import sys
 import os
 
-import uvicorn
-from fastapi import FastAPI, Depends, Request
-from fastapi.routing import APIRouter
-from fastapi.responses import PlainTextResponse, RedirectResponse
-
 from loguru import logger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ai.langsmith.langsmith_loader import Langsmith
-from common.events.genie_event import GenieEvent
-from common.utils.json_utils import json_to_python
-from common.events.topics import Topic
-from common.events.genie_consumer import GenieConsumer
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
+from data.data_common.events.genie_consumer import GenieConsumer
 
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)

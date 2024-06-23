@@ -1,8 +1,6 @@
-from typing import Optional, Union, List
-
 import psycopg2
 
-from ..data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from loguru import logger
 
 

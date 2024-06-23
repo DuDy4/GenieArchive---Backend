@@ -1,11 +1,9 @@
-from typing import Optional, Union, List
+from typing import Optional
 import json
 import psycopg2
 import traceback
 
 from loguru import logger
-
-from common.data_transfer_objects.person_dto import PersonDTO
 
 
 class PersonalDataRepository:

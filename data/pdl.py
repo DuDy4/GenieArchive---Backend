@@ -10,11 +10,13 @@ from peopledatalabs import PDLPY
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from common.dependencies.dependencies import personal_data_repository
-from common.events.genie_event import GenieEvent
-from common.events.topics import Topic
-from common.repositories.personal_data_repository import PersonalDataRepository
-from common.events.genie_consumer import GenieConsumer
-from common.data_transfer_objects.person_dto import PersonDTO as DTOPerson
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
+from data.data_common.repositories.personal_data_repository import (
+    PersonalDataRepository,
+)
+from data.data_common.events.genie_consumer import GenieConsumer
+from data.data_common.data_transfer_objects.person_dto import PersonDTO as DTOPerson
 
 load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")

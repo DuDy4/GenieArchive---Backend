@@ -5,8 +5,11 @@ from data.data_common.repositories.interactions_repository import InteractionsRe
 from data.data_common.repositories.salesforce_users_repository import (
     SalesforceUsersRepository,
 )
-from data.data_common.postgres_connector import get_db_connection
-from ..consumers.salesforce_event_handler import SalesforceEventHandler
+from ..postgres_connector import get_db_connection
+from ..repositories.personal_data_repository import PersonalDataRepository
+from ..repositories.persons_repository import PersonsRepository
+from ..repositories.profiles_repository import ProfilesRepository
+from ..salesforce.salesforce_event_handler import SalesforceEventHandler
 
 
 def contacts_repository() -> ContactsRepository:
@@ -24,6 +27,36 @@ def interactions_repository() -> InteractionsRepository:
     try:
         with conn:
             return InteractionsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def personal_data_repository() -> PersonalDataRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return PersonalDataRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def profiles_repository() -> ProfilesRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return ProfilesRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def persons_repository() -> PersonsRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return PersonsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

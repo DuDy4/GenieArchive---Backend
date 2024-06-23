@@ -1,5 +1,5 @@
 """
-Module for interacting with the Salesforce API.
+Module for interacting with the salesforce API.
 """
 import json
 import os
@@ -10,20 +10,20 @@ from dotenv import load_dotenv
 import requests
 from loguru import logger
 from requests_oauthlib import OAuth2Session
-from app_common.repositories.salesforce_users_repository import (
+from data.data_common.repositories.salesforce_users_repository import (
     SalesforceUsersRepository,
 )
-from app_common.dependencies.dependencies import salesforce_users_repository
-from app_common.utils.str_utils import get_uuid4
-from app_common.repositories.contacts_repository import ContactsRepository
-from app_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.dependencies.dependencies import salesforce_users_repository
+from data.data_common.utils.str_utils import get_uuid4
+from data.data_common.repositories.contacts_repository import ContactsRepository
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
-from app_common.events.genie_event import GenieEvent
-from app_common.events.topics import Topic
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
 
 load_dotenv()
 
-SELF_URL = os.environ.get("self_url", "https://localhost:3000")
+SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
 SALESFORCE_CLIENT_ID = os.environ.get("SALESFORCE_CLIENT_ID")
 SALESFORCE_CLIENT_SECRET = os.environ.get("SALESFORCE_CLIENT_SECRET")
 SALESFORCE_LOGIN_URL = os.environ.get("SALESFORCE_LOGIN_URL")
@@ -35,7 +35,7 @@ sf_users_repository = salesforce_users_repository()
 
 class SalesforceClient:
     """
-    Class for interacting with the Salesforce API on behalf of a company.
+    Class for interacting with the salesforce API on behalf of a company.
     """
 
     def __init__(
@@ -47,8 +47,8 @@ class SalesforceClient:
         Initializes the SalesforceClient with the given parameters.
 
         Args:
-            access_token (str): The access token for the Salesforce (for accessing client's salesforce instance).
-            instance_url (str): The URL for the Salesforce instance (client's salesforce instance).
+            access_token (str): The access token for the salesforce (for accessing client's salesforce instance).
+            instance_url (str): The URL for the salesforce instance (client's salesforce instance).
         """
         self.access_token = access_token
         self.instance_url = instance_url
@@ -71,7 +71,7 @@ class SalesforceAgent:
 
     async def get_contacts(self):
         """
-        Retrieve contacts from Salesforce.
+        Retrieve contacts from salesforce.
 
         Returns:
         list: List of contact records.
@@ -140,7 +140,7 @@ def handle_new_contacts_event(new_contacts: list[PersonDTO]):
 
 def get_authorization_url(company: str) -> str:
     """
-    Returns the authorization URL for the Salesforce API.
+    Returns the authorization URL for the salesforce API.
 
     Args:
         company (str): The name of the company.
@@ -170,7 +170,7 @@ def handle_callback(company: str, response_url: str) -> None:
         authorization_response=response_url,
     )
     logger.info(
-        f"Salesforce data updated for {company}. Client URL: {token_data['instance_url']}."
+        f"salesforce data updated for {company}. Client URL: {token_data['instance_url']}."
     )
     logger.info(f"About to insert new user to salesforce repository")
 
@@ -210,7 +210,7 @@ def create_salesforce_client(
     """
 
     if not refresh_token:
-        logger.warning(f"No Salesforce refresh token found for {company_name}.")
+        logger.warning(f"No salesforce refresh token found for {company_name}.")
         return None
     sf = OAuth2Session(
         client_id=SALESFORCE_CLIENT_ID,

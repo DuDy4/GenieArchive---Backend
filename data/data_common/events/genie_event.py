@@ -1,10 +1,8 @@
 import json
 import os
-import asyncio
 
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
-from common.events.topics import Topic
 from loguru import logger
 
 load_dotenv()

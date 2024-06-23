@@ -3,7 +3,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from ..data_transfer_objects.person_dto import PersonDTO
+from app.app_common.data_transfer_objects.person_dto import PersonDTO
 from loguru import logger
 
 
@@ -294,11 +294,11 @@ class ContactsRepository:
 
     def handle_sf_contacts_list(self, contacts_list: list[dict]):
         """
-        Insert or update contacts from Salesforce to the database,
+        Insert or update contacts from salesforce to the database,
         and return the list of changed contacts (from last time we fetched contact from salesforce) that we need to
         check if the personal data has changed
 
-        :param contacts_list: list of contacts from Salesforce
+        :param contacts_list: list of contacts from salesforce
         :return: list of changed contacts
         """
         self.create_table_if_not_exists()

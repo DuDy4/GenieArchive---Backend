@@ -48,7 +48,7 @@ class SalesforceUsersRepository:
                         (uuid, company, client_url, refresh_token, access_token),
                     )
                     self.conn.commit()
-                    logger.info("Inserted Salesforce user into database")
+                    logger.info("Inserted salesforce user into database")
         except psycopg2.Error as error:
             logger.error("Error inserting user:", error.pgerror)
             logger.error(traceback.format_exc())
@@ -105,7 +105,7 @@ class SalesforceUsersRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, (refresh_token, access_token, uuid))
                 self.conn.commit()
-                logger.info("Updated Salesforce user in database")
+                logger.info("Updated salesforce user in database")
         except psycopg2.Error as error:
             logger.error("Error updating user:", error)
             logger.error(f"Specific error message: {error.pgerror}")

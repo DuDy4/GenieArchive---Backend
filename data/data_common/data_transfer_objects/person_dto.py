@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import json
-from ..utils.str_utils import get_uuid4
+from common.utils.str_utils import get_uuid4
 
 
 @dataclass

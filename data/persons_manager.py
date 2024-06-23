@@ -6,11 +6,11 @@ from loguru import logger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from common.events.genie_consumer import GenieConsumer
-from common.events.genie_event import GenieEvent
-from common.events.topics import Topic
-from common.data_transfer_objects.person_dto import PersonDTO
-from common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.events.genie_consumer import GenieConsumer
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -19,11 +19,6 @@ from common.dependencies.dependencies import (
 )
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from common.repositories.persons_repository import PersonsRepository
-from common.repositories.personal_data_repository import PersonalDataRepository
-from common.repositories.profiles_repository import ProfilesRepository
-from common.repositories.interactions_repository import InteractionsRepository
 
 
 class PersonManager(GenieConsumer):
@@ -52,7 +47,7 @@ class PersonManager(GenieConsumer):
 
         match topic:
             case Topic.NEW_CONTACT:
-                logger.info("Handling new Salesforce contact")
+                logger.info("Handling new salesforce contact")
                 await self.handle_new_salesforce_contact(event)
             case Topic.NEW_INTERACTION:
                 logger.info("Handling new interaction")
@@ -68,7 +63,7 @@ class PersonManager(GenieConsumer):
 
     async def handle_new_salesforce_contact(self, event):
         # Assuming the event body contains a JSON string with the contact data
-        logger.info("Handling new Salesforce contact")
+        logger.info("Handling new salesforce contact")
         contact_data_str = event.body_as_str()
         contact_data = json.loads(contact_data_str)
         if isinstance(contact_data, str):
@@ -79,7 +74,7 @@ class PersonManager(GenieConsumer):
         if not new_person.linkedin:
             logger.error("Person got no LinkedIn profile, skipping PDL enrichment")
             return
-        logger.info("Inserted new Salesforce contact to persons_repository")
+        logger.info("Inserted new salesforce contact to persons_repository")
 
         # Send "pdl" event to the event queue
         person_json = new_person.to_json()

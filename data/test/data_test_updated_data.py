@@ -3,8 +3,8 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from common.events.genie_event import GenieEvent
-from common.events.topics import Topic
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
 
 
 def test_new_contact():

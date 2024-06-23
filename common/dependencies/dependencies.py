@@ -1,10 +1,12 @@
 from loguru import logger
 
-from common.repositories.interactions_repository import InteractionsRepository
+from data.data_common.repositories.interactions_repository import InteractionsRepository
 from common.utils.postgres_connector import get_db_connection
-from common.repositories.personal_data_repository import PersonalDataRepository
-from common.repositories.profiles_repository import ProfilesRepository
-from common.repositories.persons_repository import PersonsRepository
+from data.data_common.repositories.personal_data_repository import (
+    PersonalDataRepository,
+)
+from data.data_common.repositories.profiles_repository import ProfilesRepository
+from data.data_common.repositories.persons_repository import PersonsRepository
 
 
 def personal_data_repository() -> PersonalDataRepository:

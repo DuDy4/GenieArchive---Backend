@@ -8,7 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 # from starlette_context import middleware, context, plugins
 # from starlette_context.middleware import ContextMiddleware
 
-from api.api_manager import v1_router
+from data.api.api_manager import v1_router
 
 load_dotenv()
 app = FastAPI()
@@ -22,6 +22,8 @@ app.add_middleware(
 # app.add_middleware(CustomSessionMiddleware)
 
 app.include_router(v1_router)
+
+PORT = os.environ.get("PERSON_URL", 8000)
 
 
 if __name__ == "__main__":

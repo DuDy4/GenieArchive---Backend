@@ -1,11 +1,10 @@
 import json
 import traceback
-from typing import Optional, Union, List
+from typing import Union
 
 import psycopg2
 
-from ..data_transfer_objects.person_dto import PersonDTO
-from ..data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from loguru import logger
 
 

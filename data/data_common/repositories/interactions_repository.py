@@ -1,9 +1,8 @@
-from typing import Optional, List, Union
+from typing import Optional
 import psycopg2
-import json
 from loguru import logger
 
-from ..data_transfer_objects.interaction import InteractionDTO
+from data.data_common.data_transfer_objects.interaction import InteractionDTO
 
 
 class InteractionsRepository:
