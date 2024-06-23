@@ -1,6 +1,7 @@
 from typing import Optional, Union, List
 
 import psycopg2
+import traceback
 
 from loguru import logger
 
@@ -50,6 +51,8 @@ class SalesforceUsersRepository:
                     logger.info("Inserted Salesforce user into database")
         except psycopg2.Error as error:
             logger.error("Error inserting user:", error.pgerror)
+            logger.error(traceback.format_exc())
+
             logger.error(
                 f"Specific error message: {error.pgerror}"
             )  # Log specific error message
@@ -68,6 +71,7 @@ class SalesforceUsersRepository:
                     return False
         except psycopg2.Error as error:
             logger.error("Error checking existence:", error)
+            logger.error(traceback.format_exc())
             logger.error(
                 f"Specific error message: {error.pgerror}"
             )  # Log specific error message

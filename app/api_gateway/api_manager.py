@@ -1,5 +1,4 @@
 import os
-import secrets
 
 from fastapi import Depends, Request, HTTPException
 from fastapi.routing import APIRouter
@@ -148,34 +147,6 @@ def callback_salesforce(request: Request) -> PlainTextResponse:
     )
 
 
-# @v1_router.post("/person", response_class=PlainTextResponse)
-# async def insert_new_person(
-#     request: Request,
-#     person_repository: ContactsRepository = Depends(contacts_repository),
-# ) -> PlainTextResponse:
-#     """
-#     Triggers the salesforce oauth2.0 callback process
-#     """
-#     logger.info(f"Received person post request")
-#     request_body = await request.json()
-#     logger.info(f"Request_body: {request_body}")
-#     person = PersonDTO.from_dict(request_body["person"])
-#     logger.info(f"person: {person}")
-#     try:
-#         person_id = person_repository.insert_contact(person)
-#     except Exception as e:
-#         logger.error(f"Failed to insert person: {e}")
-#         return PlainTextResponse(f"Failed to insert person, because: {e}")
-#     if person_id:
-#         logger.info(f"Person was inserted successfully with id: {person_id}")
-#         return PlainTextResponse(
-#             f"Person was inserted successfully with id: {person_id}"
-#         )
-#     else:
-#         logger.error(f"Failed to insert person")
-#         return PlainTextResponse(f"Failed to insert person")
-
-
 @v1_router.get("/salesforce/{company}/contact", response_class=PlainTextResponse)
 async def get_all_contact(
     request: Request,
@@ -189,6 +160,7 @@ async def get_all_contact(
     logger.info(f"Received get contacts request")
 
     refresh_token = sf_users_repository.get_refresh_token(company)
+    logger.info(f"refresh_token: {refresh_token}")
     salesforce_client = create_salesforce_client(company, refresh_token)
 
     salesforce_agent = SalesforceAgent(
