@@ -4,6 +4,7 @@ from ..repositories.contacts_repository import ContactsRepository
 from ..repositories.interactions_repository import InteractionsRepository
 from ..repositories.salesforce_users_repository import SalesforceUsersRepository
 from ..postgres_connector import get_db_connection
+from ..consumers.salesforce_event_handler import SalesforceEventHandler
 
 
 def contacts_repository() -> ContactsRepository:
@@ -34,3 +35,9 @@ def salesforce_users_repository() -> SalesforceUsersRepository:
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None
+
+
+def salesforce_event_handler() -> SalesforceEventHandler:
+    return SalesforceEventHandler(
+        contacts_repository=contacts_repository(),
+    )

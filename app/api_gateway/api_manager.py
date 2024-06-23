@@ -1,7 +1,6 @@
 import os
 import secrets
 
-import requests
 from fastapi import Depends, Request, HTTPException
 from fastapi.routing import APIRouter
 import requests
@@ -9,11 +8,10 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse
-from app_common.data_transfer_objects.person_dto import PersonDTO
-from app_common.repositories.contacts_repository import ContactsRepository
 from app_common.dependencies.dependencies import (
     contacts_repository,
     salesforce_users_repository,
+    salesforce_event_handler,
 )
 
 from redis import Redis
@@ -24,6 +22,8 @@ from services.salesforce import (
     create_salesforce_client,
     SalesforceAgent,
 )
+
+from app_common.consumers.salesforce_event_handler import SalesforceEventHandler
 
 SELF_URL = os.environ.get("self_url", "https://localhost:3000")
 PERSON_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -201,7 +201,12 @@ async def get_all_contact(
 
 
 @v1_router.post("/salesforce/webhook", response_model=dict)
-async def salesforce_webhook(request: Request):
+async def salesforce_webhook(
+    request: Request,
+    salesforce_event_handler: SalesforceEventHandler = Depends(
+        salesforce_event_handler
+    ),
+):
     """
     Endpoint to receive and process Salesforce Platform Events.
     """
@@ -209,10 +214,11 @@ async def salesforce_webhook(request: Request):
         event_data = await request.json()
         logger.info(f"Received event data: {event_data}")
 
-        # Process the event data as needed
-        # For example, you can log it or store it in a database
-
-        return {"status": "success", "message": "Event received"}
+        result = salesforce_event_handler.handle_event(event_data)
+        if result:
+            return {"status": "success", "message": "Event processed"}
+        else:
+            return {"status": "error", "message": "Failed to process event"}
     except Exception as e:
         logger.error(f"Error processing webhook event: {e}")
         return {"status": "error", "message": str(e)}

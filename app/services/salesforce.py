@@ -1,7 +1,7 @@
 """
 Module for interacting with the Salesforce API.
 """
-
+import json
 import os
 import uuid
 from urllib.parse import urlencode
@@ -18,8 +18,8 @@ from app_common.utils.str_utils import get_uuid4
 from app_common.repositories.contacts_repository import ContactsRepository
 from app_common.data_transfer_objects.person_dto import PersonDTO
 
-from events.genie_event import GenieEvent
-from events.topics import Topic
+from app_common.events.genie_event import GenieEvent
+from app_common.events.topics import Topic
 
 load_dotenv()
 
@@ -124,7 +124,10 @@ def handle_new_contacts_event(new_contacts: list[PersonDTO]):
     logger.info(f"Topic: {Topic.NEW_CONTACT}")
     try:
         for i in range(0, len(new_contacts)):
-            contact = new_contacts[i].to_json()
+            if isinstance(new_contacts[i], PersonDTO):
+                contact = new_contacts[i].to_json()
+            if isinstance(new_contacts[i], dict):
+                contact = json.dumps(new_contacts[i])
             event = GenieEvent(
                 Topic.NEW_CONTACT,
                 contact,

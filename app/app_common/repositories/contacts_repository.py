@@ -1,3 +1,4 @@
+import traceback
 from typing import Optional, Union, List
 
 import psycopg2
@@ -82,6 +83,13 @@ class ContactsRepository:
             return False
 
     def exists_salesforce_id(self, salesforce_id) -> bool:
+        """
+        Check if a contact with the same salesforce_id already exists in the database
+        and return the uuid of the contact if it exists
+
+        :param salesforce_id: salesforce id of the contact
+        :return: uuid of the contact if it exists, otherwise False
+        """
         exists_query = "SELECT uuid FROM contacts WHERE salesforce_id = %s;"
 
         try:
@@ -146,7 +154,7 @@ class ContactsRepository:
             logger.error("Error checking existence of person:", error)
         return False
 
-    def get_contact_id(self, uuid):
+    def get_contact_id_by_uuid(self, uuid):
         select_query = "SELECT id FROM contacts WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
@@ -160,6 +168,22 @@ class ContactsRepository:
 
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
+        return None
+
+    def get_contact_id_by_salesforce_id(self, salesforce_id):
+        select_query = "SELECT id FROM contacts WHERE salesforce_id = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (salesforce_id,))
+                row = cursor.fetchone()
+                if row:
+                    return row[0]
+                else:
+                    logger.error(f"Error with getting contact id for {salesforce_id}")
+                    traceback.print_exc()
+
+        except Exception as error:
+            logger.error("Error fetching id by salesforce_id:", error)
         return None
 
     def get_contact_by_id(self, id: str) -> Optional[PersonDTO]:
@@ -214,19 +238,23 @@ class ContactsRepository:
     def update_contact(self, contact: PersonDTO):
         update_query = """
         UPDATE contacts
-        SET name = %s, company = %s, email = %s, linkedin = %s position = %s, timezone = %s
+        SET name = %s, company = %s, email = %s, linkedin = %s, position = %s, timezone = %s
         WHERE uuid = %s;
         """
         if contact.email is None:
             update_query = update_query.replace("email = %s,", "email IS NULL,")
-        contact_data = contact.to_tuple
+        contact_data = contact.to_tuple()
+        contact_data = contact_data[1:] + (contact_data[0],)
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, contact_data)
+                logger.debug(cursor.query)
                 self.conn.commit()
                 logger.info(f"Updated {contact.name} in database")
+                return True
         except Exception as error:
             logger.error("Error updating contact:", error)
+            traceback.print_exc()
 
     def delete_contact(self, id: str):
         delete_query = "DELETE FROM contacts WHERE id = %s;"
@@ -234,7 +262,7 @@ class ContactsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(delete_query, (id,))
                 self.conn.commit()
-                logger.info(f"Deleted {id} from database")
+                logger.info(f"Deleted from database")
         except Exception as error:
             logger.error("Error deleting contact:", error)
             # self.conn.rollback()

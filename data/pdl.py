@@ -152,8 +152,12 @@ class PDLClient:
 
         # Pass the parameters object to the Person Enrichment API
         response = self._client.person.enrichment(**params).json()
+        logger.debug(f" response: {response}")
         if response["status"] == 404:
             logger.warning(f"Cannot find profiles for {linkedin_profile_url}")
+            return
+        if response["status"] == 402:
+            logger.warning(f"Need Payment")
             return
         else:
             logger.info(f"Got profile for {linkedin_profile_url} from PDL")

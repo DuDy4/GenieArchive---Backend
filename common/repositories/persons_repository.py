@@ -89,7 +89,7 @@ class PersonsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(exists_query, (person.name, person.linkedin))
                 result = cursor.fetchone()
-                return result[0]
+                return result[0] if result else None
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of person ({person.name}): {error}")
             return False
