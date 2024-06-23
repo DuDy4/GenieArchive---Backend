@@ -45,8 +45,6 @@ class PersonDTO:
             self.linkedin,
             self.position,
             self.timezone,
-            self.challenges,
-            self.strengths,
         )
 
     def to_json(self):
