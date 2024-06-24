@@ -67,14 +67,19 @@ def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
 
 
 @v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
-def callback_salesforce(request: Request) -> PlainTextResponse:
+def callback_salesforce(
+    request: Request,
+    state: str,
+) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
     # logger.debug(f"Request session: {request.session}")
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
-
+    logger.info(
+        f"Received callback from salesforce oauth integration. Company: {state}"
+    )
     #  company's name supposed to be save in the state parameter
     company = request.query_params.get("state")
 

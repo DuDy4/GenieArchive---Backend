@@ -69,10 +69,53 @@ def oauth_salesforce(company: str) -> RedirectResponse:
 
     # Disable SSL verification
     session.verify = False
-    response = session.get(PERSON_URL + f"/v1/salesforce/auth/{company}")
-    logger.info(f"Response: {response.json()}")
+    response = session.get(
+        PERSON_URL + f"/v1/salesforce/auth/{company}", allow_redirects=False
+    )
+    logger.info(f"Response: {response}")
+    logger.info(f"Response status code: {response.status_code}")
+    logger.info(f"Response headers: {response.headers}")
 
-    authorization_url = response.json().url
+    if response.status_code == 307:  # 307 Temporary Redirect
+        redirect_url = response.headers.get("Location")
+        if redirect_url:
+            logger.info(f"Redirecting to: {redirect_url}")
+            return RedirectResponse(url=redirect_url)
 
-    logger.info(f"Redirect url: {authorization_url}")
-    return RedirectResponse(url=authorization_url)
+    logger.error(f"Unexpected response status: {response.status_code}")
+    return RedirectResponse(
+        url="/error"
+    )  # Redirect to an error page or handle accordingly
+
+
+@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
+def callback_salesforce(request: Request) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    # logger.debug(f"Request session: {request.session}")
+    # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
+    # )
+
+    company = request.query_params.get("state")
+    url = str(request.url)
+
+    logger.info(f"Callback for company: {company}, url: {url}")
+
+    retries = Retry(total=5, backoff_factor=1)
+
+    # Create a session
+    session = requests.Session()
+
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    # Disable SSL verification
+    session.verify = False
+    response = session.get(
+        PERSON_URL + f"/v1/salesforce/callback/{company}/{url}", allow_redirects=False
+    )
+
+    return PlainTextResponse(
+        f"Successfully authenticated with salesforce for {company}. \nYou can now close this tab"
+    )
