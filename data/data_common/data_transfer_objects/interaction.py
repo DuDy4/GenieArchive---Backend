@@ -6,8 +6,8 @@ import json
 @dataclass
 class InteractionDTO:
     uuid: str
-    userUuid: str
-    userEmail: str
+    personUuid: str
+    personEmail: str
     interaction_source: str
     interaction_type: str
     company: str
@@ -20,8 +20,8 @@ class InteractionDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
-            "userUuid": self.userUuid,
-            "userEmail": self.userEmail,
+            "personUuid": self.personUuid,
+            "personEmail": self.personEmail,
             "interaction_source": self.interaction_source,
             "interaction_type": self.interaction_type,
             "company": self.company,
@@ -36,8 +36,8 @@ class InteractionDTO:
     def from_dict(data: dict):
         return InteractionDTO(
             uuid=data.get("uuid", ""),
-            userUuid=data.get("userUuid", ""),
-            userEmail=data.get("userEmail", ""),
+            personUuid=data.get("personUuid", ""),
+            personEmail=data.get("personEmail", ""),
             interaction_source=data.get("interaction_source", ""),
             interaction_type=data.get("interaction_type", ""),
             company=data.get("company", ""),
@@ -59,8 +59,8 @@ class InteractionDTO:
     def to_tuple(self):
         return (
             self.uuid,
-            self.userUuid,
-            self.userEmail,
+            self.personUuid,
+            self.personEmail,
             self.interaction_source,
             self.interaction_type,
             self.company,

@@ -18,8 +18,8 @@ class InteractionsRepository:
         CREATE TABLE IF NOT EXISTS interactions (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            userUuid VARCHAR,
-            userEmail VARCHAR,
+            personUuid VARCHAR,
+            personEmail VARCHAR,
             interaction_source VARCHAR,
             interaction_type VARCHAR,
             company VARCHAR,
@@ -41,7 +41,7 @@ class InteractionsRepository:
     def insert(self, interaction: InteractionDTO) -> Optional[int]:
         self.create_table_if_not_exists()
         insert_query = """
-        INSERT INTO interactions (uuid, userUuid, userEmail, interaction_source, interaction_type, company,
+        INSERT INTO interactions (uuid, personUuid, personEmail, interaction_source, interaction_type, company,
         recipient_uuid, recipient_email, recipient_company, content, timestamp)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
@@ -114,7 +114,7 @@ class InteractionsRepository:
     def update_interaction(self, interaction: InteractionDTO):
         update_query = """
         UPDATE interactions
-        SET userUuid = %s, userEmail = %s, interaction_source = %s, interaction_type = %s, company = %s,
+        SET personUuid = %s, personEmail = %s, interaction_source = %s, interaction_type = %s, company = %s,
         recipient_uuid = %s, recipient_email = %s, recipient_company = %s, content = %s, timestamp = %s
         WHERE uuid = %s;
         """
