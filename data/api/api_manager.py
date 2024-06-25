@@ -90,6 +90,36 @@ def callback_salesforce(
     )
 
 
+@v1_router.post("/salesforce/deploy-apex/{company}", response_model=dict)
+async def salesforce_deploy_apex(
+    request: Request,
+    company: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+    contacts_repository=Depends(contacts_repository),
+):
+    """
+    Endpoint to receive and process salesforce Platform Events.
+    """
+    try:
+        refresh_token = sf_users_repository.get_refresh_token(company)
+        logger.info(f"refresh_token: {refresh_token}")
+        salesforce_client = create_salesforce_client(company, refresh_token)
+
+        salesforce_agent = SalesforceAgent(
+            salesforce_client, sf_users_repository, contacts_repository
+        )
+
+        result = salesforce_agent.deploy_apex_code()
+        logger.debug(f"Deployed apex code: {result}")
+        if result:
+            return {"status": "success", "message": "Event processed"}
+        else:
+            return {"status": "error", "message": "Failed"}
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @v1_router.get("salesforce/topics", response_model=dict)
 def get_all_topics():
     """

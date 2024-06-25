@@ -85,6 +85,7 @@ class PersonManager(GenieConsumer):
     async def handle_new_interaction(self, event):
         # Assuming the event body contains a JSON string with the contact data
         interaction_data = event.body_as_str()
+        # should gather all of the interactions of this person, and the personal data - then send to langsmith
         self.interactions_repository.save_interaction(interaction_data)
         logger.info("Saved interaction to interactions_repository")
 
