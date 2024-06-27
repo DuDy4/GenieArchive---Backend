@@ -1,45 +1,15 @@
 from loguru import logger
 
-from data.data_common.repositories.contacts_repository import ContactsRepository
-from data.data_common.repositories.interactions_repository import InteractionsRepository
-from data.data_common.repositories.salesforce_users_repository import (
-    SalesforceUsersRepository,
-)
-from data.data_common.postgres_connector import get_db_connection
-from ..consumers.salesforce_event_handler import SalesforceEventHandler
+from app_common.repositories.tenants_repository import TenantsRepository
+
+from ..postgres_connector import get_db_connection
 
 
-def contacts_repository() -> ContactsRepository:
+def tenants_repository() -> TenantsRepository:
     conn = get_db_connection()  # Establish the database connection
     try:
         with conn:
-            return ContactsRepository(conn=conn)
+            return TenantsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None
-
-
-def interactions_repository() -> InteractionsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        with conn:
-            return InteractionsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-
-
-def salesforce_users_repository() -> SalesforceUsersRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        with conn:
-            return SalesforceUsersRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-
-
-def salesforce_event_handler() -> SalesforceEventHandler:
-    return SalesforceEventHandler(
-        contacts_repository=contacts_repository(),
-    )

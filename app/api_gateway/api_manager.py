@@ -1,5 +1,7 @@
+import json
 import os
 import secrets
+import traceback
 
 from fastapi import Depends, Request, HTTPException
 from fastapi.routing import APIRouter
@@ -7,9 +9,34 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from loguru import logger
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
+
+# from app_common.utils.api_classes import GoogleSearchAPI, ProfilePicture
+
+#
+# profile_picture = ProfilePicture(
+#     os.environ.get("GOOGLE_DEVELOPER_API_KEY"),
+#     os.environ.get("GOOGLE_CX")
+# )
 
 from redis import Redis
+
+from app_common.repositories.tenants_repository import TenantsRepository
+from app_common.dependencies.dependencies import tenants_repository
+
+from services.sheet import (
+    get_sheet_records,
+    create_vc_draft_email,
+    get_strengths,
+    update_sheet,
+    get_strengths_chart,
+    upload_to_s3,
+    extract_first_json,
+    get_vc_member_data,
+    fetch_hobbies_images,
+    get_hobbies,
+    get_news,
+)
 
 SELF_URL = os.environ.get("self_url", "https://localhost:3000")
 PERSON_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -20,6 +47,36 @@ v1_router = APIRouter(prefix="/v1")
 redis_client = Redis(host="localhost", port=6379, db=0)
 
 PROFILE_ID = 0
+
+
+@v1_router.get("/test-cors")
+async def test_cors():
+    return {"message": "CORS working"}
+
+
+@v1_router.post("/signup", response_model=dict)
+async def signup(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Creates a new user account.
+    """
+    try:
+        logger.debug(f"Received signup request: {request}")
+        data = await request.json()
+        logger.debug(f"Received signup data: {data}")
+        uuid = tenants_repository.exists(data.get("tenant_id"), data.get("user_name"))
+        if uuid:
+            return {"message": "User already exists in database"}
+        uuid = tenants_repository.insert(data)
+        logger.debug(f"User account created successfully with uuid: {uuid}")
+
+        # Add your business logic here
+        return {"message": f"User account created successfully with uuid: {uuid}"}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @v1_router.get("/profiles/{uuid}", response_model=dict)
@@ -51,6 +108,16 @@ def get_profile(
     else:
         # Raise an HTTPException if the request was not successful
         raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+@v1_router.post("/signup", response_model=list)
+def signup(request: Request):
+    """
+    Creates a new user account.
+    """
+    data = request.json()
+    logger.info(f"Received signup request: {data}")
+    return data
 
 
 @v1_router.get("/salesforce/auth/{company}", response_class=RedirectResponse)
@@ -119,3 +186,128 @@ def callback_salesforce(request: Request) -> PlainTextResponse:
     return PlainTextResponse(
         f"Successfully authenticated with salesforce for {company}. \nYou can now close this tab"
     )
+
+
+#
+# @v1_router.get("/create-vc-mail", response_class=PlainTextResponse)
+# def create_vc_mail(
+#         id: int = -1,
+#         name: str = None
+# ) -> RedirectResponse:
+#     """
+#     Creates a personal mail for a specific vc member based on the VC google sheet
+#     """
+#     if name:
+#         vc_member_data, id = get_vc_member_data(name)
+#         if not vc_member_data:
+#             return JSONResponse({"error": "VC member not found"})
+#     elif id > 0:
+#         vc_member_data = get_sheet_records(id)
+#     print(vc_member_data)
+#
+#     # Hobbies
+#     hobbies = get_hobbies(vc_member_data)
+#     hobbies = extract_first_json(hobbies.replace('\n', ' '))
+#     hobbies = hobbies['hobbies']
+#     hobby_data = fetch_hobbies_images(hobbies)
+#
+#     # News
+#     news = get_news(vc_member_data)
+#     news = extract_first_json(news.replace('\n', ' '))
+#     news = news['news_list']
+#
+#     # Image
+#     linkedin_url = vc_member_data['Personal LinkedIn']
+#     image_link = None
+#     if linkedin_url:
+#         linkedin_id = fix_linkedin_url(linkedin_url)
+#         res = profile_picture.search(linkedin_id)
+#         image_link = extract_profile_picture(res._search_results)
+#
+#
+#     name_and_vc = vc_member_data['Full name'] + "(" + vc_member_data['VC name'] + ")"
+#     logger.info(f"Found VC Member: {name_and_vc}")
+#     strengths = get_strengths(vc_member_data)
+#     strengths = strengths.replace('\n', ' ')
+#     strengths = strengths.replace("\'", "`")
+#     strengths_score = extract_first_json(strengths)
+#     logger.info(f"Strengths for {name_and_vc}: {strengths_score}")
+#     escaped_name = vc_member_data['Full name'].replace(" ","_").replace("\n","")
+#     spider_chart = get_strengths_chart(strengths_score, escaped_name)
+#     logger.info(f"Strengths chart for {name_and_vc}: {spider_chart}")
+#     chart_url = upload_to_s3(spider_chart)
+#     mail_draft = create_vc_draft_email(vc_member_data, strengths_score)
+#     logger.info(f"Draft for {name_and_vc}: {mail_draft}")
+#     update_sheet(id, mail_draft, str(strengths_score), chart_url, hobby_data, news, image_link)
+#     return PlainTextResponse(mail_draft)
+#
+
+
+@v1_router.get("/vc-profile")
+def get_vc_profile(id: int = -1, name: str = None):
+    # vc_member_data = get_sheet_records(id)
+    if name:
+        vc_member_data, id = get_vc_member_data(name)
+        if not vc_member_data:
+            return JSONResponse({"error": "VC member not found"})
+    elif id > 0:
+        vc_member_data = get_sheet_records(id)
+
+    vc_member_data = remove_newlines_from_dict(vc_member_data)
+    print(vc_member_data)
+    name_and_vc = vc_member_data["Full name"] + "(" + vc_member_data["VC name"] + ")"
+    logger.info(f"Found VC Member: {name_and_vc}")
+    # strengths = vc_member_data['Stregnths (Auto-Generated)'].replace("'", "\"")
+    # strengths = strengths.replace("`", "'")
+    # strengths_json = json.loads(strengths)
+    # vc_member_data['Strengths'] = strengths_json
+    vc_member_data["Strengths"] = transform_to_json(
+        vc_member_data["Stregnths (Auto-Generated)"]
+    )
+    if vc_member_data["Hobby URLs"]:
+        vc_member_data["Hobbies Data"] = transform_to_json(vc_member_data["Hobby URLs"])
+    else:
+        vc_member_data["Hobbies Data"] = []
+    if vc_member_data["News Data"]:
+        vc_member_data["News Data"] = transform_to_json(vc_member_data["News Data"])
+    else:
+        vc_member_data["News Data"] = []
+    if vc_member_data["Connections"]:
+        vc_member_data["Connections"] = transform_to_json(vc_member_data["Connections"])
+    return vc_member_data
+
+
+def remove_newlines_from_dict(input_dict):
+    return {
+        key: value.replace("\n", "") if isinstance(value, str) else value
+        for key, value in input_dict.items()
+    }
+
+
+def transform_to_json(data):
+    data = data.replace("'", '"').replace("`", "'")
+    return json.loads(data)
+
+
+def fix_linkedin_url(linkedin_url: str) -> str:
+    """
+    Converts a full LinkedIn URL to a shortened URL.
+
+    Args:
+        linkedin_url (str): The full LinkedIn URL.
+
+    Returns:
+        str: The shortened URL.
+    """
+    linkedin_url = linkedin_url.replace(
+        "http://www.linkedin.com/in/", "linkedin.com/in/"
+    )
+    linkedin_url = linkedin_url.replace(
+        "https://www.linkedin.com/in/", "linkedin.com/in/"
+    )
+    linkedin_url = linkedin_url.replace("http://linkedin.com/in/", "linkedin.com/in/")
+    linkedin_url = linkedin_url.replace("https://linkedin.com/in/", "linkedin.com/in/")
+
+    if linkedin_url[-1] == "/":
+        linkedin_url = linkedin_url[:-1:]
+    return linkedin_url

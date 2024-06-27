@@ -22,6 +22,8 @@ from data.data_common.dependencies.dependencies import (
     salesforce_event_handler,
     salesforce_users_repository,
 )
+
+
 from data.data_common.events.topics import Topic
 
 from redis import Redis
