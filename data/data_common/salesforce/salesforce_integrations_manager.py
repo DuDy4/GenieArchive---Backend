@@ -125,14 +125,14 @@ class SalesforceAgent:
                     contact["AccountName"] = contact["Account"]["Name"]
                 else:
                     contact["AccountName"] = None
-            changed_contacts = self.contacts_repository.handle_sf_contacts_list(
-                contacts
-            )
-            logger.info(f"New contacts to handle: {changed_contacts}")
-            if len(changed_contacts) > 0:
-                handle_new_contacts_event(
-                    changed_contacts
-                )  # send new-contact events to eventhub
+            # changed_contacts = self.contacts_repository.handle_sf_contacts_list(
+            #     contacts
+            # )
+            # logger.info(f"New contacts to handle: {changed_contacts}")
+            # if len(changed_contacts) > 0:
+            #     handle_new_contacts_event(
+            #         changed_contacts
+            #     )  # send new-contact events to eventhub
             return contacts
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")
@@ -262,7 +262,7 @@ def create_zip(trigger_code, class_code, metadata_package):
     return zip_buffer
 
 
-def handle_new_contacts_event(new_contacts: list[PersonDTO]):
+def handle_new_contacts_event(new_contacts: list[PersonDTO | dict]):
     logger.info(f"Topic: {Topic.NEW_CONTACT}")
     try:
         for i in range(0, len(new_contacts)):
