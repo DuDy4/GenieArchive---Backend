@@ -66,16 +66,28 @@ async def signup(
         logger.debug(f"Received signup request: {request}")
         data = await request.json()
         logger.debug(f"Received signup data: {data}")
+        tenants_repository.create_table_if_not_exists()
         uuid = tenants_repository.exists(data.get("tenantId"), data.get("name"))
 
         if uuid:
             logger.info(f"User already exists in database")
-            return {"message": "User already exists in database"}
+            salesforce_creds = tenants_repository.has_salesforce_credentials(
+                data.get("tenantId")
+            )
+            return {
+                "message": "User already exists in database",
+                "salesforce_creds": salesforce_creds,
+            }
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
 
+        salesforce_creds = tenants_repository.has_salesforce_creds(data.get("tenantId"))
+
         # Add your business logic here
-        return {"message": f"User account created successfully with uuid: {uuid}"}
+        return {
+            "message": f"User account created successfully with uuid: {uuid}",
+            "salesforce_creds": salesforce_creds,
+        }
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -110,16 +122,6 @@ def get_profile(
     else:
         # Raise an HTTPException if the request was not successful
         raise HTTPException(status_code=response.status_code, detail=response.text)
-
-
-@v1_router.post("/signup", response_model=list)
-def signup(request: Request):
-    """
-    Creates a new user account.
-    """
-    data = request.json()
-    logger.info(f"Received signup request: {data}")
-    return data
 
 
 @v1_router.get("/salesforce/auth/{company}", response_class=RedirectResponse)

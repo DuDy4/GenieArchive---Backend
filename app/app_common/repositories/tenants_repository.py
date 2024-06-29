@@ -75,10 +75,8 @@ class TenantsRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                logger.debug(f"Checking if tenant exists: {tenant_id}, {user_name}")
                 cursor.execute(exists_query, (tenant_id, user_name))
                 result = cursor.fetchone()
-                logger.debug(f"Checking if tenant exists: {result}")
                 return result[0] if result else None
         except Exception as error:
             logger.error("Error checking if tenant exists:", error)
@@ -136,7 +134,8 @@ class TenantsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (tenant_id,))
                 result = cursor.fetchone()
-                return result is not None
+                logger.debug(f"Result of existence check: {result}")
+                return result[0] is not None
         except Exception as error:
             logger.error("Error getting tenant credentials:", error)
             logger.error(traceback.format_exc())
