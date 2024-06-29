@@ -23,6 +23,7 @@ from redis import Redis
 
 from app_common.repositories.tenants_repository import TenantsRepository
 from app_common.dependencies.dependencies import tenants_repository
+from app_common.utils.salesforce_functions import handle_new_contacts_event
 
 from services.sheet import (
     get_sheet_records,
@@ -189,6 +190,67 @@ async def callback_salesforce(
     return PlainTextResponse(
         f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
     )
+
+
+@v1_router.get("/salesforce/contacts/{state}", response_class=JSONResponse)
+async def get_contacts(
+    state: str,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Fetches and returns contacts from Salesforce.
+    """
+    tenant_id = state
+    logger.info(f"Fetching contacts for tenant: {tenant_id}")
+
+    # Define the number of retries and backoff factor
+    retries = Retry(total=5, backoff_factor=1)
+
+    # Create a session
+    session = requests.Session()
+
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    # Disable SSL verification
+    session.verify = False
+
+    response = session.get(
+        PERSON_URL + f"/v1/salesforce/contacts/{tenant_id}", allow_redirects=False
+    )
+
+    logger.debug(f"Response: {response.json()}")
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Return the response JSON
+        return response.json()
+    else:
+        # Raise an HTTPException if the request was not successful
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+
+@v1_router.get("/salesforce/build-profiles/{state}", response_class=JSONResponse)
+async def process_profiles(
+    request: Request,
+    state: str,
+):
+    """
+    Fetches and returns contacts from Salesforce.
+    """
+    tenant_id = state
+    logger.info(f"Fetching contacts for tenant: {tenant_id}")
+
+    contacts = await request.json()
+
+    result = handle_new_contacts_event(contacts)
+
+    logger.debug(f"Result: {result}")
+    if result:
+        return result
+    else:
+        # Raise an HTTPException if the request was not successful
+        raise {"message": "Failed to process contacts"}
 
 
 #

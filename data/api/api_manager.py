@@ -5,7 +5,7 @@ from fastapi import Depends, Request
 from fastapi.routing import APIRouter
 from loguru import logger
 from requests.adapters import HTTPAdapter
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from urllib3 import Retry
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
@@ -214,3 +214,28 @@ async def salesforce_webhook(
     except Exception as e:
         logger.error(f"Error processing webhook event: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@v1_router.get("/salesforce/contacts/{company}", response_class=JSONResponse)
+async def get_all_contact_for_tenant(
+    request: Request,
+    company: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+    contacts_repository=Depends(contacts_repository),
+) -> JSONResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received get contacts request")
+
+    refresh_token = sf_users_repository.get_refresh_token(company)
+    logger.info(f"refresh_token: {refresh_token}")
+    salesforce_client = create_salesforce_client(company, refresh_token)
+
+    salesforce_agent = SalesforceAgent(
+        salesforce_client, sf_users_repository, contacts_repository
+    )
+    contacts = await salesforce_agent.get_contacts()
+
+    logger.info(f"Got contacts: {len(contacts)}")
+    return JSONResponse(content=contacts)
