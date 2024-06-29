@@ -1,9 +1,12 @@
 import os
 
+import requests
 from fastapi import Depends, Request
 from fastapi.routing import APIRouter
 from loguru import logger
+from requests.adapters import HTTPAdapter
 from starlette.responses import PlainTextResponse, RedirectResponse
+from urllib3 import Retry
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
 from data.data_common.salesforce.salesforce_integrations_manager import (
@@ -29,6 +32,7 @@ from data.data_common.events.topics import Topic
 from redis import Redis
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+APP_URL = os.environ.get("APP_URL", "https://localhost:3000")
 logger.info(f"Self url: {SELF_URL}")
 
 v1_router = APIRouter(prefix="/v1")
@@ -53,17 +57,17 @@ def get_profile(
         return {"error": "Profile not found"}
 
 
-@v1_router.get("/salesforce/auth/{company}", response_class=RedirectResponse)
-def oauth_salesforce(request: Request, company: str) -> RedirectResponse:
+@v1_router.get("/salesforce/auth/{tenantId}", response_class=RedirectResponse)
+def oauth_salesforce(request: Request, tenantId: str) -> RedirectResponse:
     """
     Triggers the salesforce oauth2.0 process
     """
     logger.debug(f"request.session before start: {request.session}")
 
-    logger.info(f"Beginning salesforce oauth integration for {company}")
-    request.session["salesforce_company"] = company
+    logger.info(f"Beginning salesforce oauth integration for {tenantId}")
+    request.session["salesforce_tenantId"] = tenantId
 
-    authorization_url = get_authorization_url(company) + f"&company={company}"
+    authorization_url = get_authorization_url(tenantId) + f"&tenantId={tenantId}"
     logger.info(f"Redirect url: {authorization_url}")
     return RedirectResponse(url=authorization_url)
 
@@ -80,15 +84,47 @@ def callback_salesforce(
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
     logger.info(
-        f"Received callback from salesforce oauth integration. Company: {state}"
+        f"Received callback from salesforce oauth integration. tenantId: {state}"
     )
     #  company's name supposed to be save in the state parameter
-    company = request.query_params.get("state")
+    tenant_id = request.query_params.get("state")
 
-    token_data = handle_callback(company, str(request.url))
+    logger.debug(f"Tenant ID: {tenant_id}")
+
+    token_data = handle_callback(tenant_id, str(request.url))
+
+    json_to_app = {
+        "client_url": token_data.get("instance_url"),
+        "refresh_token": token_data.get("refresh_token"),
+        "access_token": token_data.get("access_token"),
+    }
+
+    logger.info(f"Token data: {json_to_app}")
+
+    retries = Retry(total=5, backoff_factor=1)
+
+    # Create a session
+    session = requests.Session()
+
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    # Disable SSL verification
+    session.verify = False
+
+    url_params = {"state": tenant_id} if state else {}
+
+    logger.debug(f"URL params: {url_params}")
+
+    response = session.post(
+        f"{APP_URL}/v1/salesforce/callback",
+        json=json_to_app,  # Sends the dictionary as a JSON body
+        params=url_params,
+        allow_redirects=False,
+    )
 
     return PlainTextResponse(
-        f"Successfully authenticated with salesforce for {company}. \nYou can now close this tab"
+        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
     )
 
 

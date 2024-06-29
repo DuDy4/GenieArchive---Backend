@@ -71,9 +71,10 @@ async def signup(
 
         if uuid:
             logger.info(f"User already exists in database")
-            salesforce_creds = tenants_repository.has_salesforce_credentials(
+            salesforce_creds = tenants_repository.get_salesforce_credentials(
                 data.get("tenantId")
             )
+            logger.debug(f"Salesforce creds: {salesforce_creds}")
             return {
                 "message": "User already exists in database",
                 "salesforce_creds": salesforce_creds,
@@ -81,8 +82,11 @@ async def signup(
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
 
-        salesforce_creds = tenants_repository.has_salesforce_creds(data.get("tenantId"))
-
+        # salesforce_creds = tenants_repository.has_salesforce_creds(data.get("tenantId"))
+        salesforce_creds = tenants_repository.get_salesforce_credentials(
+            data.get("tenantId")
+        )
+        logger.debug(f"Salesforce creds: {salesforce_creds}")
         # Add your business logic here
         return {
             "message": f"User account created successfully with uuid: {uuid}",
@@ -124,8 +128,8 @@ def get_profile(
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
-@v1_router.get("/salesforce/auth/{company}", response_class=RedirectResponse)
-def oauth_salesforce(company: str) -> RedirectResponse:
+@v1_router.get("/salesforce/auth/{tenantId}", response_class=RedirectResponse)
+def oauth_salesforce(tenantId: str) -> RedirectResponse:
     """
     Triggers the salesforce oauth2.0 process
     """
@@ -141,7 +145,7 @@ def oauth_salesforce(company: str) -> RedirectResponse:
     # Disable SSL verification
     session.verify = False
     response = session.get(
-        PERSON_URL + f"/v1/salesforce/auth/{company}", allow_redirects=False
+        PERSON_URL + f"/v1/salesforce/auth/{tenantId}", allow_redirects=False
     )
     logger.info(f"Response: {response}")
     logger.info(f"Response status code: {response.status_code}")
@@ -159,8 +163,11 @@ def oauth_salesforce(company: str) -> RedirectResponse:
     )  # Redirect to an error page or handle accordingly
 
 
-@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
-def callback_salesforce(request: Request) -> PlainTextResponse:
+@v1_router.post("/salesforce/callback", response_class=PlainTextResponse)
+async def callback_salesforce(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
@@ -168,27 +175,19 @@ def callback_salesforce(request: Request) -> PlainTextResponse:
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
 
-    company = request.query_params.get("state")
-    url = str(request.url)
+    logger.info(f"Received callback from salesforce oauth integration.")
+    logger.debug(f"Request: {request}")
 
-    logger.info(f"Callback for company: {company}, url: {url}")
+    tenant_id = request.query_params.get("state")
 
-    retries = Retry(total=5, backoff_factor=1)
+    data = await request.json()
 
-    # Create a session
-    session = requests.Session()
+    logger.debug(f"Tenant ID: {tenant_id}")
 
-    # Mount the adapter to handle retries
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    # Disable SSL verification
-    session.verify = False
-    response = session.get(
-        PERSON_URL + f"/v1/salesforce/callback/{company}/{url}", allow_redirects=False
-    )
+    tenants_repository.update_salesforce_credentials(tenant_id, data)
 
     return PlainTextResponse(
-        f"Successfully authenticated with salesforce for {company}. \nYou can now close this tab"
+        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
     )
 
 

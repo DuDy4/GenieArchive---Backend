@@ -82,22 +82,26 @@ class TenantsRepository:
             logger.error("Error checking if tenant exists:", error)
             logger.error(traceback.format_exc())
 
-    def update_salesforce_credentials(self, tenant_id: str, linkedin_credentials: dict):
+    def update_salesforce_credentials(
+        self, tenant_id: str, salesforce_credentials: dict
+    ):
         update_query = """
         UPDATE tenants SET salesforce_client_url = %s, salesforce_refresh_token = %s, salesforce_access_token = %s
         WHERE tenant_id = %s
         """
         try:
             with self.conn.cursor() as cursor:
+                logger.debug(f"Updating tenant credentials: {salesforce_credentials}")
                 cursor.execute(
                     update_query,
                     (
-                        linkedin_credentials.get("salesforce_client_url"),
-                        linkedin_credentials.get("salesforce_refresh_token"),
-                        linkedin_credentials.get("salesforce_access_token"),
+                        salesforce_credentials.get("client_url"),
+                        salesforce_credentials.get("refresh_token"),
+                        salesforce_credentials.get("access_token"),
                         tenant_id,
                     ),
                 )
+                logger.debug(f"about to commit the update")
                 self.conn.commit()
         except Exception as error:
             logger.error("Error updating tenant credentials:", error)

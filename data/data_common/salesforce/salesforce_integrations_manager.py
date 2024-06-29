@@ -316,7 +316,7 @@ def get_new_access_token(refresh_token: str) -> str:
     return access_token
 
 
-def handle_callback(company: str, response_url: str) -> None:
+def handle_callback(company: str, response_url: str) -> dict:
     logger.info(f"Started handling callback")
     sf = OAuth2Session(
         client_id=SALESFORCE_CLIENT_ID,
