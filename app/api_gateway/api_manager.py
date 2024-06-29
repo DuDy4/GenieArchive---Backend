@@ -66,8 +66,10 @@ async def signup(
         logger.debug(f"Received signup request: {request}")
         data = await request.json()
         logger.debug(f"Received signup data: {data}")
-        uuid = tenants_repository.exists(data.get("tenant_id"), data.get("user_name"))
+        uuid = tenants_repository.exists(data.get("tenantId"), data.get("name"))
+
         if uuid:
+            logger.info(f"User already exists in database")
             return {"message": "User already exists in database"}
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
