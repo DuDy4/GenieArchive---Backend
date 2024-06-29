@@ -118,11 +118,7 @@ class TenantsRepository:
                 cursor.execute(select_query, (tenant_id,))
                 result = cursor.fetchone()
                 if result is not None:
-                    return {
-                        "salesforce_client_url": result[0],
-                        "salesforce_refresh_token": result[1],
-                        "salesforce_access_token": result[2],
-                    }
+                    return {"salesforce_access_token": result[2]}
         except Exception as error:
             logger.error("Error getting tenant credentials:", error)
             logger.error(traceback.format_exc())
