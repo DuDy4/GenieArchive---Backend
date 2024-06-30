@@ -194,6 +194,25 @@ class ContactsRepository:
             logger.error("Error fetching id by salesforce_id:", error)
         return None
 
+    def get_contact_by_salesforce_id(
+        self, tenant_id, salesforce_id: str
+    ) -> Optional[PersonDTO]:
+        select_query = (
+            "SELECT * FROM contacts WHERE salesforce_id = %s AND owner_id = %s;"
+        )
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (salesforce_id, tenant_id))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[2]} from database")
+                    return row[2:]
+
+        except Exception as error:
+            logger.error("Error fetching contact by salesforce_id:", error)
+            traceback.print_exc()
+        return None
+
     def get_contact_by_id(self, id: str) -> Optional[PersonDTO]:
         select_query = "SELECT * FROM contacts WHERE id = %s;"
         try:

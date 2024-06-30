@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import requests
 from fastapi import Depends, Request
@@ -216,10 +217,10 @@ async def salesforce_webhook(
         return {"status": "error", "message": str(e)}
 
 
-@v1_router.get("/salesforce/contacts/{company}", response_class=JSONResponse)
+@v1_router.get("/salesforce/contacts/{tenant_id}", response_class=JSONResponse)
 async def get_all_contact_for_tenant(
     request: Request,
-    company: str,
+    tenant_id: str,
     sf_users_repository=Depends(salesforce_users_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> JSONResponse:
@@ -228,14 +229,71 @@ async def get_all_contact_for_tenant(
     """
     logger.info(f"Received get contacts request")
 
-    refresh_token = sf_users_repository.get_refresh_token(company)
+    refresh_token = sf_users_repository.get_refresh_token(tenant_id)
     logger.info(f"refresh_token: {refresh_token}")
-    salesforce_client = create_salesforce_client(company, refresh_token)
+    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
         salesforce_client, sf_users_repository, contacts_repository
     )
-    contacts = await salesforce_agent.get_contacts()
+    contacts = await salesforce_agent.get_contacts(tenant_id)
 
     logger.info(f"Got contacts: {len(contacts)}")
     return JSONResponse(content=contacts)
+
+
+@v1_router.get("/salesforce/contacts/{tenant_id}", response_class=JSONResponse)
+async def get_all_contact_for_tenant(
+    request: Request,
+    tenant_id: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+    contacts_repository=Depends(contacts_repository),
+) -> JSONResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received get contacts request")
+
+    refresh_token = sf_users_repository.get_refresh_token(tenant_id)
+    logger.info(f"refresh_token: {refresh_token}")
+    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
+
+    salesforce_agent = SalesforceAgent(
+        salesforce_client, sf_users_repository, contacts_repository
+    )
+    contacts = await salesforce_agent.get_contacts(tenant_id)
+
+    logger.info(f"Got contacts: {len(contacts)}")
+    return JSONResponse(content=contacts)
+
+
+@v1_router.post(
+    "/salesforce/handle-contacts/{tenant_id}", response_class=PlainTextResponse
+)
+async def process_contacts(
+    request: Request,
+    tenant_id: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+    contacts_repository=Depends(contacts_repository),
+) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    try:
+
+        logger.info(f"Received get contacts request")
+        logger.debug(f"Tenant ID: {tenant_id}")
+        contact_ids = await request.json()
+        logger.debug(f"Contact IDs: {contact_ids}")
+
+        contacts = [
+            contacts_repository.get_contact_by_salesforce_id(tenant_id, contact_id)
+            for contact_id in contact_ids
+        ]
+        logger.debug(f"Contacts: {contacts}")
+
+        return PlainTextResponse(f"Got contacts: {len(contact_ids)}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        traceback.print_exc()
+        return PlainTextResponse(f"Error: {e}")

@@ -100,7 +100,7 @@ class SalesforceAgent:
         except requests.exceptions.HTTPError:
             return False
 
-    async def get_contacts(self):
+    async def get_contacts(self, tenant_id: str):
         """
         Retrieve contacts from salesforce.
 
@@ -125,10 +125,10 @@ class SalesforceAgent:
                     contact["AccountName"] = contact["Account"]["Name"]
                 else:
                     contact["AccountName"] = None
-            # changed_contacts = self.contacts_repository.handle_sf_contacts_list(
-            #     contacts
-            # )
-            # logger.info(f"New contacts to handle: {changed_contacts}")
+            changed_contacts = self.contacts_repository.handle_sf_contacts_list(
+                tenant_id, contacts
+            )
+            logger.info(f"New contacts to handle: {changed_contacts}")
             # if len(changed_contacts) > 0:
             #     handle_new_contacts_event(
             #         changed_contacts

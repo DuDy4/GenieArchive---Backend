@@ -205,21 +205,17 @@ async def get_contacts(
 
     # Define the number of retries and backoff factor
     retries = Retry(total=5, backoff_factor=1)
-
     # Create a session
     session = requests.Session()
-
     # Mount the adapter to handle retries
     session.mount("https://", HTTPAdapter(max_retries=retries))
-
     # Disable SSL verification
     session.verify = False
-
     response = session.get(
         PERSON_URL + f"/v1/salesforce/contacts/{tenant_id}", allow_redirects=False
     )
 
-    logger.debug(f"Response: {response.json()}")
+    logger.debug(f"Fetch {len(response.json())} contacts")
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -230,7 +226,7 @@ async def get_contacts(
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
-@v1_router.post("/salesforce/build-profiles/{state}", response_class=JSONResponse)
+@v1_router.post("/salesforce/build-profiles/{state}", response_class=PlainTextResponse)
 async def process_profiles(
     request: Request,
     state: str,
@@ -241,9 +237,22 @@ async def process_profiles(
     tenant_id = state
     logger.info(f"Fetching contacts for tenant: {tenant_id}")
 
-    contacts = await request.json()
+    contact_ids = await request.json()
 
-    result = handle_new_contacts_event(contacts)
+    logger.debug(f"Contact IDs: {contact_ids}")
+
+    retries = Retry(total=5, backoff_factor=1)
+    # Create a session
+    session = requests.Session()
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+    # Disable SSL verification
+    session.verify = False
+    result = session.post(
+        PERSON_URL + f"/v1/salesforce/handle-contacts/{tenant_id}",
+        json=contact_ids,
+        allow_redirects=False,
+    )
 
     logger.debug(f"Result: {result}")
     if result:
@@ -251,6 +260,7 @@ async def process_profiles(
     else:
         # Raise an HTTPException if the request was not successful
         raise {"message": "Failed to process contacts"}
+    # return PlainTextResponse("Success")
 
 
 #
