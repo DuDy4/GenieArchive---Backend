@@ -15,6 +15,7 @@ from data.data_common.salesforce.salesforce_integrations_manager import (
     get_authorization_url,
     create_salesforce_client,
     SalesforceAgent,
+    handle_new_contacts_event,
 )
 from data.data_common.repositories.salesforce_users_repository import (
     SalesforceUsersRepository,
@@ -215,31 +216,6 @@ async def get_all_contact_for_tenant(
     return JSONResponse(content=contacts)
 
 
-@v1_router.get("/salesforce/contacts/{tenant_id}", response_class=JSONResponse)
-async def get_all_contact_for_tenant(
-    request: Request,
-    tenant_id: str,
-    sf_users_repository=Depends(salesforce_users_repository),
-    contacts_repository=Depends(contacts_repository),
-) -> JSONResponse:
-    """
-    Triggers the salesforce oauth2.0 callback process
-    """
-    logger.info(f"Received get contacts request")
-
-    refresh_token = sf_users_repository.get_refresh_token(tenant_id)
-    logger.info(f"refresh_token: {refresh_token}")
-    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
-
-    salesforce_agent = SalesforceAgent(
-        salesforce_client, sf_users_repository, contacts_repository
-    )
-    contacts = await salesforce_agent.get_contacts(tenant_id)
-
-    logger.info(f"Got contacts: {len(contacts)}")
-    return JSONResponse(content=contacts)
-
-
 @v1_router.post(
     "/salesforce/handle-contacts/{tenant_id}", response_class=PlainTextResponse
 )
@@ -264,6 +240,8 @@ async def process_contacts(
             for contact_id in contact_ids
         ]
         logger.debug(f"Contacts: {contacts}")
+
+        handle_new_contacts_event(contacts)
 
         return PlainTextResponse(f"Got contacts: {len(contact_ids)}")
     except Exception as e:

@@ -259,7 +259,7 @@ async def process_profiles(
         json=contact_ids,
         allow_redirects=False,
     )
-
+    result = result.text
     logger.debug(f"Result: {result}")
     if result:
         return result
