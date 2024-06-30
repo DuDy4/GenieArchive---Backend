@@ -83,7 +83,7 @@ async def signup(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@v1_router.get("/profiles/{uuid}", response_model=dict)
+@v1_router.get("/profile/{uuid}", response_model=dict)
 def get_profile(
     uuid: str,
 ):
@@ -103,7 +103,7 @@ def get_profile(
 
     # Disable SSL verification
     session.verify = False
-    response = session.get(PERSON_URL + f"/v1/profiles/{uuid}")
+    response = session.get(PERSON_URL + f"/v1/profile/{uuid}")
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -247,19 +247,11 @@ async def process_profiles(
 
     logger.debug(f"Contact IDs: {contact_ids}")
 
-    retries = Retry(total=5, backoff_factor=1)
-    # Create a session
-    session = requests.Session()
-    # Mount the adapter to handle retries
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-    # Disable SSL verification
-    session.verify = False
-    result = session.post(
-        PERSON_URL + f"/v1/salesforce/handle-contacts/{tenant_id}",
-        json=contact_ids,
-        allow_redirects=False,
+    response = send_request_to_person_api(
+        "POST", PERSON_URL + f"/v1/salesforce/handle-contacts/{tenant_id}", contact_ids
     )
-    result = result.text
+
+    result = response.text
     logger.debug(f"Result: {result}")
     if result:
         return result
@@ -267,3 +259,40 @@ async def process_profiles(
         # Raise an HTTPException if the request was not successful
         raise {"message": "Failed to process contacts"}
     # return PlainTextResponse("Success")
+
+
+@v1_router.get("/profiles/{tenant_id}", response_class=JSONResponse)
+async def get_all_profiles(
+    request: Request,
+    tenant_id: str,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Fetches and returns all profiles for a specific tenant.
+    """
+    logger.info(f"Received get profiles request")
+
+    response = send_request_to_person_api(
+        "GET", PERSON_URL + f"/v1/profiles/{tenant_id}", {}
+    )
+
+    profiles = response.json()
+
+    return JSONResponse(content=profiles)
+
+
+def send_request_to_person_api(request_type: str, url: str, data: json):
+    retries = Retry(total=5, backoff_factor=1)
+    # Create a session
+    session = requests.Session()
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+    # Disable SSL verification
+    session.verify = False
+    if request_type == "GET":
+        response = session.get(url, allow_redirects=False)
+        return response
+    elif request_type == "POST":
+        response = session.post(url, json=data, allow_redirects=False)
+        return response
+    return {"message": "Invalid request type"}

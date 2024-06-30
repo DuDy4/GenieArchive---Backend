@@ -22,6 +22,7 @@ class ProfilesRepository:
         CREATE TABLE IF NOT EXISTS profiles (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
+            owner_id VARCHAR,
             name VARCHAR,
             challenges JSONB,
             strengths JSONB,
@@ -43,8 +44,8 @@ class ProfilesRepository:
         :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO profiles (uuid, name, challenges, strengths, summary)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO profiles (uuid, owner_id, name, challenges, strengths, summary)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert profile: {profile}")
@@ -117,6 +118,38 @@ class ProfilesRepository:
             traceback.print_exception(error)
         return None
 
+    def get_all_profiles_by_owner_id(self, owner_id: str) -> list[ProfileDTO]:
+        select_query = """
+        SELECT uuid, name, challenges, strengths, summary
+        FROM profiles
+        WHERE owner_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (owner_id,))
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} profiles from database")
+                    logger.debug(f"Got profiles: {rows}")
+                    return [
+                        ProfileDTO.from_tuple(
+                            (
+                                row[0],
+                                owner_id,
+                            )
+                            + row[1:]
+                        )
+                        for row in rows
+                    ]
+                else:
+                    logger.error(
+                        f"Error with getting profile data for owner_id {owner_id}"
+                    )
+        except Exception as error:
+            logger.error("Error fetching profile data by owner_id:", error)
+            traceback.print_exception(error)
+        return []
+
     def update(self, profile):
         update_query = """
         UPDATE profiles
@@ -124,7 +157,7 @@ class ProfilesRepository:
         WHERE uuid = %s;
         """
         profile_data = profile.to_tuple()
-        profile_data = profile_data[1:] + (profile_data[0],)  # move uuid to the end
+        profile_data = profile_data[2:] + (profile_data[0],)  # move uuid to the end
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, profile_data)

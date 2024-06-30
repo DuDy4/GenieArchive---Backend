@@ -206,9 +206,10 @@ class ContactsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (salesforce_id, tenant_id))
                 row = cursor.fetchone()
+                logger.debug(f"Got row: {row}")
                 if row:
-                    logger.info(f"Got {row[2]} from database")
-                    return PersonDTO(*row[2:])
+                    logger.info(f"Got {row[1]} from database")
+                    return PersonDTO(*row[1:3] + row[4:])
 
         except Exception as error:
             logger.error("Error fetching contact by salesforce_id:", error)

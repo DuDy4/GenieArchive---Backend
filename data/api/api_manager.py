@@ -42,7 +42,7 @@ v1_router = APIRouter(prefix="/v1")
 redis_client = Redis(host="localhost", port=6379, db=0)
 
 
-@v1_router.get("/profiles/{uuid}", response_model=dict)
+@v1_router.get("/profile/{uuid}", response_model=dict)
 def get_profile(
     uuid: str,
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
@@ -248,3 +248,23 @@ async def process_contacts(
         logger.error(f"Error: {e}")
         traceback.print_exc()
         return PlainTextResponse(f"Error: {e}")
+
+
+@v1_router.get("/profiles/{tenant_id}", response_class=JSONResponse)
+async def get_all_profiles(
+    request: Request,
+    tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+) -> JSONResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received get profiles request")
+
+    profiles = profiles_repository.get_all_profiles_by_owner_id(tenant_id)
+
+    profiles_list = [profile.to_dict() for profile in profiles]
+
+    logger.info(f"Got profiles: {len(profiles_list)}")
+    logger.debug(f"Profiles: {profiles_list}")
+    return JSONResponse(content=profiles_list)

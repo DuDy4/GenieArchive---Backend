@@ -112,9 +112,9 @@ class SalesforceAgent:
 
         fields = await self.get_all_fields("Contact")
         logger.debug(f"Fields: {fields}")
-        if "linkedInUrl__c" in fields:
+        if "LinkedInUrl__c" in fields:
             logger.debug("LinkedIn field exists")
-            query_base += ", linkedInUrl__c"
+            query_base += ", LinkedInUrl__c"
 
         query = query_base + " FROM Contact LIMIT 100"
         headers = {

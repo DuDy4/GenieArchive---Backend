@@ -132,6 +132,7 @@ class PersonManager(GenieConsumer):
         profile_person = ProfileDTO.from_dict(
             {
                 "uuid": person_dict.get("uuid"),
+                "owner_id": person_dict.get("owner_id"),
                 "name": person_dict.get("name"),
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
