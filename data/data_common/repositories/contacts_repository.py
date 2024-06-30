@@ -3,7 +3,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from app.app_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from loguru import logger
 
 
@@ -21,6 +21,7 @@ class ContactsRepository:
         create_table_query = """
         CREATE TABLE IF NOT EXISTS contacts (
             id SERIAL PRIMARY KEY,
+            owner_id VARCHAR,
             uuid VARCHAR UNIQUE NOT NULL,
             salesforce_id VARCHAR,
             name VARCHAR,
@@ -39,22 +40,25 @@ class ContactsRepository:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
 
-    def insert_contact(self, contact: PersonDTO, salesforce_id) -> str | None:
+    def insert_contact(self, owner_id, contact: PersonDTO, salesforce_id) -> str | None:
         """
+        :param owner_id: id of the tenant who own of the contact
         :param contact: PersonDTO object with contact data to insert into database
         :param salesforce_id: salesforce id of the contact
         :return the id of the newly created contact in database:
         """
         insert_query = """
-        INSERT INTO contacts (salesforce_id, uuid, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO contacts (owner_id, salesforce_id, uuid, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         contact_data = contact.to_tuple()
         try:
             if not self.exists(contact.uuid):
                 with self.conn.cursor() as cursor:
-                    cursor.execute(insert_query, (salesforce_id,) + contact_data)
+                    cursor.execute(
+                        insert_query, (owner_id, salesforce_id) + contact_data
+                    )
                     self.conn.commit()
                     contact_id = cursor.fetchone()[0]
                     logger.info(
@@ -77,9 +81,11 @@ class ContactsRepository:
                 return result
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            traceback.print_exc()
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def exists_salesforce_id(self, salesforce_id) -> bool:
@@ -101,9 +107,11 @@ class ContactsRepository:
             logger.error(
                 f"Error checking existence of salesforce_id {salesforce_id}: {error}"
             )
+            traceback.print_exc()
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def exists_identity(self, name, email):
@@ -292,7 +300,7 @@ class ContactsRepository:
         except Exception as error:
             logger.error("Error searching contact:", error)
 
-    def handle_sf_contacts_list(self, contacts_list: list[dict]):
+    def handle_sf_contacts_list(self, tenant_id: str, contacts_list: list[dict]):
         """
         Insert or update contacts from salesforce to the database,
         and return the list of changed contacts (from last time we fetched contact from salesforce) that we need to
@@ -318,7 +326,7 @@ class ContactsRepository:
                         self.update_contact(contact)
                         changed_contacts.append(contact.to_dict())
                 else:
-                    self.insert_contact(contact, contact_id)
+                    self.insert_contact(tenant_id, contact, contact_id)
                     logger.info(f"Inserted person: {contact.name}")
                     changed_contacts.append(contact)
             except Exception as e:
