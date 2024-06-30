@@ -6,6 +6,7 @@ from common.utils.str_utils import get_uuid4
 @dataclass
 class PersonDTO:
     uuid: str
+    owner_id: str
     name: str
     company: str
     email: str
@@ -16,6 +17,7 @@ class PersonDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
+            "owner_id": self.owner_id,
             "name": self.name,
             "company": self.company,
             "email": self.email,
@@ -28,6 +30,7 @@ class PersonDTO:
     def from_dict(data: dict):
         return PersonDTO(
             uuid=data.get("uuid", ""),
+            owner_id=data.get("owner_id", ""),
             name=data.get("name", ""),
             company=data.get("company", ""),
             email=data.get("email", ""),
@@ -36,9 +39,10 @@ class PersonDTO:
             timezone=data.get("timezone", ""),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str, str, str]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str, str, str]:
         return (
             self.uuid,
+            self.owner_id,
             self.name,
             self.company,
             self.email,
@@ -56,9 +60,10 @@ class PersonDTO:
         return PersonDTO.from_dict(data)
 
     @staticmethod
-    def from_sf_contact(contact: dict):
+    def from_sf_contact(contact: dict, owner_id: str):
         return PersonDTO(
             uuid=get_uuid4(),
+            owner_id=owner_id,
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
             company=f"{contact.get('AccountName') or (contact.get('Account', {}).get('Name', '') if contact.get('Account') else '')}",
             email=contact.get("Email") or "",
