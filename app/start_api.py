@@ -35,12 +35,13 @@ app.add_middleware(
 
 app.include_router(v1_router)
 
+PORT = int(os.environ.get("APP_PORT", 3000))
 
 if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=3000,
+        port=PORT,
         ssl_keyfile="../key.pem",
         ssl_certfile="../cert.pem",
     )
