@@ -230,7 +230,7 @@ async def get_contacts(
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
-@v1_router.get("/salesforce/build-profiles/{state}", response_class=JSONResponse)
+@v1_router.post("/salesforce/build-profiles/{state}", response_class=JSONResponse)
 async def process_profiles(
     request: Request,
     state: str,
