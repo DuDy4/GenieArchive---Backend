@@ -73,26 +73,23 @@ def oauth_salesforce(request: Request, tenantId: str) -> RedirectResponse:
     return RedirectResponse(url=authorization_url)
 
 
-@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/callback", response_class=JSONResponse)
 def callback_salesforce(
     request: Request,
-    state: str,
-) -> PlainTextResponse:
+) -> JSONResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
     # logger.debug(f"Request session: {request.session}")
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
-    logger.info(
-        f"Received callback from salesforce oauth integration. tenantId: {state}"
-    )
     #  company's name supposed to be save in the state parameter
     tenant_id = request.query_params.get("state")
+    url = request.query_params.get("url")
 
     logger.debug(f"Tenant ID: {tenant_id}")
 
-    token_data = handle_callback(tenant_id, str(request.url))
+    token_data = handle_callback(tenant_id, str(url))
 
     json_to_app = {
         "client_url": token_data.get("instance_url"),
@@ -102,31 +99,7 @@ def callback_salesforce(
 
     logger.info(f"Token data: {json_to_app}")
 
-    retries = Retry(total=5, backoff_factor=1)
-
-    # Create a session
-    session = requests.Session()
-
-    # Mount the adapter to handle retries
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    # Disable SSL verification
-    session.verify = False
-
-    url_params = {"state": tenant_id} if state else {}
-
-    logger.debug(f"URL params: {url_params}")
-
-    response = session.post(
-        f"{APP_URL}/v1/salesforce/callback",
-        json=json_to_app,  # Sends the dictionary as a JSON body
-        params=url_params,
-        allow_redirects=False,
-    )
-
-    return PlainTextResponse(
-        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
-    )
+    return JSONResponse(content=json_to_app)
 
 
 @v1_router.post("/salesforce/deploy-apex/{company}", response_model=dict)

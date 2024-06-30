@@ -23,21 +23,6 @@ from redis import Redis
 
 from app_common.repositories.tenants_repository import TenantsRepository
 from app_common.dependencies.dependencies import tenants_repository
-from app_common.utils.salesforce_functions import handle_new_contacts_event
-
-from services.sheet import (
-    get_sheet_records,
-    create_vc_draft_email,
-    get_strengths,
-    update_sheet,
-    get_strengths_chart,
-    upload_to_s3,
-    extract_first_json,
-    get_vc_member_data,
-    fetch_hobbies_images,
-    get_hobbies,
-    get_news,
-)
 
 SELF_URL = os.environ.get("self_url", "https://localhost:3000")
 PERSON_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -164,7 +149,7 @@ def oauth_salesforce(tenantId: str) -> RedirectResponse:
     )  # Redirect to an error page or handle accordingly
 
 
-@v1_router.post("/salesforce/callback", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
 async def callback_salesforce(
     request: Request,
     tenants_repository: TenantsRepository = Depends(tenants_repository),
@@ -178,12 +163,33 @@ async def callback_salesforce(
 
     logger.info(f"Received callback from salesforce oauth integration.")
     logger.debug(f"Request: {request}")
+    logger.debug(f"Request_url: {request.url}")
 
     tenant_id = request.query_params.get("state")
 
-    data = await request.json()
-
     logger.debug(f"Tenant ID: {tenant_id}")
+
+    url = str(request.url)
+    retries = Retry(total=5, backoff_factor=1)
+
+    # Create a session
+    session = requests.Session()
+
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    # Disable SSL verification
+    session.verify = False
+    response = session.get(
+        PERSON_URL + f"/v1/salesforce/callback?state={tenant_id}&url={url}",
+        allow_redirects=False,
+    )
+
+    logger.debug(f"Response: {response}")
+
+    data = response.json()
+
+    logger.debug(f"Data: {data}")
 
     tenants_repository.update_salesforce_credentials(tenant_id, data)
 
@@ -261,128 +267,3 @@ async def process_profiles(
         # Raise an HTTPException if the request was not successful
         raise {"message": "Failed to process contacts"}
     # return PlainTextResponse("Success")
-
-
-#
-# @v1_router.get("/create-vc-mail", response_class=PlainTextResponse)
-# def create_vc_mail(
-#         id: int = -1,
-#         name: str = None
-# ) -> RedirectResponse:
-#     """
-#     Creates a personal mail for a specific vc member based on the VC google sheet
-#     """
-#     if name:
-#         vc_member_data, id = get_vc_member_data(name)
-#         if not vc_member_data:
-#             return JSONResponse({"error": "VC member not found"})
-#     elif id > 0:
-#         vc_member_data = get_sheet_records(id)
-#     print(vc_member_data)
-#
-#     # Hobbies
-#     hobbies = get_hobbies(vc_member_data)
-#     hobbies = extract_first_json(hobbies.replace('\n', ' '))
-#     hobbies = hobbies['hobbies']
-#     hobby_data = fetch_hobbies_images(hobbies)
-#
-#     # News
-#     news = get_news(vc_member_data)
-#     news = extract_first_json(news.replace('\n', ' '))
-#     news = news['news_list']
-#
-#     # Image
-#     linkedin_url = vc_member_data['Personal LinkedIn']
-#     image_link = None
-#     if linkedin_url:
-#         linkedin_id = fix_linkedin_url(linkedin_url)
-#         res = profile_picture.search(linkedin_id)
-#         image_link = extract_profile_picture(res._search_results)
-#
-#
-#     name_and_vc = vc_member_data['Full name'] + "(" + vc_member_data['VC name'] + ")"
-#     logger.info(f"Found VC Member: {name_and_vc}")
-#     strengths = get_strengths(vc_member_data)
-#     strengths = strengths.replace('\n', ' ')
-#     strengths = strengths.replace("\'", "`")
-#     strengths_score = extract_first_json(strengths)
-#     logger.info(f"Strengths for {name_and_vc}: {strengths_score}")
-#     escaped_name = vc_member_data['Full name'].replace(" ","_").replace("\n","")
-#     spider_chart = get_strengths_chart(strengths_score, escaped_name)
-#     logger.info(f"Strengths chart for {name_and_vc}: {spider_chart}")
-#     chart_url = upload_to_s3(spider_chart)
-#     mail_draft = create_vc_draft_email(vc_member_data, strengths_score)
-#     logger.info(f"Draft for {name_and_vc}: {mail_draft}")
-#     update_sheet(id, mail_draft, str(strengths_score), chart_url, hobby_data, news, image_link)
-#     return PlainTextResponse(mail_draft)
-#
-
-
-@v1_router.get("/vc-profile")
-def get_vc_profile(id: int = -1, name: str = None):
-    # vc_member_data = get_sheet_records(id)
-    if name:
-        vc_member_data, id = get_vc_member_data(name)
-        if not vc_member_data:
-            return JSONResponse({"error": "VC member not found"})
-    elif id > 0:
-        vc_member_data = get_sheet_records(id)
-
-    vc_member_data = remove_newlines_from_dict(vc_member_data)
-    print(vc_member_data)
-    name_and_vc = vc_member_data["Full name"] + "(" + vc_member_data["VC name"] + ")"
-    logger.info(f"Found VC Member: {name_and_vc}")
-    # strengths = vc_member_data['Stregnths (Auto-Generated)'].replace("'", "\"")
-    # strengths = strengths.replace("`", "'")
-    # strengths_json = json.loads(strengths)
-    # vc_member_data['Strengths'] = strengths_json
-    vc_member_data["Strengths"] = transform_to_json(
-        vc_member_data["Stregnths (Auto-Generated)"]
-    )
-    if vc_member_data["Hobby URLs"]:
-        vc_member_data["Hobbies Data"] = transform_to_json(vc_member_data["Hobby URLs"])
-    else:
-        vc_member_data["Hobbies Data"] = []
-    if vc_member_data["News Data"]:
-        vc_member_data["News Data"] = transform_to_json(vc_member_data["News Data"])
-    else:
-        vc_member_data["News Data"] = []
-    if vc_member_data["Connections"]:
-        vc_member_data["Connections"] = transform_to_json(vc_member_data["Connections"])
-    return vc_member_data
-
-
-def remove_newlines_from_dict(input_dict):
-    return {
-        key: value.replace("\n", "") if isinstance(value, str) else value
-        for key, value in input_dict.items()
-    }
-
-
-def transform_to_json(data):
-    data = data.replace("'", '"').replace("`", "'")
-    return json.loads(data)
-
-
-def fix_linkedin_url(linkedin_url: str) -> str:
-    """
-    Converts a full LinkedIn URL to a shortened URL.
-
-    Args:
-        linkedin_url (str): The full LinkedIn URL.
-
-    Returns:
-        str: The shortened URL.
-    """
-    linkedin_url = linkedin_url.replace(
-        "http://www.linkedin.com/in/", "linkedin.com/in/"
-    )
-    linkedin_url = linkedin_url.replace(
-        "https://www.linkedin.com/in/", "linkedin.com/in/"
-    )
-    linkedin_url = linkedin_url.replace("http://linkedin.com/in/", "linkedin.com/in/")
-    linkedin_url = linkedin_url.replace("https://linkedin.com/in/", "linkedin.com/in/")
-
-    if linkedin_url[-1] == "/":
-        linkedin_url = linkedin_url[:-1:]
-    return linkedin_url
