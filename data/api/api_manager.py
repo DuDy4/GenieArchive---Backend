@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import requests
 from fastapi import Depends, Request
@@ -14,6 +15,7 @@ from data.data_common.salesforce.salesforce_integrations_manager import (
     get_authorization_url,
     create_salesforce_client,
     SalesforceAgent,
+    handle_new_contacts_event,
 )
 from data.data_common.repositories.salesforce_users_repository import (
     SalesforceUsersRepository,
@@ -40,7 +42,7 @@ v1_router = APIRouter(prefix="/v1")
 redis_client = Redis(host="localhost", port=6379, db=0)
 
 
-@v1_router.get("/profiles/{uuid}", response_model=dict)
+@v1_router.get("/profile/{uuid}", response_model=dict)
 def get_profile(
     uuid: str,
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
@@ -72,26 +74,23 @@ def oauth_salesforce(request: Request, tenantId: str) -> RedirectResponse:
     return RedirectResponse(url=authorization_url)
 
 
-@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/callback", response_class=JSONResponse)
 def callback_salesforce(
     request: Request,
-    state: str,
-) -> PlainTextResponse:
+) -> JSONResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
     # logger.debug(f"Request session: {request.session}")
     # logger.info(f"Received callback from salesforce oauth integration. Company: {request.session['salesforce_company']}"
     # )
-    logger.info(
-        f"Received callback from salesforce oauth integration. tenantId: {state}"
-    )
     #  company's name supposed to be save in the state parameter
     tenant_id = request.query_params.get("state")
+    url = request.query_params.get("url")
 
     logger.debug(f"Tenant ID: {tenant_id}")
 
-    token_data = handle_callback(tenant_id, str(request.url))
+    token_data = handle_callback(tenant_id, str(url))
 
     json_to_app = {
         "client_url": token_data.get("instance_url"),
@@ -101,31 +100,7 @@ def callback_salesforce(
 
     logger.info(f"Token data: {json_to_app}")
 
-    retries = Retry(total=5, backoff_factor=1)
-
-    # Create a session
-    session = requests.Session()
-
-    # Mount the adapter to handle retries
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    # Disable SSL verification
-    session.verify = False
-
-    url_params = {"state": tenant_id} if state else {}
-
-    logger.debug(f"URL params: {url_params}")
-
-    response = session.post(
-        f"{APP_URL}/v1/salesforce/callback",
-        json=json_to_app,  # Sends the dictionary as a JSON body
-        params=url_params,
-        allow_redirects=False,
-    )
-
-    return PlainTextResponse(
-        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
-    )
+    return JSONResponse(content=json_to_app)
 
 
 @v1_router.post("/salesforce/deploy-apex/{company}", response_model=dict)
@@ -216,10 +191,10 @@ async def salesforce_webhook(
         return {"status": "error", "message": str(e)}
 
 
-@v1_router.get("/salesforce/contacts/{company}", response_class=JSONResponse)
+@v1_router.get("/salesforce/contacts/{tenant_id}", response_class=JSONResponse)
 async def get_all_contact_for_tenant(
     request: Request,
-    company: str,
+    tenant_id: str,
     sf_users_repository=Depends(salesforce_users_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> JSONResponse:
@@ -228,14 +203,68 @@ async def get_all_contact_for_tenant(
     """
     logger.info(f"Received get contacts request")
 
-    refresh_token = sf_users_repository.get_refresh_token(company)
+    refresh_token = sf_users_repository.get_refresh_token(tenant_id)
     logger.info(f"refresh_token: {refresh_token}")
-    salesforce_client = create_salesforce_client(company, refresh_token)
+    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
         salesforce_client, sf_users_repository, contacts_repository
     )
-    contacts = await salesforce_agent.get_contacts()
+    contacts = await salesforce_agent.get_contacts(tenant_id)
 
     logger.info(f"Got contacts: {len(contacts)}")
     return JSONResponse(content=contacts)
+
+
+@v1_router.post(
+    "/salesforce/handle-contacts/{tenant_id}", response_class=PlainTextResponse
+)
+async def process_contacts(
+    request: Request,
+    tenant_id: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+    contacts_repository=Depends(contacts_repository),
+) -> PlainTextResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    try:
+
+        logger.info(f"Received get contacts request")
+        logger.debug(f"Tenant ID: {tenant_id}")
+        contact_ids = await request.json()
+        logger.debug(f"Contact IDs: {contact_ids}")
+
+        contacts = [
+            contacts_repository.get_contact_by_salesforce_id(tenant_id, contact_id)
+            for contact_id in contact_ids
+        ]
+        logger.debug(f"Contacts: {contacts}")
+
+        handle_new_contacts_event(contacts)
+
+        return PlainTextResponse(f"Got contacts: {len(contact_ids)}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        traceback.print_exc()
+        return PlainTextResponse(f"Error: {e}")
+
+
+@v1_router.get("/profiles/{tenant_id}", response_class=JSONResponse)
+async def get_all_profiles(
+    request: Request,
+    tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+) -> JSONResponse:
+    """
+    Triggers the salesforce oauth2.0 callback process
+    """
+    logger.info(f"Received get profiles request")
+
+    profiles = profiles_repository.get_all_profiles_by_owner_id(tenant_id)
+
+    profiles_list = [profile.to_dict() for profile in profiles]
+
+    logger.info(f"Got profiles: {len(profiles_list)}")
+    logger.debug(f"Profiles: {profiles_list}")
+    return JSONResponse(content=profiles_list)

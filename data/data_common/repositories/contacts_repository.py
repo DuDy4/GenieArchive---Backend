@@ -1,9 +1,10 @@
 import traceback
+
 from typing import Optional, Union, List
 
 import psycopg2
 
-from app.app_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from loguru import logger
 
 
@@ -22,6 +23,7 @@ class ContactsRepository:
         CREATE TABLE IF NOT EXISTS contacts (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
+            owner_id VARCHAR,
             salesforce_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
@@ -41,13 +43,14 @@ class ContactsRepository:
 
     def insert_contact(self, contact: PersonDTO, salesforce_id) -> str | None:
         """
+        :param owner_id: id of the tenant who own of the contact
         :param contact: PersonDTO object with contact data to insert into database
         :param salesforce_id: salesforce id of the contact
         :return the id of the newly created contact in database:
         """
         insert_query = """
-        INSERT INTO contacts (salesforce_id, uuid, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO contacts ( salesforce_id, uuid, owner_id, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         contact_data = contact.to_tuple()
@@ -77,9 +80,11 @@ class ContactsRepository:
                 return result
         except psycopg2.Error as error:
             logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            traceback.print_exc()
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def exists_salesforce_id(self, salesforce_id) -> bool:
@@ -101,9 +106,11 @@ class ContactsRepository:
             logger.error(
                 f"Error checking existence of salesforce_id {salesforce_id}: {error}"
             )
+            traceback.print_exc()
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def exists_identity(self, name, email):
@@ -146,8 +153,11 @@ class ContactsRepository:
         person_data = person.to_tuple()
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, person_data)
-                result = cursor.fetchone() is not None
+                cursor.execute(exists_query, person_data[0:1] + person_data[2:])
+                logger.debug(cursor.query)
+                person = cursor.fetchone()
+                logger.debug(f"Person existence in database: {person}")
+                result = person is not None
                 logger.info(f"Person existence in database: {result}")
                 return bool(result)
         except Exception as error:
@@ -186,6 +196,26 @@ class ContactsRepository:
             logger.error("Error fetching id by salesforce_id:", error)
         return None
 
+    def get_contact_by_salesforce_id(
+        self, tenant_id, salesforce_id: str
+    ) -> Optional[PersonDTO]:
+        select_query = (
+            "SELECT * FROM contacts WHERE salesforce_id = %s AND owner_id = %s;"
+        )
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (salesforce_id, tenant_id))
+                row = cursor.fetchone()
+                logger.debug(f"Got row: {row}")
+                if row:
+                    logger.info(f"Got {row[1]} from database")
+                    return PersonDTO(*row[1:3] + row[4:])
+
+        except Exception as error:
+            logger.error("Error fetching contact by salesforce_id:", error)
+            traceback.print_exc()
+        return None
+
     def get_contact_by_id(self, id: str) -> Optional[PersonDTO]:
         select_query = "SELECT * FROM contacts WHERE id = %s;"
         try:
@@ -193,8 +223,8 @@ class ContactsRepository:
                 cursor.execute(select_query, (id,))
                 row = cursor.fetchone()
                 if row:
-                    logger.info(f"Got {row[2]} from database")
-                    return PersonDTO(*row[1:])
+                    logger.info(f"Got {row[4]} from database")
+                    return PersonDTO(*row[2:])
 
         except Exception as error:
             logger.error("Error fetching contact by id:", error)
@@ -207,8 +237,8 @@ class ContactsRepository:
                 cursor.execute(select_query, (uuid,))
                 row = cursor.fetchone()
                 if row:
-                    logger.info(f"Got {row[2]} from database")
-                    return PersonDTO(*row[1:])
+                    logger.info(f"Got {row[4]} from database")
+                    return PersonDTO(*row[2:])
 
         except Exception as error:
             logger.error("Error fetching contact by id:", error)
@@ -244,7 +274,9 @@ class ContactsRepository:
         if contact.email is None:
             update_query = update_query.replace("email = %s,", "email IS NULL,")
         contact_data = contact.to_tuple()
-        contact_data = contact_data[1:] + (contact_data[0],)
+        logger.debug(f"Contact data: {contact_data}")
+        contact_data = contact_data[2:] + (contact_data[0],)
+        logger.debug(f"Contact data: {contact_data}")
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, contact_data)
@@ -292,7 +324,7 @@ class ContactsRepository:
         except Exception as error:
             logger.error("Error searching contact:", error)
 
-    def handle_sf_contacts_list(self, contacts_list: list[dict]):
+    def handle_sf_contacts_list(self, tenant_id: str, contacts_list: list[dict]):
         """
         Insert or update contacts from salesforce to the database,
         and return the list of changed contacts (from last time we fetched contact from salesforce) that we need to
@@ -306,7 +338,7 @@ class ContactsRepository:
         for contact in contacts_list:
             logger.info(f"Handling contact: {contact}")
             contact_id = contact.get("Id")
-            contact = PersonDTO.from_sf_contact(contact)
+            contact = PersonDTO.from_sf_contact(contact, owner_id=tenant_id)
             logger.info(f"Contact: {contact}")
             try:
                 uuid = self.exists_salesforce_id(contact_id)

@@ -1,3 +1,5 @@
+import traceback
+
 import psycopg2
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
@@ -18,6 +20,7 @@ class PersonsRepository:
         CREATE TABLE IF NOT EXISTS persons (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
+            owner_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
@@ -41,8 +44,8 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO persons (uuid, owner_id, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert person: {person}")
@@ -60,6 +63,7 @@ class PersonsRepository:
         except psycopg2.Error as error:
             # self.conn.rollback()
             logger.error(f"Error inserting person: {error.pgerror}")
+            traceback.print_exc()
             raise Exception(f"Error inserting person, because: {error.pgerror}")
 
     def exists(self, uuid: str) -> bool:
@@ -118,6 +122,7 @@ class PersonsRepository:
         WHERE uuid = %s
         """
         person_data = person.to_tuple()
+        person_data = person_data[2:] + (person_data[0],)
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, person_data)

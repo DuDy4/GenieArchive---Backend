@@ -34,7 +34,7 @@ from data.data_common.salesforce.deployment_code import (
 
 load_dotenv()
 
-SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = os.environ.get("SELF_URL", "https://localhost:8000")
 SALESFORCE_CLIENT_ID = os.environ.get("SALESFORCE_CLIENT_ID")
 SALESFORCE_CLIENT_SECRET = os.environ.get("SALESFORCE_CLIENT_SECRET")
 SALESFORCE_LOGIN_URL = os.environ.get("SALESFORCE_LOGIN_URL")
@@ -100,7 +100,7 @@ class SalesforceAgent:
         except requests.exceptions.HTTPError:
             return False
 
-    async def get_contacts(self):
+    async def get_contacts(self, tenant_id: str):
         """
         Retrieve contacts from salesforce.
 
@@ -108,7 +108,15 @@ class SalesforceAgent:
         list: List of contact records.
         """
         url = f"{self.sf_client.instance_url}/services/data/v61.0/query/"
-        query = "SELECT Id, FirstName, LastName, Email, Title, Account.Name, linkedInUrl__c FROM Contact LIMIT 100"
+        query_base = "SELECT Id, FirstName, LastName, Email, Title, Account.Name"
+
+        fields = await self.get_all_fields("Contact")
+        logger.debug(f"Fields: {fields}")
+        if "LinkedInUrl__c" in fields:
+            logger.debug("LinkedIn field exists")
+            query_base += ", LinkedInUrl__c"
+
+        query = query_base + " FROM Contact LIMIT 100"
         headers = {
             "Authorization": f"Bearer {self.sf_client.access_token}",
             "Content-Type": "application/json",
@@ -125,10 +133,10 @@ class SalesforceAgent:
                     contact["AccountName"] = contact["Account"]["Name"]
                 else:
                     contact["AccountName"] = None
-            # changed_contacts = self.contacts_repository.handle_sf_contacts_list(
-            #     contacts
-            # )
-            # logger.info(f"New contacts to handle: {changed_contacts}")
+            changed_contacts = self.contacts_repository.handle_sf_contacts_list(
+                tenant_id, contacts
+            )
+            logger.info(f"New contacts to handle: {changed_contacts}")
             # if len(changed_contacts) > 0:
             #     handle_new_contacts_event(
             #         changed_contacts
@@ -137,6 +145,24 @@ class SalesforceAgent:
         except Exception as e:
             print(f"Failed to retrieve contacts: {e}")
             return []
+
+    async def get_all_fields(self, object_name: str) -> list:
+        """
+        Retrieve all fields of a given Salesforce object.
+
+        Returns:
+        list: List of field names.
+        """
+        url = f"{self.sf_client.instance_url}/services/data/v61.0/sobjects/{object_name}/describe"
+        headers = {
+            "Authorization": f"Bearer {self.sf_client.access_token}",
+            "Content-Type": "application/json",
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        fields = response.json().get("fields", [])
+        logger.debug(f"Fields: {fields[-1]}")
+        return [field["name"] for field in fields]
 
     def deploy_apex_code(self):
         zip_buffer = create_zip(trigger_code, class_code, metadata_package)

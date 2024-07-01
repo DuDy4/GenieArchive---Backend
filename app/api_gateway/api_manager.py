@@ -23,7 +23,6 @@ from redis import Redis
 
 from app_common.repositories.tenants_repository import TenantsRepository
 from app_common.dependencies.dependencies import tenants_repository
-from app_common.utils.salesforce_functions import handle_new_contacts_event
 
 SELF_URL = os.environ.get("self_url", "https://localhost:3000")
 PERSON_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -84,7 +83,7 @@ async def signup(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@v1_router.get("/profiles/{uuid}", response_model=dict)
+@v1_router.get("/profile/{uuid}", response_model=dict)
 def get_profile(
     uuid: str,
 ):
@@ -104,7 +103,7 @@ def get_profile(
 
     # Disable SSL verification
     session.verify = False
-    response = session.get(PERSON_URL + f"/v1/profiles/{uuid}")
+    response = session.get(PERSON_URL + f"/v1/profile/{uuid}")
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -150,7 +149,7 @@ def oauth_salesforce(tenantId: str) -> RedirectResponse:
     )  # Redirect to an error page or handle accordingly
 
 
-@v1_router.post("/salesforce/callback", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
 async def callback_salesforce(
     request: Request,
     tenants_repository: TenantsRepository = Depends(tenants_repository),
@@ -164,12 +163,33 @@ async def callback_salesforce(
 
     logger.info(f"Received callback from salesforce oauth integration.")
     logger.debug(f"Request: {request}")
+    logger.debug(f"Request_url: {request.url}")
 
     tenant_id = request.query_params.get("state")
 
-    data = await request.json()
-
     logger.debug(f"Tenant ID: {tenant_id}")
+
+    url = str(request.url)
+    retries = Retry(total=5, backoff_factor=1)
+
+    # Create a session
+    session = requests.Session()
+
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    # Disable SSL verification
+    session.verify = False
+    response = session.get(
+        PERSON_URL + f"/v1/salesforce/callback?state={tenant_id}&url={url}",
+        allow_redirects=False,
+    )
+
+    logger.debug(f"Response: {response}")
+
+    data = response.json()
+
+    logger.debug(f"Data: {data}")
 
     tenants_repository.update_salesforce_credentials(tenant_id, data)
 
@@ -191,21 +211,17 @@ async def get_contacts(
 
     # Define the number of retries and backoff factor
     retries = Retry(total=5, backoff_factor=1)
-
     # Create a session
     session = requests.Session()
-
     # Mount the adapter to handle retries
     session.mount("https://", HTTPAdapter(max_retries=retries))
-
     # Disable SSL verification
     session.verify = False
-
     response = session.get(
         PERSON_URL + f"/v1/salesforce/contacts/{tenant_id}", allow_redirects=False
     )
 
-    logger.debug(f"Response: {response.json()}")
+    logger.debug(f"Fetch {len(response.json())} contacts")
 
     # Check if the request was successful
     if response.status_code == 200:
@@ -216,7 +232,7 @@ async def get_contacts(
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
-@v1_router.get("/salesforce/build-profiles/{state}", response_class=JSONResponse)
+@v1_router.post("/salesforce/build-profiles/{state}", response_class=PlainTextResponse)
 async def process_profiles(
     request: Request,
     state: str,
@@ -227,13 +243,56 @@ async def process_profiles(
     tenant_id = state
     logger.info(f"Fetching contacts for tenant: {tenant_id}")
 
-    contacts = await request.json()
+    contact_ids = await request.json()
 
-    result = handle_new_contacts_event(contacts)
+    logger.debug(f"Contact IDs: {contact_ids}")
 
+    response = send_request_to_person_api(
+        "POST", PERSON_URL + f"/v1/salesforce/handle-contacts/{tenant_id}", contact_ids
+    )
+
+    result = response.text
     logger.debug(f"Result: {result}")
     if result:
         return result
     else:
         # Raise an HTTPException if the request was not successful
         raise {"message": "Failed to process contacts"}
+    # return PlainTextResponse("Success")
+
+
+@v1_router.get("/profiles/{tenant_id}", response_class=JSONResponse)
+async def get_all_profiles(
+    request: Request,
+    tenant_id: str,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Fetches and returns all profiles for a specific tenant.
+    """
+    logger.info(f"Received get profiles request")
+
+    response = send_request_to_person_api(
+        "GET", PERSON_URL + f"/v1/profiles/{tenant_id}", {}
+    )
+
+    profiles = response.json()
+
+    return JSONResponse(content=profiles)
+
+
+def send_request_to_person_api(request_type: str, url: str, data: json):
+    retries = Retry(total=5, backoff_factor=1)
+    # Create a session
+    session = requests.Session()
+    # Mount the adapter to handle retries
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+    # Disable SSL verification
+    session.verify = False
+    if request_type == "GET":
+        response = session.get(url, allow_redirects=False)
+        return response
+    elif request_type == "POST":
+        response = session.post(url, json=data, allow_redirects=False)
+        return response
+    return {"message": "Invalid request type"}

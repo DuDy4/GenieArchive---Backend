@@ -2,8 +2,9 @@ import json
 
 
 class ProfileDTO:
-    def __init__(self, uuid, name, challenges, strengths, summary):
+    def __init__(self, uuid, owner_id, name, challenges, strengths, summary):
         self.uuid = uuid
+        self.owner_id = owner_id
         self.name = name
         self.challenges = challenges
         self.strengths = strengths
@@ -12,6 +13,7 @@ class ProfileDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
+            "owner_id": self.owner_id,
             "name": self.name,
             "challenges": self.challenges,
             "strengths": self.strengths,
@@ -22,15 +24,17 @@ class ProfileDTO:
     def from_dict(data: dict):
         return ProfileDTO(
             uuid=data.get("uuid", ""),
+            owner_id=data.get("owner_id", ""),
             name=data.get("name", ""),
             challenges=data.get("challenges", ""),
             strengths=data.get("strengths", ""),
             summary=data.get("summary", ""),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str]:
         return (
             self.uuid,
+            self.owner_id,
             self.name,
             self.challenges,
             self.strengths,
@@ -41,10 +45,11 @@ class ProfileDTO:
     def from_tuple(row: tuple) -> "ProfileDTO":
         return ProfileDTO(
             uuid=row[0],
-            name=row[1],
-            challenges=row[2],
-            strengths=row[3],
-            summary=row[4],
+            owner_id=row[1],
+            name=row[2],
+            challenges=row[3],
+            strengths=row[4],
+            summary=row[5],
         )
 
     def to_json(self):
@@ -56,4 +61,4 @@ class ProfileDTO:
         return ProfileDTO.from_dict(data)
 
     def __str__(self):
-        return f"ProfileDTO(uuid={self.uuid}, name={self.name}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary})"
+        return f"ProfileDTO(uuid={self.uuid}, owner_id={self.owner_id}, name={self.name}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary})"
