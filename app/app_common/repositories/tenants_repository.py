@@ -117,7 +117,7 @@ class TenantsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (tenant_id,))
                 result = cursor.fetchone()
-                if result is not None:
+                if result[2] is not None:
                     return {"salesforce_access_token": result[2]}
         except Exception as error:
             logger.error("Error getting tenant credentials:", error)
@@ -140,3 +140,16 @@ class TenantsRepository:
             logger.error("Error getting tenant credentials:", error)
             logger.error(traceback.format_exc())
         return False
+
+    def delete_salesforce_credentials(self, tenant_id):
+        delete_query = """
+        UPDATE tenants SET salesforce_client_url = NULL, salesforce_refresh_token = NULL, salesforce_access_token = NULL
+        WHERE tenant_id = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (tenant_id,))
+                self.conn.commit()
+        except Exception as error:
+            logger.error("Error deleting tenant credentials:", error)
+            logger.error(traceback.format_exc())

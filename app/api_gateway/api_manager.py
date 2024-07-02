@@ -198,6 +198,34 @@ async def callback_salesforce(
     )
 
 
+@v1_router.delete("/salesforce/{state}", response_class=JSONResponse)
+async def delete_salesforce_creds(
+    state: str,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Fetches and returns contacts from Salesforce.
+    """
+    tenant_id = state
+    logger.debug(f"Received delete credentials request for tenant: {tenant_id}")
+    logger.info(f"about to delete credentials for tenant: {tenant_id}")
+
+    tenants_repository.delete_salesforce_credentials(tenant_id)
+
+    result = tenants_repository.get_salesforce_credentials(tenant_id)
+    logger.debug(f"Result: {result}")
+
+    response = send_request_to_person_api(
+        "DELETE", PERSON_URL + f"/v1/salesforce/{tenant_id}"
+    )
+
+    logger.debug(f"Response: {response.json()}")
+    if not result:
+        return {"message": "Successfully deleted credentials"}
+    else:
+        return {"message": "Failed to delete credentials"}
+
+
 @v1_router.get("/salesforce/contacts/{state}", response_class=JSONResponse)
 async def get_contacts(
     state: str,
@@ -281,7 +309,7 @@ async def get_all_profiles(
     return JSONResponse(content=profiles)
 
 
-def send_request_to_person_api(request_type: str, url: str, data: json):
+def send_request_to_person_api(request_type: str, url: str, data: json = None):
     retries = Retry(total=5, backoff_factor=1)
     # Create a session
     session = requests.Session()
@@ -294,5 +322,8 @@ def send_request_to_person_api(request_type: str, url: str, data: json):
         return response
     elif request_type == "POST":
         response = session.post(url, json=data, allow_redirects=False)
+        return response
+    elif request_type == "DELETE":
+        response = session.delete(url, allow_redirects=False)
         return response
     return {"message": "Invalid request type"}
