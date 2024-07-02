@@ -122,7 +122,7 @@ class ProfilesRepository:
 
     def get_all_profiles_by_owner_id(self, owner_id: str) -> list[ProfileDTO]:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, summary
+        SELECT uuid, name, company, position, challenges, strengths, summary, picture_url
         FROM profiles
         WHERE owner_id = %s;
         """

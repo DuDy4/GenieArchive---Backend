@@ -3,7 +3,16 @@ import json
 
 class ProfileDTO:
     def __init__(
-        self, uuid, owner_id, name, company, position, challenges, strengths, summary
+        self,
+        uuid,
+        owner_id,
+        name,
+        company,
+        position,
+        challenges,
+        strengths,
+        summary,
+        picture_url,
     ):
         self.uuid = uuid
         self.owner_id = owner_id
@@ -13,6 +22,7 @@ class ProfileDTO:
         self.challenges = challenges
         self.strengths = strengths
         self.summary = summary
+        self.picture_url = picture_url
 
     def to_dict(self):
         return {
@@ -24,6 +34,7 @@ class ProfileDTO:
             "challenges": self.challenges,
             "strengths": self.strengths,
             "summary": self.summary,
+            "picture_url": self.picture_url,
         }
 
     @staticmethod
@@ -37,6 +48,7 @@ class ProfileDTO:
             challenges=data.get("challenges", ""),
             strengths=data.get("strengths", ""),
             summary=data.get("summary", ""),
+            picture_url=data.get("picture_url", ""),
         )
 
     def to_tuple(self) -> tuple:
@@ -49,6 +61,7 @@ class ProfileDTO:
             self.challenges,
             self.strengths,
             self.summary,
+            self.picture_url,
         )
 
     @staticmethod
@@ -62,6 +75,7 @@ class ProfileDTO:
             challenges=row[5],
             strengths=row[6],
             summary=row[7],
+            picture_url=row[8],
         )
 
     def to_json(self):
@@ -73,4 +87,4 @@ class ProfileDTO:
         return ProfileDTO.from_dict(data)
 
     def __str__(self):
-        return f"ProfileDTO(uuid={self.uuid}, owner_id={self.owner_id}, name={self.name}, company={self.company}, position={self.position}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary})"
+        return f"ProfileDTO(uuid={self.uuid}, owner_id={self.owner_id}, name={self.name}, company={self.company}, position={self.position}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary}), picture_url={self.picture_url})"
