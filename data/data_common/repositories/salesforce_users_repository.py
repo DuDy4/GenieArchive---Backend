@@ -125,3 +125,15 @@ class SalesforceUsersRepository:
         except psycopg2.Error as error:
             logger.error("Error updating user:", error)
             logger.error(f"Specific error message: {error.pgerror}")
+
+    def delete_salesforce_credentials(self, tenant_id):
+        delete_query = """DELETE FROM sf_users WHERE company = %s"""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (tenant_id,))
+                self.conn.commit()
+                logger.info("Deleted salesforce user from database")
+        except psycopg2.Error as error:
+            logger.error("Error deleting user:", error)
+            logger.error(f"Specific error message: {error.pgerror}")
+        return None

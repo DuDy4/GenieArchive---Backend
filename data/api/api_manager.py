@@ -103,6 +103,21 @@ def callback_salesforce(
     return JSONResponse(content=json_to_app)
 
 
+@v1_router.delete("/salesforce/{tenantId}", response_model=dict)
+def delete_salesforce_credentials(
+    tenantId: str,
+    sf_users_repository=Depends(salesforce_users_repository),
+):
+    """
+    Deletes the salesforce credentials for a given tenant.
+    """
+    logger.info(f"Deleting salesforce credentials for tenant: {tenantId}")
+    sf_users_repository.delete_salesforce_credentials(tenantId)
+
+    result = sf_users_repository.get_refresh_token(tenantId)
+    return {"status": "success"}
+
+
 @v1_router.post("/salesforce/deploy-apex/{company}", response_model=dict)
 async def salesforce_deploy_apex(
     request: Request,
