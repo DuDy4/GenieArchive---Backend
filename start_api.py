@@ -3,6 +3,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 # from starlette_context import middleware, context, plugins
@@ -13,13 +14,15 @@ from data.api.api_manager import v1_router
 load_dotenv()
 app = FastAPI()
 app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:1234"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(
     SessionMiddleware, secret_key=os.environ.get("APP_SECRET_KEY"), max_age=3600
 )
-# app.add_middleware(
-#     ContextMiddleware,
-#     plugins=(plugins.RequestIdPlugin(), plugins.CorrelationIdPlugin()),
-# )
-# app.add_middleware(CustomSessionMiddleware)
 
 app.include_router(v1_router)
 

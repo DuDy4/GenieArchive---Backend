@@ -11,7 +11,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
-from common.dependencies.dependencies import (
+from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     profiles_repository,
@@ -122,12 +122,18 @@ class PersonManager(GenieConsumer):
 
     async def handle_new_processed_profile(self, event):
         # Assuming the event body contains a JSON string with the processed data
+        logger.info(f"Handling new processed profile. Body: {event.body_as_str()}")
+        event = GenieEvent("Started", {}, "public")
+        event.send()
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
         profile = event_body.get("profile")
+
+        event = GenieEvent("Test", {}, "public")
+        event.send()
 
         profile_person = ProfileDTO.from_dict(
             {
@@ -139,6 +145,7 @@ class PersonManager(GenieConsumer):
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
                 "summary": profile.get("summary", ""),
+                "picture_url": profile.get("picture_url", ""),
             }
         )
         logger.debug(f"Profile person: {profile_person}")

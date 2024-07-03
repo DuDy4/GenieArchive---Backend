@@ -28,7 +28,8 @@ class ProfilesRepository:
             position VARCHAR,
             challenges JSONB,
             strengths JSONB,
-            summary TEXT
+            summary TEXT,
+            picture_url VARCHAR
         );
         """
         try:
@@ -84,6 +85,24 @@ class ProfilesRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
+    def exists_tenant(self, tenant_id: str) -> bool:
+        logger.info(f"About to check if tenant_id exists: {tenant_id}")
+        exists_query = "SELECT uuid FROM profiles WHERE owner_id = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                logger.info(f"about to execute check if tenant_id exists: {tenant_id}")
+
+                cursor.execute(exists_query, (tenant_id,))
+                result = cursor.fetchone() is not None
+                logger.info(f"{tenant_id} existence in database: {result}")
+                return result
+        except psycopg2.Error as error:
+            logger.error(f"Error checking existence of tenant_id {tenant_id}: {error}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
     def get_profile_id(self, uuid):
         select_query = "SELECT id FROM profiles WHERE uuid = %s;"
         try:
@@ -127,6 +146,7 @@ class ProfilesRepository:
         WHERE owner_id = %s;
         """
         try:
+            self.create_table_if_not_exists()
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (owner_id,))
                 rows = cursor.fetchall()
@@ -171,13 +191,10 @@ class ProfilesRepository:
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
+        profile.strengths = json.dumps(
+            profile.strengths
+        )  # convert to json to insert to JSONB
         if self.exists(profile.uuid):
-            profile.strengths = json.dumps(
-                profile.strengths
-            )  # convert to json to insert to JSONB
             self.update(profile)
         else:
-            profile.strengths = json.dumps(
-                profile.strengths
-            )  # convert to json to insert to JSONB
             self.insert_profile(profile)

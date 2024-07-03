@@ -2,12 +2,15 @@ import os
 import traceback
 
 import requests
-from fastapi import Depends, Request
+from fastapi import Depends, Request, HTTPException
 from fastapi.routing import APIRouter
 from loguru import logger
 from requests.adapters import HTTPAdapter
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from urllib3 import Retry
+
+from data.data_common.repositories.tenants_repository import TenantsRepository
+from data.data_common.repositories.profiles_repository import ProfilesRepository
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
 from data.data_common.salesforce.salesforce_integrations_manager import (
@@ -17,15 +20,12 @@ from data.data_common.salesforce.salesforce_integrations_manager import (
     SalesforceAgent,
     handle_new_contacts_event,
 )
-from data.data_common.repositories.salesforce_users_repository import (
-    SalesforceUsersRepository,
-)
-from data.data_common.repositories.profiles_repository import ProfilesRepository
+
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     contacts_repository,
     salesforce_event_handler,
-    salesforce_users_repository,
+    tenants_repository,
 )
 
 
@@ -34,12 +34,54 @@ from data.data_common.events.topics import Topic
 from redis import Redis
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
-APP_URL = os.environ.get("APP_URL", "https://localhost:3000")
 logger.info(f"Self url: {SELF_URL}")
 
 v1_router = APIRouter(prefix="/v1")
 
 redis_client = Redis(host="localhost", port=6379, db=0)
+
+
+@v1_router.post("/signup", response_model=dict)
+async def handle_user(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Creates a new user account.
+    """
+    try:
+        logger.debug(f"Received signup request: {request}")
+        data = await request.json()
+        logger.debug(f"Received signup data: {data}")
+        tenants_repository.create_table_if_not_exists()
+        uuid = tenants_repository.exists(data.get("tenantId"), data.get("name"))
+
+        if uuid:
+            logger.info(f"User already exists in database")
+            salesforce_creds = tenants_repository.get_salesforce_credentials(
+                data.get("tenantId")
+            )
+            logger.debug(f"Salesforce creds: {salesforce_creds}")
+            return {
+                "message": "User already exists in database",
+                "salesforce_creds": salesforce_creds,
+            }
+        uuid = tenants_repository.insert(data)
+        logger.debug(f"User account created successfully with uuid: {uuid}")
+
+        # salesforce_creds = tenants_repository.has_salesforce_creds(data.get("tenantId"))
+        salesforce_creds = tenants_repository.get_salesforce_credentials(
+            data.get("tenantId")
+        )
+        logger.debug(f"Salesforce creds: {salesforce_creds}")
+        # Add your business logic here
+        return {
+            "message": f"User account created successfully with uuid: {uuid}",
+            "salesforce_creds": salesforce_creds,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @v1_router.get("/profile/{uuid}", response_model=dict)
@@ -69,15 +111,15 @@ def oauth_salesforce(request: Request, tenantId: str) -> RedirectResponse:
     logger.info(f"Beginning salesforce oauth integration for {tenantId}")
     request.session["salesforce_tenantId"] = tenantId
 
-    authorization_url = get_authorization_url(tenantId) + f"&tenantId={tenantId}"
+    authorization_url = get_authorization_url(tenantId) + f"&state={tenantId}"
     logger.info(f"Redirect url: {authorization_url}")
     return RedirectResponse(url=authorization_url)
 
 
-@v1_router.get("/salesforce/callback", response_class=JSONResponse)
+@v1_router.get("/salesforce/callback", response_class=PlainTextResponse)
 def callback_salesforce(
     request: Request,
-) -> JSONResponse:
+) -> PlainTextResponse:
     """
     Triggers the salesforce oauth2.0 callback process
     """
@@ -86,7 +128,9 @@ def callback_salesforce(
     # )
     #  company's name supposed to be save in the state parameter
     tenant_id = request.query_params.get("state")
-    url = request.query_params.get("url")
+    url = request.url
+
+    logger.debug(f"Url: {url}")
 
     logger.debug(f"Tenant ID: {tenant_id}")
 
@@ -100,41 +144,46 @@ def callback_salesforce(
 
     logger.info(f"Token data: {json_to_app}")
 
-    return JSONResponse(content=json_to_app)
+    return PlainTextResponse(
+        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
+    )
 
 
 @v1_router.delete("/salesforce/{tenantId}", response_model=dict)
 def delete_salesforce_credentials(
     tenantId: str,
-    sf_users_repository=Depends(salesforce_users_repository),
+    tenants_repository=Depends(tenants_repository),
 ):
     """
     Deletes the salesforce credentials for a given tenant.
     """
     logger.info(f"Deleting salesforce credentials for tenant: {tenantId}")
-    sf_users_repository.delete_salesforce_credentials(tenantId)
+    tenants_repository.delete_salesforce_credentials(tenantId)
 
-    result = sf_users_repository.get_refresh_token(tenantId)
-    return {"status": "success"}
+    result = tenants_repository.get_refresh_token(tenantId)
+    if not result:
+        return {"status": "success"}
+    else:
+        return {"status": "error"}
 
 
 @v1_router.post("/salesforce/deploy-apex/{company}", response_model=dict)
 async def salesforce_deploy_apex(
     request: Request,
     company: str,
-    sf_users_repository=Depends(salesforce_users_repository),
+    tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ):
     """
     Endpoint to receive and process salesforce Platform Events.
     """
     try:
-        refresh_token = sf_users_repository.get_refresh_token(company)
+        refresh_token = tenants_repository.get_refresh_token(company)
         logger.info(f"refresh_token: {refresh_token}")
         salesforce_client = create_salesforce_client(company, refresh_token)
 
         salesforce_agent = SalesforceAgent(
-            salesforce_client, sf_users_repository, contacts_repository
+            salesforce_client, tenants_repository, contacts_repository
         )
 
         result = salesforce_agent.deploy_apex_code()
@@ -157,11 +206,11 @@ def get_all_topics():
     return Topic
 
 
-@v1_router.get("/salesforce/{company}/contact", response_class=PlainTextResponse)
+@v1_router.get("/salesforce/{tenant_id}/contact", response_class=PlainTextResponse)
 async def get_all_contact(
     request: Request,
-    company: str,
-    sf_users_repository=Depends(salesforce_users_repository),
+    tenant_id: str,
+    tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
@@ -169,14 +218,14 @@ async def get_all_contact(
     """
     logger.info(f"Received get contacts request")
 
-    refresh_token = sf_users_repository.get_refresh_token(company)
+    refresh_token = tenants_repository.get_refresh_token(tenant_id)
     logger.info(f"refresh_token: {refresh_token}")
-    salesforce_client = create_salesforce_client(company, refresh_token)
+    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
-        salesforce_client, sf_users_repository, contacts_repository
+        salesforce_client, tenants_repository, contacts_repository
     )
-    contacts = await salesforce_agent.get_contacts()
+    contacts = await salesforce_agent.get_contacts(tenant_id)
 
     logger.info(f"Got contacts: {len(contacts)}")
     return PlainTextResponse(f"Got contacts: {len(contacts)}")
@@ -210,7 +259,7 @@ async def salesforce_webhook(
 async def get_all_contact_for_tenant(
     request: Request,
     tenant_id: str,
-    sf_users_repository=Depends(salesforce_users_repository),
+    tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> JSONResponse:
     """
@@ -218,12 +267,12 @@ async def get_all_contact_for_tenant(
     """
     logger.info(f"Received get contacts request")
 
-    refresh_token = sf_users_repository.get_refresh_token(tenant_id)
+    refresh_token = tenants_repository.get_refresh_token(tenant_id)
     logger.info(f"refresh_token: {refresh_token}")
     salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
-        salesforce_client, sf_users_repository, contacts_repository
+        salesforce_client, tenants_repository, contacts_repository
     )
     contacts = await salesforce_agent.get_contacts(tenant_id)
 
@@ -232,12 +281,12 @@ async def get_all_contact_for_tenant(
 
 
 @v1_router.post(
-    "/salesforce/handle-contacts/{tenant_id}", response_class=PlainTextResponse
+    "/salesforce/build-profiles/{tenant_id}", response_class=PlainTextResponse
 )
 async def process_contacts(
     request: Request,
     tenant_id: str,
-    sf_users_repository=Depends(salesforce_users_repository),
+    tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
@@ -275,6 +324,11 @@ async def get_all_profiles(
     Triggers the salesforce oauth2.0 callback process
     """
     logger.info(f"Received get profiles request")
+
+    uuid = profiles_repository.exists_tenant(tenant_id)
+    if not uuid:
+        logger.error(f"Tenant does not exist in profiles repository: {tenant_id}")
+        return JSONResponse(content={"message": "Tenant has no profiles"})
 
     profiles = profiles_repository.get_all_profiles_by_owner_id(tenant_id)
 
