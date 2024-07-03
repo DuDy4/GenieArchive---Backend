@@ -32,7 +32,7 @@ class PersonManager(GenieConsumer):
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
             ],
-            consumer_group="personmanagerconsumergroup",
+            consumer_group="personmanagerconsumergroup_dan",
         )
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
@@ -122,18 +122,12 @@ class PersonManager(GenieConsumer):
 
     async def handle_new_processed_profile(self, event):
         # Assuming the event body contains a JSON string with the processed data
-        logger.info(f"Handling new processed profile. Body: {event.body_as_str()}")
-        event = GenieEvent("Started", {}, "public")
-        event.send()
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
         profile = event_body.get("profile")
-
-        event = GenieEvent("Test", {}, "public")
-        event.send()
 
         profile_person = ProfileDTO.from_dict(
             {

@@ -30,7 +30,7 @@ class PDLConsumer(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup"
+            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup_dan"
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)

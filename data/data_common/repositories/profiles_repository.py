@@ -47,8 +47,8 @@ class ProfilesRepository:
         :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO profiles (uuid, owner_id, name, company, position, challenges, strengths, summary)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO profiles (uuid, owner_id, name, company, position, challenges, strengths, summary, picture_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert profile: {profile}")
@@ -121,7 +121,7 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, summary
+        SELECT uuid, name, company, position, challenges, strengths, summary, picture_url
         FROM profiles
         WHERE uuid = %s;
         """
