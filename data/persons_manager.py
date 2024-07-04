@@ -11,7 +11,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
-from common.dependencies.dependencies import (
+from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     profiles_repository,
@@ -32,7 +32,7 @@ class PersonManager(GenieConsumer):
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
             ],
-            consumer_group="personmanagerconsumergroup",
+            consumer_group="personmanagerconsumergroup_dan",
         )
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
@@ -139,6 +139,7 @@ class PersonManager(GenieConsumer):
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
                 "summary": profile.get("summary", ""),
+                "picture_url": profile.get("picture_url", ""),
             }
         )
         logger.debug(f"Profile person: {profile_person}")

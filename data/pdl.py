@@ -9,7 +9,7 @@ from peopledatalabs import PDLPY
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from common.dependencies.dependencies import personal_data_repository
+from data.data_common.dependencies.dependencies import personal_data_repository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.repositories.personal_data_repository import (
@@ -30,7 +30,7 @@ class PDLConsumer(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup"
+            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup_dan"
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)

@@ -18,7 +18,8 @@ PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_PERSONAL_DATA], consumer_group="langsmithconsumergroup"
+            topics=[Topic.NEW_PERSONAL_DATA],
+            consumer_group="langsmithconsumergroup_dan",
         )
         self.langsmith = Langsmith()
 

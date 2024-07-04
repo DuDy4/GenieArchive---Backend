@@ -15,10 +15,8 @@ import requests
 from simple_salesforce import Salesforce
 from loguru import logger
 from requests_oauthlib import OAuth2Session
-from data.data_common.repositories.salesforce_users_repository import (
-    SalesforceUsersRepository,
-)
-from data.data_common.dependencies.dependencies import salesforce_users_repository
+from data.data_common.repositories.tenants_repository import TenantsRepository
+from data.data_common.dependencies.dependencies import tenants_repository
 from data.data_common.utils.str_utils import get_uuid4
 from data.data_common.repositories.contacts_repository import ContactsRepository
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
@@ -41,7 +39,7 @@ SALESFORCE_LOGIN_URL = os.environ.get("SALESFORCE_LOGIN_URL")
 SALESFORCE_REDIRECT_URI = SELF_URL + "/v1/salesforce/callback"
 SALESFORCE_TOKEN_URL = os.environ.get("SALESFORCE_TOKEN_URL")
 
-sf_users_repository = salesforce_users_repository()
+tenants_repository = tenants_repository()
 
 
 class SalesforceClient:
@@ -73,15 +71,15 @@ class SalesforceAgent:
     def __init__(
         self,
         sf_client: SalesforceClient,
-        sf_users_repository: SalesforceUsersRepository,
+        tenants_repository: TenantsRepository,
         contacts_repository: ContactsRepository,
     ):
         self.sf_client = sf_client
-        self.sf_users_repository = sf_users_repository
+        self.tenants_repository = tenants_repository
         self.contacts_repository = contacts_repository
 
-    def initialize_simple_sf_client(self, company):
-        refresh_token = self.sf_users_repository.get_refresh_token(company)
+    def initialize_simple_sf_client(self, tenant_id: str):
+        refresh_token = self.tenants_repository.get_refresh_token(tenant_id)
         self.sf_client = Salesforce(refresh_token=refresh_token, domain="test")
 
     def verify_access_token(self):
@@ -218,7 +216,7 @@ class SalesforceAgent:
                 logger.info("Access token invalid. Refreshing access token.")
                 current_access_token = self.sf_client.access_token
                 refresh_token = (
-                    self.sf_users_repository.get_refresh_token_by_access_token(
+                    self.tenants_repository.get_refresh_token_by_access_token(
                         current_access_token
                     )
                 )
@@ -234,7 +232,7 @@ class SalesforceAgent:
                 logger.info("Session ID invalid. Refreshing access token.")
                 current_access_token = self.sf_client.access_token
                 refresh_token = (
-                    self.sf_users_repository.get_refresh_token_by_access_token(
+                    self.tenants_repository.get_refresh_token_by_access_token(
                         current_access_token
                     )
                 )
@@ -306,22 +304,22 @@ def handle_new_contacts_event(new_contacts: list[PersonDTO | dict]):
         logger.error(f"Error handling new contacts event: {e}")
 
 
-def get_authorization_url(company: str) -> str:
+def get_authorization_url(tenant_id: str) -> str:
     """
     Returns the authorization URL for the salesforce API.
 
     Args:
-        company (str): The name of the company.
+        tenant_id (str): The id of the company.
 
     Returns:
         str: The authorization URL.
     """
-    logger.info(f"Getting authorization URL for {company}")
+    logger.info(f"Getting authorization URL for {tenant_id}")
     params = {
         "response_type": "code",
         "client_id": SALESFORCE_CLIENT_ID,
         "redirect_uri": SALESFORCE_REDIRECT_URI,
-        "state": company,
+        "state": tenant_id,
     }
     return f"https://login.salesforce.com/services/oauth2/authorize?{urlencode(params)}"
 
@@ -342,7 +340,7 @@ def get_new_access_token(refresh_token: str) -> str:
     return access_token
 
 
-def handle_callback(company: str, response_url: str) -> dict:
+def handle_callback(tenant_id: str, response_url: str) -> dict:
     logger.info(f"Started handling callback")
     sf = OAuth2Session(
         client_id=SALESFORCE_CLIENT_ID,
@@ -354,26 +352,27 @@ def handle_callback(company: str, response_url: str) -> dict:
         authorization_response=response_url,
     )
     logger.info(
-        f"salesforce data updated for {company}. Client URL: {token_data['instance_url']}."
+        f"salesforce data updated for {tenant_id}. Client URL: {token_data['instance_url']}."
     )
     logger.info(f"About to insert new user to salesforce repository")
 
     logger.info(f"{token_data}")
 
-    uuid = sf_users_repository.exists(company, token_data["instance_url"])
+    uuid = tenants_repository.exists(tenant_id, token_data["instance_url"])
     if uuid:
-        sf_users_repository.update_token(
+        tenants_repository.update_token(
             uuid, token_data["refresh_token"], token_data["access_token"]
         )
         logger.info(f"Updated user in repository")
         return token_data
     else:
-        sf_users_repository.insert(
-            uuid=get_uuid4(),
-            company=company,
-            client_url=token_data["instance_url"],
-            refresh_token=token_data["refresh_token"],
-            access_token=token_data["access_token"],
+        tenants_repository.update_salesforce_credentials(
+            tenant_id=tenant_id,
+            salesforce_credentials={
+                "client_url": token_data["instance_url"],
+                "refresh_token": token_data["refresh_token"],
+                "access_token": token_data["access_token"],
+            },
         )
         logger.info(f"Inserted user to repository")
         return token_data
