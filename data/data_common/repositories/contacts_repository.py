@@ -23,7 +23,7 @@ class ContactsRepository:
         CREATE TABLE IF NOT EXISTS contacts (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            owner_id VARCHAR,
+            tenant_id VARCHAR,
             salesforce_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
@@ -43,13 +43,13 @@ class ContactsRepository:
 
     def insert_contact(self, contact: PersonDTO, salesforce_id) -> str | None:
         """
-        :param owner_id: id of the tenant who own of the contact
+        :param tenant_id: id of the tenant who own of the contact
         :param contact: PersonDTO object with contact data to insert into database
         :param salesforce_id: salesforce id of the contact
         :return the id of the newly created contact in database:
         """
         insert_query = """
-        INSERT INTO contacts ( salesforce_id, uuid, owner_id, name, company, email, linkedin, position, timezone)
+        INSERT INTO contacts ( salesforce_id, uuid, tenant_id, name, company, email, linkedin, position, timezone)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
@@ -200,7 +200,7 @@ class ContactsRepository:
         self, tenant_id, salesforce_id: str
     ) -> Optional[PersonDTO]:
         select_query = (
-            "SELECT * FROM contacts WHERE salesforce_id = %s AND owner_id = %s;"
+            "SELECT * FROM contacts WHERE salesforce_id = %s AND tenant_id = %s;"
         )
         try:
             with self.conn.cursor() as cursor:
@@ -338,7 +338,7 @@ class ContactsRepository:
         for contact in contacts_list:
             logger.info(f"Handling contact: {contact}")
             contact_id = contact.get("Id")
-            contact = PersonDTO.from_sf_contact(contact, owner_id=tenant_id)
+            contact = PersonDTO.from_sf_contact(contact, tenant_id=tenant_id)
             logger.info(f"Contact: {contact}")
             try:
                 uuid = self.exists_salesforce_id(contact_id)
