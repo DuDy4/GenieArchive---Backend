@@ -20,6 +20,10 @@ from data.data_common.dependencies.dependencies import (
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+CONSUMER_GROUP = os.environ.get(
+    "CONSUMER_GROUP_PERSON_MANAGER", "personmanagerconsumergroup"
+)
+
 
 class PersonManager(GenieConsumer):
     def __init__(
@@ -32,7 +36,7 @@ class PersonManager(GenieConsumer):
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
             ],
-            consumer_group="personmanagerconsumergroup_dan",
+            consumer_group=CONSUMER_GROUP,
         )
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()

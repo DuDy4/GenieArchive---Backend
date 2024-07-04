@@ -49,7 +49,9 @@ class GenieConsumer:
         raise NotImplementedError("Must be implemented in subclass")
 
     async def start(self):
-        logger.info(f"Starting consumer for topics: {self.topics}")
+        logger.info(
+            f"Starting consumer for topics: {self.topics} on group: {self.consumer._consumer_group}"
+        )
         try:
             async with self.consumer:
                 await self.consumer.receive(
