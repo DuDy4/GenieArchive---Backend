@@ -101,13 +101,18 @@ class PersonManager(GenieConsumer):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
+
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person: PersonDTO = PersonDTO.from_dict(person_dict)
         personal_data_in_database = self.personal_data_repository.get_personal_data(
             person.uuid
         )
-
+        if not person.position:
+            logger.info("Person has no position, setting it from personal data")
+            logger.debug(f"Position: {personal_data.get('job_title', '')}")
+            person.position = personal_data.get("job_title", "")
+            logger.debug(f"Person: {person}")
         if personal_data_in_database != personal_data:
             logger.error(
                 "Personal data in database does not match the one received from event"
@@ -135,7 +140,9 @@ class PersonManager(GenieConsumer):
                 "tenant_id": person_dict.get("tenant_id"),
                 "name": person_dict.get("name"),
                 "company": person_dict.get("company"),
-                "position": person_dict.get("position"),
+                "position": person_dict.get("position")
+                if person_dict.get("position")
+                else profile.get("job_title", ""),
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
                 "summary": profile.get("summary", ""),
