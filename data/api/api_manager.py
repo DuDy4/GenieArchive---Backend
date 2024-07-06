@@ -330,7 +330,7 @@ async def get_all_profiles(
         logger.error(f"Tenant does not exist in profiles repository: {tenant_id}")
         return JSONResponse(content={"message": "Tenant has no profiles"})
 
-    profiles = profiles_repository.get_all_profiles_by_owner_id(tenant_id)
+    profiles = profiles_repository.get_all_profiles_by_tenant_id(tenant_id)
 
     profiles_list = [profile.to_dict() for profile in profiles]
 

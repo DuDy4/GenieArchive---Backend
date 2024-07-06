@@ -22,7 +22,7 @@ class ProfilesRepository:
         CREATE TABLE IF NOT EXISTS profiles (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            owner_id VARCHAR,
+            tenant_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
             position VARCHAR,
@@ -47,7 +47,7 @@ class ProfilesRepository:
         :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO profiles (uuid, owner_id, name, company, position, challenges, strengths, summary, picture_url)
+        INSERT INTO profiles (uuid, tenant_id, name, company, position, challenges, strengths, summary, picture_url)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
@@ -87,7 +87,7 @@ class ProfilesRepository:
 
     def exists_tenant(self, tenant_id: str) -> bool:
         logger.info(f"About to check if tenant_id exists: {tenant_id}")
-        exists_query = "SELECT uuid FROM profiles WHERE owner_id = %s;"
+        exists_query = "SELECT uuid FROM profiles WHERE tenant_id = %s;"
         try:
             with self.conn.cursor() as cursor:
                 logger.info(f"about to execute check if tenant_id exists: {tenant_id}")
@@ -139,16 +139,16 @@ class ProfilesRepository:
             traceback.print_exception(error)
         return None
 
-    def get_all_profiles_by_owner_id(self, owner_id: str) -> list[ProfileDTO]:
+    def get_all_profiles_by_tenant_id(self, tenant_id: str) -> list[ProfileDTO]:
         select_query = """
         SELECT uuid, name, company, position, challenges, strengths, summary, picture_url
         FROM profiles
-        WHERE owner_id = %s;
+        WHERE tenant_id = %s;
         """
         try:
             self.create_table_if_not_exists()
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (owner_id,))
+                cursor.execute(select_query, (tenant_id,))
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} profiles from database")
@@ -157,7 +157,7 @@ class ProfilesRepository:
                         ProfileDTO.from_tuple(
                             (
                                 row[0],
-                                owner_id,
+                                tenant_id,
                             )
                             + row[1:]
                         )
@@ -165,10 +165,10 @@ class ProfilesRepository:
                     ]
                 else:
                     logger.error(
-                        f"Error with getting profile data for owner_id {owner_id}"
+                        f"Error with getting profile data for tenant_id {tenant_id}"
                     )
         except Exception as error:
-            logger.error("Error fetching profile data by owner_id:", error)
+            logger.error("Error fetching profile data by tenant_id:", error)
             traceback.print_exception(error)
         return []
 

@@ -20,7 +20,7 @@ class PersonsRepository:
         CREATE TABLE IF NOT EXISTS persons (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            owner_id VARCHAR,
+            tenant_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
@@ -44,7 +44,7 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, owner_id, name, company, email, linkedin, position, timezone)
+        INSERT INTO persons (uuid, tenant_id, name, company, email, linkedin, position, timezone)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """

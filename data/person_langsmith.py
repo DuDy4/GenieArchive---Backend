@@ -14,12 +14,16 @@ from data.data_common.events.genie_consumer import GenieConsumer
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
+CONSUMER_GROUP_LANGSMITH = os.environ.get(
+    "CONSUMER_GROUP_LANGSMITH", "langsmithconsumergroup"
+)
+
 
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
             topics=[Topic.NEW_PERSONAL_DATA],
-            consumer_group="langsmithconsumergroup_dan",
+            consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
         self.langsmith = Langsmith()
 

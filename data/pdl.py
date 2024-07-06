@@ -20,6 +20,7 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO as DTOPe
 
 load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")
+CONSUMER_GROUP = os.environ.get("CONSUMER_GROUP_PDL", "pdlconsumergroup")
 MIN_INTERVAL_TO_FETCH_PROFILES = int(
     os.environ.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24)
 )  # Default: 24 hours
@@ -30,7 +31,7 @@ class PDLConsumer(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group="pdlconsumergroup_dan"
+            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group=CONSUMER_GROUP
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
