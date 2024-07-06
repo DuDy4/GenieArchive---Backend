@@ -175,11 +175,12 @@ class ProfilesRepository:
     def update(self, profile):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, summary = %s
+        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, summary = %s, picture_url = %s
         WHERE uuid = %s;
         """
         profile_data = profile.to_tuple()
-        profile_data = profile_data[2:] + (profile_data[0],)  # move uuid to the end
+        profile_data = profile_data[2:] + (profile_data[0],) 
+        logger.info(f"Persisting profile data {profile_data}")
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, profile_data)
