@@ -175,7 +175,7 @@ class ProfilesRepository:
     def update(self, profile):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, summary = %s
+        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, summary = %s, picture_url = %s
         WHERE uuid = %s;
         """
         profile_data = profile.to_tuple()
