@@ -45,7 +45,7 @@ class PDLConsumer(GenieConsumer):
                 event_body = json.loads(event_body)
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON: {event_body}")
-                return
+                return {"error": "Invalid JSON"}
         person = DTOPerson.from_json(event_body)
         logger.info(f"Person: {person}")
 
@@ -87,6 +87,8 @@ class PDLConsumer(GenieConsumer):
             event.send()
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
 
+        return {"status": "success"}
+
 
 class PDLClient:
     """Class for interacting with the People Data Labs API."""
@@ -106,7 +108,14 @@ class PDLClient:
         self._fetched_profiles = set()
 
     def fetch_profile(self, person):
-        profile = self.get_single_profile(person.linkedin)
+        profile = None
+        if person.linkedin:
+            profile = self.get_single_profile(person.linkedin)
+        elif person.email:
+            profile = self.get_single_profile_from_email_address(person.email)
+        else:
+            logger.warning(f"No LinkedIn or email for {person.uuid}")
+            return
         status = (
             self.personal_data_repository.FETCHED
             if profile
@@ -164,6 +173,23 @@ class PDLClient:
             return
         else:
             logger.info(f"Got profile for {linkedin_profile_url} from PDL")
+            return response["data"]
+
+    def get_single_profile_from_email_address(
+        self, email_address: str
+    ) -> dict[str, dict] | None:
+        params = {"email": email_address}
+
+        # Pass the parameters object to the Person Enrichment API
+        response = self._client.person.enrichment(**params).json()
+        if response["status"] == 404:
+            logger.warning(f"Cannot find profiles for {email_address}")
+            return
+        if response["status"] == 402:
+            logger.warning(f"Need Payment")
+            return
+        else:
+            logger.info(f"Got profile for {email_address} from PDL")
             return response["data"]
 
     def fix_linkedin_url(self, linkedin_url: str) -> str:

@@ -85,6 +85,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
+        return {"status": "success"}
 
     async def handle_new_interaction(self, event):
         # Assuming the event body contains a JSON string with the contact data
@@ -96,6 +97,7 @@ class PersonManager(GenieConsumer):
         # Here we should implement whatever we want to do with the interaction data
         # event = GenieEvent(Topic., interaction_data, "public")
         # event.send()
+        return {"status": "success"}
 
     async def handle_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
@@ -128,6 +130,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
         logger.info("Sent 'new_personal_data' event to the event queue")
+        return {"status": "success"}
 
     async def handle_new_processed_profile(self, event):
         # Assuming the event body contains a JSON string with the processed data
@@ -136,7 +139,11 @@ class PersonManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
         profile = event_body.get("profile")
+        if isinstance(profile, str):
+            profile = json.loads(profile)
 
         profile_person = ProfileDTO.from_dict(
             {
@@ -159,6 +166,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         logger.info("Saved new processed data to profiles_repository")
+        return {"status": "success"}
 
 
 if __name__ == "__main__":
