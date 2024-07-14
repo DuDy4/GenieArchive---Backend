@@ -29,7 +29,7 @@ class PersonDTO:
     @staticmethod
     def from_dict(data: dict):
         return PersonDTO(
-            uuid=data.get("uuid", ""),
+            uuid=data.get("uuid", get_uuid4()),
             tenant_id=data.get("tenant_id", ""),
             name=data.get("name", ""),
             company=data.get("company", ""),
