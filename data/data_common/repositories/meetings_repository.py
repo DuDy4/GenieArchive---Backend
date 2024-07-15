@@ -20,9 +20,10 @@ class MeetingsRepository:
         CREATE TABLE IF NOT EXISTS meetings (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
+            google_calender_id VARCHAR,
             tenant_id VARCHAR,
             participants_emails VARCHAR,
-            location VARCHAR,
+            link VARCHAR,
             subject VARCHAR,
             start_time INT,
             end_time INT
@@ -40,7 +41,7 @@ class MeetingsRepository:
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
         insert_query = """
-        INSERT INTO meetings (uuid, tenant_id, participants_emails, location, subject, start_time, end_time)
+        INSERT INTO meetings (uuid, tenant_id, participants_emails, link, subject, start_time, end_time)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
@@ -111,7 +112,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, tenant_id, participants_emails, location, subject, start_time, end_time
+        SELECT uuid, tenant_id, participants_emails, link, subject, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -131,7 +132,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, tenant_id, participants_emails, location, subject, start_time, end_time
+        SELECT uuid, tenant_id, participants_emails, link, subject, start_time, end_time
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -155,7 +156,7 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, location = %s, subject = %s, start_time = %s, end_time = %s
+        SET tenant_id = %s, participants_emails = %s, link = %s, subject = %s, start_time = %s, end_time = %s
         WHERE uuid = %s;
         """
         meeting_data = meeting.to_tuple()

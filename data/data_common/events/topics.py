@@ -6,3 +6,4 @@ class Topic:
     UPDATED_ENRICHED_DATA = "got-updated-enriched-data"
     NEW_PERSONAL_DATA = "new-personal-data-to-process"
     NEW_PROCESSED_PROFILE = "new-processed-profile"
+    NEW_MEETING = "new-meeting"
