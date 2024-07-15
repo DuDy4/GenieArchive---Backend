@@ -9,6 +9,7 @@ from ..repositories.persons_repository import PersonsRepository
 from ..repositories.profiles_repository import ProfilesRepository
 from ..repositories.tenants_repository import TenantsRepository
 from ..salesforce.salesforce_event_handler import SalesforceEventHandler
+from ..repositories.meetings_repository import MeetingsRepository
 
 
 def tenants_repository() -> TenantsRepository:
@@ -66,6 +67,16 @@ def persons_repository() -> PersonsRepository:
     try:
         with conn:
             return PersonsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def meetings_repository() -> MeetingsRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return MeetingsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

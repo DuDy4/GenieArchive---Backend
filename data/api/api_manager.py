@@ -11,6 +11,7 @@ from urllib3 import Retry
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
+from data.data_common.repositories.meetings_repository import MeetingsRepository
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
 from data.data_common.salesforce.salesforce_integrations_manager import (
@@ -26,8 +27,8 @@ from data.data_common.dependencies.dependencies import (
     contacts_repository,
     salesforce_event_handler,
     tenants_repository,
+    meetings_repository,
 )
-
 
 from data.data_common.events.topics import Topic
 
@@ -337,3 +338,40 @@ async def get_all_profiles(
     logger.info(f"Got profiles: {len(profiles_list)}")
     logger.debug(f"Profiles: {profiles_list}")
     return JSONResponse(content=profiles_list)
+
+
+@v1_router.get("/meetings/{tenant_id}", response_class=JSONResponse)
+def get_all_meetings(
+    tenant_id: str,
+    meetings_repository=Depends(meetings_repository),
+) -> JSONResponse:
+    """
+    Fetches and returns all meetings for a given tenant.
+    """
+    logger.info(f"Got meetings request for tenant: {tenant_id}")
+    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
+    logger.info(f"Got meetings: {len(meetings)}")
+    return JSONResponse(content=[meeting.to_dict() for meeting in meetings])
+
+
+@v1_router.get("/profiles/{meeting_id}/{tenant_id}", response_class=JSONResponse)
+def get_all_profiles_for_meeting(
+    tenant_id: str,
+    meeting_id: str,
+    meetings_repository=Depends(meetings_repository),
+    profiles_repository=Depends(profiles_repository),
+) -> JSONResponse:
+    """
+    - MOCK version -
+
+    This function get a meeting_id and tenant_id.
+    It first checks if the meeting exists in the database with this tenant_id.
+    Then it gets all the emails of the participants.
+    For each email, it gets the full profile.
+    Finally, it returns a list of all the profiles.
+    """
+    logger.info(f"Got profiles request for meeting: {meeting_id}")
+
+    response = {"message": "Not implemented yet"}
+
+    return JSONResponse(content=response)
