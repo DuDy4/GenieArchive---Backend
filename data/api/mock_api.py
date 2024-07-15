@@ -487,7 +487,7 @@ def get_all_profile_ids_for_meeting(
     response = []
     for profile in profiles:
         if tenant_id == profile["tenant_id"]:
-            response.append(profile["uuid"])
+            response.append({"id": profile["uuid"], "name": profile["name"]})
     return JSONResponse(content=response)
 
 
