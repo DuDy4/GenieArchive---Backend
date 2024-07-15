@@ -20,13 +20,13 @@ class MeetingsRepository:
         CREATE TABLE IF NOT EXISTS meetings (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            google_calender_id VARCHAR,
+            google_calendar_id VARCHAR,
             tenant_id VARCHAR,
-            participants_emails VARCHAR,
+            participants_emails JSONB,
             link VARCHAR,
             subject VARCHAR,
-            start_time INT,
-            end_time INT
+            start_time VARCHAR,
+            end_time VarCHAR
         );
         """
         try:
@@ -40,13 +40,19 @@ class MeetingsRepository:
             self.conn.rollback()
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
+        logger.debug(f"Meeting to insert: {meeting}")
         insert_query = """
-        INSERT INTO meetings (uuid, tenant_id, participants_emails, link, subject, start_time, end_time)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert meeting: {meeting}")
+
+        # Convert the participants_emails to JSON string
         meeting_data = meeting.to_tuple()
+        meeting_data = (
+            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
+        )
 
         logger.info(f"About to insert meeting data: {meeting_data}")
 
@@ -59,7 +65,7 @@ class MeetingsRepository:
                 return meeting_id
         except psycopg2.Error as error:
             self.conn.rollback()
-            raise Exception(f"Error inserting meeting, because: {error.pgerror}")
+            raise Exception(f"Error inserting meeting, because: {error}")
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"About to check if uuid exists: {uuid}")
@@ -112,7 +118,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, tenant_id, participants_emails, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -132,7 +138,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, tenant_id, participants_emails, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -157,10 +163,13 @@ class MeetingsRepository:
         update_query = """
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, link = %s, subject = %s, start_time = %s, end_time = %s
-        WHERE uuid = %s;
+        WHERE google_calendar_id = %s;
         """
         meeting_data = meeting.to_tuple()
-        meeting_data = meeting_data[1:] + (meeting_data[0],)  # move uuid to the end
+        meeting_data = (
+            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
+        )
+        meeting_data = meeting_data[2:] + (meeting_data[1],)  # move uuid to the end
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, meeting_data)

@@ -1,5 +1,6 @@
 import os
 import traceback
+import datetime
 
 import requests
 from fastapi import Depends, Request, HTTPException
@@ -7,11 +8,15 @@ from fastapi.routing import APIRouter
 from loguru import logger
 from requests.adapters import HTTPAdapter
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+from googleapiclient.discovery import build
 from urllib3 import Retry
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
+from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
 from data.data_common.salesforce.salesforce_integrations_manager import (
@@ -28,6 +33,7 @@ from data.data_common.dependencies.dependencies import (
     salesforce_event_handler,
     tenants_repository,
     meetings_repository,
+    google_creds_repository,
 )
 
 from data.data_common.events.topics import Topic
@@ -375,3 +381,70 @@ def get_all_profiles_for_meeting(
     response = {"message": "Not implemented yet"}
 
     return JSONResponse(content=response)
+
+
+@v1_router.get("/{tenant_id}/google-creds", response_class=JSONResponse)
+def get_google_creds(
+    tenant_id: str,
+    google_creds_repository=Depends(google_creds_repository),
+) -> JSONResponse:
+    """
+    Fetches and returns the google credentials for a given tenant.
+    """
+    logger.info(f"Got google creds request for tenant: {tenant_id}")
+    creds = google_creds_repository.get_creds(tenant_id)
+    logger.info(f"Got google creds: {creds}")
+    return JSONResponse(content=creds)
+
+
+@v1_router.get("/{tenant_id}/meetings", response_class=JSONResponse)
+def get_all_meetings(
+    tenant_id: str,
+    meetings_repository=Depends(meetings_repository),
+    google_creds_repository=Depends(google_creds_repository),
+) -> JSONResponse:
+    """
+    Fetches and returns all events for a given tenant.
+    """
+    logger.info(f"Got events request for tenant: {tenant_id}")
+
+    creds = google_creds_repository.get_creds(tenant_id)
+
+    if not creds:
+        return JSONResponse(content={"error": "No credentials found"}, status_code=404)
+
+    refresh_token = creds["refresh_token"]
+    access_token = creds["access_token"]
+
+    # Initialize the Credentials object
+    credentials = Credentials(
+        token=access_token,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id="YOUR_CLIENT_ID",
+        client_secret="YOUR_CLIENT_SECRET",
+    )
+
+    if not credentials.valid:
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(GoogleRequest())
+
+    service = build("calendar", "v3", credentials=credentials)
+
+    # Fetch events
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    events_result = (
+        service.events()
+        .list(
+            calendarId="primary",
+            timeMin=now,
+            maxResults=10,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+
+    events = events_result.get("items", [])
+
+    return JSONResponse(content={"events": events})

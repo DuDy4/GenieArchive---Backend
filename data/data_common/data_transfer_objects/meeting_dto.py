@@ -90,8 +90,10 @@ class MeetingDTO:
             participants_emails=event.get("attendees", []),
             link=event.get("hangoutLink", ""),
             subject=event.get("summary", ""),
-            start_time=event.get("start", ""),
-            end_time=event.get("end", ""),
+            start_time=event.get("start", "").get("dateTime", "")
+            or event.get("start", "").get("date", ""),
+            end_time=event.get("end", "").get("dateTime", "")
+            or event.get("end", "").get("date", ""),
         )
 
     def __str__(self):
