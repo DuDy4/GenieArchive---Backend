@@ -16,7 +16,10 @@ from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     profiles_repository,
     interactions_repository,
+    ownerships_repository,
 )
+
+from data.data_common.utils.str_utils import get_uuid4
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -35,6 +38,7 @@ class PersonManager(GenieConsumer):
                 Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
+                Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -42,6 +46,7 @@ class PersonManager(GenieConsumer):
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
         self.interactions_repository = interactions_repository()
+        self.ownerships_repository = ownerships_repository()
 
     async def process_event(self, event):
         logger.info(f"PersonManager processing event: {event}")
@@ -62,6 +67,9 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
                 await self.handle_new_processed_profile(event)
+            case Topic.NEW_EMAIL_ADDRESS_TO_PROCESS:
+                logger.info("Handling email address")
+                await self.handle_email_address(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -72,7 +80,9 @@ class PersonManager(GenieConsumer):
         contact_data = json.loads(contact_data_str)
         if isinstance(contact_data, str):
             contact_data = json.loads(contact_data)
+        tenant_id = contact_data.get("tenant_id")
         new_person = PersonDTO.from_dict(contact_data)
+        self.ownerships_repository.save_ownership(new_person.uuid, tenant_id)
         uuid = self.persons_repository.save_person(new_person)
         new_person.uuid = uuid
         if not new_person.linkedin:
@@ -85,6 +95,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
+        return {"status": "success"}
 
     async def handle_new_interaction(self, event):
         # Assuming the event body contains a JSON string with the contact data
@@ -96,6 +107,7 @@ class PersonManager(GenieConsumer):
         # Here we should implement whatever we want to do with the interaction data
         # event = GenieEvent(Topic., interaction_data, "public")
         # event.send()
+        return {"status": "success"}
 
     async def handle_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
@@ -128,6 +140,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
         logger.info("Sent 'new_personal_data' event to the event queue")
+        return {"status": "success"}
 
     async def handle_new_processed_profile(self, event):
         # Assuming the event body contains a JSON string with the processed data
@@ -136,6 +149,8 @@ class PersonManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
         profile = event_body.get("profile")
         if not profile.get("picture_url"):
             profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
@@ -143,7 +158,6 @@ class PersonManager(GenieConsumer):
         profile_person = ProfileDTO.from_dict(
             {
                 "uuid": person_dict.get("uuid"),
-                "tenant_id": person_dict.get("tenant_id"),
                 "name": person_dict.get("name"),
                 "company": person_dict.get("company"),
                 "position": person_dict.get("position")
@@ -161,6 +175,49 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         logger.info("Saved new processed data to profiles_repository")
+        return {"status": "success"}
+
+    async def handle_email_address(self, event):
+        event_body = event.body_as_str()
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            try:
+                logger.info(f"Event body is string")
+                event_body = json.loads(event_body)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON: {event_body}")
+                return {"error": "Invalid JSON"}
+
+        email = event_body.get("email")
+        tenant_id = event_body.get("tenant_id")
+        logger.info(f"Got data from event: Tenant: {tenant_id}, Email: {email}")
+
+        person = self.persons_repository.find_person_by_email(email)
+        if person:
+            if person.tenant_id == tenant_id:
+                logger.info("Person already exists in database for this tenant")
+                return {"status": "success"}
+            else:
+                person.tenant_id = tenant_id
+                person.uuid = get_uuid4()
+                self.persons_repository.save_person(person)
+            logger.info(f"Person found: {person}")
+            event = GenieEvent(
+                Topic.NEW_CONTACT_TO_ENRICH,
+                person.to_json(),
+                "public",
+            )
+            event.send()
+            logger.info("Sent 'pdl' event to the event queue")
+        else:
+            logger.info("Person not found in database")
+            event = GenieEvent(
+                Topic.NEW_EMAIL_ADDRESS_TO_ENRICH,
+                json.dumps({"email": email, "tenant_id": tenant_id}),
+                "public",
+            )
+            event.send()
+            logger.info("Sent 'pdl' event to the event queue")
 
 
 if __name__ == "__main__":

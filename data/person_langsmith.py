@@ -47,7 +47,7 @@ class LangsmithConsumer(GenieConsumer):
 
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()
-        return data_to_send
+        return {"status": "success"}
 
 
 #

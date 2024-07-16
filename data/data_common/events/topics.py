@@ -1,4 +1,6 @@
 class Topic:
+    NEW_EMAIL_ADDRESS_TO_PROCESS = "new-email-address-to-process"
+    NEW_EMAIL_ADDRESS_TO_ENRICH = "new-email-address-to-enrich"
     FINISHED_NEW_PROFILE = "finished-new-profile"
     NEW_CONTACT_TO_ENRICH = "new-contact-to-enrich"
     NEW_CONTACT = "new-contact"
@@ -6,3 +8,4 @@ class Topic:
     UPDATED_ENRICHED_DATA = "got-updated-enriched-data"
     NEW_PERSONAL_DATA = "new-personal-data-to-process"
     NEW_PROCESSED_PROFILE = "new-processed-profile"
+    NEW_MEETING = "new-meeting"

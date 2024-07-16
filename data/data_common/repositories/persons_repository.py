@@ -9,7 +9,6 @@ from loguru import logger
 class PersonsRepository:
     def __init__(self, conn):
         self.conn = conn
-        # self.cursor = conn.cursor()
 
     def __del__(self):
         if self.conn:
@@ -20,7 +19,6 @@ class PersonsRepository:
         CREATE TABLE IF NOT EXISTS persons (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
-            tenant_id VARCHAR,
             name VARCHAR,
             company VARCHAR,
             email VARCHAR,
@@ -36,7 +34,6 @@ class PersonsRepository:
                 logger.info(f"Created persons table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
-            # self.conn.rollback()
 
     def insert(self, person: PersonDTO) -> str | None:
         """
@@ -44,8 +41,8 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, tenant_id, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO persons (uuid, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert person: {person}")
@@ -61,7 +58,6 @@ class PersonsRepository:
                 logger.info(f"Inserted person to database. Person id: {person_id}")
                 return person.uuid
         except psycopg2.Error as error:
-            # self.conn.rollback()
             logger.error(f"Error inserting person: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error inserting person, because: {error.pgerror}")
@@ -71,8 +67,6 @@ class PersonsRepository:
         exists_query = "SELECT 1 FROM persons WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
-                logger.info(f"about to execute check if uuid exists: {uuid}")
-
                 cursor.execute(exists_query, (uuid,))
                 result = cursor.fetchone() is not None
                 logger.info(f"{uuid} existence in database: {result}")
@@ -106,11 +100,10 @@ class PersonsRepository:
                 cursor.execute(select_query, (uuid,))
                 row = cursor.fetchone()
                 if row:
-                    logger.info(f"Got {row[2]} from database")
-                    return
+                    logger.info(f"Got {row[0]} from database")
+                    return row[0]
                 else:
                     logger.error(f"Error with getting person id for {uuid}")
-
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
         return None
@@ -122,7 +115,9 @@ class PersonsRepository:
         WHERE uuid = %s
         """
         person_data = person.to_tuple()
-        person_data = person_data[2:] + (person_data[0],)
+        person_data = person_data[1:] + (
+            person_data[0],
+        )  # Adjust tuple to match update query
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, person_data)
@@ -143,3 +138,14 @@ class PersonsRepository:
             return uuid
         else:
             return self.insert(person)
+
+    def find_person_by_email(self, email):
+        query = """
+        SELECT * FROM persons WHERE email = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (email,))
+            person = cursor.fetchone()
+            logger.info(f"Person by email {email}: {person}")
+            if person:
+                return PersonDTO.from_tuple(person[1:])

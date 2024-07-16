@@ -19,7 +19,9 @@ from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
 from data.data_common.utils.str_utils import get_uuid4
 from data.data_common.repositories.contacts_repository import ContactsRepository
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
+
+# from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.contact_dto import ContactDTO
 
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -289,11 +291,11 @@ def create_zip(trigger_code, class_code, metadata_package):
     return zip_buffer
 
 
-def handle_new_contacts_event(new_contacts: list[PersonDTO | dict]):
+def handle_new_contacts_event(new_contacts: list[ContactDTO | dict]):
     logger.info(f"Topic: {Topic.NEW_CONTACT}")
     try:
         for i in range(0, len(new_contacts)):
-            if isinstance(new_contacts[i], PersonDTO):
+            if isinstance(new_contacts[i], ContactDTO):
                 contact = new_contacts[i].to_json()
             if isinstance(new_contacts[i], dict):
                 contact = json.dumps(new_contacts[i])

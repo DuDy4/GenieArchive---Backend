@@ -31,13 +31,29 @@ class PDLConsumer(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group=CONSUMER_GROUP
+            topics=[Topic.NEW_CONTACT_TO_ENRICH, Topic.NEW_EMAIL_ADDRESS_TO_ENRICH],
+            consumer_group=CONSUMER_GROUP,
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
     async def process_event(self, event):
-        logger.info(f"Processing event on topic {self.topics}")
+        logger.info(f"PersonManager processing event: {event}")
+        topic = event.properties.get(b"topic").decode("utf-8")
+        logger.info(f"Processing event on topic {topic}")
+        # Should use Topic class
+
+        match topic:
+            case Topic.NEW_CONTACT_TO_ENRICH:
+                logger.info("Handling new contact")
+                await self.enrich_contact(event)
+            case Topic.NEW_EMAIL_ADDRESS_TO_ENRICH:
+                logger.info("Handling new interaction")
+                await self.enrich_email_address(event)
+            case _:
+                logger.info(f"Unknown topic: {topic}")
+
+    async def enrich_contact(self, event):
         event_body = event.body_as_str()
         if isinstance(event_body, str):
             try:
@@ -45,7 +61,7 @@ class PDLConsumer(GenieConsumer):
                 event_body = json.loads(event_body)
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON: {event_body}")
-                return
+                return {"error": "Invalid JSON"}
         person = DTOPerson.from_json(event_body)
         logger.info(f"Person: {person}")
 
@@ -87,6 +103,22 @@ class PDLConsumer(GenieConsumer):
             event.send()
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
 
+        return {"status": "success"}
+
+    async def enrich_email_address(self, event):
+        event_body = event.body_as_str()
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            try:
+                logger.info(f"Event body is string")
+                event_body = json.loads(event_body)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON: {event_body}")
+                return {"error": "Invalid JSON"}
+
+        email = event_body.get("email")
+        logger.info(f"Email: {email}")
+
 
 class PDLClient:
     """Class for interacting with the People Data Labs API."""
@@ -106,7 +138,14 @@ class PDLClient:
         self._fetched_profiles = set()
 
     def fetch_profile(self, person):
-        profile = self.get_single_profile(person.linkedin)
+        profile = None
+        if person.linkedin:
+            profile = self.get_single_profile(person.linkedin)
+        elif person.email:
+            profile = self.get_single_profile_from_email_address(person.email)
+        else:
+            logger.warning(f"No LinkedIn or email for {person.uuid}")
+            return
         status = (
             self.personal_data_repository.FETCHED
             if profile
@@ -164,6 +203,23 @@ class PDLClient:
             return
         else:
             logger.info(f"Got profile for {linkedin_profile_url} from PDL")
+            return response["data"]
+
+    def get_single_profile_from_email_address(
+        self, email_address: str
+    ) -> dict[str, dict] | None:
+        params = {"email": email_address}
+
+        # Pass the parameters object to the Person Enrichment API
+        response = self._client.person.enrichment(**params).json()
+        if response["status"] == 404:
+            logger.warning(f"Cannot find profiles for {email_address}")
+            return
+        if response["status"] == 402:
+            logger.warning(f"Need Payment")
+            return
+        else:
+            logger.info(f"Got profile for {email_address} from PDL")
             return response["data"]
 
     def fix_linkedin_url(self, linkedin_url: str) -> str:

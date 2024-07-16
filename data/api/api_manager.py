@@ -1,5 +1,6 @@
 import os
 import traceback
+import datetime
 
 import requests
 from fastapi import Depends, Request, HTTPException
@@ -7,10 +8,15 @@ from fastapi.routing import APIRouter
 from loguru import logger
 from requests.adapters import HTTPAdapter
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+from googleapiclient.discovery import build
 from urllib3 import Retry
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
+from data.data_common.repositories.meetings_repository import MeetingsRepository
+from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
 from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
 from data.data_common.salesforce.salesforce_integrations_manager import (
@@ -26,15 +32,24 @@ from data.data_common.dependencies.dependencies import (
     contacts_repository,
     salesforce_event_handler,
     tenants_repository,
+    meetings_repository,
+    google_creds_repository,
+    ownerships_repository,
 )
 
-
 from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 
 from redis import Redis
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 v1_router = APIRouter(prefix="/v1")
 
@@ -318,6 +333,7 @@ async def process_contacts(
 async def get_all_profiles(
     request: Request,
     tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
     profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
@@ -325,15 +341,132 @@ async def get_all_profiles(
     """
     logger.info(f"Received get profiles request")
 
-    uuid = profiles_repository.exists_tenant(tenant_id)
-    if not uuid:
-        logger.error(f"Tenant does not exist in profiles repository: {tenant_id}")
-        return JSONResponse(content={"message": "Tenant has no profiles"})
+    profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
 
-    profiles = profiles_repository.get_all_profiles_by_tenant_id(tenant_id)
-
-    profiles_list = [profile.to_dict() for profile in profiles]
+    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid)
+    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
 
     logger.info(f"Got profiles: {len(profiles_list)}")
     logger.debug(f"Profiles: {profiles_list}")
-    return JSONResponse(content=profiles_list)
+    return JSONResponse(content=jsoned_profiles_list)
+
+
+@v1_router.get("/meetings/{tenant_id}", response_class=JSONResponse)
+def get_all_meetings(
+    tenant_id: str,
+    meetings_repository=Depends(meetings_repository),
+) -> JSONResponse:
+    """
+    Fetches and returns all meetings for a given tenant.
+    """
+    logger.info(f"Got meetings request for tenant: {tenant_id}")
+    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
+    logger.info(f"Got meetings: {len(meetings)}")
+    return JSONResponse(content=[meeting.to_dict() for meeting in meetings])
+
+
+@v1_router.get("/profiles/{meeting_id}/{tenant_id}", response_class=JSONResponse)
+def get_all_profiles_for_meeting(
+    tenant_id: str,
+    meeting_id: str,
+    meetings_repository=Depends(meetings_repository),
+    profiles_repository=Depends(profiles_repository),
+) -> JSONResponse:
+    """
+    - MOCK version -
+
+    This function get a meeting_id and tenant_id.
+    It first checks if the meeting exists in the database with this tenant_id.
+    Then it gets all the emails of the participants.
+    For each email, it gets the full profile.
+    Finally, it returns a list of all the profiles.
+    """
+    logger.info(f"Got profiles request for meeting: {meeting_id}")
+
+    response = {"message": "Not implemented yet"}
+
+    return JSONResponse(content=response)
+
+
+@v1_router.get("/{tenant_id}/google-creds", response_class=JSONResponse)
+def get_google_creds(
+    tenant_id: str,
+    google_creds_repository=Depends(google_creds_repository),
+) -> JSONResponse:
+    """
+    Fetches and returns the google credentials for a given tenant.
+    """
+    logger.info(f"Got google creds request for tenant: {tenant_id}")
+    creds = google_creds_repository.get_creds(tenant_id)
+    logger.info(f"Got google creds: {creds}")
+    return JSONResponse(content=creds)
+
+
+@v1_router.get("/{tenant_id}/meetings", response_class=JSONResponse)
+def get_all_meetings(
+    tenant_id: str,
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+) -> JSONResponse:
+    logger.info(f"Got events request for tenant: {tenant_id}")
+
+    google_credentials = google_creds_repository.get_creds(tenant_id)
+    if not google_credentials:
+        raise HTTPException(
+            status_code=404, detail="Google credentials not found for the tenant"
+        )
+
+    google_credentials = Credentials(
+        token=google_credentials["access_token"],
+        refresh_token=google_credentials["refresh_token"],
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        token_uri=GOOGLE_TOKEN_URI,
+    )
+
+    google_credentials.refresh(GoogleRequest())
+    logger.debug(f"Google credentials: {google_credentials}")
+
+    google_creds_repository.update_creds(
+        {
+            "tenant_id": tenant_id,
+            "access_token": google_credentials.token,
+            "refresh_token": google_credentials.refresh_token,
+        }
+    )
+
+    access_token = google_credentials.token
+
+    credentials = Credentials(token=access_token)
+    service = build("calendar", "v3", credentials=credentials)
+
+    now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
+    logger.info(f"Fetching meetings starting from: {now}")
+
+    events_result = (
+        service.events()
+        .list(
+            calendarId="primary",
+            timeMin=now,
+            maxResults=10,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+
+    meetings = events_result.get("items", [])
+    logger.info(f"Fetched events: {meetings}")
+
+    if not meetings:
+        return JSONResponse(content={"message": "No upcoming events found."})
+
+    for meeting in meetings:
+
+        meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+
+        event = GenieEvent(
+            topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public"
+        )
+        event.send()
+
+    return JSONResponse(content={"events": meetings})
