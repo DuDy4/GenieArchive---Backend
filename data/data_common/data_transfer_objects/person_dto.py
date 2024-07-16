@@ -51,6 +51,18 @@ class PersonDTO:
             self.timezone,
         )
 
+    def from_tuple(data: tuple[str, str, str, str, str, str, str, str]):
+        return PersonDTO(
+            uuid=data[0],
+            tenant_id=data[1],
+            name=data[2],
+            company=data[3],
+            email=data[4],
+            linkedin=data[5],
+            position=data[6],
+            timezone=data[7],
+        )
+
     def to_json(self):
         return json.dumps(self.to_dict())
 
