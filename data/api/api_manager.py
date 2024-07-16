@@ -34,6 +34,7 @@ from data.data_common.dependencies.dependencies import (
     tenants_repository,
     meetings_repository,
     google_creds_repository,
+    ownerships_repository,
 )
 
 from data.data_common.events.topics import Topic
@@ -332,6 +333,7 @@ async def process_contacts(
 async def get_all_profiles(
     request: Request,
     tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
     profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
@@ -339,18 +341,14 @@ async def get_all_profiles(
     """
     logger.info(f"Received get profiles request")
 
-    uuid = profiles_repository.exists_tenant(tenant_id)
-    if not uuid:
-        logger.error(f"Tenant does not exist in profiles repository: {tenant_id}")
-        return JSONResponse(content={"message": "Tenant has no profiles"})
+    profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
 
-    profiles = profiles_repository.get_all_profiles_by_tenant_id(tenant_id)
-
-    profiles_list = [profile.to_dict() for profile in profiles]
+    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid)
+    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
 
     logger.info(f"Got profiles: {len(profiles_list)}")
     logger.debug(f"Profiles: {profiles_list}")
-    return JSONResponse(content=profiles_list)
+    return JSONResponse(content=jsoned_profiles_list)
 
 
 @v1_router.get("/meetings/{tenant_id}", response_class=JSONResponse)
