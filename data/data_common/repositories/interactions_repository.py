@@ -2,7 +2,7 @@ from typing import Optional
 import psycopg2
 from loguru import logger
 
-from data.data_common.data_transfer_objects.interaction import InteractionDTO
+from data.data_common.data_transfer_objects.interaction_dto import InteractionDTO
 
 
 class InteractionsRepository:
