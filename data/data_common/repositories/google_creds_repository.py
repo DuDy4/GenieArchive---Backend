@@ -100,9 +100,9 @@ class GoogleCredsRepository:
                 cursor.execute(
                     update_query,
                     (
-                        creds.get("refreshToken"),
-                        creds.get("accessToken"),
-                        creds.get("tenantId"),
+                        creds.get("refreshToken") or creds.get("refresh_token"),
+                        creds.get("accessToken") or creds.get("access_token"),
+                        creds.get("tenantId") or creds.get("tenant_id"),
                     ),
                 )
                 self.conn.commit()

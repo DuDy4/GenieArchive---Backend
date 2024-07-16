@@ -37,11 +37,18 @@ from data.data_common.dependencies.dependencies import (
 )
 
 from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 
 from redis import Redis
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 v1_router = APIRouter(prefix="/v1")
 
@@ -400,39 +407,43 @@ def get_google_creds(
 @v1_router.get("/{tenant_id}/meetings", response_class=JSONResponse)
 def get_all_meetings(
     tenant_id: str,
-    meetings_repository=Depends(meetings_repository),
-    google_creds_repository=Depends(google_creds_repository),
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
 ) -> JSONResponse:
-    """
-    Fetches and returns all events for a given tenant.
-    """
     logger.info(f"Got events request for tenant: {tenant_id}")
 
-    creds = google_creds_repository.get_creds(tenant_id)
+    google_credentials = google_creds_repository.get_creds(tenant_id)
+    if not google_credentials:
+        raise HTTPException(
+            status_code=404, detail="Google credentials not found for the tenant"
+        )
 
-    if not creds:
-        return JSONResponse(content={"error": "No credentials found"}, status_code=404)
-
-    refresh_token = creds["refresh_token"]
-    access_token = creds["access_token"]
-
-    # Initialize the Credentials object
-    credentials = Credentials(
-        token=access_token,
-        refresh_token=refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id="YOUR_CLIENT_ID",
-        client_secret="YOUR_CLIENT_SECRET",
+    google_credentials = Credentials(
+        token=google_credentials["access_token"],
+        refresh_token=google_credentials["refresh_token"],
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        token_uri=GOOGLE_TOKEN_URI,
     )
 
-    if not credentials.valid:
-        if credentials.expired and credentials.refresh_token:
-            credentials.refresh(GoogleRequest())
+    google_credentials.refresh(GoogleRequest())
+    logger.debug(f"Google credentials: {google_credentials}")
 
+    google_creds_repository.update_creds(
+        {
+            "tenant_id": tenant_id,
+            "access_token": google_credentials.token,
+            "refresh_token": google_credentials.refresh_token,
+        }
+    )
+
+    access_token = google_credentials.token
+
+    credentials = Credentials(token=access_token)
     service = build("calendar", "v3", credentials=credentials)
 
-    # Fetch events
-    now = datetime.datetime.utcnow().isoformat() + "Z"
+    now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
+    logger.info(f"Fetching meetings starting from: {now}")
+
     events_result = (
         service.events()
         .list(
@@ -445,6 +456,19 @@ def get_all_meetings(
         .execute()
     )
 
-    events = events_result.get("items", [])
+    meetings = events_result.get("items", [])
+    logger.info(f"Fetched events: {meetings}")
 
-    return JSONResponse(content={"events": events})
+    if not meetings:
+        return JSONResponse(content={"message": "No upcoming events found."})
+
+    for meeting in meetings:
+
+        meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+
+        event = GenieEvent(
+            topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public"
+        )
+        event.send()
+
+    return JSONResponse(content={"events": meetings})
