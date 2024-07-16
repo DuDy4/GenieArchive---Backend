@@ -2,11 +2,10 @@ import os
 import traceback
 
 import requests
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, FastAPI, Request, HTTPException
 from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
-
 
 from redis import Redis
 
@@ -474,13 +473,10 @@ def get_all_profile_ids_for_meeting(
     meeting_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get all profile IDs for a specific meeting - Mock version.
 
-    This function get a meeting_id and tenant_id.
-    It first checks if the meeting exists in the database with this tenant_id.
-    Then it gets all the emails of the participants.
-    For each email, it gets the full profile.
-    Finally, it returns a list of all the profiles.
+    - **tenant_id**: Tenant ID
+    - **meeting_id**: Meeting ID
     """
     logger.info(f"Got profiles request for meeting: {meeting_id}")
 
@@ -497,10 +493,10 @@ def get_profile_strengths(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the strengths of a profile - Mock version.
 
-    This function get a profile uuid.
-    It returns the strengths of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got strengths request for profile: {uuid}")
 
@@ -516,10 +512,10 @@ def get_profile_get_to_know(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the 'get-to-know' information of a profile - Mock version.
 
-    This function get a profile uuid.
-    It returns the get to know of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got get-to-know request for profile: {uuid}")
 
@@ -535,10 +531,10 @@ def get_profile_connections(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the connections of a profile - Mock version.
 
-    This function get a profile uuid.
-    It returns the connections of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got connections request for profile: {uuid}")
 
@@ -554,10 +550,10 @@ def get_profile_hobbies(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the hobbies of a profile - Mock version.
 
-    This function get a profile uuid.
-    It returns the hobbies of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got hobbies request for profile: {uuid}")
 
@@ -573,10 +569,10 @@ def get_profile_news(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the news of a profile - Mock version.
 
-    This function get a profile uuid.
-    It returns the news of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got news request for profile: {uuid}")
 
@@ -594,10 +590,10 @@ def get_profile_work_experience(
     tenant_id: str,
 ) -> JSONResponse:
     """
-    - MOCK version -
+    Get the work experience of a profile - *Mock version*.
 
-    This function get a profile uuid.
-    It returns the work experience of this profile.
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
     """
     logger.info(f"Got work experience request for profile: {uuid}")
 
