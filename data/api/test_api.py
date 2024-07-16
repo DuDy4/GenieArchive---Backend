@@ -18,7 +18,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
-SELF_URL = os.environ.get("TEST_URL", "https://localhost:8002")
+SELF_URL = os.environ.get("SELF_URL", "https://localhost:8002")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID_DAN")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET_DAN")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
@@ -71,7 +71,7 @@ async def callback(
     refresh_token = tokens.get("refresh_token")
 
     # Store tokens in the database
-    tenant_id = "d91b83dd-44bd-443d-8ed0-b41ba2779a30"  # Replace with actual tenant ID
+    tenant_id = "asaf-savich"  # Replace with actual tenant ID
 
     google_creds_repository.insert(
         {
@@ -132,7 +132,7 @@ def get_all_meetings(
         .list(
             calendarId="primary",
             timeMin=now,
-            maxResults=10,
+            maxResults=30,
             singleEvents=True,
             orderBy="startTime",
         )
