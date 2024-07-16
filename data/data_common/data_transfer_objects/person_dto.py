@@ -48,7 +48,7 @@ class PersonDTO:
         )
 
     @staticmethod
-    def from_tuple(self, data: tuple[str, str, str, str, str, str, str]):
+    def from_tuple(data: tuple[str, str, str, str, str, str, str]):
         return PersonDTO(
             uuid=data[0],
             name=data[1],
