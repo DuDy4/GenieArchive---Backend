@@ -16,6 +16,36 @@ v1_router = APIRouter(prefix="/v1")
 
 redis_client = Redis(host="localhost", port=6379, db=0)
 
+meetings = [
+    {
+        "meeting_uuid": "65b5afe8",
+        "google_calender_id": "d02e29",
+        "tenant_id": "abcde",
+        "link": "https://meet.google.com/bla-bla-bla",
+        "subject": "Intro Me <> You",
+        "start_time": "2024-07-27T17:00:00+03:00",
+        "end_time": "2024-07-27T17:30:00+03:00",
+    },
+    {
+        "meeting_uuid": "65b5afe9",
+        "google_calender_id": "d02e30",
+        "tenant_id": "abcde",
+        "link": "https://meet.google.com/bla-bla-bla2",
+        "subject": "Second intro Me <> You",
+        "start_time": "2024-07-24T16:00:00+03:00",
+        "end_time": "2024-07-24T17:30:00+03:00",
+    },
+    {
+        "meeting_uuid": "65b5afd0",
+        "google_calender_id": "d02e31",
+        "tenant_id": "abcde",
+        "link": "https://meet.google.com/bla-bla-bla3",
+        "subject": "Hackathon",
+        "start_time": "2024-07-30",
+        "end_time": "2024-07-31",
+    },
+]
+
 profiles = [
     {
         "uuid": "d91b83dd-44bd-443d-8ed0-b41ba2779a30",
@@ -474,8 +504,10 @@ def get_all_profile_ids_for_meeting(
 ) -> JSONResponse:
     """
     Get all profile IDs for a specific meeting - Mock version.
+    (For the mock version - the right tenant_id is 'abcde',
+     and there is no filtering by meeting_id - every meeting gets all profiles.)
 
-    - **tenant_id**: Tenant ID
+    - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Got profiles request for meeting: {meeting_id}")
@@ -601,3 +633,18 @@ def get_profile_work_experience(
         if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
             return JSONResponse(content=profile["work_experience"])
     return JSONResponse(content=[])
+
+
+@v1_router.get("/meetings/{tenant_id}", response_class=JSONResponse)
+def get_all_meetings(
+    tenant_id: str,
+) -> JSONResponse:
+    """
+    Get all meetings for a specific tenant - Mock version.
+
+    - **tenant_id**: Tenant ID
+    """
+    logger.info(f"Got meetings request for tenant: {tenant_id}")
+    if tenant_id != "abcde":
+        return JSONResponse(content=[])
+    return JSONResponse(content=meetings)
