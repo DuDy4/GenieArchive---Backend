@@ -11,6 +11,7 @@ from ..repositories.tenants_repository import TenantsRepository
 from ..salesforce.salesforce_event_handler import SalesforceEventHandler
 from ..repositories.meetings_repository import MeetingsRepository
 from ..repositories.google_creds_repository import GoogleCredsRepository
+from ..repositories.ownerships_repository import OwnershipsRepository
 
 
 def tenants_repository() -> TenantsRepository:
@@ -88,6 +89,16 @@ def google_creds_repository() -> GoogleCredsRepository:
     try:
         with conn:
             return GoogleCredsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def ownerships_repository() -> OwnershipsRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return OwnershipsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

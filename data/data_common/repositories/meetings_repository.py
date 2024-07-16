@@ -41,6 +41,11 @@ class MeetingsRepository:
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
         logger.debug(f"Meeting to insert: {meeting}")
+        if self.exists(meeting.google_calendar_id):
+            logger.info(
+                f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists"
+            )
+            return None
         insert_query = """
         INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -67,18 +72,22 @@ class MeetingsRepository:
             self.conn.rollback()
             raise Exception(f"Error inserting meeting, because: {error}")
 
-    def exists(self, uuid: str) -> bool:
-        logger.info(f"About to check if uuid exists: {uuid}")
-        exists_query = "SELECT 1 FROM meetings WHERE uuid = %s;"
+    def exists(self, google_calendar_id: str) -> bool:
+        logger.info(f"About to check if uuid exists: {google_calendar_id}")
+        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
             with self.conn.cursor() as cursor:
-                logger.info(f"About to execute check if uuid exists: {uuid}")
-                cursor.execute(exists_query, (uuid,))
+                logger.info(
+                    f"About to execute check if uuid exists: {google_calendar_id}"
+                )
+                cursor.execute(exists_query, (google_calendar_id,))
                 result = cursor.fetchone() is not None
-                logger.info(f"{uuid} existence in database: {result}")
+                logger.info(f"{google_calendar_id} existence in database: {result}")
                 return result
         except psycopg2.Error as error:
-            logger.error(f"Error checking existence of uuid {uuid}: {error}")
+            logger.error(
+                f"Error checking existence of uuid {google_calendar_id}: {error}"
+            )
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")

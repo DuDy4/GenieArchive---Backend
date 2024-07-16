@@ -31,13 +31,29 @@ class PDLConsumer(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_CONTACT_TO_ENRICH], consumer_group=CONSUMER_GROUP
+            topics=[Topic.NEW_CONTACT_TO_ENRICH, Topic.NEW_EMAIL_ADDRESS_TO_ENRICH],
+            consumer_group=CONSUMER_GROUP,
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
     async def process_event(self, event):
-        logger.info(f"Processing event on topic {self.topics}")
+        logger.info(f"PersonManager processing event: {event}")
+        topic = event.properties.get(b"topic").decode("utf-8")
+        logger.info(f"Processing event on topic {topic}")
+        # Should use Topic class
+
+        match topic:
+            case Topic.NEW_CONTACT_TO_ENRICH:
+                logger.info("Handling new contact")
+                await self.enrich_contact(event)
+            case Topic.NEW_EMAIL_ADDRESS_TO_ENRICH:
+                logger.info("Handling new interaction")
+                await self.enrich_email_address(event)
+            case _:
+                logger.info(f"Unknown topic: {topic}")
+
+    async def enrich_contact(self, event):
         event_body = event.body_as_str()
         if isinstance(event_body, str):
             try:
@@ -88,6 +104,20 @@ class PDLConsumer(GenieConsumer):
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
 
         return {"status": "success"}
+
+    async def enrich_email_address(self, event):
+        event_body = event.body_as_str()
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            try:
+                logger.info(f"Event body is string")
+                event_body = json.loads(event_body)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON: {event_body}")
+                return {"error": "Invalid JSON"}
+
+        email = event_body.get("email")
+        logger.info(f"Email: {email}")
 
 
 class PDLClient:

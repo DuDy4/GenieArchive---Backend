@@ -1,5 +1,6 @@
 class Topic:
     NEW_EMAIL_ADDRESS_TO_PROCESS = "new-email-address-to-process"
+    NEW_EMAIL_ADDRESS_TO_ENRICH = "new-email-address-to-enrich"
     FINISHED_NEW_PROFILE = "finished-new-profile"
     NEW_CONTACT_TO_ENRICH = "new-contact-to-enrich"
     NEW_CONTACT = "new-contact"

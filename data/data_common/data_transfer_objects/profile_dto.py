@@ -5,7 +5,6 @@ class ProfileDTO:
     def __init__(
         self,
         uuid,
-        tenant_id,
         name,
         company,
         position,
@@ -15,7 +14,6 @@ class ProfileDTO:
         picture_url,
     ):
         self.uuid = uuid
-        self.tenant_id = tenant_id
         self.name = name
         self.company = company
         self.position = position
@@ -27,7 +25,6 @@ class ProfileDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
-            "tenant_id": self.tenant_id,
             "name": self.name,
             "company": self.company,
             "position": self.position,
@@ -41,7 +38,6 @@ class ProfileDTO:
     def from_dict(data: dict):
         return ProfileDTO(
             uuid=data.get("uuid", ""),
-            tenant_id=data.get("tenant_id", ""),
             name=data.get("name", ""),
             company=data.get("company", ""),
             position=data.get("position", ""),
@@ -54,7 +50,6 @@ class ProfileDTO:
     def to_tuple(self) -> tuple:
         return (
             self.uuid,
-            self.tenant_id,
             self.name,
             self.company,
             self.position,
@@ -68,14 +63,13 @@ class ProfileDTO:
     def from_tuple(row: tuple) -> "ProfileDTO":
         return ProfileDTO(
             uuid=row[0],
-            tenant_id=row[1],
-            name=row[2],
-            company=row[3],
-            position=row[4],
-            challenges=row[5],
-            strengths=row[6],
-            summary=row[7],
-            picture_url=row[8],
+            name=row[1],
+            company=row[2],
+            position=row[3],
+            challenges=row[4],
+            strengths=row[5],
+            summary=row[6],
+            picture_url=row[7],
         )
 
     def to_json(self):
@@ -87,4 +81,4 @@ class ProfileDTO:
         return ProfileDTO.from_dict(data)
 
     def __str__(self):
-        return f"ProfileDTO(uuid={self.uuid}, tenant_id={self.tenant_id}, name={self.name}, company={self.company}, position={self.position}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary}), picture_url={self.picture_url})"
+        return f"ProfileDTO(uuid={self.uuid}, name={self.name}, company={self.company}, position={self.position}, challenges={self.challenges}, strengths={self.strengths}, summary={self.summary}), picture_url={self.picture_url})"

@@ -4,7 +4,7 @@ from typing import Optional, Union, List
 
 import psycopg2
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.contact_dto import ContactDTO
 from loguru import logger
 
 
@@ -41,23 +41,21 @@ class ContactsRepository:
             logger.error("Error creating table:", error)
             # self.conn.rollback()
 
-    def insert_contact(self, contact: PersonDTO, salesforce_id) -> str | None:
+    def insert_contact(self, contact: ContactDTO) -> str | None:
         """
-        :param tenant_id: id of the tenant who own of the contact
-        :param contact: PersonDTO object with contact data to insert into database
-        :param salesforce_id: salesforce id of the contact
+        :param contact: ContactDTO object with contact data to insert into database
         :return the id of the newly created contact in database:
         """
         insert_query = """
-        INSERT INTO contacts ( salesforce_id, uuid, tenant_id, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO contacts ( uuid, tenant_id, salesforce_id, name, company, email, linkedin, position, timezone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         contact_data = contact.to_tuple()
         try:
             if not self.exists(contact.uuid):
                 with self.conn.cursor() as cursor:
-                    cursor.execute(insert_query, (salesforce_id,) + contact_data)
+                    cursor.execute(insert_query, contact_data)
                     self.conn.commit()
                     contact_id = cursor.fetchone()[0]
                     logger.info(
@@ -72,7 +70,6 @@ class ContactsRepository:
 
     def exists(self, uuid: str) -> bool:
         exists_query = "SELECT 1 FROM contacts WHERE uuid = %s;"
-
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(exists_query, (uuid,))
@@ -139,7 +136,7 @@ class ContactsRepository:
             logger.error("Error checking existence of identity:", error)
         return False
 
-    def exists_all(self, person: PersonDTO):
+    def exists_all(self, contact: ContactDTO):
         """
         Check if a person with all the same attributes already exists in the database
         """
@@ -148,9 +145,9 @@ class ContactsRepository:
         WHERE uuid = %s AND name = %s AND company = %s AND email = %s
         AND linkedin = %s AND position = %s AND timezone = %s;
         """
-        if person.email is None:
+        if contact.email is None:
             exists_query.replace("AND email = %s", "AND email IS NULL")
-        person_data = person.to_tuple()
+        person_data = contact.to_tuple()
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(exists_query, person_data[0:1] + person_data[2:])
@@ -198,7 +195,7 @@ class ContactsRepository:
 
     def get_contact_by_salesforce_id(
         self, tenant_id, salesforce_id: str
-    ) -> Optional[PersonDTO]:
+    ) -> Optional[ContactDTO]:
         select_query = (
             "SELECT * FROM contacts WHERE salesforce_id = %s AND tenant_id = %s;"
         )
@@ -209,14 +206,14 @@ class ContactsRepository:
                 logger.debug(f"Got row: {row}")
                 if row:
                     logger.info(f"Got {row[1]} from database")
-                    return PersonDTO(*row[1:3] + row[4:])
+                    return ContactDTO.from_tuple(row[1:])
 
         except Exception as error:
             logger.error("Error fetching contact by salesforce_id:", error)
             traceback.print_exc()
         return None
 
-    def get_contact_by_id(self, id: str) -> Optional[PersonDTO]:
+    def get_contact_by_id(self, id: str) -> Optional[ContactDTO]:
         select_query = "SELECT * FROM contacts WHERE id = %s;"
         try:
             with self.conn.cursor() as cursor:
@@ -224,13 +221,13 @@ class ContactsRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[4]} from database")
-                    return PersonDTO(*row[2:])
+                    return ContactDTO(*row[2:])
 
         except Exception as error:
             logger.error("Error fetching contact by id:", error)
         return None
 
-    def get_contact_by_uuid(self, uuid: str) -> Optional[PersonDTO]:
+    def get_contact_by_uuid(self, uuid: str) -> Optional[ContactDTO]:
         select_query = "SELECT * FROM contacts WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
@@ -238,7 +235,7 @@ class ContactsRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[4]} from database")
-                    return PersonDTO(*row[2:])
+                    return ContactDTO(*row[2:])
 
         except Exception as error:
             logger.error("Error fetching contact by id:", error)
@@ -265,7 +262,7 @@ class ContactsRepository:
     def get_timezone(self, id_or_uuid: str | int) -> Optional[str]:
         return self._get_attribute(id_or_uuid, "timezone")
 
-    def update_contact(self, contact: PersonDTO):
+    def update_contact(self, contact: ContactDTO):
         update_query = """
         UPDATE contacts
         SET name = %s, company = %s, email = %s, linkedin = %s, position = %s, timezone = %s
@@ -289,6 +286,7 @@ class ContactsRepository:
             traceback.print_exc()
 
     def delete_contact(self, id: str):
+
         delete_query = "DELETE FROM contacts WHERE id = %s;"
         try:
             with self.conn.cursor() as cursor:
@@ -301,7 +299,7 @@ class ContactsRepository:
 
     def search_contact(
         self, name: str, company: str, email: str
-    ) -> Optional[PersonDTO]:
+    ) -> Optional[ContactDTO]:
         self.create_table_if_not_exists()
         search_query = (
             "SELECT * FROM contacts WHERE name = %s OR company = %s OR email = %s;"
@@ -312,12 +310,12 @@ class ContactsRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Found {len(rows)} contacts")
-                    persons_list = [PersonDTO(*row[1:]) for row in rows]
+                    persons_list = [ContactDTO(*row[1:]) for row in rows]
                     if len(persons_list) > 1:
                         logger.warning(
                             "Multiple contacts found by the same credentials"
                         )
-                    return True
+                    return persons_list[0] if persons_list else None
                 else:
                     logger.info("No contact found")
                     return None
@@ -330,7 +328,9 @@ class ContactsRepository:
         and return the list of changed contacts (from last time we fetched contact from salesforce) that we need to
         check if the personal data has changed
 
-        :param contacts_list: list of contacts from salesforce
+        param
+        tenant_id: tenant id of the contacts
+        contacts_list: list of contacts from salesforce
         :return: list of changed contacts
         """
         self.create_table_if_not_exists()
@@ -338,7 +338,7 @@ class ContactsRepository:
         for contact in contacts_list:
             logger.info(f"Handling contact: {contact}")
             contact_id = contact.get("Id")
-            contact = PersonDTO.from_sf_contact(contact, tenant_id=tenant_id)
+            contact = ContactDTO.from_sf_contact(contact, tenant_id=tenant_id)
             logger.info(f"Contact: {contact}")
             try:
                 uuid = self.exists_salesforce_id(contact_id)
@@ -350,7 +350,7 @@ class ContactsRepository:
                         self.update_contact(contact)
                         changed_contacts.append(contact.to_dict())
                 else:
-                    self.insert_contact(contact, contact_id)
+                    self.insert_contact(contact)
                     logger.info(f"Inserted person: {contact.name}")
                     changed_contacts.append(contact)
             except Exception as e:

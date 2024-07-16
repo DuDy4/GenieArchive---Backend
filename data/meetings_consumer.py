@@ -56,7 +56,9 @@ class MeetingManager(GenieConsumer):
         for email in emails_to_process:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data=json.dumps({"email": email.get("email")}),
+                data=json.dumps(
+                    {"tenant_id": meeting.tenant_id, "email": email.get("email")}
+                ),
                 scope="public",
             )
             event.send()

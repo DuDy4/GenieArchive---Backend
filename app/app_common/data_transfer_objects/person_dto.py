@@ -6,7 +6,6 @@ from common.utils.str_utils import get_uuid4
 @dataclass
 class PersonDTO:
     uuid: str
-    tenant_id: str
     name: str
     company: str
     email: str
@@ -17,7 +16,6 @@ class PersonDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
-            "tenant_id": self.tenant_id,
             "name": self.name,
             "company": self.company,
             "email": self.email,
@@ -29,8 +27,7 @@ class PersonDTO:
     @staticmethod
     def from_dict(data: dict):
         return PersonDTO(
-            uuid=data.get("uuid", ""),
-            tenant_id=data.get("tenant_id", ""),
+            uuid=data.get("uuid", get_uuid4()),
             name=data.get("name", ""),
             company=data.get("company", ""),
             email=data.get("email", ""),
@@ -39,16 +36,27 @@ class PersonDTO:
             timezone=data.get("timezone", ""),
         )
 
-    def to_tuple(self) -> tuple[str, str, str, str, str, str, str, str]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, str, str]:
         return (
             self.uuid,
-            self.tenant_id,
             self.name,
             self.company,
             self.email,
             self.linkedin,
             self.position,
             self.timezone,
+        )
+
+    @staticmethod
+    def from_tuple(self, data: tuple[str, str, str, str, str, str, str]):
+        return PersonDTO(
+            uuid=data[0],
+            name=data[1],
+            company=data[2],
+            email=data[3],
+            linkedin=data[4],
+            position=data[5],
+            timezone=data[6],
         )
 
     def to_json(self):
@@ -60,10 +68,9 @@ class PersonDTO:
         return PersonDTO.from_dict(data)
 
     @staticmethod
-    def from_sf_contact(contact: dict, tenant_id: str):
+    def from_sf_contact(contact: dict):
         return PersonDTO(
             uuid=get_uuid4(),
-            tenant_id=tenant_id,
             name=f"{contact.get('FirstName')} {contact.get('LastName')}",
             company=f"{contact.get('AccountName') or (contact.get('Account', {}).get('Name', '') if contact.get('Account') else '')}",
             email=contact.get("Email") or "",
