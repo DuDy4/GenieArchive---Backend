@@ -35,6 +35,8 @@ from data.data_common.dependencies.dependencies import (
     meetings_repository,
     google_creds_repository,
     ownerships_repository,
+    persons_repository,
+    personal_data_repository,
 )
 
 from data.data_common.events.topics import Topic
@@ -614,7 +616,7 @@ def get_profile_strengths(
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
         return JSONResponse(content=profile.strengths)
-    return JSONResponse(content={"error": "Could not find profile's strengths"})
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get("/profile/{tenant_id}/{uuid}/get-to-know", response_class=JSONResponse)
@@ -699,6 +701,7 @@ def get_profile_news(
 def get_profile_work_experience(
     uuid: str,
     tenant_id: str,
+    personal_data_repository=Depends(personal_data_repository),
 ) -> JSONResponse:
     """
     Get the work experience of a profile - *Mock version*.
@@ -708,10 +711,12 @@ def get_profile_work_experience(
     """
     logger.info(f"Got work experience request for profile: {uuid}")
 
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["work_experience"])
-    return JSONResponse(content=[])
+    personal_data = personal_data_repository.get_personal_data(uuid)
+    logger.debug(f"Personal data: {personal_data}")
+
+    if personal_data:
+        return JSONResponse(content=personal_data["experience"])
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get("/meetings-mock", response_class=JSONResponse)
