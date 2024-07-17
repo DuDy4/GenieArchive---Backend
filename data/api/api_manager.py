@@ -663,6 +663,7 @@ def get_profile_connections(
     tenant_id: str,
     profiles_repository=Depends(profiles_repository),
     ownerships_repository=Depends(ownerships_repository),
+    persons_repository=Depends(persons_repository),
 ) -> JSONResponse:
     """
     Get the connections of a profile - Mock version.
@@ -675,7 +676,14 @@ def get_profile_connections(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        return JSONResponse(content=profile.connections)
+        connections_uuid = profile.connections
+        logger.info(f"Got connections: {connections_uuid}")
+        connections = [
+            persons_repository.get_person(connection_uuid)
+            for connection_uuid in connections_uuid
+        ]
+        connections = [connection.to_dict() for connection in connections]
+        return JSONResponse(content=connections)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
