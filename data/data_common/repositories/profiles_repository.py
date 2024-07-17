@@ -11,7 +11,6 @@ from loguru import logger
 class ProfilesRepository:
     def __init__(self, conn):
         self.conn = conn
-        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:
@@ -30,6 +29,7 @@ class ProfilesRepository:
             hobbies JSONB,
             connections JSONB,
             news JSONB,
+            get_to_know JSONB,
             summary TEXT,
             picture_url VARCHAR
         );
@@ -48,8 +48,8 @@ class ProfilesRepository:
         :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO profiles (uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO profiles (uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert profile: {profile}")
@@ -100,7 +100,7 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url
+        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
         FROM profiles
         WHERE uuid = %s;
         """
@@ -121,7 +121,7 @@ class ProfilesRepository:
     def update(self, profile: ProfileDTO):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, summary = %s, picture_url = %s
+        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, get_to_know = %s, summary = %s, picture_url = %s
         WHERE uuid = %s;
         """
         profile_data = profile.to_tuple()
@@ -142,6 +142,7 @@ class ProfilesRepository:
         profile.hobbies = json.dumps(profile.hobbies)
         profile.connections = json.dumps(profile.connections)
         profile.news = json.dumps(profile.news)
+        profile.get_to_know = json.dumps(profile.get_to_know)
         if self.exists(profile.uuid):
             self.update(profile)
         else:
@@ -149,7 +150,7 @@ class ProfilesRepository:
 
     def get_profiles_from_list(self, uuids: list) -> list:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url
+        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
         FROM profiles
         WHERE uuid = ANY(%s);
         """

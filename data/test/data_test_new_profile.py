@@ -20,7 +20,14 @@ def test_new_contact():
     "news": [
             {"news_title": "InnovateTech Launches New Product", "news_url": "https://www.techcrunch.com", "news_icon": "https://img.icons8.com/bubbles/50/news.png"},
             {"news_title": "Emma Johnson in Forbes 30 Under 30", "news_url": "https://www.forbes.com", "news_icon": "https://img.icons8.com/bubbles/50/news.png"}
-        ]
+        ],
+    "summary": "Asaf is a seasoned software engineer with a strong background in software development and quality assurance. He has held various roles in the software industry, including software engineer, lead software engineer, and director of engineering. Asaf has experience working on a wide range of projects, from developing software solutions to managing engineering teams. His expertise in software development, quality assurance, and project management makes him a valuable asset to any organization.",
+    "get_to_know": {
+            "title": "Emma is a visionary leader",
+            "phrases_to_use": ["She has a clear vision", "She communicates effectively", "She builds strong teams"],
+            "best_practices": ["Discuss industry trends", "Ask about her vision for the company", "Engage in strategic discussions"],
+            "avoid": ["Avoid micromanagement", "Avoid doubting her decisions", "Avoid unnecessary formalities"]
+        }
     }"""
     data_to_send = {"person": person, "profile": profile}
     event = GenieEvent(

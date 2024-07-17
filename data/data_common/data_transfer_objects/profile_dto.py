@@ -14,6 +14,7 @@ class ProfileDTO:
         hobbies: List[str],
         connections: List[str],
         news: List[str],
+        get_to_know: Dict[str, Dict | str],
         summary: str,
         picture_url: str,
     ):
@@ -26,6 +27,7 @@ class ProfileDTO:
         self.hobbies = hobbies
         self.connections = connections
         self.news = news
+        self.get_to_know = get_to_know
         self.summary = summary
         self.picture_url = picture_url
 
@@ -40,6 +42,7 @@ class ProfileDTO:
             "hobbies": self.hobbies,
             "connections": self.connections,
             "news": self.news,
+            "get_to_know": self.get_to_know,
             "summary": self.summary,
             "picture_url": self.picture_url,
         }
@@ -56,6 +59,7 @@ class ProfileDTO:
             hobbies=data.get("hobbies", []),
             connections=data.get("connections", []),
             news=data.get("news", []),
+            get_to_know=data.get("get_to_know", {}),
             summary=data.get("summary", ""),
             picture_url=data.get("picture_url", ""),
         )
@@ -71,6 +75,7 @@ class ProfileDTO:
             self.hobbies,
             self.connections,
             self.news,
+            self.get_to_know,
             self.summary,
             self.picture_url,
         )
@@ -87,8 +92,9 @@ class ProfileDTO:
             hobbies=row[6],
             connections=row[7],
             news=row[8],
-            summary=row[9],
-            picture_url=row[10],
+            get_to_know=row[9],
+            summary=row[10],
+            picture_url=row[11],
         )
 
     def to_json(self):
@@ -104,5 +110,5 @@ class ProfileDTO:
             f"ProfileDTO(uuid={self.uuid}, name={self.name}, company={self.company}, "
             f"position={self.position}, challenges={self.challenges}, strengths={self.strengths}, "
             f"hobbies={self.hobbies}, connections={self.connections}, news={self.news}, "
-            f"summary={self.summary}, picture_url={self.picture_url})"
+            f"get_to_know={self.get_to_know}, summary={self.summary}, picture_url={self.picture_url})"
         )

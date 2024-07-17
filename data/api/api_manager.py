@@ -641,7 +641,6 @@ def get_profile_get_to_know(
     tenant_id: str,
     ownerships_repository=Depends(ownerships_repository),
     profiles_repository=Depends(profiles_repository),
-    hobbies_repository=Depends(hobbies_repository),
 ) -> JSONResponse:
     """
     Get the 'get-to-know' information of a profile - Mock version.
@@ -651,10 +650,13 @@ def get_profile_get_to_know(
     """
     logger.info(f"Got get-to-know request for profile: {uuid}")
 
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["get-to-know"])
-    return JSONResponse(content={})
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    logger.info(f"Got profile: {profile}")
+    if profile:
+        return JSONResponse(content=profile.get_to_know)
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get("/profile/{tenant_id}/{uuid}/connections", response_class=JSONResponse)

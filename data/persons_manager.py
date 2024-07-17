@@ -188,6 +188,7 @@ class PersonManager(GenieConsumer):
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
                 "news": profile.get("news", []),
+                "get_to_know": profile.get("get_to_know", {}),
                 "summary": profile.get("summary", ""),
                 "picture_url": profile.get("picture_url", ""),
             }
