@@ -599,6 +599,8 @@ def get_all_profile_ids_for_meeting(
 def get_profile_strengths(
     uuid: str,
     tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
     Get the strengths of a profile - Mock version.
@@ -607,11 +609,12 @@ def get_profile_strengths(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got strengths request for profile: {uuid}")
-
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["strengths"])
-    return JSONResponse(content=[])
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        return JSONResponse(content=profile.strengths)
+    return JSONResponse(content={"error": "Could not find profile's strengths"})
 
 
 @v1_router.get("/profile/{tenant_id}/{uuid}/get-to-know", response_class=JSONResponse)
