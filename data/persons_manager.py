@@ -39,6 +39,7 @@ class PersonManager(GenieConsumer):
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
                 Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+                Topic.UP_TO_DATE_ENRICHED_DATA,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -64,6 +65,11 @@ class PersonManager(GenieConsumer):
             case Topic.UPDATED_ENRICHED_DATA:
                 logger.info("Handling updated enriched data")
                 await self.handle_updated_enriched_data(event)
+            case Topic.UP_TO_DATE_ENRICHED_DATA:
+                logger.info(
+                    "Personal data is up to date, Checking for existing profile"
+                )
+                await self.check_profile_data(event)
             case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
                 await self.handle_new_processed_profile(event)
@@ -117,6 +123,12 @@ class PersonManager(GenieConsumer):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
+        if not personal_data:
+            logger.error("No personal data received in event")
+            personal_data = {}
+        if not person_dict:
+            logger.error("No person data received in event")
+            return {"error": "No person data received in event"}
 
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
@@ -153,7 +165,9 @@ class PersonManager(GenieConsumer):
             person_dict = json.loads(person_dict)
         profile = event_body.get("profile")
         if not profile.get("picture_url"):
-            profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+            profile[
+                "picture_url"
+            ] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
         profile_person = ProfileDTO.from_dict(
             {
@@ -165,6 +179,9 @@ class PersonManager(GenieConsumer):
                 else profile.get("job_title", ""),
                 "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
+                "hobbies": profile.get("hobbies", []),
+                "connections": profile.get("connections", []),
+                "news": profile.get("news", []),
                 "summary": profile.get("summary", ""),
                 "picture_url": profile.get("picture_url", ""),
             }
@@ -218,6 +235,22 @@ class PersonManager(GenieConsumer):
             )
             event.send()
             logger.info("Sent 'pdl' event to the event queue")
+
+    async def check_profile_data(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
+        person = PersonDTO.from_dict(person_dict)
+        profile = self.profiles_repository.exists(person.uuid)
+        if not profile:
+            logger.info("Profile does not exist in database")
+            await self.handle_updated_enriched_data(event)
+            return
+        logger.info("Profile exists in database. Skipping profile building")
 
 
 if __name__ == "__main__":
