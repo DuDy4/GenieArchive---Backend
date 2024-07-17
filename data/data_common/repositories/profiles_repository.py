@@ -11,6 +11,7 @@ from loguru import logger
 class ProfilesRepository:
     def __init__(self, conn):
         self.conn = conn
+        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:
@@ -26,6 +27,9 @@ class ProfilesRepository:
             position VARCHAR,
             challenges JSONB,
             strengths JSONB,
+            hobbies JSONB,
+            connections JSONB,
+            news JSONB,
             summary TEXT,
             picture_url VARCHAR
         );
@@ -34,18 +38,18 @@ class ProfilesRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info(f"Created profiles table in database")
+                logger.info("Created profiles table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
 
-    def insert_profile(self, profile: ProfileDTO) -> str | None:
+    def insert_profile(self, profile: ProfileDTO) -> Union[str, None]:
         """
         :param profile: ProfileDTO object with profile data to insert into database
         :return the id of the newly created profile in database:
         """
         insert_query = """
-        INSERT INTO profiles (uuid, name, company, position, challenges, strengths, summary, picture_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO profiles (uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert profile: {profile}")
@@ -96,7 +100,7 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, summary, picture_url
+        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url
         FROM profiles
         WHERE uuid = %s;
         """
@@ -114,10 +118,10 @@ class ProfilesRepository:
             traceback.print_exception(error)
         return None
 
-    def update(self, profile):
+    def update(self, profile: ProfileDTO):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, summary = %s, picture_url = %s
+        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, summary = %s, picture_url = %s
         WHERE uuid = %s;
         """
         profile_data = profile.to_tuple()
@@ -133,9 +137,11 @@ class ProfilesRepository:
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
-        profile.strengths = json.dumps(
-            profile.strengths
-        )  # convert to json to insert to JSONB
+        profile.challenges = json.dumps(profile.challenges)
+        profile.strengths = json.dumps(profile.strengths)
+        profile.hobbies = json.dumps(profile.hobbies)
+        profile.connections = json.dumps(profile.connections)
+        profile.news = json.dumps(profile.news)
         if self.exists(profile.uuid):
             self.update(profile)
         else:
@@ -143,7 +149,7 @@ class ProfilesRepository:
 
     def get_profiles_from_list(self, uuids: list) -> list:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, summary, picture_url
+        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, summary, picture_url
         FROM profiles
         WHERE uuid = ANY(%s);
         """
