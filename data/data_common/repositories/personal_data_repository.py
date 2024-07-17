@@ -23,6 +23,7 @@ class PersonalDataRepository:
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
+            email VARCHAR,
             linkedin_url VARCHAR,
             personal_data JSONB,
             status TEXT,
@@ -43,8 +44,9 @@ class PersonalDataRepository:
         self,
         uuid: str,
         name: Optional[str] = None,
-        linkedin_url: str = None,
-        personal_data: json = None,
+        email: Optional[str] = None,
+        linkedin_url: Optional[str] = None,
+        personal_data: Optional[json] = None,
         status: str = "FETCHED",
     ):
         """
@@ -52,11 +54,14 @@ class PersonalDataRepository:
 
         :param uuid: Unique identifier for the personalData.
         :param name: Name of the person (optional).
+        :param email: Email of the person (optional).
+        :param linkedin_url: LinkedIn URL of the person (optional).
         :param personal_data: Personal data of the person (optional).
+        :param status: Status of the personalData (default is "FETCHED").
         """
         insert_query = """
-        INSERT INTO personalData (uuid, name, linkedin_url, personal_data, status)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO personalData (uuid, name, email, linkedin_url, personal_data, status)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """
         if self.exists_uuid(uuid):
             logger.error("Personal data with this UUID already exists")
@@ -64,17 +69,19 @@ class PersonalDataRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(
-                    insert_query, (uuid, name, linkedin_url, personal_data, status)
+                    insert_query,
+                    (uuid, name, email, linkedin_url, personal_data, status),
                 )
                 self.conn.commit()
                 logger.info("Inserted personalData into database")
         except psycopg2.IntegrityError as e:
             logger.error("personalData with this UUID already exists")
             self.conn.rollback()
+            traceback.print_exc()
         except Exception as e:
             logger.error("Error inserting personalData:", e)
-            # logger.error(traceback.format_exc())
-            # self.conn.rollback()
+            logger.error(traceback.format_exc())
+            self.conn.rollback()
 
     def exists_uuid(self, uuid: str) -> bool:
         """
@@ -107,7 +114,7 @@ class PersonalDataRepository:
         """
         Check if a personalData with the given linkedin_url exists in the database.
 
-        :param linkedin_url: Unique identifier for the personalData.
+        :param linkedin_url: LinkedIn URL of the person.
         :return: True if personalData exists, False otherwise.
         """
         self.create_table_if_not_exists()
@@ -137,7 +144,6 @@ class PersonalDataRepository:
         :param uuid: Unique identifier for the personalData.
         :return: Personal data as a json if personalData exists, None otherwise.
         """
-        logger.info(f"Got get request for {uuid}")
         self.create_table_if_not_exists()
         select_query = """
         SELECT personal_data
@@ -147,6 +153,63 @@ class PersonalDataRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
+                personal_data = cursor.fetchone()
+                if personal_data:
+                    return personal_data[0]
+                else:
+                    logger.warning("personalData was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_personal_data_by_linkedin(
+        self, linkedin_profile_url: str
+    ) -> Optional[dict]:
+        """
+        Retrieve personal data associated with an uuid.
+
+        :param linkedin_profile_url: LinkedIn profile URL of the person.
+        :return: Personal data as a json if personalData exists, None otherwise.
+        """
+        logger.info(f"Got get request for {linkedin_profile_url}")
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT
+        FROM personalData
+        WHERE linkedin_url = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (linkedin_profile_url,))
+                personal_data = cursor.fetchone()
+                if personal_data:
+                    return personal_data[1:]
+                else:
+                    logger.warning("personalData was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_personal_data_by_email(self, email_address: str):
+        """
+        Retrieve personal data associated with an email address.
+
+        :param email_address: Email address of the person.
+        :return: Personal data as a json if personalData exists, None otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT uuid
+        FROM personalData
+        WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email_address,))
                 personal_data = cursor.fetchone()
                 if personal_data:
                     return personal_data[0]
@@ -197,7 +260,7 @@ class PersonalDataRepository:
         self.update(uuid, personal_data)
         return
 
-    def get_last_updated(self, linkedin_url: str):
+    def get_last_updated(self, uuid):
         """
         Retrieve the last updated timestamp for a profile.
 
@@ -207,11 +270,11 @@ class PersonalDataRepository:
         select_query = """
         SELECT last_updated
         FROM personalData
-        WHERE linkedin_url = %s
+        WHERE uuid = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (linkedin_url,))
+                cursor.execute(select_query, (uuid,))
                 last_updated = cursor.fetchone()
                 if last_updated:
                     return last_updated[0]
@@ -220,5 +283,63 @@ class PersonalDataRepository:
                     return None
         except Exception as e:
             logger.error(f"Error retrieving last updated timestamp: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_email(self, uuid):
+        """
+        Retrieve the email address for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :return: Email address if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT email
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                email = cursor.fetchone()
+                if email:
+                    return email[0]
+                else:
+                    logger.warning("Profile was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving email address: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_personal_data_row(self, uuid):
+        """
+        Retrieve the personal data row as a dict with column names as keys.
+        """
+        select_query = """
+        SELECT *
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                personal_data = cursor.fetchone()
+                if personal_data:
+                    personal_data_dict = {
+                        "uuid": personal_data[1],
+                        "name": personal_data[2],
+                        "email": personal_data[3],
+                        "linkedin_url": personal_data[4],
+                        "personal_data": personal_data[5],
+                        "status": personal_data[6],
+                        "last_updated": personal_data[7],
+                    }
+                    return personal_data_dict
+                else:
+                    logger.warning("personalData was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
