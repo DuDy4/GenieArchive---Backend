@@ -84,7 +84,10 @@ class HobbiesRepository:
                 hobby = cursor.fetchone()
                 if hobby:
                     logger.info(f"Got hobby with uuid {uuid}")
-                    return hobby[2:]
+                    return {
+                        "hobby_name": hobby[2],
+                        "icon_url": hobby[3],
+                    }
                 logger.info(f"Hobby with uuid {uuid} does not exist")
                 return None
         except psycopg2.Error as error:

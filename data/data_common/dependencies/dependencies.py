@@ -12,6 +12,7 @@ from ..salesforce.salesforce_event_handler import SalesforceEventHandler
 from ..repositories.meetings_repository import MeetingsRepository
 from ..repositories.google_creds_repository import GoogleCredsRepository
 from ..repositories.ownerships_repository import OwnershipsRepository
+from ..repositories.hobbies_repository import HobbiesRepository
 
 
 def tenants_repository() -> TenantsRepository:
@@ -99,6 +100,16 @@ def ownerships_repository() -> OwnershipsRepository:
     try:
         with conn:
             return OwnershipsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def hobbies_repository() -> HobbiesRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return HobbiesRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None

@@ -37,6 +37,7 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     persons_repository,
     personal_data_repository,
+    hobbies_repository,
 )
 
 from data.data_common.events.topics import Topic
@@ -638,6 +639,9 @@ def get_profile_strengths(
 def get_profile_get_to_know(
     uuid: str,
     tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+    hobbies_repository=Depends(hobbies_repository),
 ) -> JSONResponse:
     """
     Get the 'get-to-know' information of a profile - Mock version.
@@ -657,6 +661,8 @@ def get_profile_get_to_know(
 def get_profile_connections(
     uuid: str,
     tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+    ownerships_repository=Depends(ownerships_repository),
 ) -> JSONResponse:
     """
     Get the connections of a profile - Mock version.
@@ -665,17 +671,21 @@ def get_profile_connections(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got connections request for profile: {uuid}")
-
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["good_to_know"]["connections"])
-    return JSONResponse(content=[])
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        return JSONResponse(content=profile.connections)
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get("/profile/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
 def get_profile_hobbies(
     uuid: str,
     tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+    hobbies_repository=Depends(hobbies_repository),
+    ownerships_repository=Depends(ownerships_repository),
 ) -> JSONResponse:
     """
     Get the hobbies of a profile - Mock version.
@@ -684,17 +694,27 @@ def get_profile_hobbies(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got hobbies request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        hobbies_uuid = profile.hobbies
+        logger.info(f"Got hobbies: {hobbies_uuid}")
+        hobbies = [
+            hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
+        ]
+        logger.info(f"Got hobbies: {hobbies}")
 
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["good_to_know"]["hobbies"])
-    return JSONResponse(content=[])
+        return JSONResponse(content=hobbies)
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get("/profile/{tenant_id}/{uuid}/news", response_class=JSONResponse)
 def get_profile_news(
     uuid: str,
     tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+    ownerships_repository=Depends(ownerships_repository),
 ) -> JSONResponse:
     """
     Get the news of a profile - Mock version.
@@ -703,11 +723,12 @@ def get_profile_news(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got news request for profile: {uuid}")
-
-    for profile in profiles:
-        if uuid == profile["uuid"] and tenant_id == profile["tenant_id"]:
-            return JSONResponse(content=profile["good_to_know"]["news"])
-    return JSONResponse(content=[])
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        return JSONResponse(content=profile.news)
+    return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get(
