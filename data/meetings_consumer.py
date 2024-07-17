@@ -50,7 +50,7 @@ class MeetingManager(GenieConsumer):
         logger.info(f"MeetingManager processing event: {event}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
-        emails_to_process = self.filter_emails(meeting.participants_emails)
+        emails_to_process = MeetingManager.filter_emails(meeting.participants_emails)
         if len(emails_to_process) > 0:
             self.meeting_repository.save_meeting(meeting)
         logger.info(f"Emails to process: {emails_to_process}")
@@ -64,7 +64,8 @@ class MeetingManager(GenieConsumer):
             )
             event.send()
 
-    def filter_emails(self, participants_emails):
+    @staticmethod
+    def filter_emails(participants_emails):
         """
         Filter emails of:
         1. is the organizer.
