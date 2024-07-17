@@ -93,6 +93,24 @@ class PersonsRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
+    def get_person(self, uuid: str) -> PersonDTO | None:
+        select_query = """
+        SELECT * FROM persons WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                person = cursor.fetchone()
+                if person:
+                    logger.info(f"Got person with uuid {uuid}")
+                    return PersonDTO.from_tuple(person[1:])
+                logger.info(f"Person with uuid {uuid} does not exist")
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error getting person: {error}")
+            traceback.print_exc()
+            return None
+
     def get_person_id(self, uuid):
         select_query = "SELECT id FROM persons WHERE uuid = %s;"
         try:
