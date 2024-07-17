@@ -122,6 +122,7 @@ class ProfilesRepository:
         """
         profile_data = profile.to_tuple()
         profile_data = profile_data[1:] + (profile_data[0],)  # move uuid to the end
+        logger.info(f"Persisting profile data {profile_data}")
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, profile_data)

@@ -152,8 +152,8 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         profile = event_body.get("profile")
-        if isinstance(profile, str):
-            profile = json.loads(profile)
+        if not profile.get("picture_url"):
+            profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
         profile_person = ProfileDTO.from_dict(
             {

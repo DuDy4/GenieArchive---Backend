@@ -119,7 +119,7 @@ class SalesforceAgent:
         #     logger.debug("LinkedIn field exists")
         #     query_base += ", LinkedInUrl__c"
 
-        query = query_base + " FROM Contact LIMIT 100"
+        query = query_base + " FROM Contact LIMIT 200"
         headers = {
             "Authorization": f"Bearer {self.sf_client.access_token}",
             "Content-Type": "application/json",
