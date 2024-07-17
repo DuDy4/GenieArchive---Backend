@@ -91,3 +91,22 @@ class OwnershipsRepository:
             logger.error(f"Error checking ownership existence: {error.pgerror}")
             traceback.print_exc()
             return False
+
+    def check_ownership(self, tenant_id, uuid):
+        """
+        Check if the ownership exists in the database
+        """
+        select_query = """
+        SELECT id FROM ownerships WHERE uuid = %s AND tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid, tenant_id))
+                ownership = cursor.fetchone()
+                if ownership:
+                    return True
+                return False
+        except psycopg2.Error as error:
+            logger.error(f"Error checking ownership existence: {error.pgerror}")
+            traceback.print_exc()
+            return False
