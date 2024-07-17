@@ -7,8 +7,8 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
 
-def test_new_contact():
-    person = """{"uuid": "blabla", "name": "Asaf Savich", "company": "GenieAI", "email": "asaf@trywonder.ai", "linkedin": "https://www.linkedin.com/in/asaf-savich/", "position": "CTO", "timezone": ""}"""
+def test_new_profile():
+    person = """{"uuid": "ThisIsATest", "name": "Asaf Savich", "company": "GenieAI", "email": "asaf@trywonder.ai", "linkedin": "https://www.linkedin.com/in/asaf-savich/", "position": "CTO", "timezone": ""}"""
     profile = """{"strengths": [
     {"strengths_name": "Leadership", "score": 95, "reasoning": "Asaf's role as Director of Engineering at multiple companies showcases his strong leadership abilities. His experience in leading teams and managing projects indicates his capability to inspire and guide others towards achieving common goals. For instance, his tenure at Kubiya.ai and Mend.io as a director demonstrates his proficiency in leadership."}, {"strengths_name": "Technical Expertise", "score": 90, "reasoning": "With a background in software development and a wide range of skills including Java, C#, Android Development, and more, Asaf possesses strong technical expertise. His ability to work on various technical projects and his proficiency in multiple programming languages highlight his deep understanding of the technical domain."},
     {"strengths_name": "Strategic Thinking", "score": 88, "reasoning": "Asaf's positions, particularly as a director, require strategic planning and execution. His ability to oversee engineering operations and align them with business goals indicates a strong aptitude for strategic thinking. For example, his role in leading engineering teams at Kubiya.ai involves setting long-term objectives and finding innovative solutions."}, {"strengths_name": "Problem Solving", "score": 85, "reasoning": "Asaf's extensive experience in software development and quality assurance suggests a strong problem-solving ability. His role in test automation and integration testing requires identifying issues and implementing effective solutions. His work in software design and quality assurance at various companies exemplifies his problem-solving skills."},
@@ -36,4 +36,4 @@ def test_new_contact():
     event.send()
 
 
-test_new_contact()
+test_new_profile()
