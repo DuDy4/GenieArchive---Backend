@@ -45,6 +45,8 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 
 from redis import Redis
 
+from data.meetings_consumer import MeetingManager
+
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
@@ -507,8 +509,17 @@ def fetch_all_meetings(
         token_uri=GOOGLE_TOKEN_URI,
     )
 
-    google_credentials.refresh(GoogleRequest())
-    logger.debug(f"Google credentials: {google_credentials}")
+    logger.debug(f"Google credentials before refresh: {google_credentials}")
+
+    try:
+        google_credentials.refresh(GoogleRequest())
+    except Exception as e:
+        logger.error(f"Error refreshing Google credentials: {e}")
+        raise HTTPException(
+            status_code=401, detail="Error refreshing Google credentials"
+        )
+
+    logger.debug(f"Google credentials after refresh: {google_credentials}")
 
     google_creds_repository.update_creds(
         {
@@ -526,17 +537,23 @@ def fetch_all_meetings(
     now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
     logger.info(f"Fetching meetings starting from: {now}")
 
-    events_result = (
-        service.events()
-        .list(
-            calendarId="primary",
-            timeMin=now,
-            maxResults=10,
-            singleEvents=True,
-            orderBy="startTime",
+    try:
+        events_result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=now,
+                maxResults=10,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
         )
-        .execute()
-    )
+    except Exception as e:
+        logger.error(f"Error fetching events from Google Calendar: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error fetching events from Google Calendar"
+        )
 
     meetings = events_result.get("items", [])
     logger.info(f"Fetched events: {meetings}")
@@ -545,9 +562,7 @@ def fetch_all_meetings(
         return JSONResponse(content={"message": "No upcoming events found."})
 
     for meeting in meetings:
-
         meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-
         event = GenieEvent(
             topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public"
         )
