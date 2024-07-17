@@ -556,17 +556,42 @@ def fetch_all_meetings(
 
 @v1_router.get("/profiles/{meeting_id}/{tenant_id}", response_class=JSONResponse)
 def get_all_profile_ids_for_meeting(
+    tenant_id: str,
     meeting_id: str,
+    meetings_repository=Depends(meetings_repository),
+    ownerships_repository=Depends(ownerships_repository),
+    persons_repository=Depends(persons_repository),
+    profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
-    Get all profile IDs for a specific meeting - Mock version.
-    (For the mock version - the right tenant_id is 'abcde',
-     and there is no filtering by meeting_id - every meeting gets all profiles.)
+    Get all profile IDs for a specific meeting.
 
     - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Got profiles request for meeting: {meeting_id}")
+    meeting = meetings_repository.get_meeting_data(meeting_id)
+    if not meeting:
+        return JSONResponse(content={"error": "Meeting not found"})
+    if meeting.tenant_id != tenant_id:
+        return JSONResponse(content={"error": "Tenant mismatch"})
+    participants_emails = meeting.participants_emails
+    filtered_participants_emails = MeetingManager.filter_emails(participants_emails)
+    logger.info(f"Filtered participants emails: {filtered_participants_emails}")
+    filtered_emails = [email.get("email") for email in filtered_participants_emails]
+    persons_uuid = []
+    for email in filtered_emails:
+        person = persons_repository.find_person_by_email(email)
+        if person:
+            persons_uuid.append(person.uuid)
+    logger.info(f"Got persons_uuid for the meeting: {persons_uuid}")
+    profiles = []
+    for uuid in persons_uuid:
+        profile = profiles_repository.get_profile_data(uuid)
+        logger.info(f"Got profile: {profile}")
+        if profile:
+            profiles.append(profile.to_json())
+    logger.info(f"About to send profiles: {profiles}")
     return JSONResponse(content=profiles)
 
 
