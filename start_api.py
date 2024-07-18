@@ -43,14 +43,14 @@ async def exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/", response_class=RedirectResponse)
-def read_root():
-    return RedirectResponse(url="/docs")
+def read_root(request: Request):
+    base_url = request.url.scheme + "://" + request.url.netloc
+    return RedirectResponse(url=base_url + "/docs")
 
 
 app.include_router(v1_router)
 
 PORT = int(os.environ.get("PERSON_PORT", 8000))
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
