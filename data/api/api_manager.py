@@ -4,7 +4,7 @@ import traceback
 import datetime
 
 import requests
-from fastapi import Depends, FastAPI, Request, HTTPException
+from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
@@ -106,7 +106,7 @@ async def create_user_account(
 
 
 @v1_router.get(
-    "/profiles/{uuid}",
+    "/profile/{uuid}",
     response_model=dict,
     summary="Fetches and returns a specific profile",
 )
@@ -371,17 +371,19 @@ async def process_salesforce_contacts(
 async def get_all_profiles(
     request: Request,
     tenant_id: str,
+    search: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository=Depends(ownerships_repository),
     profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
     Gets all profiles for a given tenant.
     """
-    logger.info(f"Received get profiles request")
+    logger.info(f"Received get profiles request, with search: '{search}'")
 
     profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+    logger.info(f"Got profiles_uuid: {profiles_uuid}")
 
-    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid)
+    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
     jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
 
     logger.info(f"Got profiles: {len(profiles_list)}")
@@ -581,16 +583,17 @@ def fetch_google_meetings(
 
 
 @v1_router.get("/profiles/{meeting_id}/{tenant_id}", response_class=JSONResponse)
-def get_all_profile_ids_for_meeting(
+def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
     meetings_repository=Depends(meetings_repository),
     ownerships_repository=Depends(ownerships_repository),
     persons_repository=Depends(persons_repository),
     profiles_repository=Depends(profiles_repository),
+    tenants_repository=Depends(tenants_repository),
 ) -> JSONResponse:
     """
-    Get all profile IDs for a specific meeting.
+    Get all profile IDs and names for a specific meeting.
 
     - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
@@ -601,10 +604,16 @@ def get_all_profile_ids_for_meeting(
         return JSONResponse(content={"error": "Meeting not found"})
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"})
+    tenant_email = tenants_repository.get_tenant_email(tenant_id)
+    logger.info(f"Tenant email: {tenant_email}")
     participants_emails = meeting.participants_emails
-    filtered_participants_emails = MeetingManager.filter_emails(participants_emails)
+    logger.debug(f"Participants emails: {participants_emails}")
+    filtered_participants_emails = MeetingManager.filter_emails(
+        host_email=tenant_email, participants_emails=participants_emails
+    )
+    logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-    filtered_emails = [email.get("email") for email in filtered_participants_emails]
+    filtered_emails = filtered_participants_emails
     persons_uuid = []
     for email in filtered_emails:
         person = persons_repository.find_person_by_email(email)
@@ -616,7 +625,7 @@ def get_all_profile_ids_for_meeting(
         profile = profiles_repository.get_profile_data(uuid)
         logger.info(f"Got profile: {profile}")
         if profile:
-            profiles.append(profile.to_json())
+            profiles.append({"uuid": profile.uuid, "name": profile.name})
     logger.info(f"Sending profiles: {profiles}")
     return JSONResponse(content=profiles)
 
@@ -645,9 +654,7 @@ def get_profile_frame(
     name = profile.name
     company = profile.company
     position = profile.position
-    links = personal_data_repository.get_social_media_links(
-        "0b2b0963-ea42-467b-9e36-9f901062b9bb"
-    )
+    links = personal_data_repository.get_social_media_links(uuid)
     logger.info(f"Got links: {links}, type: {type(links)}")
     for link in links:
         link.pop("id")
@@ -743,6 +750,14 @@ def get_profile_connections(
             for connection_uuid in connections_uuid
         ]
         connections = [connection.to_dict() for connection in connections]
+        for i in range(len(connections)):
+            connections[i]["picture_url"] = profiles_repository.get_profile_picture(
+                connections[i]["uuid"]
+            )
+            connections[i].pop("company")
+            connections[i].pop("position")
+            connections[i].pop("email")
+            connections[i].pop("timezone")
         return JSONResponse(content=connections)
     return JSONResponse(content={"error": "Could not find profile"})
 

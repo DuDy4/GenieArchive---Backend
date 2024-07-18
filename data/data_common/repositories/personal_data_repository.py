@@ -12,6 +12,7 @@ class PersonalDataRepository:
 
     def __init__(self, conn):
         self.conn = conn
+        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:

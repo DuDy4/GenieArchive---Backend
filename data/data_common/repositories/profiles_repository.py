@@ -1,6 +1,6 @@
 import json
 import traceback
-from typing import Union
+from typing import Union, Optional
 
 import psycopg2
 
@@ -149,15 +149,32 @@ class ProfilesRepository:
         else:
             self.insert_profile(profile)
 
-    def get_profiles_from_list(self, uuids: list) -> list:
-        select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
-        FROM profiles
-        WHERE uuid = ANY(%s);
+    def get_profiles_from_list(self, uuids: list, search: Optional[str] = None) -> list:
+        """
+        Retrieve profiles from a list of UUIDs with optional search on profile names.
+
+        :param uuids: List of profile UUIDs.
+        :param search: Optional partial text to search profile names.
+        :return: List of ProfileDTO objects.
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuids,))
+                if search:
+                    select_query = """
+                    SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+                    FROM profiles
+                    WHERE uuid = ANY(%s) AND name ILIKE %s;
+                    """
+                    search_pattern = f"%{search}%"
+                    cursor.execute(select_query, (uuids, search_pattern))
+                else:
+                    select_query = """
+                    SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+                    FROM profiles
+                    WHERE uuid = ANY(%s);
+                    """
+                    cursor.execute(select_query, (uuids,))
+
                 rows = cursor.fetchall()
                 profiles = [ProfileDTO.from_tuple(row) for row in rows]
                 return profiles

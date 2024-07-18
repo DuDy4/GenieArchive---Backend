@@ -50,7 +50,9 @@ class MeetingManager(GenieConsumer):
         logger.info(f"MeetingManager processing event: {event}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
-        emails_to_process = MeetingManager.filter_emails(meeting.participants_emails)
+        emails_to_process = MeetingManager.filter_email_objects(
+            meeting.participants_emails
+        )
         if len(emails_to_process) > 0:
             self.meeting_repository.save_meeting(meeting)
         logger.info(f"Emails to process: {emails_to_process}")
@@ -65,7 +67,7 @@ class MeetingManager(GenieConsumer):
             event.send()
 
     @staticmethod
-    def filter_emails(participants_emails):
+    def filter_email_objects(participants_emails):
         """
         Filter emails of:
         1. is the organizer.
@@ -84,6 +86,28 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Host email: {host_email}")
         for email in participants_emails:
             email_domain = email.get("email").split("@")[1]
+            if email_domain == host_domain:
+                continue
+            elif email_domain in PUBLIC_DOMAIN:
+                continue
+            else:
+                final_list.append(email)
+        logger.info(f"Final list: {final_list}")
+        return final_list
+
+    @staticmethod
+    def filter_emails(host_email, participants_emails):
+        """
+        Filter emails of:
+        1. is the organizer.
+        2. has the same domain as the organizer.
+        3. has a public domain.
+        """
+        final_list = []
+        host_domain = host_email.split("@")[1]
+        logger.info(f"Host email: {host_email}")
+        for email in participants_emails:
+            email_domain = email.split("@")[1]
             if email_domain == host_domain:
                 continue
             elif email_domain in PUBLIC_DOMAIN:

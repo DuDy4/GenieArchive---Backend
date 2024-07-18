@@ -10,6 +10,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 class MeetingsRepository:
     def __init__(self, conn):
         self.conn = conn
+        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:

@@ -207,3 +207,18 @@ class TenantsRepository:
         except Exception as error:
             logger.error("Error deleting tenant credentials:", error)
             logger.error(traceback.format_exc())
+
+    def get_tenant_email(self, tenant_id):
+        select_query = """
+        SELECT email FROM tenants WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (tenant_id,))
+                result = cursor.fetchone()
+                logger.debug(f"Result of email query: {result}")
+                return result[0] if result else None
+        except Exception as error:
+            logger.error("Error getting tenant email:", error)
+            logger.error(traceback.format_exc())
+            return None
