@@ -61,8 +61,10 @@ v1_router = APIRouter(prefix="/v1")
 redis_client = Redis(host="localhost", port=6379, db=0)
 
 
-@v1_router.post("/signup", response_model=dict, summary="Creates a new user account")
-async def handle_user(
+@v1_router.post(
+    "/users/signup", response_model=dict, summary="Creates a new user account"
+)
+async def create_user_account(
     request: Request,
     tenants_repository: TenantsRepository = Depends(tenants_repository),
 ):
@@ -103,7 +105,7 @@ async def handle_user(
 
 
 @v1_router.get(
-    "/profile/{uuid}",
+    "/profiles/{uuid}",
     response_model=dict,
     summary="Fetches and returns a specific profile",
 )
@@ -114,9 +116,9 @@ def get_profile(
     """
     Fetches and returns a specific profile.
     """
-    logger.info("Got profile request")
+    logger.info("Received profile request")
     profile = profiles_repository.get_profile_data(uuid)
-    logger.info(f"Got profile: {profile}")
+    logger.info(f"Fetched profile: {profile}")
     if profile:
         return profile.to_dict()
     else:
@@ -126,37 +128,35 @@ def get_profile(
 @v1_router.get(
     "/salesforce/auth/{tenantId}",
     response_class=RedirectResponse,
-    summary="Triggers the salesforce oauth2.0 process",
+    summary="Initiates Salesforce OAuth2.0 process",
 )
-def oauth_salesforce(request: Request, tenantId: str) -> RedirectResponse:
+def initiate_salesforce_oauth(request: Request, tenantId: str) -> RedirectResponse:
     """
-    Triggers the salesforce oauth2.0 process
+    Initiates the Salesforce OAuth2.0 process
     """
-    logger.debug(f"request.session before start: {request.session}")
+    logger.debug(f"Request session before start: {request.session}")
 
-    logger.info(f"Beginning salesforce oauth integration for {tenantId}")
+    logger.info(f"Starting Salesforce OAuth integration for {tenantId}")
     request.session["salesforce_tenantId"] = tenantId
 
     authorization_url = get_authorization_url(tenantId) + f"&state={tenantId}"
-    logger.info(f"Redirect url: {authorization_url}")
+    logger.info(f"Redirect URL: {authorization_url}")
     return RedirectResponse(url=authorization_url)
 
 
 @v1_router.get(
     "/salesforce/callback",
     response_class=PlainTextResponse,
-    summary="Triggers the salesforce oauth2.0 callback process",
+    summary="Handles Salesforce OAuth2.0 callback",
 )
-def callback_salesforce(
-    request: Request,
-) -> PlainTextResponse:
+def handle_salesforce_callback(request: Request) -> PlainTextResponse:
     """
-    Triggers the salesforce oauth2.0 callback process
+    Handles the Salesforce OAuth2.0 callback process
     """
     tenant_id = request.query_params.get("state")
     url = request.url
 
-    logger.debug(f"Url: {url}")
+    logger.debug(f"URL: {url}")
     logger.debug(f"Tenant ID: {tenant_id}")
 
     token_data = handle_callback(tenant_id, str(url))
@@ -170,23 +170,23 @@ def callback_salesforce(
     logger.info(f"Token data: {json_to_app}")
 
     return PlainTextResponse(
-        f"Successfully authenticated with salesforce for {tenant_id}. \nYou can now close this tab"
+        f"Successfully authenticated with Salesforce for {tenant_id}. \nYou can now close this tab"
     )
 
 
 @v1_router.delete(
-    "/salesforce/{tenantId}",
+    "/salesforce/credentials/{tenantId}",
     response_model=dict,
-    summary="Deletes the salesforce credentials for a given tenant",
+    summary="Deletes Salesforce credentials for a tenant",
 )
-def delete_salesforce_credentials(
+def remove_salesforce_credentials(
     tenantId: str,
     tenants_repository=Depends(tenants_repository),
 ):
     """
-    Deletes the salesforce credentials for a given tenant.
+    Deletes the Salesforce credentials for a given tenant.
     """
-    logger.info(f"Deleting salesforce credentials for tenant: {tenantId}")
+    logger.info(f"Deleting Salesforce credentials for tenant: {tenantId}")
     tenants_repository.delete_salesforce_credentials(tenantId)
 
     result = tenants_repository.get_refresh_token(tenantId)
@@ -199,20 +199,20 @@ def delete_salesforce_credentials(
 @v1_router.post(
     "/salesforce/deploy-apex/{company}",
     response_model=dict,
-    summary="Endpoint to receive and process salesforce Platform Events",
+    summary="Deploys Apex code via Salesforce platform events",
 )
-async def salesforce_deploy_apex(
+async def deploy_salesforce_apex_code(
     request: Request,
     company: str,
     tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ):
     """
-    Endpoint to receive and process salesforce Platform Events.
+    Deploys Apex code via Salesforce platform events.
     """
     try:
         refresh_token = tenants_repository.get_refresh_token(company)
-        logger.info(f"refresh_token: {refresh_token}")
+        logger.info(f"Refresh token: {refresh_token}")
         salesforce_client = create_salesforce_client(company, refresh_token)
 
         salesforce_agent = SalesforceAgent(
@@ -220,7 +220,7 @@ async def salesforce_deploy_apex(
         )
 
         result = salesforce_agent.deploy_apex_code()
-        logger.debug(f"Deployed apex code: {result}")
+        logger.debug(f"Deployed Apex code: {result}")
         if result:
             return {"status": "success", "message": "Event processed"}
         else:
@@ -231,36 +231,34 @@ async def salesforce_deploy_apex(
 
 
 @v1_router.get(
-    "salesforce/topics",
-    response_model=dict,
-    summary="Fetches and returns a specific profile",
+    "/salesforce/topics", response_model=dict, summary="Fetches all Salesforce topics"
 )
-def get_all_topics():
+def fetch_salesforce_topics():
     """
-    Fetches and returns a specific profile.
+    Fetches all Salesforce topics.
     """
-    logger.info("Got topic request")
+    logger.info("Received topic request")
     return Topic
 
 
 @v1_router.get(
-    "/salesforce/{tenant_id}/contact",
+    "/salesforce/{tenant_id}/contacts",
     response_class=PlainTextResponse,
-    summary="Triggers the salesforce oauth2.0 callback process",
+    summary="Fetches all Salesforce contacts for a tenant",
 )
-async def get_all_contact(
+async def fetch_salesforce_contacts(
     request: Request,
     tenant_id: str,
     tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
-    Triggers the salesforce oauth2.0 callback process
+    Fetches all Salesforce contacts for a given tenant.
     """
     logger.info(f"Received get contacts request")
 
     refresh_token = tenants_repository.get_refresh_token(tenant_id)
-    logger.info(f"refresh_token: {refresh_token}")
+    logger.info(f"Refresh token: {refresh_token}")
     salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
@@ -268,23 +266,23 @@ async def get_all_contact(
     )
     contacts = await salesforce_agent.get_contacts(tenant_id)
 
-    logger.info(f"Got contacts: {len(contacts)}")
-    return PlainTextResponse(f"Got contacts: {len(contacts)}")
+    logger.info(f"Fetched contacts: {len(contacts)}")
+    return PlainTextResponse(f"Fetched contacts: {len(contacts)}")
 
 
 @v1_router.post(
     "/salesforce/webhook",
     response_model=dict,
-    summary="Endpoint to receive and process salesforce Platform Events",
+    summary="Processes Salesforce platform events via webhook",
 )
-async def salesforce_webhook(
+async def process_salesforce_webhook(
     request: Request,
     salesforce_event_handler: SalesforceEventHandler = Depends(
         salesforce_event_handler
     ),
 ):
     """
-    Endpoint to receive and process salesforce Platform Events.
+    Processes Salesforce platform events via webhook.
     """
     try:
         event_data = await request.json()
@@ -303,21 +301,21 @@ async def salesforce_webhook(
 @v1_router.get(
     "/salesforce/contacts/{tenant_id}",
     response_class=JSONResponse,
-    summary="Fetches all contacts for a given tenant",
+    summary="Fetches all Salesforce contacts for a tenant",
 )
-async def get_all_contact_for_tenant(
+async def fetch_salesforce_contacts_for_tenant(
     request: Request,
     tenant_id: str,
     tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> JSONResponse:
     """
-    Fetches all contacts for a given tenant
+    Fetches all Salesforce contacts for a given tenant.
     """
     logger.info(f"Received get contacts request")
 
     refresh_token = tenants_repository.get_refresh_token(tenant_id)
-    logger.info(f"refresh_token: {refresh_token}")
+    logger.info(f"Refresh token: {refresh_token}")
     salesforce_client = create_salesforce_client(tenant_id, refresh_token)
 
     salesforce_agent = SalesforceAgent(
@@ -325,26 +323,26 @@ async def get_all_contact_for_tenant(
     )
     contacts = await salesforce_agent.get_contacts(tenant_id)
 
-    logger.info(f"Got contacts: {len(contacts)}")
+    logger.info(f"Fetched contacts: {len(contacts)}")
     return JSONResponse(content=contacts)
 
 
 @v1_router.post(
-    "/salesforce/build-profiles/{tenant_id}",
+    "/salesforce/profiles/{tenant_id}",
     response_class=PlainTextResponse,
-    summary="Process contacts and build profiles",
+    summary="Processes contacts and builds profiles",
 )
-async def process_contacts(
+async def process_salesforce_contacts(
     request: Request,
     tenant_id: str,
     tenants_repository=Depends(tenants_repository),
     contacts_repository=Depends(contacts_repository),
 ) -> PlainTextResponse:
     """
-    Process contacts and build profiles
+    Processes contacts and builds profiles.
     """
     try:
-        logger.info(f"Received get contacts request")
+        logger.info(f"Received process contacts request")
         logger.debug(f"Tenant ID: {tenant_id}")
         contact_ids = await request.json()
         logger.debug(f"Contact IDs: {contact_ids}")
@@ -357,7 +355,7 @@ async def process_contacts(
 
         handle_new_contacts_event(contacts)
 
-        return PlainTextResponse(f"Got contacts: {len(contact_ids)}")
+        return PlainTextResponse(f"Processed contacts: {len(contact_ids)}")
     except Exception as e:
         logger.error(f"Error: {e}")
         traceback.print_exc()
@@ -367,7 +365,7 @@ async def process_contacts(
 @v1_router.get(
     "/profiles/{tenant_id}",
     response_class=JSONResponse,
-    summary="Fetches all profiles for a given tenant",
+    summary="Gets all profiles for a given tenant",
 )
 async def get_all_profiles(
     request: Request,
@@ -376,7 +374,7 @@ async def get_all_profiles(
     profiles_repository=Depends(profiles_repository),
 ) -> JSONResponse:
     """
-    Fetches all profiles for a given tenant
+    Gets all profiles for a given tenant.
     """
     logger.info(f"Received get profiles request")
 
@@ -400,16 +398,19 @@ def get_all_meetings(
     meetings_repository=Depends(meetings_repository),
 ) -> JSONResponse:
     """
-    Fetches and returns all meetings for a given tenant.
+    Gets all meetings for a given tenant.
     """
-    logger.info(f"Got meetings request for tenant: {tenant_id}")
+    logger.info(f"Received meetings request for tenant: {tenant_id}")
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     logger.info(f"Got meetings: {len(meetings)}")
     return JSONResponse(content=[meeting.to_dict() for meeting in meetings])
 
 
-@v1_router.get("/oauth", summary="Starts Google OAuth process")
-async def oauth(request: Request):
+@v1_router.get("/oauth/google", summary="Initiates Google OAuth process")
+async def initiate_google_oauth(request: Request):
+    """
+    Initiates Google OAuth process.
+    """
     authorization_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         "?response_type=code"
@@ -422,11 +423,14 @@ async def oauth(request: Request):
     return RedirectResponse(url=authorization_url)
 
 
-@v1_router.get("/google-callback", summary="Google OAuth callback")
-async def callback(
+@v1_router.get("/oauth/google-callback", summary="Handles Google OAuth callback")
+async def handle_google_oauth_callback(
     request: Request,
     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
 ):
+    """
+    Handles Google OAuth callback.
+    """
     code = request.query_params.get("code")
     if not code:
         raise HTTPException(status_code=400, detail="Code not found in request")
@@ -468,33 +472,36 @@ async def callback(
 
 
 @v1_router.get(
-    "/{tenant_id}/google-creds",
+    "/google/credentials/{tenant_id}",
     response_class=JSONResponse,
-    summary="Fetches and returns the Google credentials for a given tenant",
+    summary="Fetches Google credentials for a tenant",
 )
-def get_google_creds(
+def fetch_google_credentials(
     tenant_id: str,
     google_creds_repository=Depends(google_creds_repository),
 ) -> JSONResponse:
     """
-    Fetches and returns the Google credentials for a given tenant.
+    Fetches Google credentials for a given tenant.
     """
-    logger.info(f"Got google creds request for tenant: {tenant_id}")
+    logger.info(f"Received Google credentials request for tenant: {tenant_id}")
     creds = google_creds_repository.get_creds(tenant_id)
-    logger.info(f"Got google creds: {creds}")
+    logger.info(f"Fetched Google credentials: {creds}")
     return JSONResponse(content=creds)
 
 
 @v1_router.get(
-    "/{tenant_id}/meetings",
+    "/google/meetings/{tenant_id}",
     response_class=JSONResponse,
-    summary="Fetches and returns all meetings for a given tenant",
+    summary="Fetches all Google Calendar meetings for a tenant",
 )
-def fetch_all_meetings(
+def fetch_google_meetings(
     tenant_id: str,
     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
 ) -> JSONResponse:
-    logger.info(f"Got events request for tenant: {tenant_id}")
+    """
+    Fetches all Google Calendar meetings for a given tenant.
+    """
+    logger.info(f"Received Google meetings request for tenant: {tenant_id}")
 
     google_credentials = google_creds_repository.get_creds(tenant_id)
     if not google_credentials:
@@ -587,7 +594,7 @@ def get_all_profile_ids_for_meeting(
     - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
     """
-    logger.info(f"Got profiles request for meeting: {meeting_id}")
+    logger.info(f"Received profiles request for meeting: {meeting_id}")
     meeting = meetings_repository.get_meeting_data(meeting_id)
     if not meeting:
         return JSONResponse(content={"error": "Meeting not found"})
@@ -609,11 +616,15 @@ def get_all_profile_ids_for_meeting(
         logger.info(f"Got profile: {profile}")
         if profile:
             profiles.append(profile.to_json())
-    logger.info(f"About to send profiles: {profiles}")
+    logger.info(f"Sending profiles: {profiles}")
     return JSONResponse(content=profiles)
 
 
-@v1_router.get("/profile/{tenant_id}/{uuid}/strengths", response_class=JSONResponse)
+@v1_router.get(
+    "/profiles/{tenant_id}/{uuid}/strengths",
+    response_class=JSONResponse,
+    summary="Fetches strengths of a profile",
+)
 def get_profile_strengths(
     uuid: str,
     tenant_id: str,
@@ -626,7 +637,7 @@ def get_profile_strengths(
     - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
-    logger.info(f"Got strengths request for profile: {uuid}")
+    logger.info(f"Received strengths request for profile: {uuid}")
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -635,7 +646,11 @@ def get_profile_strengths(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/profile/{tenant_id}/{uuid}/get-to-know", response_class=JSONResponse)
+@v1_router.get(
+    "/profiles/{tenant_id}/{uuid}/get-to-know",
+    response_class=JSONResponse,
+    summary="Fetches 'get-to-know' information of a profile",
+)
 def get_profile_get_to_know(
     uuid: str,
     tenant_id: str,
@@ -659,7 +674,7 @@ def get_profile_get_to_know(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/profile/{tenant_id}/{uuid}/connections", response_class=JSONResponse)
+@v1_router.get("/profiles/{tenant_id}/{uuid}/connections", response_class=JSONResponse)
 def get_profile_connections(
     uuid: str,
     tenant_id: str,
@@ -689,7 +704,7 @@ def get_profile_connections(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/profile/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
+@v1_router.get("/profiles/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
 def get_profile_hobbies(
     uuid: str,
     tenant_id: str,
@@ -703,7 +718,7 @@ def get_profile_hobbies(
     - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
-    logger.info(f"Got hobbies request for profile: {uuid}")
+    logger.info(f"Received hobbies request for profile: {uuid}")
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -719,7 +734,7 @@ def get_profile_hobbies(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/profile/{tenant_id}/{uuid}/news", response_class=JSONResponse)
+@v1_router.get("/profiles/{tenant_id}/{uuid}/news", response_class=JSONResponse)
 def get_profile_news(
     uuid: str,
     tenant_id: str,
@@ -732,7 +747,7 @@ def get_profile_news(
     - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
-    logger.info(f"Got news request for profile: {uuid}")
+    logger.info(f"Received news request for profile: {uuid}")
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -742,7 +757,7 @@ def get_profile_news(
 
 
 @v1_router.get(
-    "/profile/{tenant_id}/{uuid}/work-experience", response_class=JSONResponse
+    "/profiles/{tenant_id}/{uuid}/work-experience", response_class=JSONResponse
 )
 def get_profile_work_experience(
     uuid: str,
