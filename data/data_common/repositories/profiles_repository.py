@@ -113,6 +113,7 @@ class ProfilesRepository:
                     return ProfileDTO.from_tuple(row)
                 else:
                     logger.error(f"Error with getting profile data for {uuid}")
+                    traceback.print_exc()
         except Exception as error:
             logger.error("Error fetching profile data by uuid:", error)
             traceback.print_exception(error)
@@ -162,4 +163,25 @@ class ProfilesRepository:
                 return profiles
         except Exception as error:
             logger.error("Error fetching profiles by uuids:", error)
+            return []
+
+    def get_profile_picture(self, uuid: str) -> list:
+        select_query = """
+        SELECT picture_url
+        FROM profiles
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row} from database")
+                    return row[0]
+                else:
+                    logger.error(f"Error with getting profile picture for {uuid}")
+                    return ""
+        except Exception as error:
+            logger.error("Error fetching profile pictures by uuids:", error)
+            traceback.print_exc()
             return []

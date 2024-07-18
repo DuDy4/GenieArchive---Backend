@@ -343,3 +343,36 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
+
+    def get_social_media_links(self, uuid: str):
+        """
+        Retrieve social media links for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :return: Social media links if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT personal_data -> 'profiles'
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                result = cursor.fetchone()
+                logger.info(f"Got result: {result}")
+                if result:
+                    profiles_data = result[0]
+                    if profiles_data:
+                        # Assuming profiles_data is a JSONB object and you want to extract specific data.
+                        return profiles_data
+                    else:
+                        logger.warning("No personal data found")
+                        return None
+                else:
+                    logger.warning("Personal data was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving social media links: {e}", e)
+            traceback.format_exc()
+            return None

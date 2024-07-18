@@ -1,3 +1,4 @@
+import json
 import os
 import traceback
 import datetime
@@ -620,6 +621,48 @@ def get_all_profile_ids_for_meeting(
     return JSONResponse(content=profiles)
 
 
+@v1_router.get("/profiles/{tenant_id}/{uuid}/frame", response_class=JSONResponse)
+def get_profile_frame(
+    uuid: str,
+    tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+    personal_data_repository=Depends(personal_data_repository),
+) -> JSONResponse:
+    """
+    Get the frame of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Received frame request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if not profile:
+        return JSONResponse(content={"error": "Could not find profile"})
+    picture = profile.picture_url
+    name = profile.name
+    company = profile.company
+    position = profile.position
+    links = personal_data_repository.get_social_media_links(
+        "0b2b0963-ea42-467b-9e36-9f901062b9bb"
+    )
+    logger.info(f"Got links: {links}, type: {type(links)}")
+    for link in links:
+        link.pop("id")
+        link.pop("username")
+        link["platform"] = link.pop("network")
+    profile = {
+        "picture": picture,
+        "name": name,
+        "company": company,
+        "position": position,
+        "social_media_links": links,
+    }
+    return JSONResponse(content={"frame": profile})
+
+
 @v1_router.get(
     "/profiles/{tenant_id}/{uuid}/strengths",
     response_class=JSONResponse,
@@ -753,6 +796,55 @@ def get_profile_news(
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
         return JSONResponse(content=profile.news)
+    return JSONResponse(content={"error": "Could not find profile"})
+
+
+@v1_router.get("/profiles/{tenant_id}/{uuid}/good-to-know", response_class=JSONResponse)
+def get_profile_good_to_know(
+    uuid: str,
+    tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+    ownerships_repository=Depends(ownerships_repository),
+    persons_repository=Depends(persons_repository),
+    hobbies_repository=Depends(hobbies_repository),
+) -> JSONResponse:
+    """
+    Get the 'good-to-know' information of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got good-to-know request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        news = profile.news
+
+        hobbies_uuid = profile.hobbies
+        logger.info(f"Got hobbies: {hobbies_uuid}")
+        hobbies = [
+            hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
+        ]
+        logger.info(f"Got hobbies: {hobbies}")
+
+        connections_uuid = profile.connections
+        logger.info(f"Got connections: {connections_uuid}")
+        connections = [
+            persons_repository.get_person(connection_uuid)
+            for connection_uuid in connections_uuid
+        ]
+        connections = [connection.to_dict() for connection in connections]
+        for i in range(len(connections)):
+            connections[i]["picture_url"] = profiles_repository.get_profile_picture(
+                connections[i]["uuid"]
+            )
+        good_to_know = {
+            "news": news,
+            "hobbies": hobbies,
+            "connections": connections,
+        }
+        return JSONResponse(content=good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
