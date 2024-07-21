@@ -169,6 +169,40 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
+    def get_meetings_by_participants_emails(self, emails: list[str]) -> list[dict]:
+        """
+        Get a list of meetings that have participants with the given emails.
+
+        :param emails: List of emails to search for in participants_emails.
+        :return: List of meetings with participants having the given emails.
+        """
+        if not emails:
+            return []
+
+        query = """
+        SELECT * FROM meetings
+        WHERE participants_emails ?| array[%s]
+        """
+
+        formatted_emails = ",".join(emails)
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (formatted_emails,))
+                meetings = cursor.fetchall()
+                logger.info(f"Retrieved meetings for participants emails: {emails}")
+                return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(
+                f"Error fetching meetings by participants emails: {error.pgerror}"
+            )
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings

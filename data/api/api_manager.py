@@ -67,9 +67,14 @@ redis_client = Redis(host="localhost", port=6379, db=0)
 @v1_router.get("/users", response_model=UserResponse)
 def get_user(request: Request):
     """
-    Returns a tetant ID - MOCK.
+    Returns a tetant object - MOCK.
     """
-    return JSONResponse(content={"tenantId": "TestOwner"})
+    tenant = {
+        "tenantId": "TestOwner",
+        "name": "Dan Shevel",
+        "email": "dan.shevel@genie.ai",
+    }
+    return JSONResponse(content=tenant)
 
 
 @v1_router.post(
@@ -401,31 +406,38 @@ async def process_salesforce_contacts(
 
 
 @v1_router.get(
-    "/profiles/{tenant_id}",
-    response_model=ProfilesListResponse,
-    summary="Gets all profiles for a given tenant",
+    "/meetings/{tenant_id}",
+    response_model=MeetingsListResponse,
+    summary="Gets all *meeting* that the tenant has profiles participants in",
 )
-async def get_all_profiles(
+async def get_all_meetings_by_profile_name(
     request: Request,
     tenant_id: str,
-    search: str = Query(None, description="Partial text to search profile names"),
+    name: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
-) -> ProfileResponse:
+    persons_repository=Depends(persons_repository),
+    meetings_repository=Depends(meetings_repository),
+) -> MeetingsListResponse:
     """
-    Gets all profiles for a given tenant.
+    Gets all *meeting* that the tenant has profiles participants in.
+
+    Steps:
+    1. Get all persons for the tenant.
+    2. Get all emails for the persons with name that includes the search text.
+    3. Get all meetings with participants that have the emails.
+
     """
-    logger.info(f"Received get profiles request, with search: '{search}'")
+    logger.info(f"Received get profiles request, with search: '{name}'")
 
-    profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
-    logger.info(f"Got profiles_uuid: {profiles_uuid}")
+    persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+    logger.info(f"Got persons_uuid: {persons_uuid}")
+    persons_emails = persons_repository.get_emails_list(persons_uuid, name)
+    logger.info(f"Got persons_emails: {persons_emails}")
+    meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
+    dict_meetings = [meeting.to_dict() for meeting in meetings]
+    logger.info(f"Got meetings: {dict_meetings}")
 
-    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
-    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
-
-    logger.info(f"Got profiles: {len(profiles_list)}")
-    logger.debug(f"Profiles: {profiles_list}")
-    return JSONResponse(content=jsoned_profiles_list)
+    return JSONResponse(content=dict_meetings)
 
 
 @v1_router.get("/meetings/{tenant_id}", response_model=MeetingsListResponse)

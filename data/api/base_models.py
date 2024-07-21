@@ -4,6 +4,8 @@ from typing import List, Optional, Dict
 
 class UserResponse(BaseModel):
     tenantId: str
+    name: str
+    email: str
 
 
 class MiniProfileResponse(BaseModel):

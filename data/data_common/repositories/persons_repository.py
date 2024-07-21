@@ -112,6 +112,44 @@ class PersonsRepository:
             traceback.print_exc()
             return None
 
+    def get_emails_list(self, uuids: list[str], name: str) -> list[str]:
+        """
+        Get a list of email addresses by a list of UUIDs.
+
+        :param uuids: List of UUIDs to fetch emails for.
+        :param name: Name of the person to fetch emails for.
+        :return: List of email addresses correlated to the provided UUIDs.
+        """
+        if not uuids:
+            return []
+
+        # Generate a SQL query with a list of placeholders for UUIDs
+        query = f"SELECT email FROM persons WHERE uuid IN ({', '.join(['%s'] * len(uuids))})"
+        parameters = uuids
+
+        if name:
+            query += " AND name ILIKE %s"
+            parameters.append(f"%{name}%")
+
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug(f"Executing query: {query}")
+                logger.debug(f"UUIDs: {uuids}")
+                cursor.execute(query, tuple(parameters))
+                rows = cursor.fetchall()
+                logger.info(f"Retrieved emails for UUIDs: {rows}")
+                emails = [row[0] for row in rows if rows]
+                logger.info(f"Retrieved emails for UUIDs: {emails}")
+                return emails
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching emails by UUIDs: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def get_person_id(self, uuid):
         select_query = "SELECT id FROM persons WHERE uuid = %s;"
         try:
