@@ -14,7 +14,7 @@ class MiniProfileResponse(BaseModel):
 class Strength(BaseModel):
     strength_name: str
     score: int
-    reason: str
+    reasoning: str
 
 
 class StrengthsListResponse(BaseModel):
@@ -46,16 +46,22 @@ class AttendeeInfo(BaseModel):
     social_media_links: List[dict]
 
 
+class NewsItem(BaseModel):
+    news_url: str
+    news_icon: str
+    news_title: str
+
+
 class ProfileResponse(BaseModel):
     uuid: str
     name: str
     company: str
     position: str
     challenges: List[Dict]
-    strengths: List[Dict]
+    strengths: List[Strength]
     hobbies: List[str]
     connections: List[str]
-    news: List[Dict]
+    news: List[NewsItem]
     get_to_know: GetToKnowResponse
     summary: str
     picture_url: str

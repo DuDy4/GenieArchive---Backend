@@ -134,6 +134,7 @@ async def get_user_account(
     "/profile/{uuid}",
     response_model=ProfileResponse,
     summary="Fetches and returns a specific profile",
+    include_in_schema=False,
 )
 def get_profile(
     uuid: str,
