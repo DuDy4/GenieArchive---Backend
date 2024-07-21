@@ -11,25 +11,6 @@ class MiniProfileResponse(BaseModel):
     name: str
 
 
-class ProfileResponse(BaseModel):
-    uuid: str
-    name: str
-    company: str
-    position: str
-    challenges: List[Dict]
-    strengths: List[Dict]
-    hobbies: List[str]
-    connections: List[str]
-    news: List[str]
-    get_to_know: Dict[str, Dict | str]
-    summary: str
-    picture_url: str
-
-
-class ProfilesListResponse(BaseModel):
-    profiles: List[ProfileResponse]
-
-
 class Strength(BaseModel):
     strength_name: str
     score: int
@@ -63,6 +44,25 @@ class AttendeeInfo(BaseModel):
     company: str
     position: str
     social_media_links: List[dict]
+
+
+class ProfileResponse(BaseModel):
+    uuid: str
+    name: str
+    company: str
+    position: str
+    challenges: List[Dict]
+    strengths: List[Dict]
+    hobbies: List[str]
+    connections: List[str]
+    news: List[Dict]
+    get_to_know: GetToKnowResponse
+    summary: str
+    picture_url: str
+
+
+class ProfilesListResponse(BaseModel):
+    profiles: List[ProfileResponse]
 
 
 class MeetingResponse(BaseModel):
