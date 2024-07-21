@@ -1,5 +1,6 @@
 import json
 from data.data_common.utils.str_utils import get_uuid4
+from pydantic import BaseModel
 
 
 class MeetingDTO:
