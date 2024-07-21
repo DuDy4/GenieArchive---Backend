@@ -51,7 +51,7 @@ from redis import Redis
 
 from data.meetings_consumer import MeetingManager
 
-SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = os.environ.get("PERSON_URL", "http://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
@@ -64,7 +64,7 @@ v1_router = APIRouter(prefix="/v1")
 redis_client = Redis(host="localhost", port=6379, db=0)
 
 
-@v1_router.get("/users", response_model=UserResponse)
+@v1_router.get("/user-info", response_model=UserResponse)
 def get_user(request: Request):
     """
     Returns a tetant object - MOCK.
@@ -406,7 +406,7 @@ async def process_salesforce_contacts(
 
 
 @v1_router.get(
-    "/meetings/{tenant_id}",
+    "/{tenant_id}/meetings",
     response_model=MeetingsListResponse,
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
@@ -453,6 +453,341 @@ async def get_all_meetings_by_profile_name(
 #     logger.info(f"Got meetings: {len(meetings)}")
 #     meetings_list = [meeting.to_dict() for meeting in meetings]
 #     return MeetingsListResponse(meetings=meetings_list)
+
+
+@v1_router.get("/tenant_id}/{meeting_id}/profiles/", response_model=MiniProfileResponse)
+def get_all_profile_for_meeting(
+    tenant_id: str,
+    meeting_id: str,
+    meetings_repository=Depends(meetings_repository),
+    ownerships_repository=Depends(ownerships_repository),
+    persons_repository=Depends(persons_repository),
+    profiles_repository=Depends(profiles_repository),
+    tenants_repository=Depends(tenants_repository),
+) -> MiniProfileResponse:
+    """
+    Get all profile IDs and names for a specific meeting.
+
+    - **tenant_id**: Tenant ID - the right one is 'abcde'
+    - **meeting_id**: Meeting ID
+    """
+    logger.info(f"Received profiles request for meeting: {meeting_id}")
+    meeting = meetings_repository.get_meeting_data(meeting_id)
+    if not meeting:
+        return JSONResponse(content={"error": "Meeting not found"})
+    if meeting.tenant_id != tenant_id:
+        return JSONResponse(content={"error": "Tenant mismatch"})
+    tenant_email = tenants_repository.get_tenant_email(tenant_id)
+    logger.info(f"Tenant email: {tenant_email}")
+    participants_emails = meeting.participants_emails
+    logger.debug(f"Participants emails: {participants_emails}")
+    filtered_participants_emails = MeetingManager.filter_emails(
+        host_email=tenant_email, participants_emails=participants_emails
+    )
+    logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
+    logger.info(f"Filtered participants emails: {filtered_participants_emails}")
+    filtered_emails = filtered_participants_emails
+    persons_uuid = []
+    for email in filtered_emails:
+        person = persons_repository.find_person_by_email(email)
+        if person:
+            persons_uuid.append(person.uuid)
+    logger.info(f"Got persons_uuid for the meeting: {persons_uuid}")
+    profiles = []
+    for uuid in persons_uuid:
+        profile = profiles_repository.get_profile_data(uuid)
+        logger.info(f"Got profile: {profile}")
+        if profile:
+            profiles.append({"uuid": profile.uuid, "name": profile.name})
+    logger.info(f"Sending profiles: {profiles}")
+    return JSONResponse(content=profiles)
+
+
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo
+)
+def get_profile_attendee_info(
+    uuid: str,
+    tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+    personal_data_repository=Depends(personal_data_repository),
+) -> AttendeeInfo:
+    """
+    Get the attendee-info of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+
+    returns:
+    - **attendee-info**:
+        - **picture**: Profile picture URL
+        - **name**: Profile name
+        - **company**: Profile company
+        - **position**: Profile position
+        - **social_media_links**: List of social media links
+            - **platform**: Social media platform
+            - **url**: Social media URL
+    """
+    logger.info(f"Received attendee-info request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if not profile:
+        return JSONResponse(content={"error": "Could not find profile"})
+    picture = profile.picture_url
+    name = profile.name
+    company = profile.company
+    position = profile.position
+    links = personal_data_repository.get_social_media_links(uuid)
+    logger.info(f"Got links: {links}, type: {type(links)}")
+    for link in links:
+        link.pop("id")
+        link.pop("username")
+        link["platform"] = link.pop("network")
+    profile = {
+        "picture": picture,
+        "name": name,
+        "company": company,
+        "position": position,
+        "social_media_links": links,
+    }
+    return JSONResponse(content=profile)
+
+
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/strengths",
+    response_model=StrengthsListResponse,
+    summary="Fetches strengths of a profile",
+)
+def get_profile_strengths(
+    uuid: str,
+    tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+) -> StrengthsListResponse:
+    """
+    Get the strengths of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+
+    returns:
+    - **strengths**: List of strengths:
+        - **strength_name**: Strength name
+        - **score**: Strength score between 1-100
+        - **reason**: Reasons for choosing the strength and the score
+    """
+    logger.info(f"Received strengths request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        return JSONResponse(content=profile.strengths)
+    return JSONResponse(content={"error": "Could not find profile"})
+
+
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/get-to-know",
+    response_model=GetToKnowResponse,
+    summary="Fetches 'get-to-know' information of a profile",
+)
+def get_profile_get_to_know(
+    uuid: str,
+    tenant_id: str,
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+) -> GetToKnowResponse:
+    """
+    Get the 'get-to-know' information of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got get-to-know request for profile: {uuid}")
+
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    logger.info(f"Got profile: {profile}")
+    if profile:
+        return JSONResponse(content=profile.get_to_know)
+    return JSONResponse(content={"error": "Could not find profile"})
+
+
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse
+)
+def get_profile_good_to_know(
+    uuid: str,
+    tenant_id: str,
+    profiles_repository=Depends(profiles_repository),
+    ownerships_repository=Depends(ownerships_repository),
+    persons_repository=Depends(persons_repository),
+    hobbies_repository=Depends(hobbies_repository),
+) -> GoodToKnowResponse:
+    """
+    Get the 'good-to-know' information of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got good-to-know request for profile: {uuid}")
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
+    profile = profiles_repository.get_profile_data(uuid)
+    if profile:
+        news = profile.news
+
+        hobbies_uuid = profile.hobbies
+        logger.info(f"Got hobbies: {hobbies_uuid}")
+        hobbies = [
+            hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
+        ]
+        logger.info(f"Got hobbies: {hobbies}")
+
+        connections_uuid = profile.connections
+        logger.info(f"Got connections: {connections_uuid}")
+        connections = [
+            persons_repository.get_person(connection_uuid)
+            for connection_uuid in connections_uuid
+        ]
+        connections = [connection.to_dict() for connection in connections]
+        for i in range(len(connections)):
+            connections[i]["picture_url"] = profiles_repository.get_profile_picture(
+                connections[i]["uuid"]
+            )
+        good_to_know = {
+            "news": news,
+            "hobbies": hobbies,
+            "connections": connections,
+        }
+        return JSONResponse(content=good_to_know)
+    return JSONResponse(content={"error": "Could not find profile"})
+
+
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/work-experience",
+    response_model=WorkExperienceResponse,
+)
+def get_profile_work_experience(
+    uuid: str,
+    tenant_id: str,
+    personal_data_repository=Depends(personal_data_repository),
+) -> WorkExperienceResponse:
+    """
+    Get the work experience of a profile - *Mock version*.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got work experience request for profile: {uuid}")
+
+    personal_data = personal_data_repository.get_personal_data(uuid)
+    logger.debug(f"Personal data: {personal_data}")
+
+    if personal_data:
+        return JSONResponse(content=personal_data["experience"])
+    return JSONResponse(content={"error": "Could not find profile"})
+
+
+#
+# @v1_router.get("/profiles/{tenant_id}/{uuid}/connections", response_class=JSONResponse)
+# def get_profile_connections(
+#     uuid: str,
+#     tenant_id: str,
+#     profiles_repository=Depends(profiles_repository),
+#     ownerships_repository=Depends(ownerships_repository),
+#     persons_repository=Depends(persons_repository),
+# ) -> JSONResponse:
+#     """
+#     Get the connections of a profile - Mock version.
+#
+#     - **tenant_id**: Tenant ID
+#     - **uuid**: Profile UUID
+#     """
+#     logger.info(f"Got connections request for profile: {uuid}")
+#     if not ownerships_repository.check_ownership(tenant_id, uuid):
+#         return JSONResponse(content={"error": "Profile not found under this tenant"})
+#     profile = profiles_repository.get_profile_data(uuid)
+#     if profile:
+#         connections_uuid = profile.connections
+#         logger.info(f"Got connections: {connections_uuid}")
+#         connections = [
+#             persons_repository.get_person(connection_uuid)
+#             for connection_uuid in connections_uuid
+#         ]
+#         connections = [connection.to_dict() for connection in connections]
+#         for i in range(len(connections)):
+#             connections[i]["picture_url"] = profiles_repository.get_profile_picture(
+#                 connections[i]["uuid"]
+#             )
+#             connections[i].pop("company")
+#             connections[i].pop("position")
+#             connections[i].pop("email")
+#             connections[i].pop("timezone")
+#         return JSONResponse(content=connections)
+#     return JSONResponse(content={"error": "Could not find profile"})
+#
+#
+# @v1_router.get("/profiles/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
+# def get_profile_hobbies(
+#     uuid: str,
+#     tenant_id: str,
+#     profiles_repository=Depends(profiles_repository),
+#     hobbies_repository=Depends(hobbies_repository),
+#     ownerships_repository=Depends(ownerships_repository),
+# ) -> JSONResponse:
+#     """
+#     Get the hobbies of a profile - Mock version.
+#
+#     - **tenant_id**: Tenant ID
+#     - **uuid**: Profile UUID
+#     """
+#     logger.info(f"Received hobbies request for profile: {uuid}")
+#     if not ownerships_repository.check_ownership(tenant_id, uuid):
+#         return JSONResponse(content={"error": "Profile not found under this tenant"})
+#     profile = profiles_repository.get_profile_data(uuid)
+#     if profile:
+#         hobbies_uuid = profile.hobbies
+#         logger.info(f"Got hobbies: {hobbies_uuid}")
+#         hobbies = [
+#             hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
+#         ]
+#         logger.info(f"Got hobbies: {hobbies}")
+#
+#         return JSONResponse(content=hobbies)
+#     return JSONResponse(content={"error": "Could not find profile"})
+#
+#
+# @v1_router.get("/profiles/{tenant_id}/{uuid}/news", response_class=JSONResponse)
+# def get_profile_news(
+#     uuid: str,
+#     tenant_id: str,
+#     profiles_repository=Depends(profiles_repository),
+#     ownerships_repository=Depends(ownerships_repository),
+# ) -> JSONResponse:
+#     """
+#     Get the news of a profile - Mock version.
+#
+#     - **tenant_id**: Tenant ID
+#     - **uuid**: Profile UUID
+#     """
+#     logger.info(f"Received news request for profile: {uuid}")
+#     if not ownerships_repository.check_ownership(tenant_id, uuid):
+#         return JSONResponse(content={"error": "Profile not found under this tenant"})
+#     profile = profiles_repository.get_profile_data(uuid)
+#     if profile:
+#         return JSONResponse(content=profile.news)
+#     return JSONResponse(content={"error": "Could not find profile"})
+
+
+# @v1_router.get("/meetings-mock", response_class=JSONResponse)
+# def get_all_meetings() -> JSONResponse:
+#     """
+#     Get all meetings for a specific tenant - Mock version.
+#     """
+#     return JSONResponse(content=meetings)
 
 
 @v1_router.get(
@@ -635,338 +970,3 @@ def fetch_google_meetings(
         event.send()
 
     return JSONResponse(content={"events": meetings})
-
-
-@v1_router.get("/profiles/{meeting_id}/{tenant_id}", response_model=MiniProfileResponse)
-def get_all_profile_for_meeting(
-    tenant_id: str,
-    meeting_id: str,
-    meetings_repository=Depends(meetings_repository),
-    ownerships_repository=Depends(ownerships_repository),
-    persons_repository=Depends(persons_repository),
-    profiles_repository=Depends(profiles_repository),
-    tenants_repository=Depends(tenants_repository),
-) -> MiniProfileResponse:
-    """
-    Get all profile IDs and names for a specific meeting.
-
-    - **tenant_id**: Tenant ID - the right one is 'abcde'
-    - **meeting_id**: Meeting ID
-    """
-    logger.info(f"Received profiles request for meeting: {meeting_id}")
-    meeting = meetings_repository.get_meeting_data(meeting_id)
-    if not meeting:
-        return JSONResponse(content={"error": "Meeting not found"})
-    if meeting.tenant_id != tenant_id:
-        return JSONResponse(content={"error": "Tenant mismatch"})
-    tenant_email = tenants_repository.get_tenant_email(tenant_id)
-    logger.info(f"Tenant email: {tenant_email}")
-    participants_emails = meeting.participants_emails
-    logger.debug(f"Participants emails: {participants_emails}")
-    filtered_participants_emails = MeetingManager.filter_emails(
-        host_email=tenant_email, participants_emails=participants_emails
-    )
-    logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
-    logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-    filtered_emails = filtered_participants_emails
-    persons_uuid = []
-    for email in filtered_emails:
-        person = persons_repository.find_person_by_email(email)
-        if person:
-            persons_uuid.append(person.uuid)
-    logger.info(f"Got persons_uuid for the meeting: {persons_uuid}")
-    profiles = []
-    for uuid in persons_uuid:
-        profile = profiles_repository.get_profile_data(uuid)
-        logger.info(f"Got profile: {profile}")
-        if profile:
-            profiles.append({"uuid": profile.uuid, "name": profile.name})
-    logger.info(f"Sending profiles: {profiles}")
-    return JSONResponse(content=profiles)
-
-
-@v1_router.get(
-    "/profiles/{tenant_id}/{uuid}/attendee-info", response_model=AttendeeInfo
-)
-def get_profile_attendee_info(
-    uuid: str,
-    tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
-    personal_data_repository=Depends(personal_data_repository),
-) -> AttendeeInfo:
-    """
-    Get the attendee-info of a profile - Mock version.
-
-    - **tenant_id**: Tenant ID
-    - **uuid**: Profile UUID
-
-    returns:
-    - **attendee-info**:
-        - **picture**: Profile picture URL
-        - **name**: Profile name
-        - **company**: Profile company
-        - **position**: Profile position
-        - **social_media_links**: List of social media links
-            - **platform**: Social media platform
-            - **url**: Social media URL
-    """
-    logger.info(f"Received attendee-info request for profile: {uuid}")
-    if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
-    profile = profiles_repository.get_profile_data(uuid)
-    if not profile:
-        return JSONResponse(content={"error": "Could not find profile"})
-    picture = profile.picture_url
-    name = profile.name
-    company = profile.company
-    position = profile.position
-    links = personal_data_repository.get_social_media_links(uuid)
-    logger.info(f"Got links: {links}, type: {type(links)}")
-    for link in links:
-        link.pop("id")
-        link.pop("username")
-        link["platform"] = link.pop("network")
-    profile = {
-        "picture": picture,
-        "name": name,
-        "company": company,
-        "position": position,
-        "social_media_links": links,
-    }
-    return JSONResponse(content=profile)
-
-
-@v1_router.get(
-    "/profiles/{tenant_id}/{uuid}/strengths",
-    response_model=StrengthsListResponse,
-    summary="Fetches strengths of a profile",
-)
-def get_profile_strengths(
-    uuid: str,
-    tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
-) -> StrengthsListResponse:
-    """
-    Get the strengths of a profile - Mock version.
-
-    - **tenant_id**: Tenant ID
-    - **uuid**: Profile UUID
-
-    returns:
-    - **strengths**: List of strengths:
-        - **strength_name**: Strength name
-        - **score**: Strength score between 1-100
-        - **reason**: Reasons for choosing the strength and the score
-    """
-    logger.info(f"Received strengths request for profile: {uuid}")
-    if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
-    profile = profiles_repository.get_profile_data(uuid)
-    if profile:
-        return JSONResponse(content=profile.strengths)
-    return JSONResponse(content={"error": "Could not find profile"})
-
-
-@v1_router.get(
-    "/profiles/{tenant_id}/{uuid}/get-to-know",
-    response_model=GetToKnowResponse,
-    summary="Fetches 'get-to-know' information of a profile",
-)
-def get_profile_get_to_know(
-    uuid: str,
-    tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
-) -> GetToKnowResponse:
-    """
-    Get the 'get-to-know' information of a profile - Mock version.
-
-    - **tenant_id**: Tenant ID
-    - **uuid**: Profile UUID
-    """
-    logger.info(f"Got get-to-know request for profile: {uuid}")
-
-    if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
-    profile = profiles_repository.get_profile_data(uuid)
-    logger.info(f"Got profile: {profile}")
-    if profile:
-        return JSONResponse(content=profile.get_to_know)
-    return JSONResponse(content={"error": "Could not find profile"})
-
-
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/connections", response_class=JSONResponse)
-# def get_profile_connections(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-#     persons_repository=Depends(persons_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the connections of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Got connections request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         connections_uuid = profile.connections
-#         logger.info(f"Got connections: {connections_uuid}")
-#         connections = [
-#             persons_repository.get_person(connection_uuid)
-#             for connection_uuid in connections_uuid
-#         ]
-#         connections = [connection.to_dict() for connection in connections]
-#         for i in range(len(connections)):
-#             connections[i]["picture_url"] = profiles_repository.get_profile_picture(
-#                 connections[i]["uuid"]
-#             )
-#             connections[i].pop("company")
-#             connections[i].pop("position")
-#             connections[i].pop("email")
-#             connections[i].pop("timezone")
-#         return JSONResponse(content=connections)
-#     return JSONResponse(content={"error": "Could not find profile"})
-#
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
-# def get_profile_hobbies(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     hobbies_repository=Depends(hobbies_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the hobbies of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Received hobbies request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         hobbies_uuid = profile.hobbies
-#         logger.info(f"Got hobbies: {hobbies_uuid}")
-#         hobbies = [
-#             hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
-#         ]
-#         logger.info(f"Got hobbies: {hobbies}")
-#
-#         return JSONResponse(content=hobbies)
-#     return JSONResponse(content={"error": "Could not find profile"})
-#
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/news", response_class=JSONResponse)
-# def get_profile_news(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the news of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Received news request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         return JSONResponse(content=profile.news)
-#     return JSONResponse(content={"error": "Could not find profile"})
-
-
-@v1_router.get(
-    "/profiles/{tenant_id}/{uuid}/good-to-know", response_model=GoodToKnowResponse
-)
-def get_profile_good_to_know(
-    uuid: str,
-    tenant_id: str,
-    profiles_repository=Depends(profiles_repository),
-    ownerships_repository=Depends(ownerships_repository),
-    persons_repository=Depends(persons_repository),
-    hobbies_repository=Depends(hobbies_repository),
-) -> GoodToKnowResponse:
-    """
-    Get the 'good-to-know' information of a profile - Mock version.
-
-    - **tenant_id**: Tenant ID
-    - **uuid**: Profile UUID
-    """
-    logger.info(f"Got good-to-know request for profile: {uuid}")
-    if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
-    profile = profiles_repository.get_profile_data(uuid)
-    if profile:
-        news = profile.news
-
-        hobbies_uuid = profile.hobbies
-        logger.info(f"Got hobbies: {hobbies_uuid}")
-        hobbies = [
-            hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
-        ]
-        logger.info(f"Got hobbies: {hobbies}")
-
-        connections_uuid = profile.connections
-        logger.info(f"Got connections: {connections_uuid}")
-        connections = [
-            persons_repository.get_person(connection_uuid)
-            for connection_uuid in connections_uuid
-        ]
-        connections = [connection.to_dict() for connection in connections]
-        for i in range(len(connections)):
-            connections[i]["picture_url"] = profiles_repository.get_profile_picture(
-                connections[i]["uuid"]
-            )
-        good_to_know = {
-            "news": news,
-            "hobbies": hobbies,
-            "connections": connections,
-        }
-        return JSONResponse(content=good_to_know)
-    return JSONResponse(content={"error": "Could not find profile"})
-
-
-@v1_router.get(
-    "/profiles/{tenant_id}/{uuid}/work-experience",
-    response_model=WorkExperienceResponse,
-)
-def get_profile_work_experience(
-    uuid: str,
-    tenant_id: str,
-    personal_data_repository=Depends(personal_data_repository),
-) -> WorkExperienceResponse:
-    """
-    Get the work experience of a profile - *Mock version*.
-
-    - **tenant_id**: Tenant ID
-    - **uuid**: Profile UUID
-    """
-    logger.info(f"Got work experience request for profile: {uuid}")
-
-    personal_data = personal_data_repository.get_personal_data(uuid)
-    logger.debug(f"Personal data: {personal_data}")
-
-    if personal_data:
-        return JSONResponse(content=personal_data["experience"])
-    return JSONResponse(content={"error": "Could not find profile"})
-
-
-# @v1_router.get("/meetings-mock", response_class=JSONResponse)
-# def get_all_meetings() -> JSONResponse:
-#     """
-#     Get all meetings for a specific tenant - Mock version.
-#     """
-#     return JSONResponse(content=meetings)
