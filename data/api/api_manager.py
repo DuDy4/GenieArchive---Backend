@@ -440,19 +440,19 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get("/meetings/{tenant_id}", response_model=MeetingsListResponse)
-def get_all_meetings(
-    tenant_id: str,
-    meetings_repository=Depends(meetings_repository),
-) -> MeetingsListResponse:
-    """
-    Gets all meetings for a given tenant.
-    """
-    logger.info(f"Received meetings request for tenant: {tenant_id}")
-    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
-    logger.info(f"Got meetings: {len(meetings)}")
-    meetings_list = [meeting.to_dict() for meeting in meetings]
-    return MeetingsListResponse(meetings=meetings_list)
+# @v1_router.get("/meetings/{tenant_id}", response_model=MeetingsListResponse)
+# def get_all_meetings(
+#     tenant_id: str,
+#     meetings_repository=Depends(meetings_repository),
+# ) -> MeetingsListResponse:
+#     """
+#     Gets all meetings for a given tenant.
+#     """
+#     logger.info(f"Received meetings request for tenant: {tenant_id}")
+#     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
+#     logger.info(f"Got meetings: {len(meetings)}")
+#     meetings_list = [meeting.to_dict() for meeting in meetings]
+#     return MeetingsListResponse(meetings=meetings_list)
 
 
 @v1_router.get(
