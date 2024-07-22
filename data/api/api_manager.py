@@ -2,8 +2,9 @@ import json
 import os
 import traceback
 import datetime
-
 import requests
+import urllib.parse
+
 
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
@@ -12,6 +13,12 @@ from starlette.responses import PlainTextResponse, RedirectResponse, JSONRespons
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
+from google.oauth2 import id_token
+from google.auth import credentials
+from pydantic import BaseModel
+
 
 from data.api.base_models import *
 from data.data_common.repositories.tenants_repository import TenantsRepository
@@ -46,12 +53,13 @@ from data.data_common.dependencies.dependencies import (
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from data.data_common.utils.str_utils import get_uuid4
 
 from redis import Redis
 
 from data.meetings_consumer import MeetingManager
 
-SELF_URL = os.environ.get("PERSON_URL", "http://localhost:8000")
+SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
@@ -59,9 +67,28 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
 v1_router = APIRouter(prefix="/v1")
 
 redis_client = Redis(host="localhost", port=6379, db=0)
+
+
+@v1_router.get("/test-google-token")
+def test_google_token(token: str):
+    # logger.info(f"Token data: {token}")
+
+    # Verify the token using the Google tokeninfo endpoint
+    token_response = requests.get(GOOGLE_TOKEN_URI, params={"id_token": token})
+
+    if token_response.status_code != 200:
+        logger.error(f"Token request failed: {token_response.raise_for_status()}")
+        raise HTTPException(status_code=400, detail="Failed to fetch token")
+
+    tokens = token_response.json()
+    logger.debug(f"Tokens: {tokens}")
+    return tokens
 
 
 @v1_router.get("/user-info", response_model=UserResponse)
@@ -791,12 +818,15 @@ def get_profile_work_experience(
 
 
 @v1_router.get(
-    "/oauth/google", summary="Initiates Google OAuth process", include_in_schema=False
+    "/oauth/google/{tenant_id}",
+    summary="Initiates Google OAuth process",
+    include_in_schema=False,
 )
-async def initiate_google_oauth(request: Request):
+async def initiate_google_oauth(request: Request, tenant_id: str):
     """
     Initiates Google OAuth process.
     """
+    state = urllib.parse.quote(f"tenant_id={tenant_id}")
     authorization_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         "?response_type=code"
@@ -805,12 +835,13 @@ async def initiate_google_oauth(request: Request):
         "&scope=https://www.googleapis.com/auth/calendar"
         "&access_type=offline"
         "&prompt=consent"
+        f"&state={state}"
     )
     return RedirectResponse(url=authorization_url)
 
 
 @v1_router.get(
-    "/oauth/google-callback",
+    "/google-callback",
     summary="Handles Google OAuth callback",
     include_in_schema=False,
 )
@@ -822,8 +853,18 @@ async def handle_google_oauth_callback(
     Handles Google OAuth callback.
     """
     code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    logger.info(f"Received Google OAuth callback with code: {code} and state: {state}")
+
     if not code:
         raise HTTPException(status_code=400, detail="Code not found in request")
+    if not state:
+        raise HTTPException(status_code=400, detail="State not found in request")
+
+    state_params = dict(urllib.parse.parse_qsl(state))
+    tenant_id = state_params.get("tenant_id")
+
+    logger.info(f"Tenant ID: {tenant_id}")
 
     token_url = "https://oauth2.googleapis.com/token"
     token_data = {
@@ -845,12 +886,10 @@ async def handle_google_oauth_callback(
     refresh_token = tokens.get("refresh_token")
 
     # Store tokens in the database
-    tenant_id = "asaf-savich"  # Replace with actual tenant ID
 
     google_creds_repository.insert(
         {
-            "uuid": "example-uuid",
-            "tenantId": tenant_id,
+            "tenant_id": tenant_id,
             "accessToken": access_token,
             "refreshToken": refresh_token,
         }
@@ -944,7 +983,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=10,
+                maxResults=50,
                 singleEvents=True,
                 orderBy="startTime",
             )

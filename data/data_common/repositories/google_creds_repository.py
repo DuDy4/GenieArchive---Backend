@@ -40,7 +40,7 @@ class GoogleCredsRepository:
         INSERT INTO google_creds (uuid, tenant_id, refresh_token, access_token)
         VALUES (%s, %s, %s, %s)
         """
-        if self.exists(creds.get("tenantId")):
+        if self.exists(creds.get("tenant_id")):
             logger.info("User already exists in database")
             self.update_creds(creds)
             return
@@ -53,7 +53,7 @@ class GoogleCredsRepository:
                     insert_query,
                     (
                         uuid,
-                        creds.get("tenantId"),
+                        creds.get("tenant_id"),
                         creds.get("refreshToken"),
                         creds.get("accessToken"),
                     ),
@@ -65,16 +65,19 @@ class GoogleCredsRepository:
 
     def exists(self, tenant_id: str) -> bool:
         query = """
-        SELECT * FROM tenants WHERE tenant_id = %s;
+        SELECT * FROM google_creds WHERE tenant_id = %s;
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, (tenant_id,))
-            return cursor.fetchone() is not None
+            result = cursor.fetchone()
+            logger.debug(f"Result: {result}")
+            return result is not None
 
     def get_creds(self, tenant_id: str) -> Union[dict, None]:
         query = """
         SELECT * FROM google_creds WHERE tenant_id = %s;
         """
+        logger.debug(f"About to get creds for tenant: {tenant_id}")
         with self.conn.cursor() as cursor:
             cursor.execute(query, (tenant_id,))
             creds = cursor.fetchone()
