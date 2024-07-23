@@ -77,6 +77,24 @@ def get_user(request: Request):
     return JSONResponse(content=tenant)
 
 
+@v1_router.post("/social-auth-data", response_model=UserResponse)
+async def post_social_auth_data(request: Request):
+    """
+    Returns a tetant ID - MOCK.
+    """
+    logger.info(await request.json())
+    return JSONResponse(content={"tenantId": "TestOwner"})
+
+
+@v1_router.get("/social-auth-data", response_model=UserResponse)
+async def get_social_auth_data(request: Request):
+    """
+    Returns a tetant ID - MOCK.
+    """
+    logger.info(await request.json())
+    return JSONResponse(content={"tenantId": "TestOwner"})
+
+
 @v1_router.post(
     "/users/signin",
     response_model=dict,
