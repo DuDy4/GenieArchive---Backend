@@ -51,7 +51,7 @@ from redis import Redis
 
 from data.meetings_consumer import MeetingManager
 
-SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = os.environ.get("PERSON_URL", "http://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
@@ -69,6 +69,24 @@ def get_user(request: Request):
     """
     Returns a tetant ID - MOCK.
     """
+    return JSONResponse(content={"tenantId": "TestOwner"})
+
+
+@v1_router.post("/social-auth-data", response_model=UserResponse)
+async def post_social_auth_data(request: Request):
+    """
+    Returns a tetant ID - MOCK.
+    """
+    logger.info(await request.json())
+    return JSONResponse(content={"tenantId": "TestOwner"})
+
+
+@v1_router.get("/social-auth-data", response_model=UserResponse)
+async def get_social_auth_data(request: Request):
+    """
+    Returns a tetant ID - MOCK.
+    """
+    logger.info(await request.json())
     return JSONResponse(content={"tenantId": "TestOwner"})
 
 
