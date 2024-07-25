@@ -1,4 +1,5 @@
 import traceback
+import uuid
 from typing import Optional, Union, List
 
 import psycopg2
@@ -41,7 +42,7 @@ class GoogleCredsRepository:
         VALUES (%s, %s, %s, %s)
         """
         if self.exists(creds.get("tenantId")):
-            logger.info("User already exists in database")
+            logger.info("Google creds already exists in database for tenant_id:", creds.get("tenantId"))
             self.update_creds(creds)
             return
 
@@ -65,7 +66,7 @@ class GoogleCredsRepository:
 
     def exists(self, tenant_id: str) -> bool:
         query = """
-        SELECT * FROM tenants WHERE tenant_id = %s;
+        SELECT * FROM google_creds WHERE tenant_id = %s;
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, (tenant_id,))

@@ -164,6 +164,7 @@ class TenantsRepository:
             logger.error("Error getting refresh token:", error)
             logger.error(f"Specific error message: {error.pgerror}")
 
+
     def get_refresh_token_by_access_token(self, access_token):
         select_query = """SELECT salesforce_refresh_token FROM tenants WHERE salesforce_access_token = %s"""
         try:
@@ -179,6 +180,23 @@ class TenantsRepository:
         except psycopg2.Error as error:
             logger.error("Error getting refresh token:", error)
             logger.error(f"Specific error message: {error.pgerror}")
+
+    def get_tenant_id_by_email(self, email):
+        select_query = """SELECT tenant_id FROM tenants WHERE email = %s"""
+        try:
+            logger.debug(f"Getting tenant_id for email: {email}")
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                result = cursor.fetchone()
+                logger.info(f"Result of tenant id query: {result}")
+                if result is not None:
+                    return result[0]
+                else:
+                    return None
+        except psycopg2.Error as error:
+            logger.error("Error getting tenant id:", error)
+            logger.error(f"Specific error message: {error.pgerror}")
+
 
     def update_token(self, uuid, refresh_token, access_token):
         update_query = """

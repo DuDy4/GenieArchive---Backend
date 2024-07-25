@@ -78,20 +78,38 @@ def get_user(request: Request):
 
 
 @v1_router.post("/social-auth-data", response_model=UserResponse)
-async def post_social_auth_data(request: Request):
+async def post_social_auth_data(
+    request: Request,
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
     """
     Returns a tetant ID - MOCK.
     """
-    logger.info(await request.json())
-    return JSONResponse(content={"tenantId": "TestOwner"})
+    user_auth_data = await request.json()
+    logger.info(f"Received social auth data: {user_auth_data}")
+    prehook_data = user_auth_data['prehookContext']
+    auth_data = user_auth_data['data']['authData']
+    user_email = auth_data['user']['email']
+    user_access_token = auth_data['tokens']['accessToken']
+    user_id_token = auth_data['tokens']['idToken']
 
+    if 'tenantId' in prehook_data:
+        tenant_id = prehook_data['tenantId']
+    else:
+        logger.info("Tenant ID not found in prehook data, fetching by email")
+        tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
 
-@v1_router.get("/social-auth-data", response_model=UserResponse)
-async def get_social_auth_data(request: Request):
-    """
-    Returns a tetant ID - MOCK.
-    """
-    logger.info(await request.json())
+    if tenant_id:
+        google_creds_repository.insert(
+            {
+                "tenantId": tenant_id,
+                "accessToken": user_access_token,
+                "refreshToken": user_id_token,
+            }
+        )
+    else:
+        logger.error("Tenant ID not found. Skipping credentials insertion")
     return JSONResponse(content={"tenantId": "TestOwner"})
 
 
@@ -820,7 +838,7 @@ async def initiate_google_oauth(request: Request):
         "?response_type=code"
         f"&client_id={GOOGLE_CLIENT_ID}"
         f"&redirect_uri={REDIRECT_URI}"
-        "&scope=https://www.googleapis.com/auth/calendar"
+        "&scope=https://www.googleapis.com/auth/calendar.readonly"
         "&access_type=offline"
         "&prompt=consent"
     )
@@ -930,23 +948,23 @@ def fetch_google_meetings(
 
     logger.debug(f"Google credentials before refresh: {google_credentials}")
 
-    try:
-        google_credentials.refresh(GoogleRequest())
-    except Exception as e:
-        logger.error(f"Error refreshing Google credentials: {e}")
-        raise HTTPException(
-            status_code=401, detail="Error refreshing Google credentials"
-        )
+    # try:
+    #     google_credentials.refresh(GoogleRequest())
+    # except Exception as e:
+    #     logger.error(f"Error refreshing Google credentials: {e}")
+    #     raise HTTPException(
+    #         status_code=401, detail="Error refreshing Google credentials"
+    #     )
 
-    logger.debug(f"Google credentials after refresh: {google_credentials}")
+    # logger.debug(f"Google credentials after refresh: {google_credentials}")
 
-    google_creds_repository.update_creds(
-        {
-            "tenant_id": tenant_id,
-            "access_token": google_credentials.token,
-            "refresh_token": google_credentials.refresh_token,
-        }
-    )
+    # google_creds_repository.update_creds(
+    #     {
+    #         "tenant_id": tenant_id,
+    #         "access_token": google_credentials.token,
+    #         "refresh_token": google_credentials.refresh_token,
+    #     }
+    # )
 
     access_token = google_credentials.token
 
