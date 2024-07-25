@@ -166,20 +166,31 @@ class PersonsRepository:
         return None
 
     def update(self, person: PersonDTO):
-        update_query = """
+        base_query = """
         UPDATE persons
-        SET name = %s, company = %s, email = %s, linkedin = %s, position = %s, timezone = %s
-        WHERE uuid = %s
+        SET name = %s, company = %s, email = %s, position = %s, timezone = %s
         """
-        person_data = person.to_tuple()
-        person_data = person_data[1:] + (
-            person_data[0],
-        )  # Adjust tuple to match update query
+        query_values = [
+            person.name,
+            person.company,
+            person.email,
+            person.position,
+            person.timezone,
+        ]
+
+        if person.linkedin is not None:
+            base_query += ", linkedin = %s"
+            query_values.append(person.linkedin)
+
+        base_query += " WHERE uuid = %s"
+        query_values.append(person.uuid)
+
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, person_data)
+                cursor.execute(base_query, query_values)
                 self.conn.commit()
-                logger.info(f"Updated person in database")
+                logger.info("Updated person in database")
+                return True
         except psycopg2.Error as error:
             raise Exception(f"Error updating person, because: {error.pgerror}")
         except Exception as e:
