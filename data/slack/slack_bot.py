@@ -14,6 +14,9 @@ client = WebClient(token=BOT_TOKEN)
 
 def send_message(message):
     logger.info(f"Sending message: {message}")
+    if not CHANNEL:
+        logger.error("SLACK_CHANNEL is not set in the environment variables")
+        return
     try:
         response = client.chat_postMessage(channel=CHANNEL, text=message)
         logger.info(f"Message sent: {response}")
