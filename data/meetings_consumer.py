@@ -13,8 +13,8 @@ from data.data_common.events.topics import Topic
 
 import requests
 
-CONSUMER_GROUP = os.environ.get(
-    "CONSUMER_GROUP_MEETING_MANAGER", "meetings_manager_consumer_group"
+CONSUMER_GROUP = "meetings_manager_consumer_group" + os.environ.get(
+    "CONSUMER_GROUP_NAME", ""
 )
 
 APP_URL = os.environ.get("APP_URL", "http://localhost:1234")
