@@ -11,6 +11,7 @@ from loguru import logger
 class ProfilesRepository:
     def __init__(self, conn):
         self.conn = conn
+        self.create_table_if_not_exists()
 
     def __del__(self):
         if self.conn:
@@ -41,6 +42,7 @@ class ProfilesRepository:
                 logger.info("Created profiles table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
+            traceback.print_exc()
 
     def insert_profile(self, profile: ProfileDTO) -> Union[str, None]:
         """
@@ -158,6 +160,9 @@ class ProfilesRepository:
         :return: List of ProfileDTO objects.
         """
         try:
+            logger.debug(
+                f"About to get profiles from list: {uuids} with search: {search}"
+            )
             with self.conn.cursor() as cursor:
                 if search:
                     select_query = """
@@ -176,6 +181,7 @@ class ProfilesRepository:
                     cursor.execute(select_query, (uuids,))
 
                 rows = cursor.fetchall()
+                logger.debug(f"Got {rows} from database")
                 profiles = [ProfileDTO.from_tuple(row) for row in rows]
                 return profiles
         except Exception as error:

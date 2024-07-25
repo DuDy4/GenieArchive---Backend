@@ -48,7 +48,7 @@ class ContactsRepository:
         """
         insert_query = """
         INSERT INTO contacts ( uuid, tenant_id, salesforce_id, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         contact_data = contact.to_tuple()
@@ -355,6 +355,7 @@ class ContactsRepository:
                     changed_contacts.append(contact)
             except Exception as e:
                 logger.warning(f"Failed to insert contact: {e}")
+                traceback.print_exc()
         return changed_contacts
 
     def _get_attribute(

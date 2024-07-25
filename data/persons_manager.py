@@ -88,13 +88,10 @@ class PersonManager(GenieConsumer):
             contact_data = json.loads(contact_data)
         tenant_id = contact_data.get("tenant_id")
         new_person = PersonDTO.from_dict(contact_data)
-        self.ownerships_repository.save_ownership(new_person.uuid, tenant_id)
         uuid = self.persons_repository.save_person(new_person)
+
         new_person.uuid = uuid
-        if not new_person.linkedin:
-            logger.error("Person got no LinkedIn profile, skipping PDL enrichment")
-            return
-        logger.info("Inserted new salesforce contact to persons_repository")
+        self.ownerships_repository.save_ownership(new_person.uuid, tenant_id)
 
         # Send "pdl" event to the event queue
         person_json = new_person.to_json()

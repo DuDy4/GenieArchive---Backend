@@ -45,7 +45,7 @@ class OwnershipsRepository:
         create_table_query = """
         CREATE TABLE IF NOT EXISTS ownerships (
             id SERIAL PRIMARY KEY,
-            uuid VARCHAR UNIQUE NOT NULL,
+            uuid VARCHAR NOT NULL,
             tenant_id VARCHAR
         );
         """
