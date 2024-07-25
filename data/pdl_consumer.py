@@ -285,6 +285,10 @@ class PDLClient:
             personal_data=json.dumps(profile),
             status=status,
         )
+        event = GenieEvent(
+            Topic.FAILED_TO_ENRICH_DATA, {"person": person.to_dict()}, "public"
+        )
+        event.send()
         return profile
 
     def identify_person(
