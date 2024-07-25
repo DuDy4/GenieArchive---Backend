@@ -16,6 +16,7 @@ def test_new_profile():
     {"strength_name": "Project Management", "score": 78, "reasoning": "Asaf's experience as a director involves managing complex projects and ensuring their successful completion. His role in overseeing engineering projects at Kubiya.ai and Mend.io demonstrates his project management skills, including planning, execution, and monitoring of project progress."},
     {"strength_name": "Innovation", "score": 75, "reasoning": "Asaf's work in research and development, particularly at Mend.io and Safedk, highlights his innovative mindset. His involvement in developing new solutions and improving existing processes shows his ability to think creatively and contribute to technological advancements."}],
     "hobbies": ["a79d4460-8d40-4f30-88a1-b7d0eb3ff2ed", "3ea1cfbc-d2cd-43a8-841a-818e9ea779c5"],
+    "picture_url": "https://cdn.theorg.com/53f0ea75-a81d-4165-9b25-3650bf46a7ab_thumb.jpg",
     "connections": ["de19a684-7ded-4de5-b88b-6bc712e3497d", "e5d5726a-4293-49c5-ae5b-4b146a539e8b"],
     "news": [
             {"news_title": "InnovateTech Launches New Product", "news_url": "https://www.techcrunch.com", "news_icon": "https://img.icons8.com/bubbles/50/news.png"},
