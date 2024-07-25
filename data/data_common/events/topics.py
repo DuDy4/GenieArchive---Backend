@@ -1,4 +1,7 @@
 class Topic:
+
+    FAILED_TO_GET_DOMAIN_INFO = "failed-to-get-domain-info"
+    NEW_PERSON = "new-person"
     UP_TO_DATE_ENRICHED_DATA = "up-to-date-enriched-data"
     NEW_EMAIL_ADDRESS_TO_PROCESS = "new-email-address-to-process"
     NEW_EMAIL_ADDRESS_TO_ENRICH = "new-email-address-to-enrich"
@@ -7,6 +10,8 @@ class Topic:
     NEW_CONTACT = "new-contact"
     NEW_INTERACTION = "new-interaction"
     UPDATED_ENRICHED_DATA = "got-updated-enriched-data"
+    FAILED_TO_ENRICH_DATA = "failed-to-enrich-data"
+    FAILED_TO_ENRICH_EMAIL = "failed-to-enrich-email"
     NEW_PERSONAL_DATA = "new-personal-data-to-process"
     NEW_PROCESSED_PROFILE = "new-processed-profile"
     NEW_MEETING = "new-meeting"

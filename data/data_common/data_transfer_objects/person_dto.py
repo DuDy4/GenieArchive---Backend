@@ -78,3 +78,15 @@ class PersonDTO:
             position=contact.get("Title") or "",
             timezone="",
         )
+
+    @classmethod
+    def from_hunter_employee(cls, employee, company_name):
+        return PersonDTO(
+            uuid=get_uuid4(),
+            name=f"{employee.get('first_name')} {employee.get('last_name')}",
+            company=company_name,
+            email=employee.get("value") or "",
+            linkedin=employee.get("linkedin") or "",
+            position=employee.get("position") or "",
+            timezone="",
+        )

@@ -23,8 +23,8 @@ from data.data_common.utils.str_utils import get_uuid4
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-CONSUMER_GROUP = os.environ.get(
-    "CONSUMER_GROUP_PERSON_MANAGER", "personmanagerconsumergroup"
+CONSUMER_GROUP = "personmanagerconsumergroup" + os.environ.get(
+    "CONSUMER_GROUP_NAME", ""
 )
 
 
@@ -35,6 +35,7 @@ class PersonManager(GenieConsumer):
         super().__init__(
             topics=[
                 Topic.NEW_CONTACT,
+                Topic.NEW_PERSON,
                 Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
@@ -59,6 +60,9 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_CONTACT:
                 logger.info("Handling new salesforce contact")
                 await self.handle_new_salesforce_contact(event)
+            case Topic.NEW_PERSON:
+                logger.info("Handling new person")
+                await self.handle_new_person(event)
             case Topic.NEW_INTERACTION:
                 logger.info("Handling new interaction")
                 await self.handle_new_interaction(event)
@@ -256,15 +260,18 @@ class PersonManager(GenieConsumer):
             return
         logger.info("Profile exists in database. Skipping profile building")
 
-
-if __name__ == "__main__":
-    person_manager = PersonManager()
-    # uvicorn.run(
-    #     "person:app",
-    #     host="0.0.0.0",
-    #     port=PERSON_PORT,
-    #     ssl_keyfile="../key.pem",
-    #     ssl_certfile="../cert.pem",
-    # )
-    # print("Running person service")
-    person_manager.run()
+    async def handle_new_person(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
+        person = PersonDTO.from_dict(person_dict)
+        self.persons_repository.save_person(person)
+        person_json = person.to_json()
+        event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
+        event.send()
+        logger.info("Sent 'pdl' event to the event queue")
+        return {"status": "success"}

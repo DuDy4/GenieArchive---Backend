@@ -7,6 +7,7 @@ from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
 from data.emails_manager import EmailManager
 from data.meetings_consumer import MeetingManager
+from data.hunter_domain_consumer import HunterDomainConsumer
 
 
 async def run_consumers():
@@ -16,6 +17,7 @@ async def run_consumers():
     person_manager = PersonManager()
     email_manager = EmailManager()
     meeting_manager = MeetingManager()
+    hunter_domain_consumer = HunterDomainConsumer()
 
     # Start each consumer in its own task
     tasks = [
@@ -24,6 +26,7 @@ async def run_consumers():
         asyncio.create_task(pdl_consumer.start()),
         asyncio.create_task(email_manager.start()),
         asyncio.create_task(meeting_manager.start()),
+        asyncio.create_task(hunter_domain_consumer.start()),
     ]
 
     # Wait for all tasks to complete (they won't, since consumers run indefinitely)

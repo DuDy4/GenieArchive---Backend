@@ -13,6 +13,7 @@ from ..repositories.meetings_repository import MeetingsRepository
 from ..repositories.google_creds_repository import GoogleCredsRepository
 from ..repositories.ownerships_repository import OwnershipsRepository
 from ..repositories.hobbies_repository import HobbiesRepository
+from ..repositories.companies_repository import CompaniesRepository
 
 
 def tenants_repository() -> TenantsRepository:
@@ -40,6 +41,16 @@ def interactions_repository() -> InteractionsRepository:
     try:
         with conn:
             return InteractionsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+
+
+def companies_repository() -> CompaniesRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        with conn:
+            return CompaniesRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None
