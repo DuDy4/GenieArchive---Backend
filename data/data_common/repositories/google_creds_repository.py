@@ -1,4 +1,5 @@
 import traceback
+import uuid
 from typing import Optional, Union, List
 
 import psycopg2
@@ -40,8 +41,11 @@ class GoogleCredsRepository:
         INSERT INTO google_creds (uuid, tenant_id, refresh_token, access_token)
         VALUES (%s, %s, %s, %s)
         """
-        if self.exists(creds.get("tenant_id")):
-            logger.info("User already exists in database")
+        if self.exists(creds.get("tenantId")):
+            logger.info(
+                "Google creds already exists in database for tenant_id:",
+                creds.get("tenantId"),
+            )
             self.update_creds(creds)
             return
 
