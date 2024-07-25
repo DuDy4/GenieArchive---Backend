@@ -21,7 +21,7 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")
-CONSUMER_GROUP = os.environ.get("CONSUMER_GROUP_PDL", "pdlconsumergroup")
+CONSUMER_GROUP = "pdlconsumergroup" + os.environ.get("CONSUMER_GROUP_NAME", "")
 MIN_INTERVAL_TO_FETCH_PROFILES = int(
     os.environ.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24)
 )  # Default: 24 hours
@@ -209,6 +209,7 @@ class PDLConsumer(GenieConsumer):
                 status=self.personal_data_repository.TRIED_BUT_FAILED,
             )
             event = GenieEvent(Topic.FAILED_TO_ENRICH_DATA, {"email": email}, "public")
+            event.send()
 
             return {"status": "failed"}
 
