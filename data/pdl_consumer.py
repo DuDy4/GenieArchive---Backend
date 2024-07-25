@@ -208,6 +208,8 @@ class PDLConsumer(GenieConsumer):
                 personal_data=personal_data,
                 status=self.personal_data_repository.TRIED_BUT_FAILED,
             )
+            event = GenieEvent(Topic.FAILED_TO_ENRICH_DATA, {"email": email}, "public")
+
             return {"status": "failed"}
 
     def send_event(self, person: PersonDTO, personal_data: dict):

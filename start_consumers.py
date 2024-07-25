@@ -2,7 +2,7 @@ import asyncio
 
 from loguru import logger
 
-from data.pdl import PDLConsumer
+from data.pdl_consumer import PDLConsumer
 from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
 from data.emails_manager import EmailManager
