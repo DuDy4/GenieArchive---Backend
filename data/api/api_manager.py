@@ -185,6 +185,36 @@ def get_profile(
 
 
 @v1_router.get(
+    "/profiles/{tenant_id}",
+    response_model=ProfilesListResponse,
+    include_in_schema=False,
+    summary="Gets all profiles for a given tenant",
+)
+async def get_all_profiles(
+    request: Request,
+    tenant_id: str,
+    search: str = Query(None, description="Partial text to search profile names"),
+    ownerships_repository=Depends(ownerships_repository),
+    profiles_repository=Depends(profiles_repository),
+) -> ProfileResponse:
+    """
+    Gets all profiles for a given tenant.
+    """
+    logger.info(f"Received get profiles request, with search: '{search}'")
+
+    profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+    logger.info(f"Got profiles_uuid: {profiles_uuid}")
+
+    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
+    logger.info(f"Got profiles: {len(profiles_list)}")
+    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
+
+    logger.info(f"Got profiles: {len(profiles_list)}")
+    logger.debug(f"Profiles: {profiles_list}")
+    return JSONResponse(content=jsoned_profiles_list)
+
+
+@v1_router.get(
     "/salesforce/auth/{tenantId}",
     response_class=RedirectResponse,
     summary="Initiates Salesforce OAuth2.0 process",
@@ -482,7 +512,9 @@ async def get_all_meetings_by_profile_name(
 #     return MeetingsListResponse(meetings=meetings_list)
 
 
-@v1_router.get("/tenant_id}/{meeting_id}/profiles/", response_model=MiniProfileResponse)
+@v1_router.get(
+    "/{tenant_id}/{meeting_id}/profiles/", response_model=MiniProfileResponse
+)
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
@@ -638,6 +670,7 @@ def get_profile_get_to_know(
     profile = profiles_repository.get_profile_data(uuid)
     logger.info(f"Got profile: {profile}")
     if profile:
+        logger.info(f"Got get-to-know: {profile.get_to_know}")
         return JSONResponse(content=profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
@@ -689,6 +722,7 @@ def get_profile_good_to_know(
             "hobbies": hobbies,
             "connections": connections,
         }
+        logger.info(f"Good to know: {good_to_know}")
         return JSONResponse(content=good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
