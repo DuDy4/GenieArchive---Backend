@@ -181,7 +181,7 @@ class ProfilesRepository:
                     cursor.execute(select_query, (uuids,))
 
                 rows = cursor.fetchall()
-                logger.debug(f"Got {rows} from database")
+                # logger.debug(f"Got {rows} from database")
                 profiles = [ProfileDTO.from_tuple(row) for row in rows]
                 return profiles
         except Exception as error:
