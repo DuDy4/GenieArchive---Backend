@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+import time
 import traceback
 import datetime
 import requests
@@ -113,28 +115,32 @@ async def post_social_auth_data(
     """
     Returns a tetant ID - MOCK.
     """
+    logger.info("Received social auth data")
     user_auth_data = await request.json()
+    time.sleep(15)
     logger.info(f"Received social auth data: {user_auth_data}")
     prehook_data = user_auth_data["prehookContext"]
+    logger.info(f"Prehook data: {prehook_data}")
     auth_data = user_auth_data["data"]["authData"]
     user_email = auth_data["user"]["email"]
     user_access_token = auth_data["tokens"]["accessToken"]
     user_id_token = auth_data["tokens"]["idToken"]
 
-    if "tenantId" in prehook_data:
-        tenant_id = prehook_data["tenantId"]
-    else:
-        logger.info("Tenant ID not found in prehook data, fetching by email")
-        tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
+    # if "tenantId" in prehook_data:
+    #     tenant_id = prehook_data["tenantId"]
+    # else:
+    #     logger.info("Tenant ID not found in prehook data, fetching by email")
+    #     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
 
-    if tenant_id:
+    if user_email:
         google_creds_repository.insert(
             {
-                "tenantId": tenant_id,
+                "email": user_email,
                 "accessToken": user_access_token,
                 "refreshToken": user_id_token,
             }
         )
+        fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     else:
         logger.error("Tenant ID not found. Skipping credentials insertion")
     return JSONResponse(content={"tenantId": "TestOwner"})
@@ -246,7 +252,7 @@ async def get_all_profiles(
     jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
 
     logger.info(f"Got profiles: {len(profiles_list)}")
-    logger.debug(f"Profiles: {profiles_list}")
+    logger.debug(f"Profiles: {[profile.name for profile in profiles_list]}")
     return JSONResponse(content=jsoned_profiles_list)
 
 
@@ -887,129 +893,128 @@ def get_profile_work_experience(
 #     return JSONResponse(content=meetings)
 
 
+# @v1_router.get(
+#     "/oauth/google/{tenant_id}",
+#     summary="Initiates Google OAuth process",
+#     include_in_schema=False,
+# )
+# async def initiate_google_oauth(request: Request, tenant_id: str):
+#     """
+#     Initiates Google OAuth process.
+#     """
+#     state = urllib.parse.quote(f"tenant_id={tenant_id}")
+#     authorization_url = (
+#         "https://accounts.google.com/o/oauth2/v2/auth"
+#         "?response_type=code"
+#         f"&client_id={GOOGLE_CLIENT_ID}"
+#         f"&redirect_uri={REDIRECT_URI}"
+#         "&scope=https://www.googleapis.com/auth/calendar.readonly"
+#         "&access_type=offline"
+#         "&prompt=consent"
+#         f"&state={state}"
+#     )
+#     return RedirectResponse(url=authorization_url)
+#
+#
+# @v1_router.get(
+#     "/google-callback",
+#     summary="Handles Google OAuth callback",
+#     include_in_schema=False,
+# )
+# async def handle_google_oauth_callback(
+#     request: Request,
+#     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+# ):
+#     """
+#     Handles Google OAuth callback.
+#     """
+#     code = request.query_params.get("code")
+#     state = request.query_params.get("state")
+#     logger.info(f"Received Google OAuth callback with code: {code} and state: {state}")
+#
+#     if not code:
+#         raise HTTPException(status_code=400, detail="Code not found in request")
+#     if not state:
+#         raise HTTPException(status_code=400, detail="State not found in request")
+#
+#     state_params = dict(urllib.parse.parse_qsl(state))
+#     tenant_id = state_params.get("tenant_id")
+#
+#     logger.info(f"Tenant ID: {tenant_id}")
+#
+#     token_url = "https://oauth2.googleapis.com/token"
+#     token_data = {
+#         "code": code,
+#         "client_id": GOOGLE_CLIENT_ID,
+#         "client_secret": GOOGLE_CLIENT_SECRET,
+#         "redirect_uri": REDIRECT_URI,
+#         "grant_type": "authorization_code",
+#     }
+#
+#     token_response = requests.post(token_url, data=token_data)
+#     if token_response.status_code != 200:
+#         logger.error(f"Token request failed: {token_response.text}")
+#         raise HTTPException(status_code=400, detail="Failed to fetch token")
+#
+#     tokens = token_response.json()
+#     logger.debug(f"Tokens: {tokens}")
+#     access_token = tokens.get("access_token")
+#     refresh_token = tokens.get("refresh_token")
+#
+#     # Store tokens in the database
+#
+#     google_creds_repository.insert(
+#         {
+#             "tenant_id": tenant_id,
+#             "accessToken": access_token,
+#             "refreshToken": refresh_token,
+#         }
+#     )
+#
+#     return JSONResponse(
+#         content={"message": "OAuth flow completed", "access token": access_token}
+#     )
+#
+#
+# @v1_router.get(
+#     "/google/credentials/{tenant_id}",
+#     response_class=JSONResponse,
+#     summary="Fetches Google credentials for a tenant",
+#     include_in_schema=False,
+# )
+# def fetch_google_credentials(
+#     tenant_id: str,
+#     google_creds_repository=Depends(google_creds_repository),
+# ) -> JSONResponse:
+#     """
+#     Fetches Google credentials for a given tenant.
+#     """
+#     logger.info(f"Received Google credentials request for tenant: {tenant_id}")
+#     creds = google_creds_repository.get_creds(tenant_id)
+#     logger.info(f"Fetched Google credentials: {creds}")
+#     return JSONResponse(content=creds)
+#
+#
 @v1_router.get(
-    "/oauth/google/{tenant_id}",
-    summary="Initiates Google OAuth process",
-    include_in_schema=False,
-)
-async def initiate_google_oauth(request: Request, tenant_id: str):
-    """
-    Initiates Google OAuth process.
-    """
-    state = urllib.parse.quote(f"tenant_id={tenant_id}")
-    authorization_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth"
-        "?response_type=code"
-        f"&client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={REDIRECT_URI}"
-        "&scope=https://www.googleapis.com/auth/calendar.readonly"
-        "&access_type=offline"
-        "&prompt=consent"
-        f"&state={state}"
-    )
-    return RedirectResponse(url=authorization_url)
-
-
-@v1_router.get(
-    "/google-callback",
-    summary="Handles Google OAuth callback",
-    include_in_schema=False,
-)
-async def handle_google_oauth_callback(
-    request: Request,
-    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
-):
-    """
-    Handles Google OAuth callback.
-    """
-    code = request.query_params.get("code")
-    state = request.query_params.get("state")
-    logger.info(f"Received Google OAuth callback with code: {code} and state: {state}")
-
-    if not code:
-        raise HTTPException(status_code=400, detail="Code not found in request")
-    if not state:
-        raise HTTPException(status_code=400, detail="State not found in request")
-
-    state_params = dict(urllib.parse.parse_qsl(state))
-    tenant_id = state_params.get("tenant_id")
-
-    logger.info(f"Tenant ID: {tenant_id}")
-
-    token_url = "https://oauth2.googleapis.com/token"
-    token_data = {
-        "code": code,
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": REDIRECT_URI,
-        "grant_type": "authorization_code",
-    }
-
-    token_response = requests.post(token_url, data=token_data)
-    if token_response.status_code != 200:
-        logger.error(f"Token request failed: {token_response.text}")
-        raise HTTPException(status_code=400, detail="Failed to fetch token")
-
-    tokens = token_response.json()
-    logger.debug(f"Tokens: {tokens}")
-    access_token = tokens.get("access_token")
-    refresh_token = tokens.get("refresh_token")
-
-    # Store tokens in the database
-
-    google_creds_repository.insert(
-        {
-            "tenant_id": tenant_id,
-            "accessToken": access_token,
-            "refreshToken": refresh_token,
-        }
-    )
-
-    return JSONResponse(
-        content={"message": "OAuth flow completed", "access token": access_token}
-    )
-
-
-@v1_router.get(
-    "/google/credentials/{tenant_id}",
-    response_class=JSONResponse,
-    summary="Fetches Google credentials for a tenant",
-    include_in_schema=False,
-)
-def fetch_google_credentials(
-    tenant_id: str,
-    google_creds_repository=Depends(google_creds_repository),
-) -> JSONResponse:
-    """
-    Fetches Google credentials for a given tenant.
-    """
-    logger.info(f"Received Google credentials request for tenant: {tenant_id}")
-    creds = google_creds_repository.get_creds(tenant_id)
-    logger.info(f"Fetched Google credentials: {creds}")
-    return JSONResponse(content=creds)
-
-
-@v1_router.get(
-    "/google/meetings/{tenant_id}",
+    "/google/meetings/{user_email}",
     response_class=JSONResponse,
     summary="Fetches all Google Calendar meetings for a tenant",
     include_in_schema=False,
 )
 def fetch_google_meetings(
-    tenant_id: str,
+    user_email: str,
     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
-    include_in_schema=False,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> JSONResponse:
     """
     Fetches all Google Calendar meetings for a given tenant.
     """
-    logger.info(f"Received Google meetings request for tenant: {tenant_id}")
+    logger.info(f"Received Google meetings request for tenant: {user_email}")
 
-    google_credentials = google_creds_repository.get_creds(tenant_id)
+    google_credentials = google_creds_repository.get_creds(user_email)
     if not google_credentials:
-        raise HTTPException(
-            status_code=404, detail="Google credentials not found for the tenant"
-        )
+        logger.error("Google credentials not found for the tenant")
+        return JSONResponse(content={"error": "Google credentials not found"})
 
     google_credentials = Credentials(
         token=google_credentials["access_token"],
@@ -1070,7 +1075,7 @@ def fetch_google_meetings(
 
     if not meetings:
         return JSONResponse(content={"message": "No upcoming events found."})
-
+    tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
     for meeting in meetings:
         meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
         event = GenieEvent(
