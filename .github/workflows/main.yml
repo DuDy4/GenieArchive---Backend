@@ -49,6 +49,8 @@ jobs:
             echo "patch" > version_increment.txt
           fi
           cat version_increment.txt
+
+      - name: Increment version
         id: increment_version
         run: |
           # Extract the current version from pyproject.toml
@@ -104,5 +106,4 @@ jobs:
           for service in "${services[@]}"
           do
             docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
-            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }}
-          done
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_versio
