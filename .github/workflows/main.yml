@@ -1,18 +1,52 @@
-name: Docker Build and Push
+name: TBD and Docker Build
 
 on:
   push:
     branches:
+      - 'feature/**'
       - 'main'
 
 jobs:
-  build-and-push:
+  merge-to-main:
+    if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0  # Fetch all history for the refs
+      - name: Fetch main branch
+        run: git fetch origin main
+      - name: Debug current branch
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          git log --oneline -5
+      - name: Debug main branch
+        run: |
+          git checkout main
+          git log --oneline -5
+      - name: Merge to main
+        id: merge_step
+        run: |
+          git checkout main
+          git merge ${{ github.ref }} --no-ff -m "Merge ${{ github.ref }} to main" || echo "Merge failed" > merge_failed.txt
+      - name: Check for merge failure
+        if: failure()
+        run: |
+          echo "Merge failed, attempting with --allow-unrelated-histories"
+          git merge ${{ github.ref }} --allow-unrelated-histories --no-ff -m "Merge ${{ github.ref }} to main"
+      - name: Push changes
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+          git push origin main
+
+  build-and-push:
+    needs: merge-to-main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -24,16 +58,168 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      - name: Determine version increment
+        id: determine_increment
+        run: |
+          commit_message=$(git log -1 --pretty=%B)
+          if [[ $commit_message == *"[major]"* ]]; then
+            echo "major" > version_increment.txt
+          elif [[ $commit_message == *"[minor]"* ]]; then
+            echo "minor" > version_increment.txt
+          else
+            echo "patch" > version_increment.txt
+          fi
+          cat version_increment.txt
+
+      - name: Increment version
+        id: increment_version
+        run: |
+          # Extract the current version from pyproject.toml
+          version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
+          # Split the version number into components
+          IFS='.' read -ra ver <<< "$version"
+          major=${ver[0]}
+          minor=${ver[1]}
+          patch=${ver[2]}
+          # Read the version increment type
+          increment_type=$(cat version_increment.txt)
+          # Increment the appropriate version component
+          if [[ "$increment_type" == "major" ]]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [[ "$increment_type" == "minor" ]]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          # Form the new version number
+          new_version="$major.$minor.$patch"
+          # Update the pyproject.toml file with the new version
+          sed -i "s/version = \"$version\"/version = \"$new_version\"/" pyproject.toml
+          echo "New version: $new_version"
+          # Set the new version as an output variable
+          echo "::set-output name=version::$new_version"
+
+      - name: Commit version bump
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add pyproject.toml
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+          git push origin ${{ github.ref }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
+          echo "::set-output name=version::$version"
+
       - name: Build and push start_api
         run: |
-          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:latest .
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:latest
+          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }} .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }}
 
       - name: Build and push data services
         run: |
-          services=("emails_manager" "hunter_domain_consumer" "meetings_consumer" "pdl_consumer" "person_langsmith" "persons_manager")
+          services=("emails_manager" "hunter_domain_finder" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
           for service in "${services[@]}"
           do
-            docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:latest .
-            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:latest
+            docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }}
+          done
+
+  build-and-push-feature:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Determine version increment
+        id: determine_increment
+        run: |
+          commit_message=$(git log -1 --pretty=%B)
+          if [[ $commit_message == *"[major]"* ]]; then
+            echo "major" > version_increment.txt
+          elif [[ $commit_message == *"[minor]"* ]]; then
+            echo "minor" > version_increment.txt
+          else
+            echo "patch" > version_increment.txt
+          fi
+          cat version_increment.txt
+
+      - name: Increment version
+        id: increment_version
+        run: |
+          # Extract the current version from pyproject.toml
+          version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
+          # Split the version number into components
+          IFS='.' read -ra ver <<< "$version"
+          major=${ver[0]}
+          minor=${ver[1]}
+          patch=${ver[2]}
+          # Read the version increment type
+          increment_type=$(cat version_increment.txt)
+          # Increment the appropriate version component
+          if [[ "$increment_type" == "major" ]]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [[ "$increment_type" == "minor" ]]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          # Form the new version number
+          new_version="$major.$minor.$patch"
+          # Update the pyproject.toml file with the new version
+          sed -i "s/version = \"$version\"/version = \"$new_version\"/" pyproject.toml
+          echo "New version: $new_version"
+          # Set the new version as an output variable
+          echo "::set-output name=version::$new_version"
+
+      - name: Commit version bump
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add pyproject.toml
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+          git push origin ${{ github.ref }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
+          echo "::set-output name=version::$version"
+
+      - name: Build and push start_api
+        run: |
+          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }} .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }}
+
+      - name: Build and push data services
+        run: |
+          services=("emails_manager" "hunter_domain_finder" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
+          for service in "${services[@]}"
+          do
+            docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }}
           done
