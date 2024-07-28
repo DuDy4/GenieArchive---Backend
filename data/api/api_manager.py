@@ -57,8 +57,6 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
-from redis import Redis
-
 from data.meetings_consumer import MeetingManager
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -73,8 +71,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 v1_router = APIRouter(prefix="/v1")
-
-redis_client = Redis(host="localhost", port=6379, db=0)
 
 
 @v1_router.get("/test-google-token")
@@ -117,7 +113,7 @@ async def post_social_auth_data(
     """
     logger.info("Received social auth data")
     user_auth_data = await request.json()
-    time.sleep(15)
+    # time.sleep(15)
     logger.info(f"Received social auth data: {user_auth_data}")
     prehook_data = user_auth_data["prehookContext"]
     logger.info(f"Prehook data: {prehook_data}")
@@ -1058,7 +1054,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=50,
+                maxResults=15,
                 singleEvents=True,
                 orderBy="startTime",
             )
