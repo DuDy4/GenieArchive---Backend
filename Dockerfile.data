@@ -1,0 +1,17 @@
+# Dockerfile.data
+FROM python:3.9-slim
+
+WORKDIR /app
+
+ARG SERVICE_NAME
+
+# Copy necessary files and folders
+COPY data/${SERVICE_NAME}.py .
+COPY data ./data
+COPY common ../common
+COPY ai ../ai
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["python", "${SERVICE_NAME}.py"]
