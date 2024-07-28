@@ -118,7 +118,17 @@ jobs:
           git config user.email github-actions@github.com
           git add pyproject.toml
           git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
+
+      - name: Pull latest changes from main
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git pull origin main --rebase
+
+      - name: Push version bump
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
           git push origin HEAD:main
 
       - name: Checkout the updated code
