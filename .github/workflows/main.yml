@@ -106,4 +106,5 @@ jobs:
           for service in "${services[@]}"
           do
             docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
-            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_versio
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }}
+          done
