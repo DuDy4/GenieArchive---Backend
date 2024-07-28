@@ -13,7 +13,7 @@ from data.data_common.events.topics import Topic
 
 import requests
 
-CONSUMER_GROUP = "meetings_manager_consumer_group" + os.environ.get(
+CONSUMER_GROUP = "meeting_manager_consumer_group" + os.environ.get(
     "CONSUMER_GROUP_NAME", ""
 )
 
