@@ -23,6 +23,17 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    def run_prompt_linkedin_url(self, email_address, company_data=None):
+        prompt = hub.pull("linkedin_from_email_and_company")
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(
+                {"email_address": email_address, "company_data": company_data}
+            )
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
     def ask_chatgpt(self, prompt):
         try:
             runnable = self.model

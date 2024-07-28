@@ -73,7 +73,7 @@ class HunterDomainConsumer(GenieConsumer):
         employee = find_employee_by_email(email_address, company)
         if not employee:
             logger.info(f"Employee not found for email: {email_address}")
-            self.send_fail_event(email_address)
+            self.send_fail_event(email_address, company)
             return
         if employee.get("name"):
             person = PersonDTO(
@@ -96,10 +96,10 @@ class HunterDomainConsumer(GenieConsumer):
         person_event.send()
         return {"status": "success"}
 
-    def send_fail_event(self, email_address: str):
+    def send_fail_event(self, email_address: str, company=None):
         event = GenieEvent(
             topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
-            data={"email": email_address},
+            data={"email": email_address, "company": company},
             scope="public",
         )
         event.send()
