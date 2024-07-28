@@ -31,7 +31,7 @@ jobs:
           git checkout main
           git merge ${{ github.ref }} --no-ff -m "Merge ${{ github.ref }} to main" || echo "Merge failed" > merge_failed.txt
       - name: Check for merge failure
-        if: steps.merge_step.outputs.merge_failed
+        if: failure()
         run: |
           echo "Merge failed, attempting with --allow-unrelated-histories"
           git merge ${{ github.ref }} --allow-unrelated-histories --no-ff -m "Merge ${{ github.ref }} to main"
