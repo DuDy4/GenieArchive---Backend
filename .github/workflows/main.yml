@@ -10,39 +10,35 @@ jobs:
   version-bump:
     if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0  # Fetch all history for the refs
+          fetch-depth: 0
 
       - name: Determine version increment
         id: determine_increment
         run: |
           commit_message=$(git log -1 --pretty=%B)
           if [[ $commit_message == *"[major]"* ]]; then
-            echo "major" > version_increment.txt
+            echo "INCREMENT=major" >> $GITHUB_OUTPUT
           elif [[ $commit_message == *"[minor]"* ]]; then
-            echo "minor" > version_increment.txt
+            echo "INCREMENT=minor" >> $GITHUB_OUTPUT
           else
-            echo "patch" > version_increment.txt
+            echo "INCREMENT=patch" >> $GITHUB_OUTPUT
           fi
-          cat version_increment.txt
 
       - name: Increment version
         id: increment_version
         run: |
-          # Extract the current version from pyproject.toml
           version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
-          # Split the version number into components
           IFS='.' read -ra ver <<< "$version"
           major=${ver[0]}
           minor=${ver[1]}
           patch=${ver[2]}
-          # Read the version increment type
-          increment_type=$(cat version_increment.txt)
-          # Increment the appropriate version component
+          increment_type="${{ steps.determine_increment.outputs.INCREMENT }}"
           if [[ "$increment_type" == "major" ]]; then
             major=$((major + 1))
             minor=0
@@ -53,48 +49,37 @@ jobs:
           else
             patch=$((patch + 1))
           fi
-          # Form the new version number
           new_version="$major.$minor.$patch"
-          # Update the pyproject.toml file with the new version
           sed -i "s/version = \"$version\"/version = \"$new_version\"/" pyproject.toml
           echo "New version: $new_version"
-          # Set the new version as an output variable
-          echo "::set-output name=version::$new_version"
+          echo "VERSION=$new_version" >> $GITHUB_OUTPUT
 
       - name: Commit version bump
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add pyproject.toml
-          git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
-          git push origin HEAD:${{ github.ref }}
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.VERSION }}"
+          git push
 
   merge-to-main:
     needs: version-bump
     if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v3
         with:
           ref: 'main'
-          fetch-depth: 0  # Fetch all history for the refs
-
-      - name: Fetch feature branch
-        run: git fetch origin ${{ github.head_ref }}
+          fetch-depth: 0
 
       - name: Merge feature branch into main
         run: |
-          git merge origin/${{ github.head_ref }} --no-ff -m "Merge ${{ github.head_ref }} into main"
-
-      - name: Push changes
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
-          git push origin main
+          git fetch origin ${{ github.ref }}
+          git merge --no-ff ${{ github.ref }} -m "Merge ${{ github.ref }} into main"
+          git push
 
   build-and-push:
     needs: merge-to-main
@@ -103,8 +88,6 @@ jobs:
     steps:
       - name: Checkout the code
         uses: actions/checkout@v3
-        with:
-          ref: 'main'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -120,18 +103,18 @@ jobs:
         id: get_version
         run: |
           version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
-          echo "::set-output name=version::$version"
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
 
       - name: Build and push start_api
         run: |
-          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }} .
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.version }}
+          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.VERSION }} .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.VERSION }}
 
       - name: Build and push data services
         run: |
           services=("emails_manager" "hunter_domain_finder" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
           for service in "${services[@]}"
           do
-            docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
-            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }}
+            docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.VERSION }} .
+            docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.VERSION }}
           done
