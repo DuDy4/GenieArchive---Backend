@@ -7,7 +7,7 @@ on:
       - 'main'
 
 jobs:
-  merge-to-main:
+  version-bump:
     if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -16,55 +16,6 @@ jobs:
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0  # Fetch all history for the refs
-
-      - name: Fetch main branch
-        run: git fetch origin main
-
-      - name: Debug current branch
-        run: |
-          echo "Current branch: ${{ github.ref }}"
-          git log --oneline -5
-
-      - name: Debug main branch
-        run: |
-          git checkout main
-          git log --oneline -5
-
-      - name: Merge to main
-        id: merge_step
-        run: |
-          git checkout main
-          git merge ${{ github.ref }} --no-ff -m "Merge ${{ github.ref }} to main" || echo "Merge failed" > merge_failed.txt
-
-      - name: Check for merge failure
-        if: failure()
-        run: |
-          echo "Merge failed, attempting with --allow-unrelated-histories"
-          git merge ${{ github.ref }} --allow-unrelated-histories --no-ff -m "Merge ${{ github.ref }} to main"
-
-      - name: Push changes
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
-          git push origin main
-
-  build-and-push:
-    needs: merge-to-main
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the code
-        uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to Azure Container Registry
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Determine version increment
         id: determine_increment
@@ -118,25 +69,54 @@ jobs:
           git config user.email github-actions@github.com
           git add pyproject.toml
           git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
+          git push origin HEAD:${{ github.ref }}
 
-      - name: Pull latest changes from main
+  merge-to-main:
+    needs: version-bump
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+        with:
+          ref: 'main'
+          fetch-depth: 0  # Fetch all history for the refs
+
+      - name: Fetch feature branch
+        run: git fetch origin ${{ github.head_ref }}
+
+      - name: Merge feature branch into main
+        run: |
+          git merge origin/${{ github.head_ref }} --no-ff -m "Merge ${{ github.head_ref }} into main"
+
+      - name: Push changes
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          git pull origin main --rebase
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
+          git push origin main
 
-      - name: Push version bump
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          git push origin HEAD:main
+  build-and-push:
+    needs: merge-to-main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v3
+        with:
+          ref: 'main'
 
-      - name: Checkout the updated code
-        run: |
-          git fetch origin main
-          git checkout main
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-      - name: Get version
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Get version from pyproject.toml
         id: get_version
         run: |
           version=$(grep -m1 version pyproject.toml | cut -d '"' -f2)
