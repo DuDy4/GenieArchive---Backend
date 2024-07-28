@@ -38,7 +38,7 @@ jobs:
 
       - name: Build and push data services
         run: |
-          services=("emails_manager" "hunter_domain_finder" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
+          services=("emails_manager" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
           for service in "${services[@]}"
           do
             docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.version }} .
