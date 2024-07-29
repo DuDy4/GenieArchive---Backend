@@ -106,6 +106,27 @@ def get_user(request: Request):
     return JSONResponse(content=tenant)
 
 
+@v1_router.post("/successful-login", response_model=UserResponse)
+async def post_social_auth_data(
+    request: Request,
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+):
+    """
+    Returns a tetant ID - MOCK.
+    """
+    logger.info("Received JWT data")
+    auth_data = await request.json()
+    #logger.info(f"Received auth data: {auth_data}")
+    auth_claims = auth_data["data"]["claims"]
+    user_email = auth_claims["email"]
+    user_tenant_id = auth_claims["tenantId"]
+    logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
+    fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
+    return JSONResponse(content={"verdict": "allow"})
+
+
+
 @v1_router.post("/social-auth-data", response_model=UserResponse)
 async def post_social_auth_data(
     request: Request,
@@ -117,7 +138,7 @@ async def post_social_auth_data(
     """
     logger.info("Received social auth data")
     user_auth_data = await request.json()
-    time.sleep(15)
+    #time.sleep(15)
     logger.info(f"Received social auth data: {user_auth_data}")
     prehook_data = user_auth_data["prehookContext"]
     logger.info(f"Prehook data: {prehook_data}")
@@ -140,7 +161,6 @@ async def post_social_auth_data(
                 "refreshToken": user_id_token,
             }
         )
-        fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     else:
         logger.error("Tenant ID not found. Skipping credentials insertion")
     return JSONResponse(content={"tenantId": "TestOwner"})
@@ -1058,7 +1078,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=50,
+                maxResults=15,
                 singleEvents=True,
                 orderBy="startTime",
             )
