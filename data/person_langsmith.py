@@ -25,7 +25,7 @@ CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup" + os.environ.get(
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_PERSONAL_DATA],
+            topics=[Topic.NEW_PERSONAL_DATA, Topic.FAILED_TO_GET_DOMAIN_INFO],
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
         self.langsmith = Langsmith()
@@ -44,7 +44,7 @@ class LangsmithConsumer(GenieConsumer):
             case Topic.FAILED_TO_ENRICH_DATA:
                 logger.info("Handling failed attempt to enrich data")
                 await self.handle_failed_to_enrich_data(event)
-            case Topic.FAILED_TO_ENRICH_EMAIL:
+            case Topic.FAILED_TO_GET_DOMAIN_INFO:
                 logger.info("Handling failed attempt to enrich email")
                 await self.handle_failed_to_enrich_email(event)
 
@@ -95,23 +95,37 @@ class LangsmithConsumer(GenieConsumer):
         email_address = event_body.get("email")
         logger.info(f"Email address: {email_address}")
 
+        company = event_body.get("company")
+        logger.debug(f"Company: {company}")
+
         # Ask ChatGPT (through Langsmith) to find the LinkedIn URL
-        response = self.langsmith.ask_chatgpt(
-            f"Can you find the LinkedIn profile for this email address: {email_address}?"
-        )
+        # response = self.langsmith.run_prompt_linkedin_url(email_address, company)
+
+        response = None  # Need to implement the Chatgpt search better. got too many made up linkedin urls
+
         logger.info(f"Response from ChatGPT: {response}")
 
         # Verify the response and ensure it is a valid LinkedIn URL
-        linkedin_url = response.get("linkedin_url") if response else None
+        linkedin_url = (
+            response.get("linkedin_url")
+            if (response and isinstance(response, dict))
+            else None
+        )
         if linkedin_url and "linkedin.com" in linkedin_url:
             logger.info(f"Found LinkedIn URL: {linkedin_url}")
             data_to_send = {"email": email_address, "linkedin_url": linkedin_url}
+            event = GenieEvent(Topic.NEW_LINKEDIN_URL, data_to_send, "public")
+            event.send()
+            return {"status": "success"}
         else:
             logger.warning("No valid LinkedIn URL found.")
             data_to_send = {
                 "email": email_address,
                 "error": "No valid LinkedIn URL found",
             }
+            event = GenieEvent(Topic.FAILED_TO_GET_LINKEDIN_URL, data_to_send, "public")
+            event.send()
+            return {"status": "failed"}
 
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()

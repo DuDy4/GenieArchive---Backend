@@ -24,12 +24,73 @@ def test_new_profile():
         ],
     "summary": "Asaf is a seasoned software engineer with a strong background in software development and quality assurance. He has held various roles in the software industry, including software engineer, lead software engineer, and director of engineering. Asaf has experience working on a wide range of projects, from developing software solutions to managing engineering teams. His expertise in software development, quality assurance, and project management makes him a valuable asset to any organization.",
     "get_to_know": {
-            "title": "Emma is a visionary leader",
-            "phrases_to_use": ["She has a clear vision", "She communicates effectively", "She builds strong teams"],
-            "best_practices": ["Discuss industry trends", "Ask about her vision for the company", "Engage in strategic discussions"],
-            "avoid": ["Avoid micromanagement", "Avoid doubting her decisions", "Avoid unnecessary formalities"]
-        }
-    }"""
+  "avoid": [
+    {
+      "reasoning": "Asaf’s experience is primarily with large corporations. A focus on startups won't align with his background and challenges at GenieAI.",
+      "phrase_text": "Our platform is perfect for startups looking to quickly scale their testing efforts.",
+      "confidence_score": 95
+    },
+    {
+      "reasoning": "Given his role at a major corporation, Asaf likely deals with large-scale operations and complex projects, making this statement irrelevant.",
+      "phrase_text": "Our tool is great for small development teams wanting to dip their toes into automated testing.",
+      "confidence_score": 90
+    },
+    {
+      "reasoning": "Asaf’s extensive experience in different sectors means he will value tailored, specific solutions over generic claims.",
+      "phrase_text": "It's a one-size-fits-all solution for all your testing needs.",
+      "confidence_score": 85
+    },
+    {
+      "reasoning": "Asaf understands the intricacies of implementing new technologies and will know that true value requires some level of team involvement and effort.",
+      "phrase_text": "You’ll see immediate results without any effort from your team.",
+      "confidence_score": 80
+    }
+  ],
+  "best_practices": [
+    {
+      "reasoning": "Asaf has strong experience with cloud-based business value analysis, making integrations highly relevant.",
+      "what_to_do": "Emphasize the integration capabilities of GenieAI with existing CI/CD tools like Jenkins and GitHub.",
+      "confidence_score": 100
+    },
+    {
+      "reasoning": "This addresses his focus on efficiency and quality engineering, reducing time spent on manual tasks.",
+      "what_to_do": "Highlight GenieAI’s ability to reduce manual test maintenance through AI-powered testing.",
+      "confidence_score": 95
+    },
+    {
+      "reasoning": "Asaf leads global teams and would appreciate tools that facilitate collaboration and transparency.",
+      "what_to_do": "Discuss the collaborative features of GenieAI, emphasizing detailed reporting and easy sharing of test scenarios.",
+      "confidence_score": 90
+    },
+    {
+      "reasoning": "Concrete examples and success stories will resonate with his strategic and project management skills.",
+      "what_to_do": "Present real-world examples of how GenieAI has helped other large organizations maintain high-quality standards through end-to-end testing.",
+      "confidence_score": 85
+    }
+  ],
+  "phrases_to_use": [
+    {
+      "reasoning": "Asaf has extensive experience in DevOps and cloud-based business value analysis, making the integration aspect highly relevant and appealing.",
+      "phrase_text": "Our platform integrates seamlessly with tools like Jenkins and GitHub, which are likely part of your current development pipeline.",
+      "confidence_score": 95
+    },
+    {
+      "reasoning": "Given Asaf's background in quality engineering and managing large teams, emphasizing efficiency and reducing manual workload will resonate well with him.",
+      "phrase_text": "GenieAI’s AI-powered capabilities can significantly reduce the manual effort required in maintaining tests, allowing your team to focus on higher-priority tasks.",
+      "confidence_score": 90
+    },
+    {
+      "reasoning": "Asaf has led global teams and is adept at de-mystifying technology. Highlighting collaboration and detailed reporting aligns with his strengths.",
+      "phrase_text": "With GenieAI, you can maintain a high standard of quality within your distributed teams, as our platform supports collaboration and detailed reporting.",
+      "confidence_score": 85
+    },
+    {
+      "reasoning": "End-to-end testing is crucial for maintaining high standards, something Asaf has focused on throughout his career in quality engineering.",
+      "phrase_text": "Our end-to-end testing support is designed to cover complex user journeys, which can enhance the comprehensive quality checks you are implementing at GenieAI.",
+      "confidence_score": 80
+    }
+  ]
+}"""
     data_to_send = {"person": person, "profile": profile}
     event = GenieEvent(
         topic=Topic.NEW_PROCESSED_PROFILE, data=data_to_send, scope="public"

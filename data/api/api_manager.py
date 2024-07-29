@@ -57,8 +57,6 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
-from redis import Redis
-
 from data.meetings_consumer import MeetingManager
 
 SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
@@ -73,8 +71,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 v1_router = APIRouter(prefix="/v1")
-
-redis_client = Redis(host="localhost", port=6379, db=0)
 
 
 @v1_router.get("/test-google-token")

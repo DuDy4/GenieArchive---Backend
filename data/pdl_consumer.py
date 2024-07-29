@@ -208,7 +208,7 @@ class PDLConsumer(GenieConsumer):
                 personal_data=personal_data,
                 status=self.personal_data_repository.TRIED_BUT_FAILED,
             )
-            event = GenieEvent(Topic.FAILED_TO_ENRICH_DATA, {"email": email}, "public")
+            event = GenieEvent(Topic.FAILED_TO_ENRICH_EMAIL, {"email": email}, "public")
             event.send()
 
             return {"status": "failed"}
@@ -227,7 +227,16 @@ class PDLConsumer(GenieConsumer):
         if not row_dict:
             return None
         personal_data = row_dict["personal_data"]
-        position = personal_data.get("experience").get("title").get("name")
+        logger.info(f"Personal data: {personal_data}")
+        personal_experience = personal_data.get("experience")
+        logger.info(f"Personal experience: {personal_experience}")
+        position = ""
+        if isinstance(personal_experience, list):
+            postion = personal_experience[0].get("title").get("name")
+        elif isinstance(personal_experience, dict):
+            position = personal_experience.get("title").get("name")
+        logger.info(f"Position: {position}")
+
         person = PersonDTO(
             uuid=uuid,
             name=row_dict.get("name", "") or personal_data.get("full_name"),
@@ -237,12 +246,14 @@ class PDLConsumer(GenieConsumer):
             position=position,
             timezone="",
         )
+        logger.info(f"Person: {person}")
         return person
 
     def merge_personal_data(self, personal_data_in_repo, personal_data):
         """
         Needs to be implemented after deciding how to merge the data
         """
+        logger.warning("Needs to be implemented after deciding how to merge the data")
         return personal_data
 
 
