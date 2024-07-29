@@ -1,4 +1,4 @@
-# Dockerfile.data
+# Dockerfile.data  
 FROM python:3.9-slim
 
 WORKDIR /app
@@ -8,10 +8,14 @@ ARG SERVICE_NAME
 # Copy necessary files and folders
 COPY data/${SERVICE_NAME}.py .
 COPY data ./data
-COPY common ../common
-COPY ai ../ai
+COPY common ./common
+COPY ai ./ai
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && \
+    apt-get install -y git libpq-dev gcc build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install psycopg2-binary && pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "${SERVICE_NAME}.py"]
