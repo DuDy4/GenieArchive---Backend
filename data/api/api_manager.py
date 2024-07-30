@@ -539,6 +539,7 @@ async def get_all_meetings_by_profile_name(
     ownerships_repository=Depends(ownerships_repository),
     persons_repository=Depends(persons_repository),
     meetings_repository=Depends(meetings_repository),
+
 ) -> MeetingsListResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
@@ -551,14 +552,14 @@ async def get_all_meetings_by_profile_name(
     """
     logger.info(f"Received get profiles request, with search: '{name}'")
 
-    persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
-    logger.info(f"Got persons_uuid: {persons_uuid}")
-    persons_emails = persons_repository.get_emails_list(persons_uuid, name)
-    logger.info(f"Got persons_emails: {persons_emails}")
-    meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
+    
+    # persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+    # logger.info(f"Got persons_uuid: {persons_uuid}")
+    # persons_emails = persons_repository.get_emails_list(persons_uuid, name)
+    # logger.info(f"Got persons_emails: {persons_emails}")
+    # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
+    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
-    logger.info(f"Got meetings: {dict_meetings}")
-
     return JSONResponse(content=dict_meetings)
 
 
