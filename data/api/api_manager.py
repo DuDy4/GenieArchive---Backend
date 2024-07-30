@@ -117,7 +117,14 @@ async def post_social_auth_data(
     auth_claims = auth_data["data"]["claims"]
     user_email = auth_claims["email"]
     user_tenant_id = auth_claims["tenantId"]
+    user_name = auth_claims["name"]
     logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
+    tenant_data  = { 
+        'tenant_id' : user_tenant_id,
+        'name' : user_name,
+        'email' : user_email
+    }
+    tenants_repository.insert(tenant_data)
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     return JSONResponse(content={"verdict": "allow"})
 
@@ -1074,7 +1081,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=15,
+                maxResults=10,
                 singleEvents=True,
                 orderBy="startTime",
             )
