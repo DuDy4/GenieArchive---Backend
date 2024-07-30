@@ -95,6 +95,7 @@ class MeetingDTO:
             google_calendar_id=event.get("id", ""),
             tenant_id=tenant_id,
             participants_emails=event.get("attendees", []),
+            participants_hash=event.get("participants_hash", ""),
             link=event.get("hangoutLink", ""),
             subject=event.get("summary", ""),
             start_time=event.get("start", "").get("dateTime", "")
