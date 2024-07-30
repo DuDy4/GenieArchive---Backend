@@ -68,10 +68,11 @@ class MeetingDTO:
             google_calendar_id=row[1],
             tenant_id=row[2],
             participants_emails=row[3],
-            link=row[4],
-            subject=row[5],
-            start_time=row[6],
-            end_time=row[7],
+            participants_hash=row[4],
+            link=row[5],
+            subject=row[6],
+            start_time=row[7],
+            end_time=row[8],
         )
 
     def to_json(self):
