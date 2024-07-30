@@ -149,6 +149,34 @@ class PersonsRepository:
             traceback.print_exc()
             return []
 
+    def get_person_data(self, email : str) -> PersonDTO:
+        if not email:
+            return []
+
+        # Generate a SQL query with a list of placeholders for UUIDs
+        query = f"SELECT uuid, name, company, email, linkedin, position FROM persons WHERE email = %s"
+
+        try:
+            with self.conn.cursor() as cursor:
+                logger.debug(f"Executing query: {query}")
+                cursor.execute(query, (email,))
+                row = cursor.fetchone()
+                logger.info(f"Retrieved person for email: {email}")
+                if row:
+                    return PersonDTO(row[0], row[1], row[2], row[3], row[4], row[5], "")
+                else:
+                    logger.error(f"Error with getting person for {email}")
+                    traceback.print_exc()
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching emails by UUIDs: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def get_person_id(self, uuid):
         select_query = "SELECT id FROM persons WHERE uuid = %s;"
         try:

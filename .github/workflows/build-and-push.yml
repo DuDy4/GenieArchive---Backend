@@ -9,10 +9,13 @@ on:
       - main
   workflow_run:
     workflows: ["Auto-merge feature to main"]
+    types:
+      - completed
   workflow_dispatch:  # Allows manual triggering
-
 jobs:
   build-and-push:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
     steps:
       - name: Debugging information
@@ -60,7 +63,7 @@ jobs:
 
       - name: Build and push data services
         run: |
-          services=("emails_manager" "hunter_domain_finder" "meetings_consumer" "pdl" "person_langsmith" "persons_manager")
+          services=("emails_manager" "hunter_domain_consumer" "meetings_consumer" "pdl_consumer" "person_langsmith" "persons_manager" "slack_consumer")
           for service in "${services[@]}"
           do
             if docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.tag }} .; then
