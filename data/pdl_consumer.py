@@ -232,7 +232,7 @@ class PDLConsumer(GenieConsumer):
         logger.info(f"Personal experience: {personal_experience}")
         position = ""
         if isinstance(personal_experience, list):
-            postion = personal_experience[0].get("title").get("name")
+            position = personal_experience[0].get("title").get("name")
         elif isinstance(personal_experience, dict):
             position = personal_experience.get("title").get("name")
         logger.info(f"Position: {position}")
