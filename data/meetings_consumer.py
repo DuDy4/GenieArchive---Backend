@@ -106,7 +106,11 @@ class MeetingManager(GenieConsumer):
         final_list = []
         host_domain = host_email.split("@")[1]
         logger.info(f"Host email: {host_email}")
-        for email in participants_emails:
+        for email_object in participants_emails:
+            if isinstance(email_object, dict):
+                email = email_object.get("email")
+            else:
+                email = email_object
             email_domain = email.split("@")[1]
             if email_domain == host_domain:
                 continue
