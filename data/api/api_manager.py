@@ -113,14 +113,15 @@ async def post_social_auth_data(
     """
     logger.info("Received JWT data")
     auth_data = await request.json()
-    #logger.info(f"Received auth data: {auth_data}")
+    # logger.info(f"Received auth data: {auth_data}")
     auth_claims = auth_data["data"]["claims"]
     user_email = auth_claims["email"]
     user_tenant_id = auth_claims["tenantId"]
-    logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
+    logger.info(
+        f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}"
+    )
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     return JSONResponse(content={"verdict": "allow"})
-
 
 
 @v1_router.post("/social-auth-data", response_model=UserResponse)
@@ -134,7 +135,7 @@ async def post_social_auth_data(
     """
     logger.info("Received social auth data")
     user_auth_data = await request.json()
-    #time.sleep(15)
+    # time.sleep(15)
     logger.info(f"Received social auth data: {user_auth_data}")
     prehook_data = user_auth_data["prehookContext"]
     logger.info(f"Prehook data: {prehook_data}")
@@ -177,15 +178,13 @@ async def get_user_account(
 
     This endpoint allows the creation of a new user account. It expects a JSON request body
     containing `tenantId` and `name`. If the user already exists, it returns the existing
-    Salesforce credentials. Otherwise, it creates a new user account and returns the newly
-    created user's UUID along with Salesforce credentials.
+    uuid.
 
     - **request**: The request object.
     - **tenants_repository**: Dependency that provides access to the tenants repository.
 
     Returns:
         - **message**: Success or error message.
-        - **salesforce_creds**: Salesforce credentials if the user already exists or after creation.
     """
     try:
         logger.debug(f"Received signup request: {request}")
@@ -207,39 +206,39 @@ async def get_user_account(
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
 
-        salesforce_creds = tenants_repository.get_salesforce_credentials(
-            data.get("tenantId")
-        )
-        logger.debug(f"Salesforce creds: {salesforce_creds}")
+        # salesforce_creds = tenants_repository.get_salesforce_credentials(
+        #     data.get("tenantId")
+        # )
+        # logger.debug(f"Salesforce creds: {salesforce_creds}")
         return {
             "message": f"User account created successfully with uuid: {uuid}",
-            "salesforce_creds": salesforce_creds,
         }
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@v1_router.get(
-    "/profile/{uuid}",
-    response_model=ProfileResponse,
-    summary="Fetches and returns a specific profile",
-    include_in_schema=False,
-)
-def get_profile(
-    uuid: str,
-    profiles_repository: ProfilesRepository = Depends(profiles_repository),
-):
-    """
-    Fetches and returns a specific profile.
-    """
-    logger.info("Received profile request")
-    profile = profiles_repository.get_profile_data(uuid)
-    logger.info(f"Fetched profile: {profile}")
-    if profile:
-        return profile.to_dict()
-    else:
-        return {"error": "Profile not found"}
+#
+# @v1_router.get(
+#     "/profile/{uuid}",
+#     response_model=ProfileResponse,
+#     summary="Fetches and returns a specific profile",
+#     include_in_schema=False,
+# )
+# def get_profile(
+#     uuid: str,
+#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+# ):
+#     """
+#     Fetches and returns a specific profile.
+#     """
+#     logger.info("Received profile request")
+#     profile = profiles_repository.get_profile_data(uuid)
+#     logger.info(f"Fetched profile: {profile}")
+#     if profile:
+#         return profile.to_dict()
+#     else:
+#         return {"error": "Profile not found"}
 
 
 @v1_router.get(
