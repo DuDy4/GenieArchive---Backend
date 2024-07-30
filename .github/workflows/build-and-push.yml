@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Auto-merge feature to main"]
+    types:
+      - completed
+  workflow_dispatch:  # Allows manual triggering
 jobs:
   build-and-push:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
