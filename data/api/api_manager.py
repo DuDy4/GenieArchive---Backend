@@ -120,7 +120,7 @@ async def post_social_auth_data(
     user_name = auth_claims["name"]
     logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
     tenant_data  = { 
-        'tenant_id' : user_tenant_id,
+        'tenantId' : user_tenant_id,
         'name' : user_name,
         'email' : user_email
     }
