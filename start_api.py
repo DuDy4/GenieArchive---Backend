@@ -51,8 +51,13 @@ def read_root(request: Request):
 app.include_router(v1_router)
 
 PORT = int(os.environ.get("PERSON_PORT", 8000))
+use_https = os.environ.get("USE_HTTPS", "false").lower() == "true"
 
 if __name__ == "__main__":
     uvicorn.run(
-        app, host="0.0.0.0", port=PORT, ssl_keyfile="key.pem", ssl_certfile="cert.pem"
+        app, 
+        host="0.0.0.0", 
+        port=PORT, 
+        ssl_keyfile="key.pem" if use_https else None, 
+        ssl_certfile="cert.pem" if use_https else None
     )

@@ -32,7 +32,6 @@ class PersonsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info(f"Created persons table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
 

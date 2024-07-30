@@ -3,6 +3,7 @@ from typing import Optional
 import psycopg2
 from loguru import logger
 import json
+import hashlib
 
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 
@@ -24,17 +25,17 @@ class MeetingsRepository:
             google_calendar_id VARCHAR,
             tenant_id VARCHAR,
             participants_emails JSONB,
+            participants_hash VARCHAR,
             link VARCHAR,
             subject VARCHAR,
             start_time VARCHAR,
-            end_time VarCHAR
+            end_time VARCHAR
         );
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info("Table meetings created successfully")
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error(f"Error: {error}")
             traceback.print_exc()
@@ -48,16 +49,18 @@ class MeetingsRepository:
             )
             return None
         insert_query = """
-        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert meeting: {meeting}")
+        participants_hash = hash_participants(meeting.participants_emails)
 
         # Convert the participants_emails to JSON string
         meeting_data = meeting.to_tuple()
         meeting_data = (
-            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
+            meeting_data[:3]
+            + (json.dumps(meeting_data[3]), participants_hash)
+            + meeting_data[4:]
         )
 
         logger.info(f"About to insert meeting data: {meeting_data}")
@@ -71,10 +74,16 @@ class MeetingsRepository:
                 return meeting_id
         except psycopg2.Error as error:
             self.conn.rollback()
+            logger.error(f"Error inserting meeting: {error.pgerror}")
+            traceback.print_exc()
             raise Exception(f"Error inserting meeting, because: {error}")
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            raise Exception(f"Unexpected error: {e}")
 
     def exists(self, google_calendar_id: str) -> bool:
-        logger.info(f"About to check if uuid exists: {google_calendar_id}")
         exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
             with self.conn.cursor() as cursor:
@@ -92,6 +101,42 @@ class MeetingsRepository:
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return False
+
+    def exists_without_changes(self, meeting: MeetingDTO) -> bool:
+        participants_hash = hash_participants(meeting.participants_emails)
+        exists_query = """
+        SELECT 1 FROM meetings
+        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                logger.info(
+                    f"About to execute check if meeting exists without changes: {meeting.google_calendar_id}({meeting.subject})"
+                )
+                cursor.execute(
+                    exists_query,
+                    (
+                        meeting.google_calendar_id,
+                        participants_hash,
+                        meeting.start_time,
+                        meeting.link,
+                    ),
+                )
+                result = cursor.fetchone() is not None
+                logger.info(
+                    f"{meeting.google_calendar_id} existence in database without changes: {result}"
+                )
+                return result
+        except psycopg2.Error as error:
+            logger.error(
+                f"Error checking existence of meeting without changes for google_calendar_id {meeting.google_calendar_id}: {error}"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def exists_tenant(self, tenant_id: str) -> bool:
@@ -109,6 +154,7 @@ class MeetingsRepository:
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return False
 
     def get_meeting_id(self, uuid: str) -> Optional[int]:
@@ -121,9 +167,10 @@ class MeetingsRepository:
                     logger.info(f"Got meeting id {row[0]} from database")
                     return row[0]
                 else:
-                    logger.error(f"Error with getting meeting id for {uuid}")
+                    logger.error(f"Could not find meeting id for {uuid}")
         except Exception as error:
             logger.error("Error fetching id by uuid:", error)
+            traceback.print_exception(error)
         return None
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
@@ -169,7 +216,9 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
-    def get_meetings_by_participants_emails(self, emails: list[str]) -> list[dict]:
+    def get_meetings_by_participants_emails(
+        self, emails: list[str]
+    ) -> list[MeetingDTO]:
         """
         Get a list of meetings that have participants with the given emails.
 
@@ -178,14 +227,11 @@ class MeetingsRepository:
         """
         if not emails:
             return []
-
         query = """
         SELECT * FROM meetings
         WHERE participants_emails ?| array[%s]
         """
-
         formatted_emails = ",".join(emails)
-
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(query, (formatted_emails,))
@@ -206,12 +252,15 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, link = %s, subject = %s, start_time = %s, end_time = %s
+        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, start_time = %s, end_time = %s
         WHERE google_calendar_id = %s;
         """
+        participants_hash = hash_participants(meeting.participants_emails)
         meeting_data = meeting.to_tuple()
         meeting_data = (
-            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
+            meeting_data[:3]
+            + (json.dumps(meeting_data[3]), participants_hash)
+            + meeting_data[4:]
         )
         meeting_data = meeting_data[2:] + (meeting_data[1],)  # move uuid to the end
         try:
@@ -221,11 +270,40 @@ class MeetingsRepository:
                 logger.info(f"Updated meeting with uuid: {meeting.uuid}")
         except psycopg2.Error as error:
             self.conn.rollback()
+            logger.error(f"Error updating meeting: {error.pgerror}")
+            traceback.print_exc()
             raise Exception(f"Error updating meeting, because: {error.pgerror}")
 
     def save_meeting(self, meeting: MeetingDTO):
         self.create_table_if_not_exists()
-        if self.exists(meeting.uuid):
+        if self.exists(meeting.google_calendar_id):
+            if self.exists_without_changes(meeting):
+                logger.info(
+                    f"Meeting with google_calendar_id {meeting.google_calendar_id} "
+                    f"already exists - and no changes were made. Skipping..."
+                )
+                return
             self.update(meeting)
+            logger.info(
+                f"Meeting with uuid {meeting.uuid} already exists. Updated meeting."
+            )
         else:
             self.insert_meeting(meeting)
+
+    def delete(self, uuid: str):
+        delete_query = "DELETE FROM meetings WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (uuid,))
+                self.conn.commit()
+                logger.info(f"Deleted meeting with uuid: {uuid}")
+        except psycopg2.Error as error:
+            self.conn.rollback()
+            logger.error(f"Error deleting meeting: {error.pgerror}")
+            traceback.print_exc()
+            raise Exception(f"Error deleting meeting, because: {error.pgerror}")
+
+
+def hash_participants(participants_emails: list[str]) -> str:
+    emails_string = json.dumps(participants_emails, sort_keys=True)
+    return hashlib.sha256(emails_string.encode("utf-8")).hexdigest()
