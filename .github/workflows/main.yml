@@ -4,14 +4,6 @@ on:
   push:
     branches:
       - 'feature/**'  # Trigger on push to any feature branch
-  pull_request:
-    branches:
-      - main
-  workflow_run:
-    workflows: ["Auto-merge feature to main"]
-    types:
-      - completed
-  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   auto-merge:
