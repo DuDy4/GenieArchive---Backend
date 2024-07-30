@@ -1,4 +1,5 @@
 import psycopg2
+from loguru import logger
 from psycopg2 import sql
 from dotenv import load_dotenv
 import os
@@ -43,10 +44,9 @@ def get_db_connection():
         conn = psycopg2.connect(
             user=db_user, host=host, database=database, password=password, port=port
         )
-        print("Connected to PostgreSQL")
         return conn
     except Exception as error:
-        print("Could not connect to PostgreSQL:", error)
+        logger.error("Could not connect to PostgreSQL:", error)
         return None
 
 
