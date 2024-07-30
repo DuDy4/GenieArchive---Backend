@@ -175,7 +175,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
