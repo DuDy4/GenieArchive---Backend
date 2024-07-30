@@ -6,7 +6,6 @@ from slack_sdk.errors import SlackApiError
 
 BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 CHANNEL = os.environ.get("SLACK_CHANNEL")
-logger.info(f"SLACK_BOT_TOKEN: {BOT_TOKEN}")
 if not BOT_TOKEN:
     raise ValueError("SLACK_BOT_TOKEN is not set in the environment variables")
 client = WebClient(token=BOT_TOKEN)
