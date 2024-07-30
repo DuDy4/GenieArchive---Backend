@@ -19,13 +19,18 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from google.oauth2 import id_token
 from google.auth import credentials
-from pydantic import BaseModel
 
 
 from data.api.base_models import *
+from data.data_common.repositories.hobbies_repository import HobbiesRepository
+from data.data_common.repositories.personal_data_repository import (
+    PersonalDataRepository,
+)
+from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
+from data.data_common.repositories.ownerships_repository import OwnershipsRepository
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
 from data.api.mock_api import profiles, meetings
@@ -75,14 +80,11 @@ v1_router = APIRouter(prefix="/v1")
 
 @v1_router.get("/test-google-token")
 def test_google_token(token: str):
-    # logger.info(f"Token data: {token}")
-
-    # Verify the token using the Google tokeninfo endpoint
     token_response = requests.get(GOOGLE_TOKEN_URI, params={"id_token": token})
 
     if token_response.status_code != 200:
         logger.error(f"Token request failed: {token_response.raise_for_status()}")
-        raise HTTPException(status_code=400, detail="Failed to fetch token")
+        return JSONResponse(status_code=400, content={"error": "Invalid token"})
 
     tokens = token_response.json()
     logger.debug(f"Tokens: {tokens}")
@@ -177,7 +179,7 @@ async def get_user_account(
     Get user account.
 
     This endpoint allows the creation of a new user account. It expects a JSON request body
-    containing `tenantId` and `name`. If the user already exists, it returns the existing
+    containing tenantId and name. If the user already exists, it returns the existing
     uuid.
 
     - **request**: The request object.
@@ -251,8 +253,8 @@ async def get_all_profiles(
     request: Request,
     tenant_id: str,
     search: str = Query(None, description="Partial text to search profile names"),
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
 ) -> ProfileResponse:
     """
     Gets all profiles for a given tenant.
@@ -272,265 +274,16 @@ async def get_all_profiles(
 
 
 @v1_router.get(
-    "/salesforce/auth/{tenantId}",
-    response_class=RedirectResponse,
-    summary="Initiates Salesforce OAuth2.0 process",
-    include_in_schema=False,
-)
-def initiate_salesforce_oauth(request: Request, tenantId: str) -> RedirectResponse:
-    """
-    Initiates the Salesforce OAuth2.0 process
-    """
-    logger.debug(f"Request session before start: {request.session}")
-
-    logger.info(f"Starting Salesforce OAuth integration for {tenantId}")
-    request.session["salesforce_tenantId"] = tenantId
-
-    authorization_url = get_authorization_url(tenantId) + f"&state={tenantId}"
-    logger.info(f"Redirect URL: {authorization_url}")
-    return RedirectResponse(url=authorization_url)
-
-
-@v1_router.get(
-    "/salesforce/callback",
-    response_class=PlainTextResponse,
-    summary="Handles Salesforce OAuth2.0 callback",
-    include_in_schema=False,
-)
-def handle_salesforce_callback(request: Request) -> PlainTextResponse:
-    """
-    Handles the Salesforce OAuth2.0 callback process
-    """
-    tenant_id = request.query_params.get("state")
-    url = request.url
-
-    logger.debug(f"URL: {url}")
-    logger.debug(f"Tenant ID: {tenant_id}")
-
-    token_data = handle_callback(tenant_id, str(url))
-
-    json_to_app = {
-        "client_url": token_data.get("instance_url"),
-        "refresh_token": token_data.get("refresh_token"),
-        "access_token": token_data.get("access_token"),
-    }
-
-    logger.info(f"Token data: {json_to_app}")
-
-    return PlainTextResponse(
-        f"Successfully authenticated with Salesforce for {tenant_id}. \nYou can now close this tab"
-    )
-
-
-@v1_router.delete(
-    "/salesforce/credentials/{tenantId}",
-    response_model=dict,
-    summary="Deletes Salesforce credentials for a tenant",
-    include_in_schema=False,
-)
-def remove_salesforce_credentials(
-    tenantId: str,
-    tenants_repository=Depends(tenants_repository),
-):
-    """
-    Deletes the Salesforce credentials for a given tenant.
-    """
-    logger.info(f"Deleting Salesforce credentials for tenant: {tenantId}")
-    tenants_repository.delete_salesforce_credentials(tenantId)
-
-    result = tenants_repository.get_refresh_token(tenantId)
-    if not result:
-        return {"status": "success"}
-    else:
-        return {"status": "error"}
-
-
-@v1_router.post(
-    "/salesforce/deploy-apex/{company}",
-    response_model=dict,
-    summary="Deploys Apex code via Salesforce platform events",
-    include_in_schema=False,
-)
-async def deploy_salesforce_apex_code(
-    request: Request,
-    company: str,
-    tenants_repository=Depends(tenants_repository),
-    contacts_repository=Depends(contacts_repository),
-):
-    """
-    Deploys Apex code via Salesforce platform events.
-    """
-    try:
-        refresh_token = tenants_repository.get_refresh_token(company)
-        logger.info(f"Refresh token: {refresh_token}")
-        salesforce_client = create_salesforce_client(company, refresh_token)
-
-        salesforce_agent = SalesforceAgent(
-            salesforce_client, tenants_repository, contacts_repository
-        )
-
-        result = salesforce_agent.deploy_apex_code()
-        logger.debug(f"Deployed Apex code: {result}")
-        if result:
-            return {"status": "success", "message": "Event processed"}
-        else:
-            return {"status": "error", "message": "Failed"}
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        return {"status": "error", "message": str(e)}
-
-
-@v1_router.get(
-    "/salesforce/topics",
-    response_model=dict,
-    summary="Fetches all Salesforce topics",
-    include_in_schema=False,
-)
-def fetch_salesforce_topics():
-    """
-    Fetches all Salesforce topics.
-    """
-    logger.info("Received topic request")
-    return Topic
-
-
-@v1_router.get(
-    "/salesforce/{tenant_id}/contacts",
-    response_class=PlainTextResponse,
-    summary="Fetches all Salesforce contacts for a tenant",
-    include_in_schema=False,
-)
-async def fetch_salesforce_contacts(
-    request: Request,
-    tenant_id: str,
-    tenants_repository=Depends(tenants_repository),
-    contacts_repository=Depends(contacts_repository),
-) -> PlainTextResponse:
-    """
-    Fetches all Salesforce contacts for a given tenant.
-    """
-    logger.info(f"Received get contacts request")
-
-    refresh_token = tenants_repository.get_refresh_token(tenant_id)
-    logger.info(f"Refresh token: {refresh_token}")
-    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
-
-    salesforce_agent = SalesforceAgent(
-        salesforce_client, tenants_repository, contacts_repository
-    )
-    contacts = await salesforce_agent.get_contacts(tenant_id)
-
-    logger.info(f"Fetched contacts: {len(contacts)}")
-    return PlainTextResponse(f"Fetched contacts: {len(contacts)}")
-
-
-@v1_router.post(
-    "/salesforce/webhook",
-    response_model=dict,
-    summary="Processes Salesforce platform events via webhook",
-    include_in_schema=False,
-)
-async def process_salesforce_webhook(
-    request: Request,
-    salesforce_event_handler: SalesforceEventHandler = Depends(
-        salesforce_event_handler
-    ),
-):
-    """
-    Processes Salesforce platform events via webhook.
-    """
-    try:
-        event_data = await request.json()
-        logger.info(f"Received event data: {event_data}")
-
-        result = salesforce_event_handler.handle_event(event_data)
-        if result:
-            return {"status": "success", "message": "Event processed"}
-        else:
-            return {"status": "error", "message": "Failed to process event"}
-    except Exception as e:
-        logger.error(f"Error processing webhook event: {e}")
-        return {"status": "error", "message": str(e)}
-
-
-@v1_router.get(
-    "/salesforce/contacts/{tenant_id}",
-    response_class=JSONResponse,
-    summary="Fetches all Salesforce contacts for a tenant",
-    include_in_schema=False,
-)
-async def fetch_salesforce_contacts_for_tenant(
-    request: Request,
-    tenant_id: str,
-    tenants_repository=Depends(tenants_repository),
-    contacts_repository=Depends(contacts_repository),
-) -> JSONResponse:
-    """
-    Fetches all Salesforce contacts for a given tenant.
-    """
-    logger.info(f"Received get contacts request")
-
-    refresh_token = tenants_repository.get_refresh_token(tenant_id)
-    logger.info(f"Refresh token: {refresh_token}")
-    salesforce_client = create_salesforce_client(tenant_id, refresh_token)
-
-    salesforce_agent = SalesforceAgent(
-        salesforce_client, tenants_repository, contacts_repository
-    )
-    contacts = await salesforce_agent.get_contacts(tenant_id)
-
-    logger.info(f"Fetched contacts: {len(contacts)}")
-    return JSONResponse(content=contacts)
-
-
-@v1_router.post(
-    "/salesforce/profiles/{tenant_id}",
-    response_class=PlainTextResponse,
-    summary="Processes contacts and builds profiles",
-    include_in_schema=False,
-)
-async def process_salesforce_contacts(
-    request: Request,
-    tenant_id: str,
-    tenants_repository=Depends(tenants_repository),
-    contacts_repository=Depends(contacts_repository),
-) -> PlainTextResponse:
-    """
-    Processes contacts and builds profiles.
-    """
-    try:
-        logger.info(f"Received process contacts request")
-        logger.debug(f"Tenant ID: {tenant_id}")
-        contact_ids = await request.json()
-        logger.debug(f"Contact IDs: {contact_ids}")
-
-        contacts = [
-            contacts_repository.get_contact_by_salesforce_id(tenant_id, contact_id)
-            for contact_id in contact_ids
-        ]
-        logger.debug(f"Contacts: {contacts}")
-
-        handle_new_contacts_event(contacts)
-
-        return PlainTextResponse(f"Processed contacts: {len(contact_ids)}")
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        traceback.print_exc()
-        return PlainTextResponse(f"Error: {e}")
-
-
-@v1_router.get(
     "/{tenant_id}/meetings",
     response_model=MeetingsListResponse,
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
 async def get_all_meetings_by_profile_name(
-    request: Request,
     tenant_id: str,
     name: str = Query(None, description="Partial text to search profile names"),
-    ownerships_repository=Depends(ownerships_repository),
-    persons_repository=Depends(persons_repository),
-    meetings_repository=Depends(meetings_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
 ) -> MeetingsListResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
@@ -554,32 +307,17 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-# @v1_router.get("/meetings/{tenant_id}", response_model=MeetingsListResponse)
-# def get_all_meetings(
-#     tenant_id: str,
-#     meetings_repository=Depends(meetings_repository),
-# ) -> MeetingsListResponse:
-#     """
-#     Gets all meetings for a given tenant.
-#     """
-#     logger.info(f"Received meetings request for tenant: {tenant_id}")
-#     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
-#     logger.info(f"Got meetings: {len(meetings)}")
-#     meetings_list = [meeting.to_dict() for meeting in meetings]
-#     return MeetingsListResponse(meetings=meetings_list)
-
-
 @v1_router.get(
     "/{tenant_id}/{meeting_id}/profiles/", response_model=MiniProfileResponse
 )
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
-    meetings_repository=Depends(meetings_repository),
-    ownerships_repository=Depends(ownerships_repository),
-    persons_repository=Depends(persons_repository),
-    profiles_repository=Depends(profiles_repository),
-    tenants_repository=Depends(tenants_repository),
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> MiniProfileResponse:
     """
     Get all profile IDs and names for a specific meeting.
@@ -625,9 +363,11 @@ def get_all_profile_for_meeting(
 def get_profile_attendee_info(
     uuid: str,
     tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
-    personal_data_repository=Depends(personal_data_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    personal_data_repository: PersonalDataRepository = Depends(
+        personal_data_repository
+    ),
 ) -> AttendeeInfo:
     """
     Get the attendee-info of a profile - Mock version.
@@ -679,8 +419,8 @@ def get_profile_attendee_info(
 def get_profile_strengths(
     uuid: str,
     tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
 ) -> StrengthsListResponse:
     """
     Get the strengths of a profile - Mock version.
@@ -711,8 +451,8 @@ def get_profile_strengths(
 def get_profile_get_to_know(
     uuid: str,
     tenant_id: str,
-    ownerships_repository=Depends(ownerships_repository),
-    profiles_repository=Depends(profiles_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
 ) -> GetToKnowResponse:
     """
     Get the 'get-to-know' information of a profile - Mock version.
@@ -738,10 +478,10 @@ def get_profile_get_to_know(
 def get_profile_good_to_know(
     uuid: str,
     tenant_id: str,
-    profiles_repository=Depends(profiles_repository),
-    ownerships_repository=Depends(ownerships_repository),
-    persons_repository=Depends(persons_repository),
-    hobbies_repository=Depends(hobbies_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    hobbies_repository: HobbiesRepository = Depends(hobbies_repository),
 ) -> GoodToKnowResponse:
     """
     Get the 'good-to-know' information of a profile - Mock version.
@@ -791,7 +531,9 @@ def get_profile_good_to_know(
 def get_profile_work_experience(
     uuid: str,
     tenant_id: str,
-    personal_data_repository=Depends(personal_data_repository),
+    personal_data_repository: PersonalDataRepository = Depends(
+        personal_data_repository
+    ),
 ) -> WorkExperienceResponse:
     """
     Get the work experience of a profile - *Mock version*.
@@ -809,207 +551,6 @@ def get_profile_work_experience(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/connections", response_class=JSONResponse)
-# def get_profile_connections(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-#     persons_repository=Depends(persons_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the connections of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Got connections request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         connections_uuid = profile.connections
-#         logger.info(f"Got connections: {connections_uuid}")
-#         connections = [
-#             persons_repository.get_person(connection_uuid)
-#             for connection_uuid in connections_uuid
-#         ]
-#         connections = [connection.to_dict() for connection in connections]
-#         for i in range(len(connections)):
-#             connections[i]["picture_url"] = profiles_repository.get_profile_picture(
-#                 connections[i]["uuid"]
-#             )
-#             connections[i].pop("company")
-#             connections[i].pop("position")
-#             connections[i].pop("email")
-#             connections[i].pop("timezone")
-#         return JSONResponse(content=connections)
-#     return JSONResponse(content={"error": "Could not find profile"})
-#
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/hobbies", response_class=JSONResponse)
-# def get_profile_hobbies(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     hobbies_repository=Depends(hobbies_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the hobbies of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Received hobbies request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         hobbies_uuid = profile.hobbies
-#         logger.info(f"Got hobbies: {hobbies_uuid}")
-#         hobbies = [
-#             hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
-#         ]
-#         logger.info(f"Got hobbies: {hobbies}")
-#
-#         return JSONResponse(content=hobbies)
-#     return JSONResponse(content={"error": "Could not find profile"})
-#
-#
-# @v1_router.get("/profiles/{tenant_id}/{uuid}/news", response_class=JSONResponse)
-# def get_profile_news(
-#     uuid: str,
-#     tenant_id: str,
-#     profiles_repository=Depends(profiles_repository),
-#     ownerships_repository=Depends(ownerships_repository),
-# ) -> JSONResponse:
-#     """
-#     Get the news of a profile - Mock version.
-#
-#     - **tenant_id**: Tenant ID
-#     - **uuid**: Profile UUID
-#     """
-#     logger.info(f"Received news request for profile: {uuid}")
-#     if not ownerships_repository.check_ownership(tenant_id, uuid):
-#         return JSONResponse(content={"error": "Profile not found under this tenant"})
-#     profile = profiles_repository.get_profile_data(uuid)
-#     if profile:
-#         return JSONResponse(content=profile.news)
-#     return JSONResponse(content={"error": "Could not find profile"})
-
-
-# @v1_router.get("/meetings-mock", response_class=JSONResponse)
-# def get_all_meetings() -> JSONResponse:
-#     """
-#     Get all meetings for a specific tenant - Mock version.
-#     """
-#     return JSONResponse(content=meetings)
-
-
-# @v1_router.get(
-#     "/oauth/google/{tenant_id}",
-#     summary="Initiates Google OAuth process",
-#     include_in_schema=False,
-# )
-# async def initiate_google_oauth(request: Request, tenant_id: str):
-#     """
-#     Initiates Google OAuth process.
-#     """
-#     state = urllib.parse.quote(f"tenant_id={tenant_id}")
-#     authorization_url = (
-#         "https://accounts.google.com/o/oauth2/v2/auth"
-#         "?response_type=code"
-#         f"&client_id={GOOGLE_CLIENT_ID}"
-#         f"&redirect_uri={REDIRECT_URI}"
-#         "&scope=https://www.googleapis.com/auth/calendar.readonly"
-#         "&access_type=offline"
-#         "&prompt=consent"
-#         f"&state={state}"
-#     )
-#     return RedirectResponse(url=authorization_url)
-#
-#
-# @v1_router.get(
-#     "/google-callback",
-#     summary="Handles Google OAuth callback",
-#     include_in_schema=False,
-# )
-# async def handle_google_oauth_callback(
-#     request: Request,
-#     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
-# ):
-#     """
-#     Handles Google OAuth callback.
-#     """
-#     code = request.query_params.get("code")
-#     state = request.query_params.get("state")
-#     logger.info(f"Received Google OAuth callback with code: {code} and state: {state}")
-#
-#     if not code:
-#         raise HTTPException(status_code=400, detail="Code not found in request")
-#     if not state:
-#         raise HTTPException(status_code=400, detail="State not found in request")
-#
-#     state_params = dict(urllib.parse.parse_qsl(state))
-#     tenant_id = state_params.get("tenant_id")
-#
-#     logger.info(f"Tenant ID: {tenant_id}")
-#
-#     token_url = "https://oauth2.googleapis.com/token"
-#     token_data = {
-#         "code": code,
-#         "client_id": GOOGLE_CLIENT_ID,
-#         "client_secret": GOOGLE_CLIENT_SECRET,
-#         "redirect_uri": REDIRECT_URI,
-#         "grant_type": "authorization_code",
-#     }
-#
-#     token_response = requests.post(token_url, data=token_data)
-#     if token_response.status_code != 200:
-#         logger.error(f"Token request failed: {token_response.text}")
-#         raise HTTPException(status_code=400, detail="Failed to fetch token")
-#
-#     tokens = token_response.json()
-#     logger.debug(f"Tokens: {tokens}")
-#     access_token = tokens.get("access_token")
-#     refresh_token = tokens.get("refresh_token")
-#
-#     # Store tokens in the database
-#
-#     google_creds_repository.insert(
-#         {
-#             "tenant_id": tenant_id,
-#             "accessToken": access_token,
-#             "refreshToken": refresh_token,
-#         }
-#     )
-#
-#     return JSONResponse(
-#         content={"message": "OAuth flow completed", "access token": access_token}
-#     )
-#
-#
-# @v1_router.get(
-#     "/google/credentials/{tenant_id}",
-#     response_class=JSONResponse,
-#     summary="Fetches Google credentials for a tenant",
-#     include_in_schema=False,
-# )
-# def fetch_google_credentials(
-#     tenant_id: str,
-#     google_creds_repository=Depends(google_creds_repository),
-# ) -> JSONResponse:
-#     """
-#     Fetches Google credentials for a given tenant.
-#     """
-#     logger.info(f"Received Google credentials request for tenant: {tenant_id}")
-#     creds = google_creds_repository.get_creds(tenant_id)
-#     logger.info(f"Fetched Google credentials: {creds}")
-#     return JSONResponse(content=creds)
-#
-#
 @v1_router.get(
     "/google/meetings/{user_email}",
     response_class=JSONResponse,

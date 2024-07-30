@@ -7,7 +7,7 @@ cert.pem
 key.pem
 Leads_updated_only_vagif.csv
 data/test/specific_persons_test
-data/test/test_meetings.py
+data/test/data_test_meetings.py
 
 .idea/
 
