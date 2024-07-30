@@ -39,7 +39,6 @@ class ProfilesRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info("Created profiles table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
             traceback.print_exc()
