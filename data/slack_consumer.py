@@ -1,6 +1,8 @@
+import asyncio
 import json
 import os
 import sys
+import traceback
 
 from loguru import logger
 
@@ -9,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.slack.slack_bot import send_message
+from data.slack.slack_bot import send_message, handle_message, run_rtm_client
 
 
 from data.data_common.utils.str_utils import get_uuid4
@@ -74,3 +76,26 @@ class SlackConsumer(GenieConsumer):
         Failed to enrich data for person: {person}.
         """
         send_message(message)
+
+    async def start(self):
+        logger.info(
+            f"Starting consumer for topics: {self.topics} on group: {self.consumer._consumer_group}"
+        )
+        try:
+            task1 = asyncio.create_task(run_rtm_client())
+            logger.info("Created task for RTM client")
+            task2 = asyncio.create_task(
+                self.consumer.receive(
+                    on_event=self.on_event, starting_position="-1", prefetch=1
+                )
+            )
+            logger.info("Created task for consumer receive")
+            await asyncio.gather(task1, task2)
+        except asyncio.CancelledError:
+            logger.warning("Consumer cancelled, closing consumer.")
+            await self.consumer.close()
+        except Exception as e:
+            logger.error(f"Error occurred while running consumer: {e}")
+            logger.error("Detailed traceback information:")
+            traceback.print_exc()
+            await self.consumer.close()
