@@ -24,7 +24,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1234"],
+    allow_origins=["http://localhost:1234","http://localhost:5173","https://app.genieai.ai"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
