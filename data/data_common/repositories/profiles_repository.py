@@ -187,7 +187,7 @@ class ProfilesRepository:
             logger.error("Error fetching profiles by uuids:", error)
             return []
 
-    def get_profile_picture(self, uuid: str) -> list:
+    def get_profile_picture(self, uuid: str) -> str | None:
         select_query = """
         SELECT picture_url
         FROM profiles
@@ -202,8 +202,8 @@ class ProfilesRepository:
                     return row[0]
                 else:
                     logger.error(f"Error with getting profile picture for {uuid}")
-                    return ""
+                    return None
         except Exception as error:
             logger.error("Error fetching profile pictures by uuids:", error)
             traceback.print_exc()
-            return []
+            return None

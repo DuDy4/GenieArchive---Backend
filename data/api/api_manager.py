@@ -491,7 +491,9 @@ def get_profile_good_to_know(
     """
     logger.info(f"Got good-to-know request for profile: {uuid}")
     if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
+        return GoodToKnowResponse(
+            content={"error": "Profile not found under this tenant"}
+        )
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
         news = profile.news
@@ -499,7 +501,7 @@ def get_profile_good_to_know(
         hobbies_uuid = profile.hobbies
         logger.info(f"Got hobbies: {hobbies_uuid}")
         hobbies = [
-            hobbies_repository.get_hobby(hobbie_uuid) for hobbie_uuid in hobbies_uuid
+            hobbies_repository.get_hobby(hobby_uuid) for hobby_uuid in hobbies_uuid
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
