@@ -24,9 +24,7 @@ from data.data_common.utils.str_utils import get_uuid4
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-CONSUMER_GROUP = "personmanagerconsumergroup" + os.environ.get(
-    "CONSUMER_GROUP_NAME", ""
-)
+CONSUMER_GROUP = "personmanagerconsumergroup"
 
 
 class PersonManager(GenieConsumer):
@@ -161,6 +159,15 @@ class PersonManager(GenieConsumer):
             )
             person.uuid = person_in_database.uuid
 
+        # If person is found in the database, check that it is not an empty person (only email and uuid)
+        if (
+            person_in_database
+            and not person_in_database.name
+            and not person_in_database.linkedin
+        ):
+            self.persons_repository.update(person)
+            logger.info("Updated person in database")
+
         if tenant_id:
             has_ownership = self.ownerships_repository.check_ownership(
                 tenant_id, person.uuid
@@ -179,18 +186,15 @@ class PersonManager(GenieConsumer):
         # Assuming the event body contains a JSON string with the processed data
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
-        logger.debug(f"Event body: {event_body}, type: {type(event_body)}")
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-            logger.debug(f"Event body: {event_body}, type: {type(event_body)}")
         person_dict = event_body.get("person")
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
-        logger.debug(f"Person: {person_dict}, type: {type(person_dict)}")
         profile = event_body.get("profile")
         if isinstance(profile, str):
             profile = json.loads(profile)
-        logger.debug(f"Person: {person_dict}, Profile: {profile}")
+        logger.debug(f"Person: {person_dict},\n Profile: {str(profile)[:300]}")
         if not profile.get("picture_url"):
             profile[
                 "picture_url"
@@ -214,7 +218,10 @@ class PersonManager(GenieConsumer):
                 "picture_url": profile.get("picture_url", ""),
             }
         )
-        logger.debug(f"Profile person: {profile_person}")
+        profile_details = "\n".join(
+            [f"{k}: {v}" for k, v in profile_person.__dict__.items()]
+        )
+        logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_person)
         json_profile = profile_person.to_json()
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")

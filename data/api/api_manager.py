@@ -310,9 +310,7 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get(
-    "/{tenant_id}/{meeting_id}/profiles/", response_model=MiniProfileResponse
-)
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfileResponse)
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
@@ -596,24 +594,6 @@ def fetch_google_meetings(
     )
 
     logger.debug(f"Google credentials before refresh: {google_credentials}")
-
-    # try:
-    #     google_credentials.refresh(GoogleRequest())
-    # except Exception as e:
-    #     logger.error(f"Error refreshing Google credentials: {e}")
-    #     raise HTTPException(
-    #         status_code=401, detail="Error refreshing Google credentials"
-    #     )
-
-    # logger.debug(f"Google credentials after refresh: {google_credentials}")
-
-    # google_creds_repository.update_creds(
-    #     {
-    #         "tenant_id": tenant_id,
-    #         "access_token": google_credentials.token,
-    #         "refresh_token": google_credentials.refresh_token,
-    #     }
-    # )
 
     access_token = google_credentials.token
 

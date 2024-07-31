@@ -19,7 +19,7 @@ from data.data_common.utils.str_utils import get_uuid4
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.dependencies.dependencies import companies_repository
 
-CONSUMER_GROUP = "slack_consumer_group" + os.environ.get("CONSUMER_GROUP_NAME", "")
+CONSUMER_GROUP = "slack_consumer_group"
 
 
 class SlackConsumer(GenieConsumer):

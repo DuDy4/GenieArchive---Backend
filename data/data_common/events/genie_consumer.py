@@ -1,6 +1,8 @@
 import os
 import asyncio
 import traceback
+
+import aiohttp
 from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
@@ -9,6 +11,7 @@ from loguru import logger
 
 class GenieConsumer:
     def __init__(self, topics, consumer_group="$Default"):
+        self.consumer_group = consumer_group
         connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
         eventhub_name = os.environ.get("EVENTHUB_NAME", "")
         storage_connection_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
@@ -21,7 +24,7 @@ class GenieConsumer:
             consumer_group=consumer_group,
             eventhub_name=eventhub_name,
             checkpoint_store=checkpoint_store,
-            transport_type=TransportType.AmqpOverWebsocket,
+            transport_type=TransportType.AmqpOverWebsocket,  # Optional: use AMQP over WebSockets if necessary for network conditions
         )
         self.topics = topics
         self._shutdown_event = asyncio.Event()
@@ -31,18 +34,22 @@ class GenieConsumer:
         try:
             if topic and (topic.decode("utf-8") in self.topics):
                 logger.info(
-                    f"TOPIC={topic.decode('utf-8')} | About to process event: {event}"
+                    f"TOPIC={topic} | About to process event: {str(event)[:300]}"
                 )
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(f"Event topic [{topic}] not in topics: {self.topics}")
+                logger.info(
+                    f"Skipping topic [{topic.decode('utf-8')}]. Consumer group: {self.consumer_group}"
+                )
         except Exception as e:
-            logger.error(f"Exception occurred: {e}")
+            logger.info("Exception occurred:", e)
+            logger.info("Detailed traceback information:")
             traceback.print_exc()
         await partition_context.update_checkpoint(event)
 
     async def process_event(self, event):
+        """Override this method in subclasses to define event processing logic."""
         raise NotImplementedError("Must be implemented in subclass")
 
     async def start(self):
@@ -57,9 +64,20 @@ class GenieConsumer:
                 await self._shutdown_event.wait()
         except asyncio.CancelledError:
             logger.warning("Consumer cancelled, closing consumer.")
+            await self.consumer.close()
         except Exception as e:
             logger.error(f"Error occurred while running consumer: {e}")
+            logger.error("Detailed traceback information:")
             traceback.print_exc()
+            await self.consumer.close()
+
+    def run(self):
+        try:
+            asyncio.run(self.start())
+        except KeyboardInterrupt:
+            logger.info("Received KeyboardInterrupt, stopping consumer.")
+        finally:
+            asyncio.run(self.cleanup())
 
     async def stop(self):
         self._shutdown_event.set()
