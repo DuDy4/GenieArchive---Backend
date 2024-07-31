@@ -547,7 +547,6 @@ def get_profile_work_experience(
                 exp["start_date"] = None
 
         short_sorted_experience = sorted_experience[:10]
-        logger.info(f"Short sorted experience: {short_sorted_experience}")
 
         return JSONResponse(content=titleize_values(short_sorted_experience))
     return JSONResponse(content={"error": "Could not find profile"})
