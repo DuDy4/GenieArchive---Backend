@@ -155,13 +155,16 @@ class PDLConsumer(GenieConsumer):
             personal_data = self.merge_personal_data(
                 personal_data_in_repo, personal_data
             )
-            if personal_data != personal_data_in_repo:
-                self.personal_data_repository.save_personal_data(
-                    existing_uuid, personal_data
-                )
-            person = self.create_person(existing_uuid)
-            self.send_event(person, personal_data)
-            return {"status": "success"}
+            if personal_data:
+                if personal_data != personal_data_in_repo:
+                    self.personal_data_repository.save_personal_data(
+                        existing_uuid, personal_data
+                    )
+                person = self.create_person(existing_uuid)
+                self.send_event(person, personal_data)
+                return {"status": "success"}
+            else:
+                logger.info(f"Failed to fetch personal data for {email}")
 
 
         # No personal data exists in database for the email
