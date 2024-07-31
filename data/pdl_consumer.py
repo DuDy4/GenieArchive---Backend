@@ -209,7 +209,7 @@ class PDLConsumer(GenieConsumer):
 
     def send_event(self, person: PersonDTO, personal_data: dict):
         data_to_transfer = {
-            "person": person,
+            "person": person.to_dict(),
             "personal_data": personal_data,
         }
         event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
