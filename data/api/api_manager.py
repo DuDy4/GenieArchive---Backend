@@ -11,6 +11,7 @@ import urllib.parse
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from loguru import logger
+
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
@@ -482,7 +483,6 @@ def get_profile_good_to_know(
     tenant_id: str,
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    persons_repository: PersonsRepository = Depends(persons_repository),
     hobbies_repository: HobbiesRepository = Depends(hobbies_repository),
 ) -> GoodToKnowResponse:
     """
@@ -505,17 +505,8 @@ def get_profile_good_to_know(
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
-        connections_uuid = profile.connections
-        logger.info(f"Got connections: {connections_uuid}")
-        connections = [
-            persons_repository.get_person(connection_uuid)
-            for connection_uuid in connections_uuid
-        ]
-        connections = [connection.to_dict() for connection in connections]
-        for i in range(len(connections)):
-            connections[i]["picture_url"] = profiles_repository.get_profile_picture(
-                connections[i]["uuid"]
-            )
+        connections = profile.connections
+
         good_to_know = {
             "news": news,
             "hobbies": hobbies,
@@ -546,10 +537,32 @@ def get_profile_work_experience(
     logger.info(f"Got work experience request for profile: {uuid}")
 
     personal_data = personal_data_repository.get_personal_data(uuid)
-    logger.debug(f"Personal data: {personal_data}")
 
     if personal_data:
-        return JSONResponse(content=personal_data["experience"])
+        experience = personal_data["experience"]
+
+        # Convert end_date and start_date to a format that allows sorting
+        for exp in experience:
+            exp["end_date"] = (
+                exp["end_date"] or "9999-12-31"
+            )  # Treat ongoing as future date
+            exp["start_date"] = exp["start_date"] or "0000-01-01"
+
+        # Sort experience
+        sorted_experience = sorted(
+            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
+        )
+
+        for exp in experience:
+            if exp["end_date"] == "9999-12-31":
+                exp["end_date"] = None
+            if exp["start_date"] == "0000-01-01":
+                exp["start_date"] = None
+
+        short_sorted_experience = sorted_experience[:10]
+        logger.info(f"Short sorted experience: {short_sorted_experience}")
+
+        return JSONResponse(content=short_sorted_experience)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
