@@ -195,7 +195,7 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def get_personal_data_by_email(self, email_address: str):
+    def get_personal_uuid_by_email(self, email_address: str):
         """
         Retrieve personal data associated with an email address.
 

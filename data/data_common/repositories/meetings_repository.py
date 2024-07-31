@@ -175,7 +175,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -195,7 +195,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, link, subject, start_time, end_time
+        SELECT *
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -203,11 +203,11 @@ class MeetingsRepository:
             self.create_table_if_not_exists()
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (tenant_id,))
-                rows = cursor.fetchall()
-                if rows:
-                    logger.info(f"Got {len(rows)} meetings from database")
-                    logger.debug(f"Got meetings: {rows}")
-                    return [MeetingDTO.from_tuple(row) for row in rows]
+                meetings = cursor.fetchall()
+                if meetings:
+                    logger.info(f"Got {len(meetings)} meetings from database")
+                    # logger.debug(f"Got meetings: {meetings}")
+                    return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
                 else:
                     logger.error(f"No meetings found for tenant_id: {tenant_id}")
                     return []

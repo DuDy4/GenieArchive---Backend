@@ -84,7 +84,7 @@ def test_google_token(token: str):
 
     if token_response.status_code != 200:
         logger.error(f"Token request failed: {token_response.raise_for_status()}")
-        return JSONResponse(status_code=400, content={"error": "Invalid token"})
+        raise HTTPException(status_code=400, detail="Failed to fetch token")
 
     tokens = token_response.json()
     logger.debug(f"Tokens: {tokens}")
@@ -115,13 +115,16 @@ async def post_social_auth_data(
     """
     logger.info("Received JWT data")
     auth_data = await request.json()
-    # logger.info(f"Received auth data: {auth_data}")
+    logger.info(f"Received auth data: {auth_data}")
     auth_claims = auth_data["data"]["claims"]
     user_email = auth_claims["email"]
     user_tenant_id = auth_claims["tenantId"]
+    user_name = auth_claims["userId"]
     logger.info(
         f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}"
     )
+    tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email}
+    tenants_repository.insert(tenant_data)
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     return JSONResponse(content={"verdict": "allow"})
 
@@ -296,14 +299,13 @@ async def get_all_meetings_by_profile_name(
     """
     logger.info(f"Received get profiles request, with search: '{name}'")
 
-    persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
-    logger.info(f"Got persons_uuid: {persons_uuid}")
-    persons_emails = persons_repository.get_emails_list(persons_uuid, name)
-    logger.info(f"Got persons_emails: {persons_emails}")
-    meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
+    # persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+    # logger.info(f"Got persons_uuid: {persons_uuid}")
+    # persons_emails = persons_repository.get_emails_list(persons_uuid, name)
+    # logger.info(f"Got persons_emails: {persons_emails}")
+    # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
+    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
-    logger.info(f"Got meetings: {dict_meetings}")
-
     return JSONResponse(content=dict_meetings)
 
 
@@ -491,9 +493,7 @@ def get_profile_good_to_know(
     """
     logger.info(f"Got good-to-know request for profile: {uuid}")
     if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return GoodToKnowResponse(
-            content={"error": "Profile not found under this tenant"}
-        )
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
         news = profile.news
@@ -616,7 +616,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=15,
+                maxResults=10,
                 singleEvents=True,
                 orderBy="startTime",
             )

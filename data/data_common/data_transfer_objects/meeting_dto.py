@@ -10,6 +10,7 @@ class MeetingDTO:
         google_calendar_id,
         tenant_id,
         participants_emails,
+        participants_hash,
         link,
         subject,
         start_time,
@@ -19,6 +20,7 @@ class MeetingDTO:
         self.google_calendar_id = google_calendar_id
         self.tenant_id = tenant_id
         self.participants_emails = participants_emails
+        self.participants_hash = participants_hash
         self.link = link
         self.subject = subject
         self.start_time = start_time
@@ -30,6 +32,7 @@ class MeetingDTO:
             "google_calendar_id": self.google_calendar_id,
             "tenant_id": self.tenant_id,
             "participants_emails": self.participants_emails,
+            "participants_hash": self.participants_hash,
             "link": self.link,
             "subject": self.subject,
             "start_time": self.start_time,
@@ -43,6 +46,7 @@ class MeetingDTO:
             google_calendar_id=data.get("google_calendar_id", ""),
             tenant_id=data.get("tenant_id", ""),
             participants_emails=data.get("participants_emails", []),
+            participants_hash=data.get("participants_hash", ""),
             link=data.get("link", ""),
             subject=data.get("subject", ""),
             start_time=data.get("start_time", ""),
@@ -55,6 +59,7 @@ class MeetingDTO:
             self.google_calendar_id,
             self.tenant_id,
             self.participants_emails,
+            self.participants_hash,
             self.link,
             self.subject,
             self.start_time,
@@ -68,10 +73,11 @@ class MeetingDTO:
             google_calendar_id=row[1],
             tenant_id=row[2],
             participants_emails=row[3],
-            link=row[4],
-            subject=row[5],
-            start_time=row[6],
-            end_time=row[7],
+            participants_hash=row[4],
+            link=row[5],
+            subject=row[6],
+            start_time=row[7],
+            end_time=row[8],
         )
 
     def to_json(self):
@@ -89,6 +95,7 @@ class MeetingDTO:
             google_calendar_id=event.get("id", ""),
             tenant_id=tenant_id,
             participants_emails=event.get("attendees", []),
+            participants_hash=event.get("participants_hash", ""),
             link=event.get("hangoutLink", ""),
             subject=event.get("summary", ""),
             start_time=event.get("start", "").get("dateTime", "")

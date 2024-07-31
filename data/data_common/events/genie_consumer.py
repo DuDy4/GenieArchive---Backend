@@ -28,16 +28,14 @@ class GenieConsumer:
         self.topics = topics
 
     async def on_event(self, partition_context, event):
-        logger.info(f"Received event")
         topic = event.properties.get(b"topic")
-        logger.info(f"Event topic: {topic}")
-        logger.info(f"Event decoded: {topic.decode('utf-8')}")
-        logger.debug(f"Topics: {self.topics}")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
-                # logger.info(f"About to process event: {event}")
+                logger.info(f"TOPIC={topic} | About to process event: {event}")
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
+            else:
+                logger.info(f"Event topic [{topic}] not in topics: {topic.decode('utf-8')}")
         except Exception as e:
             logger.info("Exception occurred:", e)
             logger.info("Detailed traceback information:")
