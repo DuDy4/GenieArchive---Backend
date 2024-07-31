@@ -17,9 +17,7 @@ load_dotenv()
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
-CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup" + os.environ.get(
-    "CONSUMER_GROUP_NAME", ""
-)
+CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 
 
 class LangsmithConsumer(GenieConsumer):
@@ -55,12 +53,21 @@ class LangsmithConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
-        response = self.langsmith.run_prompt_profile_person(str(personal_data))
-        logger.info(f"Response: {response}")
+        person_data = {"personal_data": personal_data}
+        response = await self.langsmith.get_profile(person_data)
+        logger.info(
+            f"Response: {response.keys() if isinstance(response, dict) else response}"
+        )
         person = event_body.get("person")
-        logger.debug(f"Person: {person}")
+        logger.info(f"Person: {person}")
+        profile = {
+            "strengths": response.get("strengths"),
+            "get_to_know": response.get("get_to_know"),
+        }
 
-        data_to_send = {"person": person, "profile": response}
+        data_to_send = {"person": person, "profile": profile}
+
+        logger.info(f"About to send event's data: {data_to_send}")
 
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()
@@ -126,7 +133,7 @@ class LangsmithConsumer(GenieConsumer):
             event = GenieEvent(Topic.FAILED_TO_GET_LINKEDIN_URL, data_to_send, "public")
             event.send()
             return {"status": "failed"}
-
-        event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
-        event.send()
-        return {"status": "success"}
+        #
+        # event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
+        # event.send()
+        # return {"status": "success"}
