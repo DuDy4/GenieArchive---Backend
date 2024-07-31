@@ -1,5 +1,4 @@
 import uuid
-import inflection
 
 SMALL_WORDS = {
     "and",
