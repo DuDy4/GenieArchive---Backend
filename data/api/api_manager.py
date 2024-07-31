@@ -12,6 +12,8 @@ from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from loguru import logger
 
+from data.data_common.utils.str_utils import titleize_values
+
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
@@ -224,29 +226,6 @@ async def get_user_account(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-#
-# @v1_router.get(
-#     "/profile/{uuid}",
-#     response_model=ProfileResponse,
-#     summary="Fetches and returns a specific profile",
-#     include_in_schema=False,
-# )
-# def get_profile(
-#     uuid: str,
-#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-# ):
-#     """
-#     Fetches and returns a specific profile.
-#     """
-#     logger.info("Received profile request")
-#     profile = profiles_repository.get_profile_data(uuid)
-#     logger.info(f"Fetched profile: {profile}")
-#     if profile:
-#         return profile.to_dict()
-#     else:
-#         return {"error": "Profile not found"}
-
-
 @v1_router.get(
     "/profiles/{tenant_id}",
     response_model=ProfilesListResponse,
@@ -274,7 +253,7 @@ async def get_all_profiles(
 
     logger.info(f"Got profiles: {len(profiles_list)}")
     logger.debug(f"Profiles: {[profile.name for profile in profiles_list]}")
-    return JSONResponse(content=jsoned_profiles_list)
+    return JSONResponse(content=titleize_values(jsoned_profiles_list))
 
 
 @v1_router.get(
@@ -307,7 +286,7 @@ async def get_all_meetings_by_profile_name(
     # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
-    return JSONResponse(content=dict_meetings)
+    return JSONResponse(content=titleize_values(dict_meetings))
 
 
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfileResponse)
@@ -355,7 +334,7 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append({"uuid": profile.uuid, "name": profile.name})
     logger.info(f"Sending profiles: {profiles}")
-    return JSONResponse(content=profiles)
+    return JSONResponse(content=titleize_values(profiles))
 
 
 @v1_router.get(
@@ -409,7 +388,7 @@ def get_profile_attendee_info(
         "position": position,
         "social_media_links": links,
     }
-    return JSONResponse(content=profile)
+    return JSONResponse(content=titleize_values(profile))
 
 
 @v1_router.get(
@@ -440,7 +419,7 @@ def get_profile_strengths(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        return JSONResponse(content=profile.strengths)
+        return JSONResponse(content=titleize_values(profile.strengths))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -469,7 +448,7 @@ def get_profile_get_to_know(
     logger.info(f"Got profile: {profile}")
     if profile:
         logger.info(f"Got get-to-know: {profile.get_to_know}")
-        return JSONResponse(content=profile.get_to_know)
+        return JSONResponse(content=titleize_values(profile.get_to_know))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -511,7 +490,7 @@ def get_profile_good_to_know(
             "connections": connections,
         }
         logger.info(f"Good to know: {good_to_know}")
-        return JSONResponse(content=good_to_know)
+        return JSONResponse(content=titleize_values(good_to_know))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -560,7 +539,7 @@ def get_profile_work_experience(
         short_sorted_experience = sorted_experience[:10]
         logger.info(f"Short sorted experience: {short_sorted_experience}")
 
-        return JSONResponse(content=short_sorted_experience)
+        return JSONResponse(content=titleize_values(short_sorted_experience))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -634,4 +613,4 @@ def fetch_google_meetings(
         )
         event.send()
 
-    return JSONResponse(content={"events": meetings})
+    return JSONResponse(content=titleize_values({"events": meetings}))
