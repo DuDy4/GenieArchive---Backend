@@ -142,39 +142,29 @@ class PDLConsumer(GenieConsumer):
         logger.info(f"Email: {email}")
 
         # Check if the email already exists in the database - should return uuid of the existing record
-        existing_uuid = self.personal_data_repository.get_personal_data_by_email(email)
+        existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
         if existing_uuid:
-            if not self.pdl_client.does_need_last_updated(existing_uuid):
-                logger.info(
-                    f"Personal data for {email} already exists in the database. And is up to date"
-                )
-                return
-            else:
-                # Assuming that we have personal data, but we need to check if it is up-to-date
+            personal_data_in_repo = self.personal_data_repository.get_personal_data(existing_uuid)
+            personal_data = ""
+            if self.pdl_client.does_need_last_updated(existing_uuid):
                 personal_data = self.pdl_client.get_single_profile_from_email_address(
                     email
                 )
-                logger.info(f"Personal data: {personal_data}")
-                personal_data_in_repo = self.personal_data_repository.get_personal_data(
-                    existing_uuid
-                )
-                if personal_data_in_repo != personal_data:
-                    personal_data = self.merge_personal_data(
-                        personal_data_in_repo, personal_data
-                    )
-                    self.personal_data_repository.save_personal_data(
-                        existing_uuid, personal_data
-                    )
-                    person = self.create_person(existing_uuid)
-                    self.send_event(person, personal_data)
-                    return {"status": "success"}
-                else:
-                    logger.info(
-                        f"Personal data for {email} already exists in the database. And is up to date"
-                    )
-                    return {"status": "success"}
+                logger.info(f"Fetched Personal data from PDL: {personal_data}")
 
-        # Assuming that we have personal data, but we need to check if it is up-to-date
+            personal_data = self.merge_personal_data(
+                personal_data_in_repo, personal_data
+            )
+            if personal_data != personal_data_in_repo:
+                self.personal_data_repository.save_personal_data(
+                    existing_uuid, personal_data
+                )
+            person = self.create_person(existing_uuid)
+            self.send_event(person, personal_data)
+            return {"status": "success"}
+
+
+        # No personal data exists in database for the email
         personal_data = self.pdl_client.get_single_profile_from_email_address(email)
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
@@ -231,17 +221,27 @@ class PDLConsumer(GenieConsumer):
         personal_experience = personal_data.get("experience")
         logger.info(f"Personal experience: {personal_experience}")
         position = ""
-        if isinstance(personal_experience, list):
-            position = personal_experience[0].get("title").get("name")
-        elif isinstance(personal_experience, dict):
-            position = personal_experience.get("title").get("name")
-        logger.info(f"Position: {position}")
+        company = ""
+        if personal_experience and isinstance(personal_experience, list):
+            personal_experience = personal_experience[0]
+
+        if personal_experience and isinstance(personal_experience, dict):
+            title_object = personal_experience.get("title")
+            if title_object and isinstance(title_object, dict) :
+                position = title_object.get("name")
+            company_object = personal_experience.get("company")
+            if company_object and isinstance(company_object, dict) :
+                company = company_object.get("name")
+
+        person_name = row_dict.get("name", "") or personal_data.get("full_name")
+        person_email = row_dict.get("email", "")
+        logger.info(f"Position: {position}, Company: {company}, Person Name: {person_name}, Person Email: {person_email}")
 
         person = PersonDTO(
             uuid=uuid,
-            name=row_dict.get("name", "") or personal_data.get("full_name"),
-            company=personal_data.get("experience").get("company").get("name"),
-            email=row_dict.get("email", ""),
+            name=person_name,
+            company=company,
+            email=person_email,
             linkedin=row_dict.get("linkedin_url", ""),
             position=position,
             timezone="",
@@ -254,7 +254,10 @@ class PDLConsumer(GenieConsumer):
         Needs to be implemented after deciding how to merge the data
         """
         logger.warning("Needs to be implemented after deciding how to merge the data")
-        return personal_data
+        if personal_data:
+            return personal_data
+        else:
+            return personal_data_in_repo
 
 
 class PDLClient:
@@ -357,7 +360,7 @@ class PDLClient:
     def get_single_profile_from_email_address(
         self, email_address: str
     ) -> dict[str, dict] | None:
-        existing_profile = self.personal_data_repository.get_personal_data_by_email(
+        existing_profile = self.personal_data_repository.get_personal_uuid_by_email(
             email_address
         )
         if existing_profile:
