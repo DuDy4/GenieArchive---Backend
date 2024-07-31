@@ -11,6 +11,7 @@ from loguru import logger
 
 class GenieConsumer:
     def __init__(self, topics, consumer_group="$Default"):
+        self._shutdown_event = asyncio.Event()
         connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
         eventhub_name = os.environ.get("EVENTHUB_NAME", "")
         storage_connection_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
@@ -59,36 +60,14 @@ class GenieConsumer:
                 await self.consumer.receive(
                     on_event=self.on_event, starting_position="-1", prefetch=1
                 )
+                await self._shutdown_event.wait()
         except asyncio.CancelledError:
             logger.warning("Consumer cancelled, closing consumer.")
-            await self.consumer.close()
         except Exception as e:
             logger.error(f"Error occurred while running consumer: {e}")
-            logger.error("Detailed traceback information:")
             traceback.print_exc()
-            await self.consumer.close()
 
-    def run(self):
-        try:
-            asyncio.run(self.start())
-        except KeyboardInterrupt:
-            logger.info("Received KeyboardInterrupt, stopping consumer.")
-        finally:
-            asyncio.run(self.cleanup())
-
-    async def cleanup(self):
-        # Cancel any remaining tasks
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        for task in tasks:
-            task.cancel()
-
-        # Wait for tasks to be cancelled
-        pending = asyncio.as_completed(tasks)
-        for task in pending:
-            try:
-                await task
-            except asyncio.CancelledError:
-                continue
-
-        # Close the aiohttp ClientSession and Connector
+    async def stop(self):
+        self._shutdown_event.set()
         await self.consumer.close()
+        logger.info("Consumer stopped and resources released.")
