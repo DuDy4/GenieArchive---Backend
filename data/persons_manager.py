@@ -2,6 +2,9 @@ import json
 import os
 import sys
 
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urlunparse
 from loguru import logger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -195,6 +198,15 @@ class PersonManager(GenieConsumer):
         if isinstance(profile, str):
             profile = json.loads(profile)
         logger.debug(f"Person: {person_dict},\n Profile: {str(profile)[:300]}")
+        uuid = person_dict.get("uuid") if person_dict.get("uuid") else get_uuid4()
+
+        # This is a test to get profile picture from social media links
+        social_media_links = self.personal_data_repository.get_social_media_links(uuid)
+        picture_urls = get_picture_from_social_links_list(social_media_links)
+        logger.debug(f"Picture urls: {picture_urls}")
+        if picture_urls:
+            profile["picture_url"] = picture_urls[0]
+
         if not profile.get("picture_url"):
             profile[
                 "picture_url"
@@ -202,7 +214,7 @@ class PersonManager(GenieConsumer):
 
         profile_person = ProfileDTO.from_dict(
             {
-                "uuid": person_dict.get("uuid"),
+                "uuid": uuid,
                 "name": person_dict.get("name"),
                 "company": person_dict.get("company"),
                 "position": person_dict.get("position")
@@ -315,3 +327,43 @@ class PersonManager(GenieConsumer):
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
         return {"status": "success"}
+
+
+def get_profile_picture(url, platform):
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    # Ensure the URL has the scheme
+    parsed_url = urlparse(url)
+    if not parsed_url.scheme:
+        if parsed_url.netloc:
+            url = urlunparse(("https", parsed_url.netloc, parsed_url.path, "", "", ""))
+        else:
+            url = urlunparse(("https", parsed_url.path, "", "", "", ""))
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, "html.parser")
+        match platform.lower():
+            case "linkedin":
+                profile_picture = soup.find("img", {"class": "profile-photo"})
+            case "facebook":
+                profile_picture = soup.find("img", {"class": "profilePic"})
+            case "twitter":
+                profile_picture = soup.find("img", {"class": "ProfileAvatar-image"})
+            case _:
+                return None
+        if profile_picture:
+            return profile_picture["src"]
+
+    return None
+
+
+def get_picture_from_social_links_list(links: list[dict]):
+    for entry in links:
+        url = entry.get("url")
+        network = entry.get("network")
+        if url and network:
+            picture_url = get_profile_picture(url, network)
+            if picture_url:
+                return picture_url
+    return None
