@@ -3,7 +3,7 @@ import uuid
 SMALL_WORDS = {
     "and",
     "or",
-    "the",
+    "as" "the",
     "a",
     "an",
     "but",
@@ -26,6 +26,8 @@ SMALL_WORDS = {
 def to_custom_title_case(value):
     if isinstance(value, str):
         words = value.split()
+        if len(words) == 0:
+            return value
         title_cased = [words[0].capitalize()]
         for word in words[1:-1]:
             if word in SMALL_WORDS:
@@ -47,7 +49,7 @@ def titleize_values(data):
         return [titleize_values(item) for item in data]
     if isinstance(data, dict):
         return {
-            k: to_custom_title_case(v) if isinstance(v, str) else titleize_values(v)
+            k: v.title() if isinstance(v, str) else titleize_values(v)
             for k, v in data.items()
         }
     return data

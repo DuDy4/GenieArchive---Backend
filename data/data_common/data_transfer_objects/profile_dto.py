@@ -1,5 +1,6 @@
 import json
 from typing import List, Dict
+from data.data_common.utils.str_utils import titleize_values, to_custom_title_case
 
 
 class ProfileDTO:
@@ -34,16 +35,16 @@ class ProfileDTO:
     def to_dict(self):
         return {
             "uuid": self.uuid,
-            "name": self.name,
-            "company": self.company,
-            "position": self.position,
-            "challenges": self.challenges,
+            "name": to_custom_title_case(self.name),
+            "company": to_custom_title_case(self.company),
+            "position": to_custom_title_case(self.position),
+            "challenges": titleize_values(self.challenges),
             "strengths": self.strengths,
-            "hobbies": self.hobbies,
-            "connections": self.connections,
-            "news": self.news,
+            "hobbies": titleize_values(self.hobbies),
+            "connections": to_custom_title_case(self.connections),
+            "news": titleize_values(self.news),
             "get_to_know": self.get_to_know,
-            "summary": self.summary,
+            "summary": titleize_values(self.summary),
             "picture_url": self.picture_url,
         }
 

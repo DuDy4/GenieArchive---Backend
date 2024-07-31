@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from loguru import logger
 
+from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.utils.str_utils import titleize_values
 
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
@@ -252,8 +253,9 @@ async def get_all_profiles(
     jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
 
     logger.info(f"Got profiles: {len(profiles_list)}")
+
     logger.debug(f"Profiles: {[profile.name for profile in profiles_list]}")
-    return JSONResponse(content=titleize_values(jsoned_profiles_list))
+    return JSONResponse(content=jsoned_profiles_list)
 
 
 @v1_router.get(
@@ -263,7 +265,7 @@ async def get_all_profiles(
 )
 async def get_all_meetings_by_profile_name(
     tenant_id: str,
-    name: str = Query(None, description="Partial text to search profile names"),
+    # name: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
@@ -286,7 +288,7 @@ async def get_all_meetings_by_profile_name(
     # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
-    return JSONResponse(content=titleize_values(dict_meetings))
+    return JSONResponse(content=dict_meetings)
 
 
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfileResponse)
@@ -371,6 +373,10 @@ def get_profile_attendee_info(
     profile = profiles_repository.get_profile_data(uuid)
     if not profile:
         return JSONResponse(content={"error": "Could not find profile"})
+
+    # This will Upper Camel Case and Titleize the values in the profile
+    profile = ProfileDTO.from_dict(profile.to_dict())
+
     picture = profile.picture_url
     name = profile.name
     company = profile.company
@@ -388,7 +394,7 @@ def get_profile_attendee_info(
         "position": position,
         "social_media_links": links,
     }
-    return JSONResponse(content=titleize_values(profile))
+    return JSONResponse(content=profile)
 
 
 @v1_router.get(
@@ -419,7 +425,7 @@ def get_profile_strengths(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        return JSONResponse(content=titleize_values(profile.strengths))
+        return JSONResponse(content=profile.strengths)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -490,7 +496,7 @@ def get_profile_good_to_know(
             "connections": connections,
         }
         logger.info(f"Good to know: {good_to_know}")
-        return JSONResponse(content=titleize_values(good_to_know))
+        return JSONResponse(content=good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -504,6 +510,7 @@ def get_profile_work_experience(
     personal_data_repository: PersonalDataRepository = Depends(
         personal_data_repository
     ),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
 ) -> WorkExperienceResponse:
     """
     Get the work experience of a profile - *Mock version*.
@@ -514,6 +521,9 @@ def get_profile_work_experience(
     logger.info(f"Got work experience request for profile: {uuid}")
 
     personal_data = personal_data_repository.get_personal_data(uuid)
+
+    if not ownerships_repository.check_ownership(tenant_id, uuid):
+        return JSONResponse(content={"error": "Profile not found under this tenant"})
 
     if personal_data:
         experience = personal_data["experience"]
