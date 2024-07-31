@@ -106,8 +106,6 @@ class MeetingDTO:
 
     @staticmethod
     def from_google_calendar_event(event, tenant_id):
-        link = extract_meeting_links(event)
-        logger.info(f"Extracted link: {link}")
         return MeetingDTO(
             uuid=event.get("uuid", get_uuid4()),
             google_calendar_id=event.get("id", ""),
@@ -116,7 +114,7 @@ class MeetingDTO:
             participants_hash=event.get(
                 "participants_hash", hash_participants(event.get("attendees", []))
             ),
-            link=link,
+            link=extract_meeting_links(event),
             subject=event.get("summary", ""),
             start_time=event.get("start", "").get("dateTime", "")
             or event.get("start", "").get("date", ""),
