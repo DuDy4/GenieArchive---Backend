@@ -1,5 +1,9 @@
 import hashlib
 import json
+import re
+
+from loguru import logger
+
 from data.data_common.utils.str_utils import get_uuid4
 from pydantic import BaseModel
 
@@ -102,6 +106,8 @@ class MeetingDTO:
 
     @staticmethod
     def from_google_calendar_event(event, tenant_id):
+        link = extract_meeting_links(event)
+        logger.info(f"Extracted link: {link}")
         return MeetingDTO(
             uuid=event.get("uuid", get_uuid4()),
             google_calendar_id=event.get("id", ""),
@@ -110,7 +116,7 @@ class MeetingDTO:
             participants_hash=event.get(
                 "participants_hash", hash_participants(event.get("attendees", []))
             ),
-            link=event.get("hangoutLink", ""),
+            link=link,
             subject=event.get("summary", ""),
             start_time=event.get("start", "").get("dateTime", "")
             or event.get("start", "").get("date", ""),
@@ -129,3 +135,42 @@ class MeetingDTO:
 def hash_participants(participants_emails: list[str]) -> str:
     emails_string = json.dumps(participants_emails, sort_keys=True)
     return hashlib.sha256(emails_string.encode("utf-8")).hexdigest()
+
+
+def extract_meeting_links(event):
+    meeting_links = []
+
+    # Patterns for different meeting links
+    patterns = {
+        "zoom": r"https://[a-zA-Z0-9.-]*zoom\.us/j/[^\s<]+",
+        "google_meet": r"https://meet\.google\.com/[^\s<]+",
+        "teams": r"https://teams\.microsoft\.com/[^\s<]+",
+        "webex": r"https://[a-zA-Z0-9.-]*webex\.com/[^\s<]+",
+        "gotomeeting": r"https://[a-zA-Z0-9.-]*gotomeeting\.com/[^\s<]+",
+    }
+
+    # Check in description
+    description = event.get("description", "")
+    for key, pattern in patterns.items():
+        found = re.findall(pattern, description)
+        meeting_links.extend(found)
+
+    # Check in location
+    location = event.get("location", "")
+    for key, pattern in patterns.items():
+        found = re.findall(pattern, location)
+        meeting_links.extend(found)
+
+    # Check in conferenceData
+    conference_data = event.get("conferenceData", {})
+    for entry_point in conference_data.get("entryPoints", []):
+        uri = entry_point.get("uri", "")
+        for key, pattern in patterns.items():
+            found = re.findall(pattern, uri)
+            meeting_links.extend(found)
+
+    if len(meeting_links) == 0:
+        return ""
+    if len(meeting_links) > 1:
+        meeting_links = list(set(meeting_links))
+    return meeting_links[0] if meeting_links else ""
