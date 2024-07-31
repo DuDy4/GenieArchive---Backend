@@ -31,7 +31,7 @@ class LangsmithConsumer(GenieConsumer):
         self.langsmith = Langsmith()
 
     async def process_event(self, event):
-        logger.info(f"Person processing event: {event}")
+        logger.info(f"Person processing event: {str(event)[:300]}")
         logger.info(
             f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
         )
@@ -50,7 +50,7 @@ class LangsmithConsumer(GenieConsumer):
 
     async def handle_new_personal_data(self, event):
         event_body = event.body_as_str()
-        logger.info(f"Event body: {event_body}")
+        logger.info(f"Event body: {str(event_body)[:300]}")
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)

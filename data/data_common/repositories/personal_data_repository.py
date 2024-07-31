@@ -247,6 +247,33 @@ class PersonalDataRepository:
             self.conn.rollback()
         return
 
+    def update_uuid(self, uuid, uuid1):
+        """
+        Update the UUID for a profile.
+
+        :param uuid: Old UUID for the profile.
+        :param uuid1: New UUID for the profile.
+        """
+        update_query = """
+        UPDATE personalData
+        SET uuid = %s
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (uuid1, uuid))
+                self.conn.commit()
+                logger.info("Updated UUID")
+        except psycopg2.Error as e:
+            logger.error("Error updating UUID:", e)
+            traceback.print_exc()
+            self.conn.rollback()
+        except Exception as e:
+            logger.error("Error updating UUID:", e)
+            traceback.print_exc()
+            self.conn.rollback()
+        return
+
     def save_personal_data(self, uuid, personal_data: dict | str):
         """
         Save personal data to the database.

@@ -1,39 +1,47 @@
 import asyncio
-
 from loguru import logger
-
 from data.pdl_consumer import PDLConsumer
 from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
 from data.emails_manager import EmailManager
 from data.meetings_consumer import MeetingManager
 from data.hunter_domain_consumer import HunterDomainConsumer
-from data.slack_consumer import SlackConsumer
+
+
+# from data.slack_consumer import SlackConsumer
 
 
 async def run_consumers():
     # Create instances of each consumer
-    langsmith_consumer = LangsmithConsumer()
-    pdl_consumer = PDLConsumer()
-    person_manager = PersonManager()
-    email_manager = EmailManager()
-    meeting_manager = MeetingManager()
-    hunter_domain_consumer = HunterDomainConsumer()
-    slack_consumer = SlackConsumer()
-
-    # Start each consumer in its own task
-    tasks = [
-        asyncio.create_task(person_manager.start()),
-        asyncio.create_task(langsmith_consumer.start()),
-        asyncio.create_task(pdl_consumer.start()),
-        asyncio.create_task(email_manager.start()),
-        asyncio.create_task(meeting_manager.start()),
-        asyncio.create_task(hunter_domain_consumer.start()),
-        asyncio.create_task(slack_consumer.start()),
+    consumers = [
+        PersonManager(),
+        LangsmithConsumer(),
+        PDLConsumer(),
+        EmailManager(),
+        MeetingManager(),
+        HunterDomainConsumer(),
+        # SlackConsumer(),
     ]
 
-    # Wait for all tasks to complete (they won't, since consumers run indefinitely)
-    await asyncio.gather(*tasks)
+    # Start each consumer in its own task
+    tasks = [asyncio.create_task(consumer.start()) for consumer in consumers]
+
+    try:
+        await asyncio.gather(*tasks)
+    except asyncio.CancelledError:
+        logger.info("Consumers have been cancelled.")
+    finally:
+        await cleanup(consumers, tasks)
+
+
+async def cleanup(consumers, tasks):
+    logger.info("Cleaning up consumers.")
+    for consumer in consumers:
+        await consumer.stop()
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    logger.info("All consumers cleaned up.")
 
 
 if __name__ == "__main__":
@@ -41,3 +49,7 @@ if __name__ == "__main__":
         asyncio.run(run_consumers())
     except KeyboardInterrupt:
         logger.info("Received KeyboardInterrupt, stopping consumers.")
+        tasks = asyncio.all_tasks()
+        for task in tasks:
+            task.cancel()
+        asyncio.run(cleanup(tasks))

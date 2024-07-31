@@ -53,16 +53,12 @@ class MeetingsRepository:
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        participants_hash = hash_participants(meeting.participants_emails)
 
         # Convert the participants_emails to JSON string
         meeting_data = meeting.to_tuple()
         meeting_data = (
-            meeting_data[:3]
-            + (json.dumps(meeting_data[3]), participants_hash)
-            + meeting_data[4:]
+            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
         )
-
         logger.info(f"About to insert meeting data: {meeting_data}")
 
         try:
@@ -175,7 +171,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, has_profiles, link, subject, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -255,13 +251,13 @@ class MeetingsRepository:
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, start_time = %s, end_time = %s
         WHERE google_calendar_id = %s;
         """
-        participants_hash = hash_participants(meeting.participants_emails)
         meeting_data = meeting.to_tuple()
         meeting_data = (
-            meeting_data[:3]
-            + (json.dumps(meeting_data[3]), participants_hash)
-            + meeting_data[4:]
+            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
         )
+        # needs implementation to the case we remove an email that is the only profiles,
+        # and therefore needs to update the has_profiles field
+
         meeting_data = meeting_data[2:] + (meeting_data[1],)  # move uuid to the end
         try:
             with self.conn.cursor() as cursor:

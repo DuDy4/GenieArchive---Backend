@@ -17,7 +17,7 @@ class OwnershipsRepository:
     def get_all_persons_for_tenant(self, tenant_id):
         self.create_table_if_not_exists()
         select_query = """
-        SELECT uuid FROM ownerships WHERE tenant_id = %s;
+        SELECT person_uuid FROM ownerships WHERE tenant_id = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -45,7 +45,7 @@ class OwnershipsRepository:
         create_table_query = """
         CREATE TABLE IF NOT EXISTS ownerships (
             id SERIAL PRIMARY KEY,
-            uuid VARCHAR NOT NULL,
+            person_uuid VARCHAR NOT NULL,
             tenant_id VARCHAR
         );
         """
@@ -60,7 +60,7 @@ class OwnershipsRepository:
 
     def insert(self, uuid, tenant_id):
         insert_query = """
-        INSERT INTO ownerships (uuid, tenant_id)
+        INSERT INTO ownerships (person_uuid, tenant_id)
         VALUES (%s, %s)
         RETURNING id;
         """
@@ -80,7 +80,7 @@ class OwnershipsRepository:
 
     def exists(self, uuid, tenant_id):
         select_query = """
-        SELECT id FROM ownerships WHERE uuid = %s AND tenant_id = %s;
+        SELECT id FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -99,7 +99,7 @@ class OwnershipsRepository:
         Check if the ownership exists in the database
         """
         select_query = """
-        SELECT id FROM ownerships WHERE uuid = %s AND tenant_id = %s;
+        SELECT id FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -110,5 +110,23 @@ class OwnershipsRepository:
                 return False
         except psycopg2.Error as error:
             logger.error(f"Error checking ownership existence: {error.pgerror}")
+            traceback.print_exc()
+            return False
+
+    def delete_ownership(self, tenant_id, uuid):
+        """
+        Delete ownership from the database
+        """
+        delete_query = """
+        DELETE FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (uuid, tenant_id))
+                self.conn.commit()
+                logger.info(f"Deleted ownership from database")
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error deleting ownership: {error.pgerror}")
             traceback.print_exc()
             return False

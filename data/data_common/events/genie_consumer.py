@@ -31,11 +31,15 @@ class GenieConsumer:
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
-                logger.info(f"TOPIC={topic} | About to process event: {event}")
+                logger.info(
+                    f"TOPIC={topic} | About to process event: {str(event)[:300]}"
+                )
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(f"Event topic [{topic}] not in topics: {topic.decode('utf-8')}")
+                logger.info(
+                    f"Event topic [{topic}] not in topics: {topic.decode('utf-8')}"
+                )
         except Exception as e:
             logger.info("Exception occurred:", e)
             logger.info("Detailed traceback information:")
@@ -88,9 +92,3 @@ class GenieConsumer:
 
         # Close the aiohttp ClientSession and Connector
         await self.consumer.close()
-
-        # Close any open aiohttp ClientSession instances
-        # await aiohttp.ClientSession.close_all()
-
-        # Close any open aiohttp Connector instances
-        # aiohttp.connector.BaseConnector.close_all()

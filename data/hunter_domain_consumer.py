@@ -38,7 +38,7 @@ class HunterDomainConsumer(GenieConsumer):
         self.company_repository = companies_repository()
 
     async def process_event(self, event):
-        logger.info(f"Person processing event: {event}")
+        logger.info(f"Person processing event: {str(event)[:300]}")
         logger.info(
             f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
         )

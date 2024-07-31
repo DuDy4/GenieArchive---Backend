@@ -39,7 +39,7 @@ class PDLConsumer(GenieConsumer):
         self.pdl_client = create_pdl_client(self.personal_data_repository)
 
     async def process_event(self, event):
-        logger.info(f"PersonManager processing event: {event}")
+        logger.info(f"Person processing event: {str(event)[:300]}")
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         # Should use Topic class
@@ -139,14 +139,18 @@ class PDLConsumer(GenieConsumer):
                 return {"error": "Invalid JSON"}
 
         email = event_body.get("email")
-        logger.info(f"Email: {email}")
+        uuid = event_body.get("uuid")
+        tenant_id = event_body.get("tenant_id")
+        logger.info(f"Email: {email}, uuid: {uuid}, tenant_id: {tenant_id}")
 
         # Check if the email already exists in the database - should return uuid of the existing record
         existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
         if existing_uuid:
-            personal_data_in_repo = self.personal_data_repository.get_personal_data(existing_uuid)
+            personal_data_in_repo = self.personal_data_repository.get_personal_data(
+                existing_uuid
+            )
             personal_data = ""
-            if self.pdl_client.does_need_last_updated(existing_uuid):
+            if self.pdl_client.does_need_update(existing_uuid):
                 personal_data = self.pdl_client.get_single_profile_from_email_address(
                     email
                 )
@@ -161,14 +165,13 @@ class PDLConsumer(GenieConsumer):
                         existing_uuid, personal_data
                     )
                 person = self.create_person(existing_uuid)
-                self.send_event(person, personal_data)
+                self.send_event(person, personal_data, tenant_id)
                 return {"status": "success"}
             else:
                 logger.info(f"Failed to fetch personal data for {email}")
                 return
 
-
-        # No personal data exists in database for the email
+        # If no personal data exists in database for the email
         personal_data = self.pdl_client.get_single_profile_from_email_address(email)
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
@@ -178,39 +181,45 @@ class PDLConsumer(GenieConsumer):
                 if social_profile.get("network") == "linkedin":
                     linkedin_url = social_profile.get("url")
                     break
-            uuid = get_uuid4()
+            if not uuid:
+                uuid = get_uuid4()
             self.personal_data_repository.insert(
                 uuid=uuid,
-                name=personal_data.get("full_name").title()
-                if personal_data.get("full_name")
-                else "",
+                name=personal_data.get("full_name", ""),
                 email=email,
                 linkedin_url=linkedin_url,
                 personal_data=json.dumps(personal_data),
             )
             logger.info(f"Saved personal data for {email}")
             person = self.create_person(uuid)
-            self.send_event(person, personal_data)
+            self.send_event(person, personal_data, tenant_id)
             return {"status": "success"}
         else:
             logger.info(f"Failed to fetch personal data for {email}")
+            if not uuid:
+                uuid = get_uuid4()
             self.personal_data_repository.insert(
-                uuid=get_uuid4(),
+                uuid=uuid,
                 name="",
                 email=email,
                 linkedin_url="",
                 personal_data=personal_data,
                 status=self.personal_data_repository.TRIED_BUT_FAILED,
             )
-            event = GenieEvent(Topic.FAILED_TO_ENRICH_EMAIL, {"email": email}, "public")
+            event = GenieEvent(
+                Topic.FAILED_TO_ENRICH_EMAIL,
+                {"email": email, "tenant_id": tenant_id},
+                "public",
+            )
             event.send()
 
             return {"status": "failed"}
 
-    def send_event(self, person: PersonDTO, personal_data: dict):
+    def send_event(self, person: PersonDTO, personal_data: dict, tenant_id: str):
         data_to_transfer = {
             "person": person.to_dict(),
             "personal_data": personal_data,
+            "tenant_id": tenant_id,
         }
         event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
         event.send()
@@ -221,9 +230,9 @@ class PDLConsumer(GenieConsumer):
         if not row_dict:
             return None
         personal_data = row_dict["personal_data"]
-        logger.info(f"Personal data: {personal_data}")
+        logger.info(f"Personal data: {str(personal_data)[:300]}")
         personal_experience = personal_data.get("experience")
-        logger.info(f"Personal experience: {personal_experience}")
+        logger.info(f"Personal experience: {str(personal_experience)[:300]}")
         position = ""
         company = ""
         if personal_experience and isinstance(personal_experience, list):
@@ -231,15 +240,17 @@ class PDLConsumer(GenieConsumer):
 
         if personal_experience and isinstance(personal_experience, dict):
             title_object = personal_experience.get("title")
-            if title_object and isinstance(title_object, dict) :
+            if title_object and isinstance(title_object, dict):
                 position = title_object.get("name")
             company_object = personal_experience.get("company")
-            if company_object and isinstance(company_object, dict) :
+            if company_object and isinstance(company_object, dict):
                 company = company_object.get("name")
 
         person_name = row_dict.get("name", "") or personal_data.get("full_name")
         person_email = row_dict.get("email", "")
-        logger.info(f"Position: {position}, Company: {company}, Person Name: {person_name}, Person Email: {person_email}")
+        logger.info(
+            f"Position: {position}, Company: {company}, Person Name: {person_name}, Person Email: {person_email}"
+        )
 
         person = PersonDTO(
             uuid=uuid,
@@ -342,7 +353,7 @@ class PDLClient:
             linkedin_profile_url
         )
         if existing_profile:
-            if not self.does_need_last_updated(existing_profile[0]):
+            if not self.does_need_update(existing_profile[0]):
                 return existing_profile
 
         linkedin_profile_url = self.fix_linkedin_url(linkedin_profile_url)
@@ -350,7 +361,6 @@ class PDLClient:
 
         # Pass the parameters object to the Person Enrichment API
         response = self._client.person.enrichment(**params).json()
-        logger.debug(f" response: {response}")
         if response["status"] == 404:
             logger.warning(f"Cannot find profiles for {linkedin_profile_url}")
             return
@@ -368,7 +378,7 @@ class PDLClient:
             email_address
         )
         if existing_profile:
-            if not self.does_need_last_updated(existing_profile[0]):
+            if not self.does_need_update(existing_profile[0]):
                 return (
                     json.loads(existing_profile[4])
                     if isinstance(existing_profile[4], str)
@@ -399,6 +409,7 @@ class PDLClient:
         Returns:
             str: The shortened URL.
         """
+
         linkedin_url = linkedin_url.replace(
             "http://www.linkedin.com/in/", "linkedin.com/in/"
         )
@@ -434,7 +445,7 @@ class PDLClient:
             # self.profiles_repository.insert_fetched_profiles({linkedin_profile_url: response["data"]})
             return response["summary"]
 
-    def does_need_last_updated(self, uuid):
+    def does_need_update(self, uuid):
         last_updated_timestamp = self.personal_data_repository.get_last_updated(uuid)
         if last_updated_timestamp:
             logger.debug(f"Last updated: {last_updated_timestamp}")

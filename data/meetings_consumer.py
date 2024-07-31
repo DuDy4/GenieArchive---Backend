@@ -47,7 +47,7 @@ class MeetingManager(GenieConsumer):
         self.meeting_repository = meetings_repository()
 
     async def process_event(self, event):
-        logger.info(f"MeetingManager processing event: {event}")
+        logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         self.meeting_repository.save_meeting(meeting)
         logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")

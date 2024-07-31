@@ -17,6 +17,7 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     interactions_repository,
     ownerships_repository,
+    meetings_repository,
 )
 
 from data.data_common.utils.str_utils import get_uuid4
@@ -49,9 +50,10 @@ class PersonManager(GenieConsumer):
         self.profiles_repository = profiles_repository()
         self.interactions_repository = interactions_repository()
         self.ownerships_repository = ownerships_repository()
+        self.meetings_repository = meetings_repository()
 
     async def process_event(self, event):
-        logger.info(f"PersonManager processing event: {event}")
+        logger.info(f"Person processing event: {str(event)[:300]}")
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         # Should use Topic class
@@ -124,6 +126,7 @@ class PersonManager(GenieConsumer):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
+        tenant_id = event_body.get("tenant_id")
         if not personal_data:
             logger.error("No personal data received in event")
             personal_data = {}
@@ -146,8 +149,25 @@ class PersonManager(GenieConsumer):
             logger.error(
                 "Personal data in database does not match the one received from event"
             )
-            logger.debug(f"Personal data in database: {personal_data_in_database}")
-            logger.debug(f"Personal data received: {personal_data}")
+            # logger.debug(f"Personal data in database: {personal_data_in_database}")
+            # logger.debug(f"Personal data received: {personal_data}")
+        person_in_database = self.persons_repository.find_person_by_email(person.email)
+        if not person_in_database:
+            logger.error("Person not found in database")
+            self.persons_repository.save_person(person)
+        else:
+            self.personal_data_repository.update_uuid(
+                person.uuid, person_in_database.uuid
+            )
+            person.uuid = person_in_database.uuid
+
+        if tenant_id:
+            has_ownership = self.ownerships_repository.check_ownership(
+                tenant_id, person.uuid
+            )
+            if not has_ownership:
+                self.ownerships_repository.save_ownership(person.uuid, tenant_id)
+
         data_to_send = {"person": person.to_dict(), "personal_data": personal_data}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
@@ -218,14 +238,9 @@ class PersonManager(GenieConsumer):
         logger.info(f"Got data from event: Tenant: {tenant_id}, Email: {email}")
 
         person = self.persons_repository.find_person_by_email(email)
-        if person:
-            if person.tenant_id == tenant_id:
-                logger.info("Person already exists in database for this tenant")
-                return {"status": "success"}
-            else:
-                person.tenant_id = tenant_id
-                person.uuid = get_uuid4()
-                self.persons_repository.save_person(person)
+        # If person is found in the database,
+        # check that it is not an empty person (only email and uuid) and handle it accordingly
+        if person and person.linkedin:
             logger.info(f"Person found: {person}")
             event = GenieEvent(
                 Topic.NEW_CONTACT_TO_ENRICH,
@@ -233,16 +248,33 @@ class PersonManager(GenieConsumer):
                 "public",
             )
             event.send()
+            self.ownerships_repository.save_ownership(person.uuid, tenant_id)
             logger.info("Sent 'pdl' event to the event queue")
         else:
             logger.info("Person not found in database")
+            uuid = person.uuid if person else get_uuid4()
+            person = PersonDTO(
+                uuid=uuid,
+                name="",
+                company="",
+                email=email,
+                linkedin="",
+                position="",
+                timezone="",
+            )
+            if not self.persons_repository.exist_email(email):
+                self.persons_repository.insert(person)
+            self.ownerships_repository.save_ownership(uuid, tenant_id)
+            logger.info(
+                f"Saved new person: {person} to persons repository and ownerships repository"
+            )
             event = GenieEvent(
                 Topic.NEW_EMAIL_ADDRESS_TO_ENRICH,
-                json.dumps({"email": email, "tenant_id": tenant_id}),
+                json.dumps({"uuid": uuid, "email": email, "tenant_id": tenant_id}),
                 "public",
             )
             event.send()
-            logger.info("Sent 'pdl' event to the event queue")
+            return {"status": "success"}
 
     async def check_profile_data(self, event):
         event_body_str = event.body_as_str()
@@ -269,7 +301,8 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
-        self.persons_repository.save_person(person)
+        person.uuid = self.persons_repository.save_person(person)
+
         person_json = person.to_json()
         event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
         event.send()

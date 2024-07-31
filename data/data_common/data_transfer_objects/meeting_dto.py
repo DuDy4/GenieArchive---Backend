@@ -1,3 +1,4 @@
+import hashlib
 import json
 from data.data_common.utils.str_utils import get_uuid4
 from pydantic import BaseModel
@@ -20,7 +21,11 @@ class MeetingDTO:
         self.google_calendar_id = google_calendar_id
         self.tenant_id = tenant_id
         self.participants_emails = participants_emails
-        self.participants_hash = participants_hash
+        self.participants_hash = (
+            participants_hash
+            if participants_hash
+            else hash_participants(participants_emails)
+        )
         self.link = link
         self.subject = subject
         self.start_time = start_time
@@ -46,7 +51,10 @@ class MeetingDTO:
             google_calendar_id=data.get("google_calendar_id", ""),
             tenant_id=data.get("tenant_id", ""),
             participants_emails=data.get("participants_emails", []),
-            participants_hash=data.get("participants_hash", ""),
+            participants_hash=data.get(
+                "participants_hash",
+                hash_participants(data.get("participants_emails", [])),
+            ),
             link=data.get("link", ""),
             subject=data.get("subject", ""),
             start_time=data.get("start_time", ""),
@@ -86,6 +94,10 @@ class MeetingDTO:
     @staticmethod
     def from_json(json_str: str):
         data = json.loads(json_str)
+        if not data.get("participants_hash"):
+            data["participants_hash"] = hash_participants(
+                data.get("participants_emails", [])
+            )
         return MeetingDTO.from_dict(data)
 
     @staticmethod
@@ -95,7 +107,9 @@ class MeetingDTO:
             google_calendar_id=event.get("id", ""),
             tenant_id=tenant_id,
             participants_emails=event.get("attendees", []),
-            participants_hash=event.get("participants_hash", ""),
+            participants_hash=event.get(
+                "participants_hash", hash_participants(event.get("attendees", []))
+            ),
             link=event.get("hangoutLink", ""),
             subject=event.get("summary", ""),
             start_time=event.get("start", "").get("dateTime", "")
@@ -110,3 +124,8 @@ class MeetingDTO:
             f"participants_emails={self.participants_emails}, link={self.link}, "
             f"subject={self.subject}, start_time={self.start_time}, end_time={self.end_time})"
         )
+
+
+def hash_participants(participants_emails: list[str]) -> str:
+    emails_string = json.dumps(participants_emails, sort_keys=True)
+    return hashlib.sha256(emails_string.encode("utf-8")).hexdigest()

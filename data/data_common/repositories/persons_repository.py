@@ -80,10 +80,10 @@ class PersonsRepository:
 
     def exists_properties(self, person: PersonDTO) -> bool:
         logger.info(f"About to check if person exists: {person}")
-        exists_query = "SELECT uuid FROM persons WHERE name = %s AND linkedin = %s;"
+        exists_query = "SELECT uuid FROM persons WHERE  linkedin = %s;"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (person.name, person.linkedin))
+                cursor.execute(exists_query, (person.linkedin,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except psycopg2.Error as error:
@@ -92,6 +92,14 @@ class PersonsRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False
+
+    def exist_email(self, email):
+        query = """
+        SELECT 1 FROM persons WHERE email = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (email,))
+            return cursor.fetchone() is not None
 
     def get_person(self, uuid: str) -> PersonDTO | None:
         select_query = """
@@ -149,12 +157,12 @@ class PersonsRepository:
             traceback.print_exc()
             return []
 
-    def get_person_data(self, email : str) -> PersonDTO:
+    def get_person_data(self, email: str) -> PersonDTO:
         if not email:
             return []
 
         # Generate a SQL query with a list of placeholders for UUIDs
-        query = f"SELECT uuid, name, company, email, linkedin, position FROM persons WHERE email = %s"
+        query = f"SELECT uuid, name, company, email, linkedin, position, timezone FROM persons WHERE email = %s"
 
         try:
             with self.conn.cursor() as cursor:
@@ -236,11 +244,11 @@ class PersonsRepository:
 
     def find_person_by_email(self, email):
         query = """
-        SELECT * FROM persons WHERE email = %s;
+        SELECT uuid, name, company, email, linkedin, position, timezone FROM persons WHERE email = %s;
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, (email,))
             person = cursor.fetchone()
             logger.info(f"Person by email {email}: {person}")
             if person:
-                return PersonDTO.from_tuple(person[1:])
+                return PersonDTO.from_tuple(person)
