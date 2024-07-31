@@ -53,10 +53,11 @@ class ProfilesRepository:
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert profile: {profile}")
+        profile_details = "\n".join([f"{k}: {v}" for k, v in profile.__dict__.items()])
+        logger.info(f"About to insert profile: {profile_details}")
         profile_data = profile.to_tuple()
 
-        logger.info(f"About to insert profile data: {profile_data}")
+        # logger.info(f"About to insert profile data: {profile_data}")
 
         try:
             with self.conn.cursor() as cursor:
