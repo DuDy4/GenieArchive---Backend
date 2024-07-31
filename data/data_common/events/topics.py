@@ -1,9 +1,12 @@
 class Topic:
 
+    NEW_COMPANY_DATA = "new-company-data"
     NEW_PERSON = "new-person"
     UP_TO_DATE_ENRICHED_DATA = "up-to-date-enriched-data"
     NEW_EMAIL_ADDRESS_TO_PROCESS = "new-email-address-to-process"
     NEW_EMAIL_ADDRESS_TO_ENRICH = "new-email-address-to-enrich"
+    NEW_EMAIL_TO_PROCESS_DOMAIN = "new-email-to-process-domain"
+    NEW_LINKEDIN_URL = "new-linkedin-url"
     FINISHED_NEW_PROFILE = "finished-new-profile"
     NEW_CONTACT_TO_ENRICH = "new-contact-to-enrich"
     NEW_CONTACT = "new-contact"

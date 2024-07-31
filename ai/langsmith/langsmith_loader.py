@@ -17,15 +17,18 @@ class Langsmith:
         self.base_url = "https://api.langsmith.com/v1"
         self.model = ChatOpenAI(model=Models.GPT_4O)
 
-    async def get_profile(self, person_data):
+    async def get_profile(self, person_data, company_data=None):
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
         logger.debug(f"Person data: {person_data.keys()}")
-        strengths = await self.run_prompt_strength(person_data)
+        strengths = self.run_prompt_strength(person_data)
+        news = self.run_prompt_news(person_data)
+        strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = (
             strengths.get("strengths") if strengths.get("strengths") else strengths
         )
-        get_to_know = await self.run_prompt_get_to_know(person_data)
+        person_data["news"] = news.get("news") if news.get("news") else news
+        get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
         person_data["get_to_know"] = get_to_know
         return person_data
 
@@ -36,6 +39,8 @@ class Langsmith:
             response = runnable.invoke(person_data)
         except Exception as e:
             response = f"Error: {e}"
+        if response.get("news"):
+            response = response.get("news")
         return response
 
     async def run_prompt_strength(self, person_data):
@@ -48,7 +53,17 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith")
         return response
 
-    async def run_prompt_get_to_know(self, person_data):
+    async def run_prompt_news(self, person_data):
+        prompt = hub.pull("get_news")
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(person_data)
+        except Exception as e:
+            response = f"Error: {e}"
+        logger.debug(f"Got news from Langsmith: {response}")
+        return response
+
+    async def run_prompt_get_to_know(self, person_data, company_data=None):
         prompt = hub.pull("dos-and-donts")
         try:
             runnable = prompt | self.model
@@ -71,9 +86,7 @@ class Langsmith:
                 "product_data": person_data.get("product_data")
                 if person_data.get("product_data")
                 else "not found",
-                "company_summary": person_data.get("company_summary")
-                if person_data.get("company_summary")
-                else "not found",
+                "company_data": company_data if company_data else "not found",
             }
             # logger.debug(f"Arguments for get-to-know: {arguments}")
             response = runnable.invoke(arguments)

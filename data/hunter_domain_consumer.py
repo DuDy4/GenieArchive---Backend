@@ -30,7 +30,7 @@ CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group"
 class HunterDomainConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.FAILED_TO_ENRICH_EMAIL],
+            topics=[Topic.FAILED_TO_ENRICH_EMAIL, Topic.NEW_EMAIL_TO_PROCESS_DOMAIN],
             consumer_group=CONSUMER_GROUP_HUNTER_DOMAIN,
         )
         self.company_repository = companies_repository()
@@ -46,28 +46,12 @@ class HunterDomainConsumer(GenieConsumer):
             case Topic.FAILED_TO_ENRICH_EMAIL:
                 logger.info("Handling failed attempt to enrich email")
                 await self.handle_failed_to_enrich_email(event)
+            case Topic.NEW_EMAIL_TO_PROCESS_DOMAIN:
+                logger.info("Handling new email to process domain")
+                await self.handle_company_from_domain(event)
 
     async def handle_failed_to_enrich_email(self, event):
-        event_body = event.body_as_str()
-        logger.info(f"Event body: {event_body}")
-        event_body = json.loads(event_body)
-        if isinstance(event_body, str):
-            event_body = json.loads(event_body)
-        logger.info(f"Event body: {event_body}, type: {type(event_body)}")
-        email_address = event_body.get("email")
-        email_domain = get_domain_from_email(email_address)
-        company = self.company_repository.get_company_from_domain(email_domain)
-        if not company:
-            response = await get_domain_info(str(email_address))
-            if response.get("status") == "error":
-                logger.info(f"Error: {response}")
-                self.send_fail_event(email_address)
-                return
-            logger.info(f"Response: {response}")
-            company = response["data"]
-        if not company.get("emails") and company.get("employees"):
-            company["emails"] = company.get("employees")
-        self.company_repository.save_company(company)
+        company, email_address = await self.handle_company_from_domain(event)
         employee = find_employee_by_email(email_address, company)
         if not employee:
             logger.info(f"Employee not found for email: {email_address}")
@@ -101,6 +85,36 @@ class HunterDomainConsumer(GenieConsumer):
             scope="public",
         )
         event.send()
+
+    async def handle_company_from_domain(self, event):
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {event_body}")
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        logger.info(f"Event body: {event_body}, type: {type(event_body)}")
+        email_address = event_body.get("email")
+        email_domain = get_domain_from_email(email_address)
+        company = self.company_repository.get_company_from_domain(email_domain)
+        if not company:
+            response = await get_domain_info(str(email_address))
+            if response.get("status") == "error":
+                logger.info(f"Error: {response}")
+                self.send_fail_event(email_address)
+                return
+            logger.info(f"Response: {response}")
+            company = response["data"]
+        if not company.get("emails") and company.get("employees"):
+            company["emails"] = company.get("employees")
+        self.company_repository.save_company(company)
+        logger.info(f"Company: {company}")
+        event = GenieEvent(
+            topic=Topic.NEW_COMPANY_DATA,
+            data=company,
+            scope="public",
+        )
+        event.send()
+        return company, email_address
 
 
 def get_domain_from_email(email: str) -> str:

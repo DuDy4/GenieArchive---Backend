@@ -11,6 +11,8 @@ from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
+from data.data_common.repositories.companies_repository import CompaniesRepository
+from data.data_common.dependencies.dependencies import companies_repository
 
 load_dotenv()
 
@@ -27,6 +29,7 @@ class LangsmithConsumer(GenieConsumer):
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
         self.langsmith = Langsmith()
+        self.company_repository = companies_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -54,15 +57,30 @@ class LangsmithConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         personal_data = event_body.get("personal_data")
         person_data = {"personal_data": personal_data}
-        response = await self.langsmith.get_profile(person_data)
+        person = event_body.get("person")
+        logger.info(f"Person: {person}")
+        email_address = person.get("email")
+        company_data = None
+        if email_address and isinstance(email_address, str) and "@" in email_address:
+            company_data = self.company_repository.get_company_from_domain(
+                email_address.split("@")[1]
+            )
+        if company_data:
+            company_data.pop("uuid")
+            company_data.pop("id")
+            company_data.pop("domain")
+            company_data.pop("employees")
+        logger.info(f"Company data: {company_data}")
+
+        response = await self.langsmith.get_profile(person_data, company_data)
         logger.info(
             f"Response: {response.keys() if isinstance(response, dict) else response}"
         )
-        person = event_body.get("person")
-        logger.info(f"Person: {person}")
+
         profile = {
             "strengths": response.get("strengths"),
             "get_to_know": response.get("get_to_know"),
+            "news": response.get("news"),
         }
 
         data_to_send = {"person": person, "profile": profile}

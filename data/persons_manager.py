@@ -231,7 +231,10 @@ class PersonManager(GenieConsumer):
             }
         )
         profile_details = "\n".join(
-            [f"{k}: {v}" for k, v in profile_person.__dict__.items()]
+            [
+                f"{k}: {len(v) if isinstance(v, list) else v}"
+                for k, v in profile_person.__dict__.items()
+            ]
         )
         logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_person)
@@ -293,7 +296,12 @@ class PersonManager(GenieConsumer):
                 "public",
             )
             event.send()
-            return {"status": "success"}
+
+        event = GenieEvent(
+            Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, person.to_json(), "public"
+        )
+        event.send()
+        return {"status": "success"}
 
     async def check_profile_data(self, event):
         event_body_str = event.body_as_str()

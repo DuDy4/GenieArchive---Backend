@@ -163,7 +163,6 @@ class CompaniesRepository:
 
     def save_company(self, company_data: dict):
         self.create_table_if_not_exists()
-        logger.info(f"About to save company: {company_data}")
         if not company_data.get("uuid"):
             company_data["uuid"] = get_uuid4()
         if company_data.get("emails"):
