@@ -165,6 +165,7 @@ class PDLConsumer(GenieConsumer):
                 return {"status": "success"}
             else:
                 logger.info(f"Failed to fetch personal data for {email}")
+                return
 
 
         # No personal data exists in database for the email
