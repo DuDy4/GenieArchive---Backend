@@ -49,12 +49,11 @@ class MeetingManager(GenieConsumer):
     async def process_event(self, event):
         logger.info(f"MeetingManager processing event: {event}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
+        self.meeting_repository.save_meeting(meeting)
         logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
         emails_to_process = MeetingManager.filter_email_objects(
             meeting.participants_emails
         )
-        if len(emails_to_process) > 0:
-            self.meeting_repository.save_meeting(meeting)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
             event = GenieEvent(
