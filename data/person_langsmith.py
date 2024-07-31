@@ -17,9 +17,7 @@ load_dotenv()
 
 PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
 
-CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup" + os.environ.get(
-    "CONSUMER_GROUP_NAME", ""
-)
+CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 
 
 class LangsmithConsumer(GenieConsumer):

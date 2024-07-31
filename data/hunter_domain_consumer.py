@@ -24,9 +24,7 @@ load_dotenv()
 PERSON_PORT = os.environ.get("PERSON_PORT", 8000)
 API_KEY = os.environ.get("HUNTER_API_KEY")
 
-CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group" + os.environ.get(
-    "CONSUMER_GROUP_NAME", ""
-)
+CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group"
 
 
 class HunterDomainConsumer(GenieConsumer):

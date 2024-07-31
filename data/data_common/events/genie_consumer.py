@@ -11,6 +11,7 @@ from loguru import logger
 
 class GenieConsumer:
     def __init__(self, topics, consumer_group="$Default"):
+        self.consumer_group=consumer_group
         connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
         eventhub_name = os.environ.get("EVENTHUB_NAME", "")
         storage_connection_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
@@ -31,15 +32,11 @@ class GenieConsumer:
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
-                logger.info(
-                    f"TOPIC={topic} | About to process event: {str(event)[:300]}"
-                )
+                logger.info(f"TOPIC={topic} | About to process event: {str(event)[:300]}")
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(
-                    f"Event topic [{topic}] not in topics: {topic.decode('utf-8')}"
-                )
+                logger.info(f"Skipping topic [{topic.decode("utf-8")}]. Consumer group: {self.consumer_group}")
         except Exception as e:
             logger.info("Exception occurred:", e)
             logger.info("Detailed traceback information:")

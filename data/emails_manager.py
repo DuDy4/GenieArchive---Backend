@@ -9,9 +9,7 @@ from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.topics import Topic
 
-CONSUMER_GROUP = "emailmanagerconsumergroup" + os.environ.get(
-    "CONSUMER_GROUP_NAME", " "
-)
+CONSUMER_GROUP = "emailmanagerconsumergroup"
 
 APP_URL = os.environ.get("APP_URL", "http://localhost:1234")
 

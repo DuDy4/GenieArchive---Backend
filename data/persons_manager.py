@@ -24,9 +24,7 @@ from data.data_common.utils.str_utils import get_uuid4
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-CONSUMER_GROUP = "personmanagerconsumergroup" + os.environ.get(
-    "CONSUMER_GROUP_NAME", ""
-)
+CONSUMER_GROUP = "personmanagerconsumergroup"
 
 
 class PersonManager(GenieConsumer):
