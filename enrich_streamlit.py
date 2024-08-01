@@ -10,24 +10,13 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
 )
 
-# Database configuration
-# DB_URL = "postgresql+psycopg2://user:password@hostname/dbname"
-# engine = create_engine(DB_URL)
-# Session = sessionmaker(bind=engine)
-# session = Session()
-# metadata = MetaData()
-# metadata.reflect(bind=engine)
-
-# Load the prospects table
-# prospects_table = Table('prospects', metadata, autoload_with=engine)
-
 
 
 
 # Password protection
 def check_password():
     password = st.text_input("Enter Password", type="password")
-    if password != "your_secure_password":
+    if password != "g3n13":
         st.error("Invalid password")
         st.stop()
 

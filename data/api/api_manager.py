@@ -279,7 +279,7 @@ async def get_all_meetings_by_profile_name(
     3. Get all meetings with participants that have the emails.
 
     """
-    logger.info(f"Received get profiles request, with search: '{name}'")
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
 
     # persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
     # logger.info(f"Got persons_uuid: {persons_uuid}")
