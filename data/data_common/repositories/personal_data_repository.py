@@ -194,13 +194,40 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
-
-    def get_personal_uuid_by_email(self, email_address: str):
+        
+    def get_personal_data_by_email(self, email_address: str):
         """
         Retrieve personal data associated with an email address.
 
         :param email_address: Email address of the person.
         :return: Personal data as a json if personalData exists, None otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT personal_data
+        FROM personalData
+        WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email_address,))
+                personal_data = cursor.fetchone()
+                if personal_data:
+                    return personal_data[0]
+                else:
+                    logger.warning("personalData was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_personal_uuid_by_email(self, email_address: str):
+        """
+        Retrieve personal data uuid associated with an email address.
+
+        :param email_address: Email address of the person.
+        :return: Personal data uuid if personalData exists, None otherwise.
         """
         self.create_table_if_not_exists()
         select_query = """
@@ -211,9 +238,9 @@ class PersonalDataRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email_address,))
-                personal_data = cursor.fetchone()
-                if personal_data:
-                    return personal_data[0]
+                uuid = cursor.fetchone()
+                if uuid:
+                    return uuid[0]
                 else:
                     logger.warning("personalData was not found")
                     return None

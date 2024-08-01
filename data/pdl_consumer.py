@@ -374,15 +374,14 @@ class PDLClient:
     def get_single_profile_from_email_address(
         self, email_address: str
     ) -> dict[str, dict] | None:
-        existing_profile = self.personal_data_repository.get_personal_uuid_by_email(
-            email_address
-        )
+        existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(email_address)
+        existing_profile = self.personal_data_repository.get_personal_data_by_email(email_address)
         if existing_profile:
-            if not self.does_need_update(existing_profile[0]):
+            if not self.does_need_update(existing_uuid):
                 return (
-                    json.loads(existing_profile[4])
-                    if isinstance(existing_profile[4], str)
-                    else existing_profile[4]
+                    json.loads(existing_profile)
+                    if isinstance(existing_profile, str)
+                    else existing_profile
                 )
 
         params = {"email": email_address}
