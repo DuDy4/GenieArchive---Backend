@@ -69,7 +69,6 @@ class LangsmithConsumer(GenieConsumer):
         if company_data:
             company_dict = company_data.to_dict()
             company_dict.pop("uuid")
-            company_dict.pop("id")
             company_dict.pop("domain")
             company_dict.pop("employees")
         logger.info(f"Company data: {company_data}")
