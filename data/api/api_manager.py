@@ -597,12 +597,12 @@ def get_meeting_info(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
+        company_dict = company.to_dict()
         if company:
-            company.pop("uuid")
-            company.pop("id")
-            company.pop("domain")
-            company.pop("employees")
-            companies.append(company)
+            company_dict.pop("uuid")
+            company_dict.pop("domain")
+            company_dict.pop("employees")
+            companies.append(company_dict)
 
     logger.info(f"Companies: {companies}")
 

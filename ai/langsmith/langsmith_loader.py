@@ -110,6 +110,18 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    def run_prompt_company_overview_challenges(self, company_data):
+        logger.info("Running Langsmith prompt for company overview and challenges")
+        logger.debug(f"Company data: {company_data}")
+
+        prompt = hub.pull("get_company_overview")
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(company_data)
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
     def ask_chatgpt(self, prompt):
         try:
             runnable = self.model
