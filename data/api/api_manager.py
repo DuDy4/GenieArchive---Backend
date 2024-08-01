@@ -13,7 +13,7 @@ from fastapi.routing import APIRouter
 from loguru import logger
 
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
-from data.data_common.utils.str_utils import titleize_values
+from data.data_common.utils.str_utils import titleize_values, to_custom_title_case
 
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
@@ -502,6 +502,35 @@ def get_profile_good_to_know(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
+def fix_and_sort_experience(experience):
+    for exp in experience:
+        exp["end_date"] = (
+            exp["end_date"] or "9999-12-31"
+        )  # Treat ongoing as future date
+    exp["start_date"] = exp["start_date"] or "0000-01-01"
+
+    # Sort experience
+    sorted_experience = sorted(
+        experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
+    )
+    for exp in sorted_experience:
+        if exp["end_date"] == "9999-12-31":
+            exp["end_date"] = None
+        if exp["start_date"] == "0000-01-01":
+            exp["start_date"] = None
+        title = exp.get("title")
+        if title and isinstance(title, dict):
+            name = title.get("name")
+            titleize_name = to_custom_title_case(name)
+            exp["title"]["name"] = titleize_name
+        company = exp.get("company")
+        if company and isinstance(company, dict):
+            name = company.get("name")
+            titleize_name = to_custom_title_case(name)
+            exp["company"]["name"] = titleize_name
+    return sorted_experience
+
+
 @v1_router.get(
     "/{tenant_id}/profiles/{uuid}/work-experience",
     response_model=WorkExperienceResponse,
@@ -530,27 +559,11 @@ def get_profile_work_experience(
     if personal_data:
         experience = personal_data["experience"]
 
-        # Convert end_date and start_date to a format that allows sorting
-        for exp in experience:
-            exp["end_date"] = (
-                exp["end_date"] or "9999-12-31"
-            )  # Treat ongoing as future date
-            exp["start_date"] = exp["start_date"] or "0000-01-01"
+        fixed_experience = fix_and_sort_experience(experience)
 
-        # Sort experience
-        sorted_experience = sorted(
-            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-        )
+        short_fixed_experience = fixed_experience[:10]
 
-        for exp in experience:
-            if exp["end_date"] == "9999-12-31":
-                exp["end_date"] = None
-            if exp["start_date"] == "0000-01-01":
-                exp["start_date"] = None
-
-        short_sorted_experience = sorted_experience[:10]
-
-        return JSONResponse(content=titleize_values(short_sorted_experience))
+        return JSONResponse(content=(short_fixed_experience))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
