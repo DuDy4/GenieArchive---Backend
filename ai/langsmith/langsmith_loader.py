@@ -92,6 +92,17 @@ class Langsmith:
             }
             # logger.debug(f"Arguments for get-to-know: {arguments}")
             response = runnable.invoke(arguments)
+            if (
+                response
+                and isinstance(response, dict)
+                and (
+                    response.get("best_practices") == []
+                    or response.get("best_practices") == {}
+                    or response.get("avoid") == []
+                    or response.get("phrases_to_use") == []
+                )
+            ):
+                response = await self.run_prompt_get_to_know(person_data)
             logger.info("Got get-to-know from Langsmith")
             # if response and isinstance(response, dict) and response.get("best_practices") == []:
             #     return await self.run_prompt_get_to_know(person_data)
