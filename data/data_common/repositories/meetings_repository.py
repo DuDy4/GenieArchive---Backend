@@ -206,7 +206,7 @@ class MeetingsRepository:
                 if meetings:
                     logger.info(f"Got {len(meetings)} meetings from database")
                     # logger.debug(f"Got meetings: {meetings}")
-                    return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                 else:
                     logger.error(f"No meetings found for tenant_id: {tenant_id}")
                     return []
@@ -237,7 +237,7 @@ class MeetingsRepository:
                 cursor.execute(query, (formatted_emails,))
                 meetings = cursor.fetchall()
                 logger.info(f"Retrieved meetings for participants emails: {emails}")
-                return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
             logger.error(
                 f"Error fetching meetings by participants emails: {error.pgerror}"
