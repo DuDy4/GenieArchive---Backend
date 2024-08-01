@@ -147,7 +147,7 @@ def titleize_values(data):
     return titleize_sentence(data)
 
 
-# Test the functions
-test_string = "the ceo and cto of the company"
-print(to_custom_title_case(test_string))  # Output: "The CEO and CTO of the Company"
-print(titleize_values(test_string))  # Output: "The CEO and cto of the company"
+# # Test the functions
+# test_string = "the ceo and cto of the company"
+# print(to_custom_title_case(test_string))  # Output: "The CEO and CTO of the Company"
+# print(titleize_values(test_string))  # Output: "The CEO and cto of the company"

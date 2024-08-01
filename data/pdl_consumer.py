@@ -9,7 +9,7 @@ from peopledatalabs import PDLPY
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from data.data_common.utils.str_utils import get_uuid4
+from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 from data.data_common.dependencies.dependencies import personal_data_repository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -155,7 +155,11 @@ class PDLConsumer(GenieConsumer):
                     email
                 )
                 logger.info(f"Fetched Personal data from PDL: {personal_data}")
-
+                experience: list = personal_data.get("experience")
+                if experience:
+                    personal_data[
+                        "experience"
+                    ] = self.pdl_client.fix_and_sort_experience(experience)
             personal_data = self.merge_personal_data(
                 personal_data_in_repo, personal_data
             )
@@ -173,6 +177,12 @@ class PDLConsumer(GenieConsumer):
 
         # If no personal data exists in database for the email
         personal_data = self.pdl_client.get_single_profile_from_email_address(email)
+        experience: list = personal_data.get("experience")
+        if experience:
+            personal_data["experience"] = self.pdl_client.fix_and_sort_experience(
+                experience
+            )
+
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
             linkedin_url = ""
@@ -374,8 +384,12 @@ class PDLClient:
     def get_single_profile_from_email_address(
         self, email_address: str
     ) -> dict[str, dict] | None:
-        existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(email_address)
-        existing_profile = self.personal_data_repository.get_personal_data_by_email(email_address)
+        existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(
+            email_address
+        )
+        existing_profile = self.personal_data_repository.get_personal_data_by_email(
+            email_address
+        )
         if existing_profile:
             if not self.does_need_update(existing_uuid):
                 return (
@@ -459,6 +473,35 @@ class PDLClient:
                 return False
             else:
                 return True
+
+    @staticmethod
+    def fix_and_sort_experience(experience):
+        for exp in experience:
+            exp["end_date"] = (
+                exp["end_date"] or "9999-12-31"
+            )  # Treat ongoing as future date
+            exp["start_date"] = exp["start_date"] or "0000-01-01"
+
+            # Sort experience
+        sorted_experience = sorted(
+            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
+        )
+        for exp in sorted_experience:
+            if exp["end_date"] == "9999-12-31":
+                exp["end_date"] = None
+            if exp["start_date"] == "0000-01-01":
+                exp["start_date"] = None
+            title = exp.get("title")
+            if title and isinstance(title, dict):
+                name = title.get("name")
+                titleize_name = to_custom_title_case(name)
+                exp["title"]["name"] = titleize_name
+            company = exp.get("company")
+            if company and isinstance(company, dict):
+                name = company.get("name")
+                titleize_name = to_custom_title_case(name)
+                exp["company"]["name"] = titleize_name
+        return sorted_experience
 
 
 def create_pdl_client(personal_data_repository: PersonalDataRepository) -> PDLClient:

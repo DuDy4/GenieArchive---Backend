@@ -63,6 +63,8 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
 )
 
+from data.pdl_consumer import PDLClient
+
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
@@ -502,35 +504,6 @@ def get_profile_good_to_know(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-def fix_and_sort_experience(experience):
-    for exp in experience:
-        exp["end_date"] = (
-            exp["end_date"] or "9999-12-31"
-        )  # Treat ongoing as future date
-    exp["start_date"] = exp["start_date"] or "0000-01-01"
-
-    # Sort experience
-    sorted_experience = sorted(
-        experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-    )
-    for exp in sorted_experience:
-        if exp["end_date"] == "9999-12-31":
-            exp["end_date"] = None
-        if exp["start_date"] == "0000-01-01":
-            exp["start_date"] = None
-        title = exp.get("title")
-        if title and isinstance(title, dict):
-            name = title.get("name")
-            titleize_name = to_custom_title_case(name)
-            exp["title"]["name"] = titleize_name
-        company = exp.get("company")
-        if company and isinstance(company, dict):
-            name = company.get("name")
-            titleize_name = to_custom_title_case(name)
-            exp["company"]["name"] = titleize_name
-    return sorted_experience
-
-
 @v1_router.get(
     "/{tenant_id}/profiles/{uuid}/work-experience",
     response_model=WorkExperienceResponse,
@@ -559,7 +532,7 @@ def get_profile_work_experience(
     if personal_data:
         experience = personal_data["experience"]
 
-        fixed_experience = fix_and_sort_experience(experience)
+        fixed_experience = PDLClient.fix_and_sort_experience(experience)
 
         short_fixed_experience = fixed_experience[:10]
 
