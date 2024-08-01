@@ -28,6 +28,8 @@ class Langsmith:
             strengths.get("strengths") if strengths.get("strengths") else strengths
         )
         person_data["news"] = news.get("news") if news.get("news") else news
+        logger.debug(f"Old News: {news}")
+        logger.debug(f"New News: {news.get('news') }")
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
         person_data["get_to_know"] = get_to_know
         return person_data
