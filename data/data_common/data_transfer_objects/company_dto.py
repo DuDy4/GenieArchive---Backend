@@ -122,7 +122,7 @@ class CompanyDTO:
 
     def __str__(self):
         return (
-            f"CompanyDTO(uuid={self.uuid}, name={self.name}, domain={self.domain}, size={self.size}, "
-            f"description={self.description}, overview={self.overview}, challenges={self.challenges}, "
-            f"technologies={self.technologies}, employees={self.employees})"
+            f"CompanyDTO(uuid={self.uuid},\n name={self.name},\n domain={self.domain},\n size={self.size},\n "
+            f"description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
+            f"technologies={self.technologies},\n employees={self.employees})"
         )

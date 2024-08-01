@@ -204,6 +204,7 @@ class PDLConsumer(GenieConsumer):
             person = self.create_person(uuid)
             self.send_event(person, personal_data, tenant_id)
             return {"status": "success"}
+        # If no personal data exists in PDL for the email
         else:
             logger.info(f"Failed to fetch personal data for {email}")
             if not uuid:

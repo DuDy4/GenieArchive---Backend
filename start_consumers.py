@@ -6,8 +6,7 @@ from data.persons_manager import PersonManager
 from data.emails_manager import EmailManager
 from data.meetings_consumer import MeetingManager
 from data.hunter_domain_consumer import HunterDomainConsumer
-
-# from data.slack_consumer import SlackConsumer
+from data.slack_consumer import SlackConsumer
 
 consumers = [
     PersonManager(),
@@ -16,7 +15,7 @@ consumers = [
     EmailManager(),
     MeetingManager(),
     HunterDomainConsumer(),
-    # SlackConsumer(),
+    SlackConsumer(),
 ]
 
 

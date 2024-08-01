@@ -82,10 +82,10 @@ class HunterDomainConsumer(GenieConsumer):
         person_event.send()
         return {"status": "success"}
 
-    def send_fail_event(self, email_address: str, company=None):
+    def send_fail_event(self, email_address: str, company: CompanyDTO = None):
         event = GenieEvent(
             topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
-            data={"email": email_address, "company": company},
+            data={"email": email_address, "company": company.to_dict()},
             scope="public",
         )
         event.send()
@@ -110,12 +110,12 @@ class HunterDomainConsumer(GenieConsumer):
             company = CompanyDTO.from_hunter_object(response["data"])
             self.company_repository.save_company(company)
         logger.info(f"Company: {company}")
-        event = GenieEvent(
-            topic=Topic.NEW_COMPANY_DATA,
-            data=company.to_dict(),
-            scope="public",
-        )
-        event.send()
+        # event = GenieEvent(
+        #     topic=Topic.NEW_COMPANY_DATA,
+        #     data=company.to_dict(),
+        #     scope="public",
+        # )
+        # event.send()
         if not company.overview or not company.challenges:
             response = self.langsmith.run_prompt_company_overview_challenges(
                 {"company_data": company.to_dict()}
@@ -159,15 +159,11 @@ async def get_domain_info(email_address: str):
     return data
 
 
-def find_employee_by_email(email: str, company: dict):
+def find_employee_by_email(email: str, company: CompanyDTO):
     logger.info(f"Email: {email}, Company: {company}")
-    if company.get("employees"):
-        for employee in company.get("employees"):
+    if company.employees:
+        for employee in company.employees:
             if employee.get("email") == email:
-                return employee
-    if company.get("emails"):
-        for employee in company.get("emails"):
-            if employee.get("value") == email:
                 return employee
     return None
 
