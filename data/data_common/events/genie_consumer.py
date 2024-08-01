@@ -28,13 +28,14 @@ class GenieConsumer:
         )
         self.topics = topics
         self._shutdown_event = asyncio.Event()
+        self.session = None  # Placeholder for aiohttp.ClientSession
 
     async def on_event(self, partition_context, event):
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
                 logger.info(
-                    f"TOPIC={topic} | About to process event: {str(event)[:300]}"
+                    f"TOPIC={topic.decode('utf-8')} | About to process event: {str(event)[:300]}"
                 )
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
@@ -43,8 +44,8 @@ class GenieConsumer:
                     f"Skipping topic [{topic.decode('utf-8')}]. Consumer group: {self.consumer_group}"
                 )
         except Exception as e:
-            logger.info("Exception occurred:", e)
-            logger.info("Detailed traceback information:")
+            logger.error(f"Exception occurred: {e}")
+            logger.error("Detailed traceback information:")
             traceback.print_exc()
         await partition_context.update_checkpoint(event)
 
@@ -54,32 +55,37 @@ class GenieConsumer:
 
     async def start(self):
         logger.info(
-            f"Starting consumer for topics: {self.topics} on group: {self.consumer._consumer_group}"
+            f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}"
         )
-        try:
-            async with self.consumer:
-                await self.consumer.receive(
-                    on_event=self.on_event, starting_position="-1", prefetch=1
-                )
-                await self._shutdown_event.wait()
-        except asyncio.CancelledError:
-            logger.warning("Consumer cancelled, closing consumer.")
-            await self.consumer.close()
-        except Exception as e:
-            logger.error(f"Error occurred while running consumer: {e}")
-            logger.error("Detailed traceback information:")
-            traceback.print_exc()
-            await self.consumer.close()
-
-    def run(self):
-        try:
-            asyncio.run(self.start())
-        except KeyboardInterrupt:
-            logger.info("Received KeyboardInterrupt, stopping consumer.")
-        finally:
-            asyncio.run(self.cleanup())
+        async with aiohttp.ClientSession() as session:
+            self.session = session
+            logger.info("aiohttp.ClientSession created")
+            try:
+                async with self.consumer:
+                    await self.consumer.receive(
+                        on_event=self.on_event, starting_position="-1", prefetch=1
+                    )
+                    await self._shutdown_event.wait()
+            except asyncio.CancelledError:
+                logger.warning("Consumer cancelled, closing consumer.")
+                await self.stop()
+            except Exception as e:
+                logger.error(f"Error occurred while running consumer: {e}")
+                logger.error("Detailed traceback information:")
+                traceback.print_exc()
+                await self.stop()
 
     async def stop(self):
         self._shutdown_event.set()
         await self.consumer.close()
+        if self.session and not self.session.closed:
+            await self.session.close()  # Ensure aiohttp.ClientSession is closed
+            logger.info("aiohttp.ClientSession closed in stop")
         logger.info("Consumer stopped and resources released.")
+
+    async def cleanup(self):
+        await self.consumer.close()
+        if self.session and not self.session.closed:
+            await self.session.close()  # Ensure aiohttp.ClientSession is closed
+            logger.info("aiohttp.ClientSession closed in cleanup")
+        logger.info("Cleanup completed, consumer closed.")

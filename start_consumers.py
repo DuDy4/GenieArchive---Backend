@@ -8,6 +8,7 @@ from data.meetings_consumer import MeetingManager
 from data.hunter_domain_consumer import HunterDomainConsumer
 
 # from data.slack_consumer import SlackConsumer
+
 consumers = [
     PersonManager(),
     LangsmithConsumer(),
@@ -30,16 +31,13 @@ async def run_consumers():
     except asyncio.CancelledError:
         logger.info("Consumers have been cancelled.")
     finally:
-        await cleanup(tasks)
+        await cleanup(consumers)
 
 
-async def cleanup(tasks):
+async def cleanup(consumers):
     logger.info("Cleaning up consumers.")
     for consumer in consumers:
         await consumer.stop()
-    for task in tasks:
-        task.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
     logger.info("All consumers cleaned up.")
 
 
@@ -48,7 +46,4 @@ if __name__ == "__main__":
         asyncio.run(run_consumers())
     except KeyboardInterrupt:
         logger.info("Received KeyboardInterrupt, stopping consumers.")
-        tasks = asyncio.all_tasks()
-        for task in tasks:
-            task.cancel()
-        asyncio.run(cleanup(tasks))
+        asyncio.run(cleanup(consumers))
