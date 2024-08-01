@@ -36,6 +36,7 @@ from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from data.data_common.repositories.ownerships_repository import OwnershipsRepository
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
+from data.data_common.repositories.companies_repository import CompaniesRepository
 
 from data.api.mock_api import profiles, meetings
 
@@ -59,6 +60,7 @@ from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     hobbies_repository,
+    companies_repository,
 )
 
 from data.data_common.events.topics import Topic
@@ -550,6 +552,67 @@ def get_profile_work_experience(
 
         return JSONResponse(content=titleize_values(short_sorted_experience))
     return JSONResponse(content={"error": "Could not find profile"})
+
+
+@v1_router.get(
+    "/{tenant_id}/meeting/{meeting_uuid}",
+)
+def get_meeting_info(
+    tenant_id: str,
+    meeting_uuid: str,
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+) -> JSONResponse:
+    """
+    Get the meeting information.
+
+    - **tenant_id**: Tenant ID
+    - **meeting_id**: Meeting ID
+    """
+    logger.info(f"Got meeting info request for meeting: {meeting_uuid}")
+
+    meeting = meetings_repository.get_meeting_data(meeting_uuid)
+    if not meeting:
+        return JSONResponse(content={"error": "Meeting not found"})
+
+    if meeting.tenant_id != tenant_id:
+        return JSONResponse(content={"error": "Tenant mismatch"})
+
+    participants = meeting.participants_emails
+    host_email_list = [
+        email.get("email") for email in participants if email.get("self")
+    ]
+    host_email = host_email_list[0] if host_email_list else None
+    filtered_participants_emails = MeetingManager.filter_emails(
+        host_email, participants
+    )
+    logger.info(f"Filtered participants: {filtered_participants_emails}")
+
+    domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
+    domain_emails = list(set(domain_emails))
+    logger.info(f"Domain emails: {domain_emails}")
+
+    companies = []
+
+    for domain in domain_emails:
+        company = companies_repository.get_company_from_domain(domain)
+        logger.info(f"Company: {company}")
+        if company:
+            company.pop("uuid")
+            company.pop("id")
+            company.pop("domain")
+            company.pop("employees")
+            companies.append(company)
+
+    logger.info(f"Companies: {companies}")
+
+    meeting_dict = meeting.to_dict()
+    meeting_dict.pop("participants_hash")
+    meeting_dict.pop("tenant_id")
+    meeting_dict.pop("google_calendar_id")
+    meeting_dict["companies"] = companies
+
+    return JSONResponse(content=meeting_dict)
 
 
 @v1_router.get(

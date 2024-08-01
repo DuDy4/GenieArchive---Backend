@@ -183,10 +183,12 @@ class MeetingsRepository:
                     logger.info(f"Got meeting data {row[0]} from database")
                     return MeetingDTO.from_tuple(row)
                 else:
-                    logger.error(f"Error with getting meeting data for {uuid}")
+                    logger.error(f"Meeting not found for {uuid}")
+                    traceback.print_exc()
         except Exception as error:
             logger.error("Error fetching meeting data by uuid:", error)
             traceback.print_exception(error)
+            traceback.print_exc()
         return None
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
