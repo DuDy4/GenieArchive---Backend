@@ -61,18 +61,20 @@ class LangsmithConsumer(GenieConsumer):
         logger.info(f"Person: {person}")
         email_address = person.get("email")
         company_data = None
+        company_dict = {}
         if email_address and isinstance(email_address, str) and "@" in email_address:
             company_data = self.company_repository.get_company_from_domain(
                 email_address.split("@")[1]
             )
         if company_data:
-            company_data.pop("uuid")
-            company_data.pop("id")
-            company_data.pop("domain")
-            company_data.pop("employees")
+            company_dict = company_data.to_dict()
+            company_dict.pop("uuid")
+            company_dict.pop("id")
+            company_dict.pop("domain")
+            company_dict.pop("employees")
         logger.info(f"Company data: {company_data}")
 
-        response = await self.langsmith.get_profile(person_data, company_data)
+        response = await self.langsmith.get_profile(person_data, company_dict)
         logger.info(
             f"Response: {response.keys() if isinstance(response, dict) else response}"
         )
