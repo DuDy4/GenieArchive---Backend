@@ -111,7 +111,7 @@ class PDLConsumer(GenieConsumer):
         else:
 
             profile = self.pdl_client.fetch_profile(person)
-            data_to_transfer = {"person": person.to_json(), "personal_data": profile}
+            data_to_transfer = {"person": person.to_dict(), "personal_data": profile}
             event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
             event.send()
             logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
