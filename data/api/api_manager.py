@@ -336,7 +336,7 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append({"uuid": profile.uuid, "name": profile.name})
     logger.info(f"Sending profiles: {profiles}")
-    return JSONResponse(content=titleize_values(profiles))
+    return JSONResponse(content=profiles)
 
 
 @v1_router.get(
