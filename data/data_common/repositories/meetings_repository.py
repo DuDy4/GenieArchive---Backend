@@ -28,6 +28,7 @@ class MeetingsRepository:
             participants_hash VARCHAR,
             link VARCHAR,
             subject VARCHAR,
+            location VARCHAR,
             start_time VARCHAR,
             end_time VARCHAR
         );
@@ -49,8 +50,8 @@ class MeetingsRepository:
             )
             return None
         insert_query = """
-        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
@@ -171,7 +172,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -193,7 +194,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT *
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -226,7 +227,8 @@ class MeetingsRepository:
         if not emails:
             return []
         query = """
-        SELECT * FROM meetings
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        FROM meetings
         WHERE participants_emails ?| array[%s]
         """
         formatted_emails = ",".join(emails)
@@ -250,7 +252,7 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, start_time = %s, end_time = %s
+        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s, start_time = %s, end_time = %s
         WHERE google_calendar_id = %s;
         """
         meeting_data = meeting.to_tuple()
