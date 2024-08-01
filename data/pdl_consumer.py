@@ -177,11 +177,12 @@ class PDLConsumer(GenieConsumer):
 
         # If no personal data exists in database for the email
         personal_data = self.pdl_client.get_single_profile_from_email_address(email)
-        experience: list = personal_data.get("experience")
-        if experience:
-            personal_data["experience"] = self.pdl_client.fix_and_sort_experience(
-                experience
-            )
+        if personal_data:
+            experience: list = personal_data.get("experience")
+            if experience:
+                personal_data["experience"] = self.pdl_client.fix_and_sort_experience(
+                    experience
+                )
 
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
