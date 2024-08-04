@@ -146,11 +146,46 @@ class PDLConsumer(GenieConsumer):
         # Check if the email already exists in the database - should return uuid of the existing record
         existing_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
         if existing_uuid:
+            # If personal data exists in database for the email
             personal_data_in_repo = self.personal_data_repository.get_personal_data(
                 existing_uuid
             )
             personal_data = ""
-            if self.pdl_client.does_need_update(existing_uuid):
+
+            # If personal data exists in database and is up-to-date, skip
+            if self.pdl_client.is_up_to_date(existing_uuid):
+                # If already tried but failed before, skip
+                if (
+                    self.personal_data_repository.get_status(existing_uuid)
+                    == self.personal_data_repository.TRIED_BUT_FAILED
+                ):
+                    logger.info(f"Already tried but failed for {email}, skipping...")
+                    event = GenieEvent(
+                        Topic.ALREADY_FAILED_TO_ENRICH_EMAIL,
+                        {"email": email, "tenant_id": tenant_id},
+                        "public",
+                    )
+                    event.send()
+                    logger.info(
+                        f"Sending event to {Topic.ALREADY_FAILED_TO_ENRICH_EMAIL}"
+                    )
+                    return
+
+                # If it has up-to-date personal data, send event
+                person = self.create_person(existing_uuid)
+                personal_data = personal_data_in_repo
+                data_to_transfer = {
+                    "person": person.to_dict(),
+                    "personal_data": personal_data,
+                }
+                event = GenieEvent(
+                    Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public"
+                )
+                event.send()
+                logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
+
+            # If passed long time since last pdl fetch, fetch again
+            else:
                 personal_data = self.pdl_client.get_single_profile_from_email_address(
                     email
                 )
@@ -239,7 +274,15 @@ class PDLConsumer(GenieConsumer):
 
     def create_person(self, uuid):
         row_dict = self.personal_data_repository.get_personal_data_row(uuid)
-        if not row_dict:
+        if (
+            not row_dict
+            or row_dict.get("status") == self.personal_data_repository.TRIED_BUT_FAILED
+        ):
+            return None
+        if not row_dict.get("personal_data"):
+            logger.error(
+                f"Personal data not found for {uuid} - in circumstances it should not happen"
+            )
             return None
         personal_data = row_dict["personal_data"]
         logger.info(f"Personal data: {str(personal_data)[:300]}")
@@ -504,6 +547,22 @@ class PDLClient:
                 titleize_name = to_custom_title_case(name)
                 exp["company"]["name"] = titleize_name
         return sorted_experience
+
+    def is_up_to_date(self, existing_uuid):
+        last_updated_timestamp = self.personal_data_repository.get_last_updated(
+            existing_uuid
+        )
+        if last_updated_timestamp:
+            logger.debug(f"Last updated: {last_updated_timestamp}")
+            time_since_last_update = datetime.now() - last_updated_timestamp
+            if time_since_last_update < timedelta(
+                seconds=MIN_INTERVAL_TO_FETCH_PROFILES
+            ):
+                logger.info(
+                    f"Skipping update for uuid: {existing_uuid}, last updated {time_since_last_update} ago."
+                )
+                return True
+        return False
 
 
 def create_pdl_client(personal_data_repository: PersonalDataRepository) -> PDLClient:
