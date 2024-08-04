@@ -120,6 +120,93 @@ class ProfilesRepository:
             logger.error("Error fetching profile data by uuid:", error)
             traceback.print_exception(error)
         return None
+    
+
+    def get_hobbies_by_email(self, email: str) -> list:
+        if not email:
+            return None
+        select_query = """
+        SELECT h.hobby_name, h.icon_url
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid
+        JOIN LATERAL jsonb_array_elements_text(profiles.hobbies) AS hobby_uuid ON TRUE
+        JOIN hobbies h ON hobby_uuid.value = h.uuid
+        WHERE persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} hobbies from database")
+                    hobbies = [{"hobby_name": row[0], "icon_url": row[1]} for row in rows]
+                    return hobbies
+                else:
+                    logger.info(f"Could not find hobbies for {email}")
+                    return None
+        except Exception as error:
+            logger.error("Error fetching hobbies by:", error)
+            traceback.print_exc()
+            return None
+    
+
+    def get_connections_by_email(self, email: str) -> list:
+        if not email:
+            return None
+        select_query = """
+        SELECT
+            jsonb_array_elements(connections)->>'name' AS name,
+            jsonb_array_elements(connections)->>'image_url' AS image_url,
+            jsonb_array_elements(connections)->>'linkedin_url' AS linkedin_url
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid	
+        WHERE persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} connections from database")
+                    connections = [{"name": row[0], "image_url": row[1], "linkedin_url" : row[3]} for row in rows]
+                    return connections
+                else:
+                    logger.info(f"Could not find connections for {email}")
+                    return None
+        except Exception as error:
+            logger.error("Error fetching connections by:", error)
+            traceback.print_exc()
+            return None
+    
+
+    def get_news_by_email(self, email: str) -> list:
+        if not email:
+            return None
+        select_query = """
+        SELECT
+            jsonb_array_elements(news)->>'title' AS title,
+            jsonb_array_elements(news)->>'link' AS link,
+            jsonb_array_elements(news)->>'media' AS media
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid	
+        WHERE persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} news articles from database")
+                    news  = [{"title": row[0], "link": row[1], "source" : row[2]} for row in rows]
+                    return news
+                else:
+                    logger.info(f"Could not find news for {email}")
+                    return None
+        except Exception as error:
+            logger.error("Error fetching news by email:", error)
+            traceback.print_exc()
+            return None
+        
 
     def update(self, profile: ProfileDTO):
         update_query = """
