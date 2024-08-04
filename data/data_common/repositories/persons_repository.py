@@ -157,27 +157,65 @@ class PersonsRepository:
             traceback.print_exc()
             return []
 
-    def get_person_data(self, email: str) -> PersonDTO:
+
+    def get_person_complete_data(self, email: str) -> PersonDTO:
         if not email:
-            return []
+            return None
 
         # Generate a SQL query with a list of placeholders for UUIDs
-        query = f"SELECT uuid, name, company, email, linkedin, position, timezone FROM persons WHERE email = %s"
+        query = f'''SELECT
+                    p.uuid,
+                    p.name,
+                    p2.company,
+                    p.email ,
+                    p2.position,
+                    p.linkedin,
+                    h.hobby_name,
+                    h.icon_url,
+                    news_data->'title' as news_title,
+                    news_data->'link' as news_link,
+                    connections_data->'name' as connection_name,
+                    connections_data->'image_url' as connection_image
+                FROM
+                    persons p
+                LEFT JOIN
+                    profiles p2 ON p.uuid = p2.uuid
+                LEFT JOIN
+                    LATERAL jsonb_array_elements(p2.news) AS news_data ON TRUE
+                LEFT JOIN
+                    LATERAL jsonb_array_elements(p2.connections) AS connections_data ON TRUE
+                LEFT JOIN
+                    LATERAL jsonb_array_elements_text(p2.hobbies) AS hobby_uuid ON TRUE
+                LEFT JOIN
+                    hobbies h ON hobby_uuid.value = h.uuid
+                WHERE p.email = %s;
+	
+                '''
 
         try:
             with self.conn.cursor() as cursor:
-                logger.debug(f"Executing query: {query}")
                 cursor.execute(query, (email,))
                 row = cursor.fetchone()
                 logger.info(f"Retrieved person for email: {email}")
                 if row:
-                    return PersonDTO(row[0], row[1], row[2], row[3], row[4], row[5], "")
+                    # return PersonDTO(row[0], row[1], row[2], row[3], row[4], row[5], "")
+                    return {
+                        "uuid": row[0],
+                        "name": row[1],
+                        "company": row[2],
+                        "email": row[3],
+                        "position": row[4],
+                        "linkedin": row[5],
+                        "hobbies": [{"hobby": row[6], "icon_url": row[7]}],
+                        "top_news": [{"headline": row[8], "url": row[9], "source": ""}],
+                        "relevant_connections": [{"name": row[10], "picture_url": row[11], "linkedin_url": ""}],
+                    }
                 else:
                     logger.error(f"Error with getting person for {email}")
                     traceback.print_exc()
                 return None
         except psycopg2.Error as error:
-            logger.error(f"Error fetching emails by UUIDs: {error.pgerror}")
+            logger.error(f"Error fetching profile by email: {error.pgerror}")
             traceback.print_exc()
             return []
         except Exception as e:

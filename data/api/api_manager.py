@@ -332,7 +332,7 @@ def get_all_profile_for_meeting(
     profiles = []
     for uuid in persons_uuid:
         profile = profiles_repository.get_profile_data(uuid)
-        logger.info(f"Got profile: {profile}")
+        logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             profiles.append({"uuid": profile.uuid, "name": profile.name})
     logger.info(f"Sending profiles: {profiles}")
@@ -451,7 +451,7 @@ def get_profile_get_to_know(
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
-    logger.info(f"Got profile: {profile}")
+    logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
         logger.info(f"Got get-to-know: {profile.get_to_know}")
         return JSONResponse(content=profile.get_to_know)
