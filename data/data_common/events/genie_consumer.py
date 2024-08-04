@@ -1,15 +1,22 @@
 import os
 import asyncio
+import sys
 import traceback
 
 import aiohttp
+import httpx
 from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from loguru import logger
 
+logger.remove()  # Remove the default configuration
+logger.add(sys.stderr, level="TRACE")  # Set the logging level to DEBUG
+
 
 class GenieConsumer:
+    active_clients = set()
+
     def __init__(self, topics, consumer_group="$Default"):
         self.consumer_group = consumer_group
         connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
@@ -28,7 +35,6 @@ class GenieConsumer:
         )
         self.topics = topics
         self._shutdown_event = asyncio.Event()
-        self.session = None  # Placeholder for aiohttp.ClientSession
 
     async def on_event(self, partition_context, event):
         topic = event.properties.get(b"topic")
@@ -57,9 +63,10 @@ class GenieConsumer:
         logger.info(
             f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}"
         )
-        async with aiohttp.ClientSession() as session:
-            self.session = session
-            logger.info("aiohttp.ClientSession created")
+        async with httpx.AsyncClient() as client:
+            self.client = client
+            GenieConsumer.active_clients.add(client)
+            logger.info("httpx.AsyncClient created")
             try:
                 async with self.consumer:
                     await self.consumer.receive(
@@ -68,24 +75,38 @@ class GenieConsumer:
                     await self._shutdown_event.wait()
             except asyncio.CancelledError:
                 logger.warning("Consumer cancelled, closing consumer.")
-                await self.stop()
             except Exception as e:
                 logger.error(f"Error occurred while running consumer: {e}")
                 logger.error("Detailed traceback information:")
                 traceback.print_exc()
+            finally:
                 await self.stop()
+
+    async def close_client(self):
+        if hasattr(self, "client") and self.client and not self.client.is_closed:
+            await self.client.aclose()
+            logger.info("httpx.AsyncClient closed")
+
+    async def close_aiohttp_sessions(self):
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if isinstance(attr, aiohttp.ClientSession):
+                if not attr.closed:
+                    await attr.close()
+                    logger.info(f"Closed aiohttp ClientSession: {attr_name}")
 
     async def stop(self):
         self._shutdown_event.set()
-        await self.consumer.close()
-        if self.session and not self.session.closed:
-            await self.session.close()  # Ensure aiohttp.ClientSession is closed
-            logger.info("aiohttp.ClientSession closed in stop")
+        if hasattr(self, "consumer"):
+            await self.consumer.close()
+        if hasattr(self, "client"):
+            await self.close_client()
+        await self.close_aiohttp_sessions()
         logger.info("Consumer stopped and resources released.")
 
-    async def cleanup(self):
-        await self.consumer.close()
-        if self.session and not self.session.closed:
-            await self.session.close()  # Ensure aiohttp.ClientSession is closed
-            logger.info("aiohttp.ClientSession closed in cleanup")
-        logger.info("Cleanup completed, consumer closed.")
+    @classmethod
+    async def cleanup(cls):
+        for consumer in cls.active_clients:
+            await consumer.stop()
+        cls.active_clients.clear()
+        logger.info("Cleanup completed, all consumers closed.")
