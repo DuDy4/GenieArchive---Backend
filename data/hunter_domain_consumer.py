@@ -61,15 +61,15 @@ class HunterDomainConsumer(GenieConsumer):
             logger.info(f"Employee not found for email: {email_address}")
             self.send_fail_event(email_address, company)
             return
-        if employee.get("name"):
+        if employee.get("name") and "None " not in employee.get("name"):
             person = PersonDTO(
                 uuid=get_uuid4(),
                 name=employee.get("last_name"),
                 email=employee.get("email"),
                 position=employee.get("position"),
-                company=company["organization"],
+                company=company.name,
                 linkedin=employee.get("linkedin"),
-                timezone=company.get("timezone", ""),
+                timezone="",
             )
         elif employee.get("first_name"):
             person = PersonDTO.from_hunter_employee(employee, company["organization"])

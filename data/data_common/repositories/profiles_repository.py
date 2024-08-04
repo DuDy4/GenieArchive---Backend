@@ -1,10 +1,18 @@
 import json
 import traceback
+from datetime import date, datetime
 from typing import Union, Optional
 
 import psycopg2
+from pydantic import AnyUrl
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.data_transfer_objects.profile_dto import (
+    ProfileDTO,
+    Strength,
+    Connection,
+    NewsData,
+    Phrase,
+)
 from loguru import logger
 
 
@@ -25,7 +33,6 @@ class ProfilesRepository:
             name VARCHAR,
             company VARCHAR,
             position VARCHAR,
-            challenges JSONB,
             strengths JSONB,
             hobbies JSONB,
             connections JSONB,
@@ -40,24 +47,50 @@ class ProfilesRepository:
                 cursor.execute(create_table_query)
                 self.conn.commit()
         except Exception as error:
-            logger.error("Error creating table:", error)
+            logger.error(f"Error creating table: {error}")
             traceback.print_exc()
 
     def insert_profile(self, profile: ProfileDTO) -> Union[str, None]:
-        """
-        :param profile: ProfileDTO object with profile data to insert into database
-        :return the id of the newly created profile in database:
-        """
         insert_query = """
-        INSERT INTO profiles (uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id;
-        """
+            INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+            """
         profile_details = "\n".join([f"{k}: {v}" for k, v in profile.__dict__.items()])
         logger.info(f"About to insert profile: {profile_details}")
-        profile_data = profile.to_tuple()
 
-        # logger.info(f"About to insert profile data: {profile_data}")
+        profile_dict = profile.to_dict()
+        profile_data = (
+            str(profile_dict["uuid"]),
+            profile_dict["name"],
+            profile_dict["company"],
+            profile_dict["position"],
+            json.dumps(
+                [
+                    s if isinstance(s, dict) else s.to_dict()
+                    for s in profile_dict["strengths"]
+                ]
+            ),
+            json.dumps(profile_dict["hobbies"]),
+            json.dumps(
+                [
+                    c if isinstance(c, dict) else c.to_dict()
+                    for c in profile_dict["connections"]
+                ]
+            ),
+            json.dumps(
+                [self.serialize_news(n) for n in profile_dict["news"]],
+                default=self.json_serializer,
+            ),
+            json.dumps(
+                {
+                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
+                    for k, v in profile_dict["get_to_know"].items()
+                }
+            ),
+            profile_dict["summary"],
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
+        )
 
         try:
             with self.conn.cursor() as cursor:
@@ -97,12 +130,12 @@ class ProfilesRepository:
                 else:
                     logger.error(f"Error with getting profile id for {uuid}")
         except Exception as error:
-            logger.error("Error fetching id by uuid:", error)
+            logger.error(f"Error fetching id by uuid: {error}")
         return None
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+        SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
         FROM profiles
         WHERE uuid = %s;
         """
@@ -112,15 +145,39 @@ class ProfilesRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[0]} from database")
-                    return ProfileDTO.from_tuple(row)
+                    strengths = [
+                        Strength.from_dict(item) for item in json.loads(row[4])
+                    ]
+                    hobbies = json.loads(row[5])
+                    connections = [
+                        Connection.from_dict(item) for item in json.loads(row[6])
+                    ]
+                    news = [self.deserialize_news(item) for item in json.loads(row[7])]
+                    get_to_know = {
+                        k: [Phrase.from_dict(p) for p in v]
+                        for k, v in json.loads(row[8]).items()
+                    }
+                    profile_data = (
+                        row[0],
+                        row[1],
+                        row[2],
+                        row[3],
+                        strengths,
+                        hobbies,
+                        connections,
+                        news,
+                        get_to_know,
+                        row[9],
+                        row[10],
+                    )
+                    return ProfileDTO.from_tuple(profile_data)
                 else:
                     logger.error(f"Error with getting profile data for {uuid}")
                     traceback.print_exc()
         except Exception as error:
-            logger.error("Error fetching profile data by uuid:", error)
+            logger.error(f"Error fetching profile data by uuid: {error}")
             traceback.print_exception(error)
         return None
-    
 
     def get_hobbies_by_email(self, email: str) -> list:
         if not email:
@@ -139,16 +196,17 @@ class ProfilesRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} hobbies from database")
-                    hobbies = [{"hobby_name": row[0], "icon_url": row[1]} for row in rows]
+                    hobbies = [
+                        {"hobby_name": row[0], "icon_url": row[1]} for row in rows
+                    ]
                     return hobbies
                 else:
                     logger.info(f"Could not find hobbies for {email}")
                     return None
         except Exception as error:
-            logger.error("Error fetching hobbies by:", error)
+            logger.error(f"Error fetching hobbies by email: {error}")
             traceback.print_exc()
             return None
-    
 
     def get_connections_by_email(self, email: str) -> list:
         if not email:
@@ -159,7 +217,7 @@ class ProfilesRepository:
             jsonb_array_elements(connections)->>'image_url' AS image_url,
             jsonb_array_elements(connections)->>'linkedin_url' AS linkedin_url
         FROM profiles
-        JOIN persons on persons.uuid = profiles.uuid	
+        JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
         """
         try:
@@ -168,16 +226,18 @@ class ProfilesRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} connections from database")
-                    connections = [{"name": row[0], "image_url": row[1], "linkedin_url" : row[3]} for row in rows]
+                    connections = [
+                        {"name": row[0], "image_url": row[1], "linkedin_url": row[2]}
+                        for row in rows
+                    ]
                     return connections
                 else:
                     logger.info(f"Could not find connections for {email}")
                     return None
         except Exception as error:
-            logger.error("Error fetching connections by:", error)
+            logger.error(f"Error fetching connections by email: {error}")
             traceback.print_exc()
             return None
-    
 
     def get_news_by_email(self, email: str) -> list:
         if not email:
@@ -188,7 +248,7 @@ class ProfilesRepository:
             jsonb_array_elements(news)->>'link' AS link,
             jsonb_array_elements(news)->>'media' AS media
         FROM profiles
-        JOIN persons on persons.uuid = profiles.uuid	
+        JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
         """
         try:
@@ -197,25 +257,55 @@ class ProfilesRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} news articles from database")
-                    news  = [{"title": row[0], "link": row[1], "source" : row[2]} for row in rows]
+                    news = [
+                        {"title": row[0], "link": row[1], "source": row[2]}
+                        for row in rows
+                    ]
                     return news
                 else:
                     logger.info(f"Could not find news for {email}")
                     return None
         except Exception as error:
-            logger.error("Error fetching news by email:", error)
+            logger.error(f"Error fetching news by email: {error}")
             traceback.print_exc()
             return None
-        
 
     def update(self, profile: ProfileDTO):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, challenges = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, get_to_know = %s, summary = %s, picture_url = %s
+        SET name = %s, company = %s, position = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, get_to_know = %s, summary = %s, picture_url = %s
         WHERE uuid = %s;
         """
-        profile_data = profile.to_tuple()
-        profile_data = profile_data[1:] + (profile_data[0],)  # move uuid to the end
+        profile_dict = profile.to_dict()
+        profile_data = (
+            profile_dict["name"],
+            profile_dict["company"],
+            profile_dict["position"],
+            json.dumps(
+                [
+                    s if isinstance(s, dict) else s.to_dict()
+                    for s in profile_dict["strengths"]
+                ]
+            ),
+            json.dumps(profile_dict["hobbies"]),
+            json.dumps(
+                [
+                    c if isinstance(c, dict) else c.to_dict()
+                    for c in profile_dict["connections"]
+                ]
+            ),
+            json.dumps([self.serialize_news(n) for n in profile_dict["news"]]),
+            json.dumps(
+                {
+                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
+                    for k, v in profile_dict["get_to_know"].items()
+                }
+            ),
+            profile_dict["summary"],
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
+            str(profile_dict["uuid"]),
+        )
+
         logger.info(f"Persisting profile data {profile_data}")
         try:
             with self.conn.cursor() as cursor:
@@ -227,13 +317,8 @@ class ProfilesRepository:
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
-        profile.challenges = json.dumps(profile.challenges)
-        profile.strengths = json.dumps(profile.strengths)
-        profile.hobbies = json.dumps(profile.hobbies)
-        profile.connections = json.dumps(profile.connections)
-        profile.news = json.dumps(profile.news)
-        profile.get_to_know = json.dumps(profile.get_to_know)
-        if self.exists(profile.uuid):
+        logger.debug(f"About to save profile: {profile}")
+        if self.exists(str(profile.uuid)):
             self.update(profile)
         else:
             self.insert_profile(profile)
@@ -253,7 +338,7 @@ class ProfilesRepository:
             with self.conn.cursor() as cursor:
                 if search:
                     select_query = """
-                    SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+                    SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
                     FROM profiles
                     WHERE uuid = ANY(%s) AND name ILIKE %s;
                     """
@@ -261,21 +346,20 @@ class ProfilesRepository:
                     cursor.execute(select_query, (uuids, search_pattern))
                 else:
                     select_query = """
-                    SELECT uuid, name, company, position, challenges, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+                    SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
                     FROM profiles
                     WHERE uuid = ANY(%s);
                     """
                     cursor.execute(select_query, (uuids,))
 
                 rows = cursor.fetchall()
-                # logger.debug(f"Got {rows} from database")
                 profiles = [ProfileDTO.from_tuple(row) for row in rows]
                 return profiles
         except Exception as error:
-            logger.error("Error fetching profiles by uuids:", error)
+            logger.error(f"Error fetching profiles by uuids: {error}")
             return []
 
-    def get_profile_picture(self, uuid: str) -> str | None:
+    def get_profile_picture(self, uuid: str) -> Optional[str]:
         select_query = """
         SELECT picture_url
         FROM profiles
@@ -292,6 +376,26 @@ class ProfilesRepository:
                     logger.error(f"Error with getting profile picture for {uuid}")
                     return None
         except Exception as error:
-            logger.error("Error fetching profile pictures by uuids:", error)
+            logger.error(f"Error fetching profile pictures by uuid: {error}")
             traceback.print_exc()
             return None
+
+    def serialize_news(self, news: Union[NewsData, dict]) -> dict:
+        if isinstance(news, dict):
+            return news
+        news_dict = news.to_dict()
+        news_dict["date"] = news_dict["date"].isoformat()  # Convert date to string
+        return news_dict
+
+    def deserialize_news(self, news: dict) -> NewsData:
+        news["date"] = date.fromisoformat(news["date"])  # Convert string back to date
+        return NewsData.from_dict(news)
+
+    @staticmethod
+    def json_serializer(obj):
+        """JSON serializer for objects not serializable by default json code"""
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, AnyUrl):
+            return str(obj)
+        raise TypeError(f"Type {type(obj)} not serializable")
