@@ -106,7 +106,8 @@ class GenieConsumer:
 
     @classmethod
     async def cleanup(cls):
-        for consumer in cls.active_clients:
-            await consumer.stop()
+        for consumer in list(cls.active_clients):
+            if isinstance(consumer, GenieConsumer):
+                await consumer.stop()
         cls.active_clients.clear()
         logger.info("Cleanup completed, all consumers closed.")

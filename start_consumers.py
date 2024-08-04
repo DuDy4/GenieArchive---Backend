@@ -47,24 +47,12 @@ async def cleanup(consumers):
         logger.error(f"Error in GenieConsumer cleanup: {e}")
 
     # Close any remaining aiohttp sessions and cancel tasks
-    tasks = asyncio.all_tasks()
+    tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
     for task in tasks:
-        if not task.done():
-            task.cancel()
+        task.cancel()
 
     # Wait for all tasks to complete
     await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Force close any remaining sessions and connectors
-    for task in tasks:
-        if "ClientSession" in str(task) or "TCPConnector" in str(task):
-            try:
-                obj = task.get_coro().cr_frame.f_locals.get("self")
-                if hasattr(obj, "close"):
-                    await obj.close()
-                logger.info(f"Forcibly closed: {obj}")
-            except Exception as e:
-                logger.error(f"Error closing {obj}: {e}")
 
     logger.info("All consumers cleaned up.")
 
@@ -74,7 +62,6 @@ async def main():
         await run_consumers()
     except KeyboardInterrupt:
         logger.info("Received KeyboardInterrupt, stopping consumers.")
-    finally:
         await cleanup(consumers)
         # Give a moment for other closures to complete
         await asyncio.sleep(1)
@@ -85,8 +72,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         logger.error(f"An error occurred: {e}")
-    finally:
-        # Force close the event loop
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        loop.close()
