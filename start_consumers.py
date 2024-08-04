@@ -17,8 +17,8 @@ consumers = [
     PDLConsumer(),
     EmailManager(),
     MeetingManager(),
-    # HunterDomainConsumer(),
-    # SlackConsumer(),
+    HunterDomainConsumer(),
+    SlackConsumer(),
 ]
 
 
