@@ -46,9 +46,9 @@ class Hobby(BaseModel):
 
 
 class GoodToKnowResponse(BaseModel):
-    news: List[NewsData] = []
-    hobbies: List[Hobby] = []
-    connections: List[Connection] = []
+    news: List[NewsData]
+    hobbies: List[Hobby]
+    connections: List[Connection]
 
 
 class GetToKnowResponse(BaseModel):
