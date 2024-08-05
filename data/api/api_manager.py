@@ -404,6 +404,7 @@ def get_profile_attendee_info(
         "position": position,
         "social_media_links": links,
     }
+    logger.info(f"Attendee info: {profile}")
     return AttendeeInfo(**profile)
 
 
@@ -435,6 +436,10 @@ def get_profile_strengths(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
+        strengths_formatted = "".join(
+            [f"\n{strength}\n" for strength in profile.strengths]
+        )
+        logger.info(f"strengths: {strengths_formatted}")
         return StrengthsListResponse(strengths=profile.strengths)
     return JSONResponse(content={"error": "Could not find profile"})
 
@@ -463,7 +468,10 @@ def get_profile_get_to_know(
     profile = profiles_repository.get_profile_data(uuid)
     logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
-        logger.info(f"Got get-to-know: {profile.get_to_know}")
+        formated_get_to_know = "".join(
+            [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
+        )
+        logger.info(f"Get to know: {formated_get_to_know}")
         return GetToKnowResponse(**profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
@@ -508,7 +516,10 @@ def get_profile_good_to_know(
             "hobbies": hobbies,
             "connections": connections,
         }
-        logger.info(f"Good to know: {good_to_know}")
+        formatted_good_to_know = "".join(
+            [(f"\n{key}: {value}\n") for key, value in good_to_know.items()]
+        )
+        logger.info(f"Good to know: {formatted_good_to_know}")
         return GoodToKnowResponse(**good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
@@ -553,13 +564,12 @@ def get_work_experience(
                 logger.error(f"Title not found in experience: {experience}")
                 return JSONResponse(content={"error": "Internal error"})
             position = title.get("name")
-            logger.info(f"Position: {position}")
             company = experience.get("company")
             if not company:
                 logger.error(f"Company not found in experience: {experience}")
                 return JSONResponse(content={"error": "Internal error"})
             company_name = company.get("name")
-            logger.info(f"Company: {company_name}")
+
             experience_dict = {
                 "company": company_name,
                 "position": position,
@@ -567,7 +577,10 @@ def get_work_experience(
                 "end_date": experience["end_date"],
             }
             result_experience.append(experience_dict)
-
+        formatted_experience = "".join(
+            [(f"\n{experience}\n") for experience in result_experience]
+        )
+        logger.info(f"Work experience: {formatted_experience}")
         return WorkExperienceResponse.from_list_of_dict(result_experience)
     return JSONResponse(content={"error": "Could not find profile"})
 
