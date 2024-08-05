@@ -261,7 +261,7 @@ async def get_all_profiles(
     logger.debug(
         f"Profiles: {[profile.profile.name for profile in profiles_response_list]}"
     )
-    return ProfilesListResponse(profiles=profiles_response_list)
+    return ProfilesListResponse(profiles_response_list)
 
 
 @v1_router.get(
@@ -300,7 +300,7 @@ async def get_all_meetings_by_profile_name(
 
 
 @v1_router.get(
-    "/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse
+    "/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse]
 )
 def get_all_profile_for_meeting(
     tenant_id: str,
@@ -310,7 +310,7 @@ def get_all_profile_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> MiniProfilesListResponse:
+) -> List[MiniProfileResponse]:
     """
     Get all profile IDs and names for a specific meeting.
 
@@ -346,7 +346,7 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return MiniProfilesListResponse.from_profiles_list(profiles)
+    return [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
 
 
 @v1_router.get(
