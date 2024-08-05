@@ -232,7 +232,7 @@ async def get_user_account(
 
 
 @v1_router.get(
-    "/profiles/{tenant_id}",
+    "/{tenant_id}/profiles",
     response_model=ProfilesListResponse,
     include_in_schema=False,
     summary="Gets all profiles for a given tenant",
@@ -294,10 +294,14 @@ async def get_all_meetings_by_profile_name(
     # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
+    # sort by meeting.start_time
+    dict_meetings.sort(key=lambda x: x["start_time"])
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfileResponse)
+@v1_router.get(
+    "/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse
+)
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
@@ -306,7 +310,7 @@ def get_all_profile_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> MiniProfileResponse:
+) -> MiniProfilesListResponse:
     """
     Get all profile IDs and names for a specific meeting.
 
@@ -340,9 +344,9 @@ def get_all_profile_for_meeting(
         profile = profiles_repository.get_profile_data(uuid)
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
-            profiles.append({"uuid": profile.uuid, "name": profile.name})
+            profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return JSONResponse(content=profiles)
+    return MiniProfilesListResponse.from_profiles_list(profiles)
 
 
 @v1_router.get(

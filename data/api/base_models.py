@@ -19,6 +19,22 @@ class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
 
+    @staticmethod
+    def from_profile_dto(profile: ProfileDTO):
+        return MiniProfileResponse(uuid=str(profile.uuid), name=str(profile.name))
+
+
+class MiniProfilesListResponse(BaseModel):
+    profiles: List[MiniProfileResponse]
+
+    @staticmethod
+    def from_profiles_list(profiles: List[ProfileDTO]):
+        return MiniProfilesListResponse(
+            profiles=[
+                MiniProfileResponse.from_profile_dto(profile) for profile in profiles
+            ]
+        )
+
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]

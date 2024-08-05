@@ -146,30 +146,31 @@ class ProfilesRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[0]} from database")
-                    strengths = [
-                        Strength.from_dict(item) for item in json.loads(row[4])
-                    ]
-                    hobbies = json.loads(row[5])
-                    connections = [
-                        Connection.from_dict(item) for item in json.loads(row[6])
-                    ]
-                    news = [self.deserialize_news(item) for item in json.loads(row[7])]
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[9] if row[9] else None
+                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    news = [self.deserialize_news(item) for item in row[7]]
                     get_to_know = {
-                        k: [Phrase.from_dict(p) for p in v]
-                        for k, v in json.loads(row[8]).items()
+                        k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()
                     }
                     profile_data = (
-                        row[0],
-                        row[1],
-                        row[2],
-                        row[3],
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        news,
+                        connections,
                         strengths,
                         hobbies,
-                        connections,
-                        news,
-                        get_to_know,
-                        row[9],
-                        row[10],
                     )
                     return ProfileDTO.from_tuple(profile_data)
                 else:
