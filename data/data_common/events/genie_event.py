@@ -21,7 +21,6 @@ class GenieEvent:
         self.scope = scope
 
     def send(self):
-
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
         event.properties = {"topic": self.topic, "scope": self.scope}
@@ -31,6 +30,8 @@ class GenieEvent:
         # Send the batch
         producer.send_batch(event_data_batch)
         logger.info(f"Batch sent successfully [TOPIC={self.topic}]")
+
+        producer.close()
 
     def ensure_json_format(self, data):
         """

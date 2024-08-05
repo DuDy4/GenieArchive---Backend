@@ -197,7 +197,7 @@ class PersonManager(GenieConsumer):
         profile = event_body.get("profile")
         if isinstance(profile, str):
             profile = json.loads(profile)
-        logger.debug(f"Person: {person_dict},\n Profile: {str(profile)[:300]}")
+        logger.debug(f"Person: {person_dict},\n Profile: {str(profile)}")
         uuid = person_dict.get("uuid") if person_dict.get("uuid") else get_uuid4()
 
         # This is a test to get profile picture from social media links
@@ -220,7 +220,6 @@ class PersonManager(GenieConsumer):
                 "position": person_dict.get("position")
                 if person_dict.get("position")
                 else profile.get("job_title", ""),
-                "challenges": profile.get("challenges", []),
                 "strengths": profile.get("strengths", []),
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
@@ -327,6 +326,7 @@ class PersonManager(GenieConsumer):
         person_dict = event_body.get("person")
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
+        logger.debug(f"Person: {person_dict}")
         person = PersonDTO.from_dict(person_dict)
         person.uuid = self.persons_repository.save_person(person)
 

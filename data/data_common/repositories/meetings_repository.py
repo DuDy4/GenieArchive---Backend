@@ -28,6 +28,7 @@ class MeetingsRepository:
             participants_hash VARCHAR,
             link VARCHAR,
             subject VARCHAR,
+            location VARCHAR,
             start_time VARCHAR,
             end_time VARCHAR
         );
@@ -49,8 +50,8 @@ class MeetingsRepository:
             )
             return None
         insert_query = """
-        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
@@ -171,7 +172,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
         FROM meetings
         WHERE uuid = %s;
         """
@@ -183,15 +184,17 @@ class MeetingsRepository:
                     logger.info(f"Got meeting data {row[0]} from database")
                     return MeetingDTO.from_tuple(row)
                 else:
-                    logger.error(f"Error with getting meeting data for {uuid}")
+                    logger.error(f"Meeting not found for {uuid}")
+                    traceback.print_exc()
         except Exception as error:
             logger.error("Error fetching meeting data by uuid:", error)
             traceback.print_exception(error)
+            traceback.print_exc()
         return None
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT *
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -203,7 +206,7 @@ class MeetingsRepository:
                 if meetings:
                     logger.info(f"Got {len(meetings)} meetings from database")
                     # logger.debug(f"Got meetings: {meetings}")
-                    return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                 else:
                     logger.error(f"No meetings found for tenant_id: {tenant_id}")
                     return []
@@ -224,7 +227,8 @@ class MeetingsRepository:
         if not emails:
             return []
         query = """
-        SELECT * FROM meetings
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        FROM meetings
         WHERE participants_emails ?| array[%s]
         """
         formatted_emails = ",".join(emails)
@@ -233,7 +237,7 @@ class MeetingsRepository:
                 cursor.execute(query, (formatted_emails,))
                 meetings = cursor.fetchall()
                 logger.info(f"Retrieved meetings for participants emails: {emails}")
-                return [MeetingDTO.from_tuple(meeting[1:]) for meeting in meetings]
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
             logger.error(
                 f"Error fetching meetings by participants emails: {error.pgerror}"
@@ -248,7 +252,7 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, start_time = %s, end_time = %s
+        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s, start_time = %s, end_time = %s
         WHERE google_calendar_id = %s;
         """
         meeting_data = meeting.to_tuple()

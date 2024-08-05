@@ -6,6 +6,8 @@ from loguru import logger
 
 from common.utils.str_utils import get_uuid4
 
+from data.data_common.data_transfer_objects.company_dto import CompanyDTO
+
 
 class CompaniesRepository:
     def __init__(self, conn):
@@ -23,7 +25,10 @@ class CompaniesRepository:
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
             domain VARCHAR,
+            size VARCHAR,
             description TEXT,
+            overview TEXT,
+            challenges JSONB,
             technologies JSONB,
             employees JSONB,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -36,21 +41,24 @@ class CompaniesRepository:
         except Exception as error:
             logger.error(f"Error creating table: {error}")
 
-    def insert(self, company_data: dict) -> Optional[int]:
+    def insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
         INSERT INTO companies (
-            uuid, name, domain, description, technologies, employees
-        ) VALUES (%s, %s, %s, %s, %s, %s)
+            uuid, name, domain, size, description, overview, challenges, technologies, employees
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        logger.info(f"About to insert company: {company_data}")
+        logger.info(f"About to insert company: {company_dto}")
         company_values = (
-            company_data.get("uuid"),
-            company_data.get("organization"),
-            company_data.get("domain"),
-            company_data.get("description"),
-            json.dumps(company_data.get("technologies")),
-            json.dumps(company_data.get("employees")),
+            company_dto.uuid,
+            company_dto.name,
+            company_dto.domain,
+            company_dto.size,
+            company_dto.description,
+            company_dto.overview,
+            json.dumps(company_dto.challenges),
+            json.dumps(company_dto.technologies),
+            json.dumps(company_dto.employees),
         )
 
         try:
@@ -81,9 +89,10 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
-    def get_company(self, uuid: str) -> Optional[dict]:
+    def get_company(self, uuid: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT * FROM companies WHERE uuid = %s;
+        SELECT uuid, name, domain, size, description, overview, challenges, technologies, employees
+        FROM companies WHERE uuid = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -91,15 +100,7 @@ class CompaniesRepository:
                 company = cursor.fetchone()
                 if company:
                     logger.info(f"Got company with uuid {uuid}")
-                    return {
-                        "id": company[0],
-                        "uuid": company[1],
-                        "name": company[2],
-                        "domain": company[3],
-                        "description": company[4],
-                        "technologies": company[5],
-                        "employees": company[6],
-                    }
+                    return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with uuid {uuid} does not exist")
                 return None
         except psycopg2.Error as error:
@@ -107,9 +108,10 @@ class CompaniesRepository:
             traceback.print_exc()
             return None
 
-    def get_company_from_domain(self, email_domain):
+    def get_company_from_domain(self, email_domain: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT * FROM companies WHERE domain = %s;
+        SELECT uuid, name, domain, size, description, overview, challenges, technologies, employees
+        FROM companies WHERE domain = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -117,15 +119,7 @@ class CompaniesRepository:
                 company = cursor.fetchone()
                 if company:
                     logger.info(f"Got company with domain {email_domain}")
-                    return {
-                        "id": company[0],
-                        "uuid": company[1],
-                        "name": company[2],
-                        "domain": company[3],
-                        "description": company[4],
-                        "technologies": company[5],
-                        "employees": company[6],
-                    }
+                    return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with domain {email_domain} does not exist")
                 return None
         except psycopg2.Error as error:
@@ -136,19 +130,22 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return None
 
-    def update(self, company_data: dict):
+    def update(self, company_dto: CompanyDTO):
         update_query = """
         UPDATE companies
-        SET name = %s, domain = %s, description = %s, technologies = %s, employees = %s
+        SET name = %s, domain = %s, size = %s, description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
         company_values = (
-            company_data.get("name"),
-            company_data.get("domain"),
-            company_data.get("description"),
-            json.dumps(company_data.get("technologies")),
-            json.dumps(company_data.get("employees")),
-            company_data.get("uuid"),
+            company_dto.name,
+            company_dto.domain,
+            company_dto.size,
+            company_dto.description,
+            company_dto.overview,
+            json.dumps(company_dto.challenges),
+            json.dumps(company_dto.technologies),
+            json.dumps(company_dto.employees),
+            company_dto.uuid,
         )
         try:
             with self.conn.cursor() as cursor:
@@ -161,20 +158,15 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return False
 
-    def save_company(self, company_data: dict):
+    def save_company(self, company: CompanyDTO):
         self.create_table_if_not_exists()
-        if not company_data.get("uuid"):
-            company_data["uuid"] = get_uuid4()
-        if company_data.get("emails"):
-            company_data["employees"] = self.process_employee_data(
-                company_data.get("emails")
-            )
-            company_data.pop("emails")
-        if self.exists(company_data.get("domain")):
-            self.update(company_data)
-            return company_data.get("uuid")
+        if not company.uuid:
+            company.uuid = get_uuid4()
+        if self.exists(company.domain):
+            self.update(company)
+            return company.uuid
         else:
-            return self.insert(company_data)
+            return self.insert(company)
 
     def process_employee_data(self, employees: Union[str, List[dict]]) -> List[dict]:
         result_employee_data = []

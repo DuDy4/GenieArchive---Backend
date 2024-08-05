@@ -6,11 +6,14 @@ import asyncio
 from dotenv import load_dotenv
 from loguru import logger
 
+from data.data_common.data_transfer_objects.company_dto import CompanyDTO
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
+from ai.langsmith.langsmith_loader import Langsmith
 
 from data.data_common.utils.str_utils import get_uuid4
 
@@ -34,6 +37,7 @@ class HunterDomainConsumer(GenieConsumer):
             consumer_group=CONSUMER_GROUP_HUNTER_DOMAIN,
         )
         self.company_repository = companies_repository()
+        self.langsmith = Langsmith()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -57,15 +61,15 @@ class HunterDomainConsumer(GenieConsumer):
             logger.info(f"Employee not found for email: {email_address}")
             self.send_fail_event(email_address, company)
             return
-        if employee.get("name"):
+        if employee.get("name") and "None " not in employee.get("name"):
             person = PersonDTO(
                 uuid=get_uuid4(),
                 name=employee.get("last_name"),
                 email=employee.get("email"),
                 position=employee.get("position"),
-                company=company["organization"],
+                company=company.name,
                 linkedin=employee.get("linkedin"),
-                timezone=company.get("timezone", ""),
+                timezone="",
             )
         elif employee.get("first_name"):
             person = PersonDTO.from_hunter_employee(employee, company["organization"])
@@ -78,10 +82,10 @@ class HunterDomainConsumer(GenieConsumer):
         person_event.send()
         return {"status": "success"}
 
-    def send_fail_event(self, email_address: str, company=None):
+    def send_fail_event(self, email_address: str, company: CompanyDTO = None):
         event = GenieEvent(
             topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
-            data={"email": email_address, "company": company},
+            data={"email": email_address, "company": company.to_dict()},
             scope="public",
         )
         event.send()
@@ -103,17 +107,27 @@ class HunterDomainConsumer(GenieConsumer):
                 self.send_fail_event(email_address)
                 return
             logger.info(f"Response: {response}")
-            company = response["data"]
-        if not company.get("emails") and company.get("employees"):
-            company["emails"] = company.get("employees")
-        self.company_repository.save_company(company)
+            company = CompanyDTO.from_hunter_object(response["data"])
+            self.company_repository.save_company(company)
         logger.info(f"Company: {company}")
-        event = GenieEvent(
-            topic=Topic.NEW_COMPANY_DATA,
-            data=company,
-            scope="public",
-        )
-        event.send()
+        # event = GenieEvent(
+        #     topic=Topic.NEW_COMPANY_DATA,
+        #     data=company.to_dict(),
+        #     scope="public",
+        # )
+        # event.send()
+        if not company.overview or not company.challenges:
+            response = self.langsmith.run_prompt_company_overview_challenges(
+                {"company_data": company.to_dict()}
+            )
+            logger.info(f"Response: {response}")
+            overview = response.get("company_overview")
+            challenges = response.get("challenges")
+            logger.info(f"Overview: {overview}, Challenges: {challenges}")
+            company.overview = overview
+            company.challenges = challenges
+            self.company_repository.save_company(company)
+
         return company, email_address
 
 
@@ -145,14 +159,15 @@ async def get_domain_info(email_address: str):
     return data
 
 
-def find_employee_by_email(email: str, company: dict):
+def find_employee_by_email(email: str, company: CompanyDTO):
     logger.info(f"Email: {email}, Company: {company}")
-    if company.get("employees"):
-        for employee in company.get("employees"):
+    if company.employees:
+        for employee in company.employees:
             if employee.get("email") == email:
                 return employee
-    if company.get("emails"):
-        for employee in company.get("emails"):
-            if employee.get("value") == email:
-                return employee
     return None
+
+
+#
+# data = asyncio.run(get_domain_info("alon@hanacovc.com"))
+# print(data)

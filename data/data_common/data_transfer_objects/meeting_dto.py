@@ -18,6 +18,7 @@ class MeetingDTO:
         participants_hash,
         link,
         subject,
+        location,
         start_time,
         end_time,
     ):
@@ -32,6 +33,7 @@ class MeetingDTO:
         )
         self.link = link
         self.subject = subject
+        self.location = location
         self.start_time = start_time
         self.end_time = end_time
 
@@ -44,6 +46,7 @@ class MeetingDTO:
             "participants_hash": self.participants_hash,
             "link": self.link,
             "subject": self.subject,
+            "location": self.location,
             "start_time": self.start_time,
             "end_time": self.end_time,
         }
@@ -61,6 +64,7 @@ class MeetingDTO:
             ),
             link=data.get("link", ""),
             subject=data.get("subject", ""),
+            location=data.get("location", ""),
             start_time=data.get("start_time", ""),
             end_time=data.get("end_time", ""),
         )
@@ -74,6 +78,7 @@ class MeetingDTO:
             self.participants_hash,
             self.link,
             self.subject,
+            self.location,
             self.start_time,
             self.end_time,
         )
@@ -88,8 +93,9 @@ class MeetingDTO:
             participants_hash=row[4],
             link=row[5],
             subject=row[6],
-            start_time=row[7],
-            end_time=row[8],
+            location=row[7],
+            start_time=row[8],
+            end_time=row[9],
         )
 
     def to_json(self):
@@ -116,6 +122,7 @@ class MeetingDTO:
             ),
             link=extract_meeting_links(event),
             subject=event.get("summary", ""),
+            location=event.get("location", ""),
             start_time=event.get("start", "").get("dateTime", "")
             or event.get("start", "").get("date", ""),
             end_time=event.get("end", "").get("dateTime", "")
@@ -126,7 +133,7 @@ class MeetingDTO:
         return (
             f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id}, tenant_id={self.tenant_id}, "
             f"participants_emails={self.participants_emails}, link={self.link}, "
-            f"subject={self.subject}, start_time={self.start_time}, end_time={self.end_time})"
+            f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time})"
         )
 
 

@@ -194,7 +194,7 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
-        
+
     def get_personal_data_by_email(self, email_address: str):
         """
         Retrieve personal data associated with an email address.
@@ -429,5 +429,31 @@ class PersonalDataRepository:
                     return None
         except Exception as e:
             logger.error(f"Error retrieving social media links: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_status(self, existing_uuid):
+        """
+        Retrieve the status of a profile.
+
+        :param existing_uuid: Unique identifier for the profile.
+        :return: Status if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT status
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (existing_uuid,))
+                status = cursor.fetchone()
+                if status:
+                    return status[0]
+                else:
+                    logger.warning("Profile was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving status: {e}", e)
             traceback.format_exc()
             return None

@@ -27,9 +27,8 @@ class Langsmith:
         person_data["strengths"] = (
             strengths.get("strengths") if strengths.get("strengths") else strengths
         )
-        person_data["news"] = news.get("news") if news.get("news") else news
-        logger.debug(f"Old News: {news}")
-        logger.debug(f"New News: {news.get('news') }")
+        person_data["news"] = news.get("news") if isinstance(news, dict) else news
+        logger.debug(f"News: {news}")
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
         person_data["get_to_know"] = get_to_know
         return person_data
@@ -50,6 +49,8 @@ class Langsmith:
         try:
             runnable = prompt | self.model
             response = runnable.invoke(person_data)
+            if response and isinstance(response, list) and len(response) == 0:
+                response = runnable.invoke(person_data)
         except Exception as e:
             response = f"Error: {e}"
         logger.debug(f"Got strengths from Langsmith")
@@ -60,6 +61,12 @@ class Langsmith:
         try:
             runnable = prompt | self.model
             response = runnable.invoke(person_data)
+            if response.get("news"):
+                response = response.get("news")
+                if response and isinstance(response, list) and len(response) == 0:
+                    response = runnable.invoke(person_data)
+                    if response.get("news"):
+                        response = response.get("news")
         except Exception as e:
             response = f"Error: {e}"
         logger.debug(f"Got news from Langsmith: {response}")
@@ -92,6 +99,19 @@ class Langsmith:
             }
             # logger.debug(f"Arguments for get-to-know: {arguments}")
             response = runnable.invoke(arguments)
+            logger.debug(f"Response from get-to-know: {response}")
+            if (
+                response
+                and isinstance(response, dict)
+                and (
+                    response.get("best_practices") == []
+                    or isinstance(response.get("best_practices"), dict)
+                    or response.get("avoid") == []
+                    or response.get("phrases_to_use") == []
+                )
+            ):
+                logger.warning("Got wrong get-to-know from Langsmith - trying again")
+                response = runnable.invoke(arguments)
             logger.info("Got get-to-know from Langsmith")
             # if response and isinstance(response, dict) and response.get("best_practices") == []:
             #     return await self.run_prompt_get_to_know(person_data)
@@ -106,6 +126,18 @@ class Langsmith:
             response = runnable.invoke(
                 {"email_address": email_address, "company_data": company_data}
             )
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
+    def run_prompt_company_overview_challenges(self, company_data):
+        logger.info("Running Langsmith prompt for company overview and challenges")
+        logger.debug(f"Company data: {company_data}")
+
+        prompt = hub.pull("get_company_overview")
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(company_data)
         except Exception as e:
             response = f"Error: {e}"
         return response
