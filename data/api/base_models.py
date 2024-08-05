@@ -48,7 +48,7 @@ class Hobby(BaseModel):
 class GoodToKnowResponse(BaseModel):
     news: List[NewsData] = []
     hobbies: List[Hobby] = []
-    connections: [List[Connection]] = []
+    connections: List[Connection] = []
 
 
 class GetToKnowResponse(BaseModel):
@@ -57,8 +57,28 @@ class GetToKnowResponse(BaseModel):
     phrases_to_use: Optional[List[Phrase]] = None
 
 
+class WorkPlace(BaseModel):
+    company: str
+    position: str
+    start_date: str
+    end_date: str | None
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            company=data["company"],
+            position=data["position"],
+            start_date=data["start_date"],
+            end_date=data["end_date"],
+        )
+
+
 class WorkExperienceResponse(BaseModel):
-    experience: Optional[List[dict]] = None
+    experience: List[WorkPlace] = []
+
+    @classmethod
+    def from_list_of_dict(cls, data: List[Dict]):
+        return cls(experience=[WorkPlace.from_dict(work_place) for work_place in data])
 
 
 class SocialMediaLinks(BaseModel):
