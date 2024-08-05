@@ -587,6 +587,7 @@ def get_work_experience(
 
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
+    response_model=MeetingResponse,
 )
 def get_meeting_info(
     tenant_id: str,
@@ -609,11 +610,12 @@ def get_meeting_info(
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"})
 
-    participants = meeting.participants_emails
-    host_email_list = [
-        email.get("email") for email in participants if email.get("self")
+    participants = [
+        ParticipantEmail.from_dict(email) for email in meeting.participants_emails
     ]
+    host_email_list = [email.email_address for email in participants if email.self]
     host_email = host_email_list[0] if host_email_list else None
+    logger.debug(f"Host email: {host_email}")
     filtered_participants_emails = MeetingManager.filter_emails(
         host_email, participants
     )
@@ -628,12 +630,14 @@ def get_meeting_info(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
-        company_dict = company.to_dict()
-        if company:
-            company_dict.pop("uuid")
-            company_dict.pop("domain")
-            company_dict.pop("employees")
-            companies.append(company_dict)
+        company_response = CompanyResponse.from_company_dto(company)
+        # company_dict = company.to_dict()
+        # if company:
+        #     company_dict.pop("uuid")
+        #     company_dict.pop("domain")
+        #     company_dict.pop("employees")
+        #     companies.append(company_dict)
+        companies.append(company_response)
 
     logger.info(f"Companies: {companies}")
 
@@ -643,7 +647,7 @@ def get_meeting_info(
     meeting_dict.pop("google_calendar_id")
     meeting_dict["companies"] = companies
 
-    return JSONResponse(content=meeting_dict)
+    return MeetingResponse.from_dict(meeting_dict)
 
 
 @v1_router.get(
