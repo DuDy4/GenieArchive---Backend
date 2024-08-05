@@ -498,7 +498,10 @@ def get_profile_good_to_know(
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
-        connections = profile.connections
+        connections = [
+            profiles_repository.get_connection_data(connection_uuid)
+            for connection_uuid in profile.connections
+        ]
 
         good_to_know = {
             "news": news,
@@ -506,7 +509,7 @@ def get_profile_good_to_know(
             "connections": connections,
         }
         logger.info(f"Good to know: {good_to_know}")
-        return JSONResponse(content=good_to_know)
+        return GoodToKnowResponse(**good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 

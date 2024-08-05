@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl, field_validator
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Connection,
@@ -40,10 +40,15 @@ class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
 
 
+class Hobby(BaseModel):
+    hobby_name: str
+    icon_url: HttpUrl
+
+
 class GoodToKnowResponse(BaseModel):
-    news: Optional[List[NewsData]] = None
-    hobbies: Optional[List[dict]] = None
-    connections: Optional[List[Connection]] = None
+    news: List[NewsData] = []
+    hobbies: List[Hobby] = []
+    connections: [List[Connection]] = []
 
 
 class GetToKnowResponse(BaseModel):
