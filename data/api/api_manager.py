@@ -464,7 +464,7 @@ def get_profile_get_to_know(
     logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
         logger.info(f"Got get-to-know: {profile.get_to_know}")
-        return GetToKnowResponse(profile.get_to_know)
+        return GetToKnowResponse(**profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 

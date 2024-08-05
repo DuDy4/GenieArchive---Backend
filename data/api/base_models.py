@@ -47,7 +47,6 @@ class GoodToKnowResponse(BaseModel):
 
 
 class GetToKnowResponse(BaseModel):
-    title: str
     avoid: Optional[List[Phrase]] = None
     best_practices: Optional[List[Phrase]] = None
     phrases_to_use: Optional[List[Phrase]] = None
