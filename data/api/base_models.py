@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
@@ -57,12 +57,17 @@ class WorkExperienceResponse(BaseModel):
     experience: Optional[List[dict]] = None
 
 
+class SocialMediaLinks(BaseModel):
+    url: HttpUrl | str
+    platform: str
+
+
 class AttendeeInfo(BaseModel):
-    picture: str
+    picture: HttpUrl | str | None
     name: str
     company: str
     position: str
-    social_media_links: List[dict]
+    social_media_links: List[SocialMediaLinks]
 
 
 class ProfileResponse(BaseModel):

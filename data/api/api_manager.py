@@ -404,7 +404,7 @@ def get_profile_attendee_info(
         "position": position,
         "social_media_links": links,
     }
-    return JSONResponse(content=profile)
+    return AttendeeInfo(**profile)
 
 
 @v1_router.get(
