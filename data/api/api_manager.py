@@ -233,7 +233,7 @@ async def get_user_account(
 
 @v1_router.get(
     "/{tenant_id}/profiles",
-    response_model=ProfilesListResponse,
+    response_model=List[ProfileDTO],
     include_in_schema=False,
     summary="Gets all profiles for a given tenant",
 )
@@ -243,7 +243,7 @@ async def get_all_profiles(
     search: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> ProfilesListResponse:
+) -> List[ProfileDTO]:
     """
     Gets all profiles for a given tenant.
     """
@@ -261,7 +261,7 @@ async def get_all_profiles(
     logger.debug(
         f"Profiles: {[profile.profile.name for profile in profiles_response_list]}"
     )
-    return ProfilesListResponse(profiles_response_list)
+    return profiles_list
 
 
 @v1_router.get(
