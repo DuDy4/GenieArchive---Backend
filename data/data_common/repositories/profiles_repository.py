@@ -4,7 +4,7 @@ from typing import Union, Optional
 
 import psycopg2
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.data_transfer_objects.profile_dto import NewsData, ProfileDTO
 from loguru import logger
 
 
@@ -179,6 +179,32 @@ class ProfilesRepository:
             return None
     
 
+    def get_news_data_by_email(self, email: str) -> list:
+        if not email:
+            return None
+        select_query = """
+        SELECT
+            news
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid	
+        WHERE persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got news articles from database: {row[0][0]}")
+                    news = NewsData.from_dict(row[0][0])
+                    return news
+                else:
+                    logger.info(f"Could not find news for {email}")
+                    return None
+        except Exception as error:
+            logger.error("Error fetching news by email:", error)
+            traceback.print_exc()
+            return None
+    
     def get_news_by_email(self, email: str) -> list:
         if not email:
             return None
@@ -206,6 +232,23 @@ class ProfilesRepository:
             logger.error("Error fetching news by email:", error)
             traceback.print_exc()
             return None
+        
+
+    def update_news_by_email(self, email: str, news: list):
+        if not email:
+            return
+        update_query = """
+        UPDATE profiles
+        SET news = %s
+        WHERE profiles.uuid = (SELECT uuid FROM persons WHERE email = %s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(news), email))
+                self.conn.commit()
+                logger.info(f"Updated news for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating news, because: {error.pgerror}")
         
 
     def update(self, profile: ProfileDTO):
