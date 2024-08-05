@@ -243,7 +243,7 @@ async def get_all_profiles(
     search: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> ProfileResponse:
+) -> ProfilesListResponse:
     """
     Gets all profiles for a given tenant.
     """
@@ -254,12 +254,14 @@ async def get_all_profiles(
 
     profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
     logger.info(f"Got profiles: {len(profiles_list)}")
-    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
+    profiles_response_list = [
+        ProfileResponse(profile=profile) for profile in profiles_list
+    ]
 
-    logger.info(f"Got profiles: {len(profiles_list)}")
-
-    logger.debug(f"Profiles: {[profile.name for profile in profiles_list]}")
-    return JSONResponse(content=jsoned_profiles_list)
+    logger.debug(
+        f"Profiles: {[profile.profile.name for profile in profiles_response_list]}"
+    )
+    return ProfilesListResponse(profiles=profiles_response_list)
 
 
 @v1_router.get(
