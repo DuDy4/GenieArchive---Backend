@@ -66,7 +66,6 @@ class GenieConsumer:
         async with httpx.AsyncClient() as client:
             self.client = client
             GenieConsumer.active_clients.add(client)
-            logger.info("httpx.AsyncClient created")
             try:
                 async with self.consumer:
                     await self.consumer.receive(

@@ -23,7 +23,7 @@ load_dotenv()
 PDL_API_KEY = os.environ.get("PDL_API_KEY")
 CONSUMER_GROUP = "pdlconsumergroup"
 MIN_INTERVAL_TO_FETCH_PROFILES = int(
-    os.environ.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24)
+    os.environ.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24 * 60)
 )  # Default: 24 hours
 
 
@@ -71,45 +71,59 @@ class PDLConsumer(GenieConsumer):
             logger.info(
                 f"Profile for {person.linkedin} already exists in the database."
             )
-            last_updated_timestamp = self.personal_data_repository.get_last_updated(
-                person.uuid
-            )
-            if last_updated_timestamp:
-                logger.debug(f"Last updated: {last_updated_timestamp}")
-                time_since_last_update = datetime.now() - last_updated_timestamp
-                if time_since_last_update < timedelta(
-                    seconds=MIN_INTERVAL_TO_FETCH_PROFILES
-                ):
+            if self.pdl_client.is_up_to_date(person.uuid):
+                logger.info(
+                    f"Personal data is up-to-date. Skipping update for {person.uuid}."
+                )
+                personal_data = self.personal_data_repository.get_personal_data(
+                    person.uuid
+                )
+
+                data_to_transfer = {
+                    "person": person.to_dict(),
+                    "personal_data": personal_data,
+                }
+                event = GenieEvent(
+                    Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public"
+                )
+                event.send()
+                logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
+                return
+            else:
+                logger.info(
+                    f"Personal data for {person.name} is outdated. Fetching new data"
+                )
+                personal_data = self.pdl_client.fetch_profile(person)
+                if not personal_data:
+                    logger.error(f"Failed to fetch personal data for {person.name}")
+                    self.personal_data_repository.save_personal_data(
+                        person.uuid,
+                        personal_data,
+                        self.personal_data_repository.TRIED_BUT_FAILED,
+                    )
                     logger.info(
-                        f"Skipping update for {person.uuid}, last updated {time_since_last_update} ago."
+                        f"Updated timestamp for failing to get personal data for {person.name}"
                     )
-                    personal_data = self.personal_data_repository.get_personal_data(
-                        person.uuid
-                    )
-
-                    data_to_transfer = {
-                        "person": person.to_dict(),
-                        "personal_data": personal_data,
-                    }
                     event = GenieEvent(
-                        Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public"
+                        Topic.FAILED_TO_ENRICH_DATA,
+                        {"person": person.to_dict()},
+                        "public",
                     )
                     event.send()
-                    logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
-                    return
-                else:
-                    personal_data = self.pdl_client.fetch_profile(person)
-                    data_to_transfer = {
-                        "person": person.to_dict(),
-                        "personal_data": personal_data,
-                    }
-                    event = GenieEvent(
-                        Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
-                    )
-                    event.send()
-                    logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
+                    return {"status": "failed"}
+                data_to_transfer = {
+                    "person": person.to_dict(),
+                    "personal_data": personal_data,
+                }
+                event = GenieEvent(
+                    Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public"
+                )
+                event.send()
+                logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
         else:
-
+            logger.info(
+                f"Person {person.name} not found in the database. Fetching new personal data"
+            )
             profile = self.pdl_client.fetch_profile(person)
             data_to_transfer = {"person": person.to_dict(), "personal_data": profile}
             event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
@@ -350,29 +364,18 @@ class PDLClient:
     def fetch_profile(self, person):
         profile = None
         if person.linkedin:
-            profile = self.get_single_profile(person.linkedin)
+            personal_data = self.get_single_profile(person.linkedin)
         elif person.email:
-            profile = self.get_single_profile_from_email_address(person.email)
+            personal_data = self.get_single_profile_from_email_address(person.email)
         else:
             logger.warning(f"No LinkedIn or email for {person.uuid}")
             return
         status = (
             self.personal_data_repository.FETCHED
-            if profile
+            if personal_data
             else self.personal_data_repository.TRIED_BUT_FAILED
         )
-        self.personal_data_repository.insert(
-            uuid=person.uuid,
-            name=person.name,
-            email=person.email,
-            linkedin_url=person.linkedin,
-            personal_data=json.dumps(profile),
-            status=status,
-        )
-        event = GenieEvent(
-            Topic.FAILED_TO_ENRICH_DATA, {"person": person.to_dict()}, "public"
-        )
-        event.send()
+        self.personal_data_repository.save_personal_data(person, personal_data, status)
         return profile
 
     def identify_person(
