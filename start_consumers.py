@@ -5,7 +5,6 @@ from loguru import logger
 from data.pdl_consumer import PDLConsumer
 from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
-from data.emails_manager import EmailManager
 from data.meetings_consumer import MeetingManager
 from data.hunter_domain_consumer import HunterDomainConsumer
 from data.slack_consumer import SlackConsumer
@@ -15,7 +14,6 @@ consumers = [
     PersonManager(),
     LangsmithConsumer(),
     PDLConsumer(),
-    EmailManager(),
     MeetingManager(),
     HunterDomainConsumer(),
     SlackConsumer(),

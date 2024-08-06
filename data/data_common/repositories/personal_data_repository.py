@@ -301,18 +301,25 @@ class PersonalDataRepository:
             self.conn.rollback()
         return
 
-    def save_personal_data(self, uuid, personal_data: dict | str):
+    def save_personal_data(self, person, personal_data: dict | str, status: str):
         """
         Save personal data to the database.
 
-        :param uuid: Unique identifier for the personal_data.
+        :param person: Person object.
         :param personal_data: Personal data to save.
         """
         self.create_table_if_not_exists()
-        if not self.exists_uuid(uuid):
-            logger.error("Person with this UUID does not exist in Personal_data table")
+        if not self.exists_uuid(person.uuid):
+            self.insert(
+                uuid=person.uuid,
+                name=person.name,
+                email=person.email,
+                linkedin_url=person.linkedin,
+                personal_data=personal_data,
+                status=status,
+            )
             return
-        self.update(uuid, personal_data)
+        self.update(person.uuid, personal_data)
         return
 
     def get_last_updated(self, uuid):
