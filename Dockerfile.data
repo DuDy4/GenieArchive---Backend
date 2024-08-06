@@ -8,6 +8,7 @@ COPY data/${SERVICE_NAME}.py .
 COPY data ./data
 COPY common ./common
 COPY ai ./ai
+COPY start_consumers.py . 
 COPY requirements.txt .
 RUN apt-get update && \
     apt-get install -y git libpq-dev gcc build-essential && \
