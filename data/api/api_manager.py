@@ -555,33 +555,7 @@ def get_work_experience(
         fixed_experience = PDLClient.fix_and_sort_experience(experience)
 
         short_fixed_experience = fixed_experience[:10]
-
-        result_experience = []
-
-        for experience in short_fixed_experience:
-            title = experience.get("title")
-            if not title:
-                logger.error(f"Title not found in experience: {experience}")
-                return JSONResponse(content={"error": "Internal error"})
-            position = title.get("name")
-            company = experience.get("company")
-            if not company:
-                logger.error(f"Company not found in experience: {experience}")
-                return JSONResponse(content={"error": "Internal error"})
-            company_name = company.get("name")
-
-            experience_dict = {
-                "company": company_name,
-                "position": position,
-                "start_date": experience["start_date"],
-                "end_date": experience["end_date"],
-            }
-            result_experience.append(experience_dict)
-        formatted_experience = "".join(
-            [(f"\n{experience}\n") for experience in result_experience]
-        )
-        logger.info(f"Work experience: {formatted_experience}")
-        return WorkExperienceResponse.from_list_of_dict(result_experience)
+        return JSONResponse(content=(short_fixed_experience))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
