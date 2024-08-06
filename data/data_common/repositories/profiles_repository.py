@@ -12,6 +12,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Connection,
     NewsData,
     Phrase,
+    Hobby
 )
 from loguru import logger
 
@@ -197,7 +198,7 @@ class ProfilesRepository:
                 if rows:
                     logger.info(f"Got {len(rows)} hobbies from database")
                     hobbies = [
-                        {"hobby_name": row[0], "icon_url": row[1]} for row in rows
+                        Hobby(hobby_name=row[0], icon_url=row[1]) for row in rows
                     ]
                     return hobbies
                 else:
@@ -212,56 +213,46 @@ class ProfilesRepository:
         if not email:
             return None
         select_query = """
-        SELECT
-            jsonb_array_elements(connections)->>'name' AS name,
-            jsonb_array_elements(connections)->>'image_url' AS image_url,
-            jsonb_array_elements(connections)->>'linkedin_url' AS linkedin_url
-        FROM profiles
+        SELECT connections  FROM profiles
         JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email,))
-                rows = cursor.fetchall()
-                if rows:
-                    logger.info(f"Got {len(rows)} connections from database")
-                    connections = [
-                        {"name": row[0], "image_url": row[1], "linkedin_url": row[2]}
-                        for row in rows
-                    ]
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got connections from database: {row[0]}")
+                    connections = []
+                    for connection_object in row[0]:
+                        connections.append(Connection.from_dict(connection_object))
                     return connections
                 else:
-                    logger.info(f"Could not find connections for {email}")
+                    logger.info(f"Could not find connection for {email}")
                     return None
         except Exception as error:
             logger.error(f"Error fetching connections by email: {error}")
             traceback.print_exc()
             return None
 
-    def get_news_by_email(self, email: str) -> list:
+    def get_news_data_by_email(self, email: str) -> list:
         if not email:
             return None
         select_query = """
-        SELECT
-            jsonb_array_elements(news)->>'title' AS title,
-            jsonb_array_elements(news)->>'link' AS link,
-            jsonb_array_elements(news)->>'media' AS media
-        FROM profiles
+        SELECT news FROM profiles
         JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email,))
-                rows = cursor.fetchall()
-                if rows:
-                    logger.info(f"Got {len(rows)} news articles from database")
-                    news = [
-                        {"title": row[0], "link": row[1], "source": row[2]}
-                        for row in rows
-                    ]
-                    return news
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got news articles from database: {row[0]}")
+                    news_results = []
+                    for news_object in row[0]:
+                        news_results.append(NewsData.from_dict(news_object))
+                    return news_results
                 else:
                     logger.info(f"Could not find news for {email}")
                     return None
@@ -269,6 +260,60 @@ class ProfilesRepository:
             logger.error(f"Error fetching news by email: {error}")
             traceback.print_exc()
             return None
+        
+
+    def update_hobbies_by_email(self, email: str, hobbies: list[str]):
+        update_query = """
+        UPDATE profiles
+        SET hobbies = %s
+        FROM persons
+        WHERE profiles.uuid = persons.uuid AND persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(hobbies), email))
+                self.conn.commit()
+                logger.info(f"Updated hobbies for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating hobbies, because: {error.pgerror}")
+        
+        
+    def update_connections_by_email(self, email: str, connections: list[Connection]):
+        update_query = """
+        UPDATE profiles
+        SET connections = %s
+        FROM persons
+        WHERE profiles.uuid = persons.uuid AND persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    update_query,
+                    (
+                        json.dumps([con.to_dict() for con in connections]),
+                        email,
+                    ),
+                )
+                self.conn.commit()
+                logger.info(f"Updated connections for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating connections, because: {error.pgerror}")
+        
+        
+    def update_news_by_email(self, email: str, news: list[NewsData]):
+        update_query = """
+        UPDATE profiles
+        SET news = %s
+        FROM persons
+        WHERE profiles.uuid = persons.uuid AND persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(news), email))
+                self.conn.commit()
+                logger.info(f"Updated news for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating news, because: {error.pgerror}")
 
     def update(self, profile: ProfileDTO):
         update_query = """

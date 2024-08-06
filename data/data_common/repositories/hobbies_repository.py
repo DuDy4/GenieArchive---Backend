@@ -1,5 +1,6 @@
 import traceback
 from typing import Optional
+import uuid
 import psycopg2
 from loguru import logger
 
@@ -26,7 +27,6 @@ class HobbiesRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info(f"Created hobbies table in database")
         except Exception as error:
             logger.error("Error creating table:", error)
 
@@ -112,6 +112,30 @@ class HobbiesRepository:
         except psycopg2.Error as error:
             logger.error(f"Error updating hobby: {error}")
             return False
+        
+    def find_or_create_hobby(self, hobby_name: str, icon_url: str) -> str:
+        """
+        Find hobby by name or create a new one
+        """
+        logger.info(f"About to find or create hobby with name: {hobby_name}")
+        hobby_uuid = self.find_hobby(hobby_name)
+        if not hobby_uuid:
+            hobby_uuid = self.create_hobby(hobby_name, icon_url)
+        return hobby_uuid
+    
+    def create_hobby(self, hobby_name: str, icon_url: str) -> str:
+        """
+        Create new hobby
+        """
+        logger.info(f"About to create hobby with name: {hobby_name}")
+        hobby_uuid = str(uuid.uuid4())
+        hobby = {
+            "uuid": hobby_uuid,
+            "hobby_name": hobby_name,
+            "icon_url": icon_url,
+        }
+        self.insert(hobby)
+        return hobby_uuid
 
     def find_hobby(self, hobby_name: str) -> str:
         """
