@@ -232,8 +232,8 @@ async def get_user_account(
 
 
 @v1_router.get(
-    "/profiles/{tenant_id}",
-    response_model=ProfilesListResponse,
+    "/{tenant_id}/profiles",
+    response_model=List[ProfileDTO],
     include_in_schema=False,
     summary="Gets all profiles for a given tenant",
 )
@@ -243,7 +243,7 @@ async def get_all_profiles(
     search: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> ProfileResponse:
+) -> List[ProfileDTO]:
     """
     Gets all profiles for a given tenant.
     """
@@ -254,12 +254,14 @@ async def get_all_profiles(
 
     profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
     logger.info(f"Got profiles: {len(profiles_list)}")
-    jsoned_profiles_list = [profile.to_dict() for profile in profiles_list]
+    profiles_response_list = [
+        ProfileResponse(profile=profile) for profile in profiles_list
+    ]
 
-    logger.info(f"Got profiles: {len(profiles_list)}")
-
-    logger.debug(f"Profiles: {[profile.name for profile in profiles_list]}")
-    return JSONResponse(content=jsoned_profiles_list)
+    logger.debug(
+        f"Profiles: {[profile.profile.name for profile in profiles_response_list]}"
+    )
+    return profiles_list
 
 
 @v1_router.get(
@@ -292,10 +294,14 @@ async def get_all_meetings_by_profile_name(
     # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
+    # sort by meeting.start_time
+    dict_meetings.sort(key=lambda x: x["start_time"])
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfileResponse)
+@v1_router.get(
+    "/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse]
+)
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
@@ -304,7 +310,7 @@ def get_all_profile_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> MiniProfileResponse:
+) -> List[MiniProfileResponse]:
     """
     Get all profile IDs and names for a specific meeting.
 
@@ -338,9 +344,9 @@ def get_all_profile_for_meeting(
         profile = profiles_repository.get_profile_data(uuid)
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
-            profiles.append({"uuid": profile.uuid, "name": profile.name})
+            profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return JSONResponse(content=profiles)
+    return [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
 
 
 @v1_router.get(
@@ -398,7 +404,8 @@ def get_profile_attendee_info(
         "position": position,
         "social_media_links": links,
     }
-    return JSONResponse(content=profile)
+    logger.info(f"Attendee info: {profile}")
+    return AttendeeInfo(**profile)
 
 
 @v1_router.get(
@@ -429,7 +436,11 @@ def get_profile_strengths(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        return JSONResponse(content=profile.strengths)
+        strengths_formatted = "".join(
+            [f"\n{strength}\n" for strength in profile.strengths]
+        )
+        logger.info(f"strengths: {strengths_formatted}")
+        return StrengthsListResponse(strengths=profile.strengths)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -457,8 +468,11 @@ def get_profile_get_to_know(
     profile = profiles_repository.get_profile_data(uuid)
     logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
-        logger.info(f"Got get-to-know: {profile.get_to_know}")
-        return JSONResponse(content=profile.get_to_know)
+        formated_get_to_know = "".join(
+            [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
+        )
+        logger.info(f"Get to know: {formated_get_to_know}")
+        return GetToKnowResponse(**profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -492,15 +506,21 @@ def get_profile_good_to_know(
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
-        connections = profile.connections
+        connections = [
+            profiles_repository.get_connection_data(connection_uuid)
+            for connection_uuid in profile.connections
+        ]
 
         good_to_know = {
             "news": news,
             "hobbies": hobbies,
             "connections": connections,
         }
-        logger.info(f"Good to know: {good_to_know}")
-        return JSONResponse(content=good_to_know)
+        formatted_good_to_know = "".join(
+            [(f"\n{key}: {value}\n") for key, value in good_to_know.items()]
+        )
+        logger.info(f"Good to know: {formatted_good_to_know}")
+        return GoodToKnowResponse(**good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -508,7 +528,7 @@ def get_profile_good_to_know(
     "/{tenant_id}/profiles/{uuid}/work-experience",
     response_model=WorkExperienceResponse,
 )
-def get_profile_work_experience(
+def get_work_experience(
     uuid: str,
     tenant_id: str,
     personal_data_repository: PersonalDataRepository = Depends(
@@ -536,12 +556,38 @@ def get_profile_work_experience(
 
         short_fixed_experience = fixed_experience[:10]
 
-        return JSONResponse(content=(short_fixed_experience))
+        result_experience = []
+
+        for experience in short_fixed_experience:
+            title = experience.get("title")
+            if not title:
+                logger.error(f"Title not found in experience: {experience}")
+                return JSONResponse(content={"error": "Internal error"})
+            position = title.get("name")
+            company = experience.get("company")
+            if not company:
+                logger.error(f"Company not found in experience: {experience}")
+                return JSONResponse(content={"error": "Internal error"})
+            company_name = company.get("name")
+
+            experience_dict = {
+                "company": company_name,
+                "position": position,
+                "start_date": experience["start_date"],
+                "end_date": experience["end_date"],
+            }
+            result_experience.append(experience_dict)
+        formatted_experience = "".join(
+            [(f"\n{experience}\n") for experience in result_experience]
+        )
+        logger.info(f"Work experience: {formatted_experience}")
+        return WorkExperienceResponse.from_list_of_dict(result_experience)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
+    response_model=MeetingResponse,
 )
 def get_meeting_info(
     tenant_id: str,
@@ -564,11 +610,12 @@ def get_meeting_info(
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"})
 
-    participants = meeting.participants_emails
-    host_email_list = [
-        email.get("email") for email in participants if email.get("self")
+    participants = [
+        ParticipantEmail.from_dict(email) for email in meeting.participants_emails
     ]
+    host_email_list = [email.email_address for email in participants if email.self]
     host_email = host_email_list[0] if host_email_list else None
+    logger.debug(f"Host email: {host_email}")
     filtered_participants_emails = MeetingManager.filter_emails(
         host_email, participants
     )
@@ -583,12 +630,14 @@ def get_meeting_info(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
-        company_dict = company.to_dict()
-        if company:
-            company_dict.pop("uuid")
-            company_dict.pop("domain")
-            company_dict.pop("employees")
-            companies.append(company_dict)
+        company_response = CompanyResponse.from_company_dto(company)
+        # company_dict = company.to_dict()
+        # if company:
+        #     company_dict.pop("uuid")
+        #     company_dict.pop("domain")
+        #     company_dict.pop("employees")
+        #     companies.append(company_dict)
+        companies.append(company_response)
 
     logger.info(f"Companies: {companies}")
 
@@ -598,7 +647,7 @@ def get_meeting_info(
     meeting_dict.pop("google_calendar_id")
     meeting_dict["companies"] = companies
 
-    return JSONResponse(content=meeting_dict)
+    return MeetingResponse.from_dict(meeting_dict)
 
 
 @v1_router.get(

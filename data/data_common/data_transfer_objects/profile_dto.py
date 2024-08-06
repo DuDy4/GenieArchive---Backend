@@ -76,16 +76,16 @@ class Strength(BaseModel):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
-    
+
     @classmethod
-    def from_json(cls, json_str: str) -> 'Strength':
+    def from_json(cls, json_str: str) -> "Strength":
         return cls.parse_raw(json_str)
-    
+
     def to_json(self) -> str:
         return self.json()
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> 'Strength':
+    def from_dict(cls, data: dict) -> "Strength":
         return cls.parse_obj(data)
 
     def to_tuple(self) -> Tuple[str, str, int]:
@@ -104,35 +104,36 @@ class Strength(BaseModel):
 
 
 class NewsData(BaseModel):
-    date: Optional[date] = None
+    date: Optional[date] = date | None
     link: HttpUrl
     media: str
     title: str
     summary: Optional[str] = None
 
-    @field_validator('media', 'title')
+    @field_validator("media", "title")
     def not_empty(cls, value):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
-    
+
     @classmethod
-    def from_json(cls, json_str: str) -> 'NewsData':
+    def from_json(cls, json_str: str) -> "NewsData":
         return cls.parse_raw(json_str)
-    
 
     def to_json(self) -> str:
         return self.json()
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> 'NewsData':
+    def from_dict(cls, data: dict) -> "NewsData":
         return cls.parse_obj(data)
 
-    def to_tuple(self) -> Tuple[date, HttpUrl, str, str, str]:
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:
         return self.date, self.link, self.media, self.title, self.summary
 
     @classmethod
-    def from_tuple(cls, data: Tuple[date, HttpUrl, str, str, str]) -> "NewsData":
+    def from_tuple(
+        cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]
+    ) -> "NewsData":
         return cls(
             date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4]
         )
@@ -155,16 +156,16 @@ class Connection(BaseModel):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
-    
+
     @classmethod
-    def from_json(cls, json_str: str) -> 'Connection':
+    def from_json(cls, json_str: str) -> "Connection":
         return cls.parse_raw(json_str)
-    
+
     def to_json(self) -> str:
         return self.json()
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> 'Connection':
+    def from_dict(cls, data: dict) -> "Connection":
         return cls.parse_obj(data)
 
     def to_tuple(self) -> Tuple[str, Optional[HttpUrl], Optional[HttpUrl]]:
@@ -182,6 +183,39 @@ class Connection(BaseModel):
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "Connection":
         return cls(**data)
+
+
+class Hobby(BaseModel):
+    uuid: UUID
+    name: str
+    icon_link: HttpUrl
+
+    @field_validator("name", "icon_link")
+    def not_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Field cannot be empty or whitespace")
+        return value
+
+    def to_json(self) -> str:
+        return self.model_dump_json()
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Hobby":
+        return cls.parse_raw(json_str)
+
+    def to_dict(self) -> dict:
+        return self.model_dump()
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Hobby":
+        return cls.parse_obj(data)
+
+    def to_tuple(self) -> Tuple[UUID, str, HttpUrl]:
+        return self.uuid, self.name, self.icon_link
+
+    @classmethod
+    def from_tuple(cls, data: Tuple[UUID, str, HttpUrl]) -> "Hobby":
+        return cls(uuid=data[0], name=data[1], icon_link=data[2])
 
 
 class ProfileDTO(BaseModel):
@@ -267,6 +301,7 @@ class ProfileDTO(BaseModel):
             UUID,
             str,
             str,
+            str,
             Optional[str],
             Optional[HttpUrl],
             Optional[Dict[str, List[Phrase]]],
@@ -279,16 +314,16 @@ class ProfileDTO(BaseModel):
         return cls(
             uuid=data[0],
             name=data[1],
-            position=data[2],
-            summary=data[3],
-            picture_url=data[4],
-            get_to_know=data[5],
-            news=data[6],
-            connections=data[7],
-            strengths=data[8],
-            hobbies=data[9]
+            company=data[2],
+            position=data[3],
+            summary=data[4],
+            picture_url=data[5],
+            get_to_know=data[6],
+            news=data[7],
+            connections=data[8],
+            strengths=data[9],
+            hobbies=data[10],
         )
-
 
 
 # import json
@@ -406,4 +441,3 @@ class ProfileDTO(BaseModel):
 #             f"hobbies={self.hobbies}, connections={self.connections}, news={self.news}, "
 #             f"get_to_know={self.get_to_know}, summary={self.summary}, picture_url={self.picture_url})"
 #         )
-

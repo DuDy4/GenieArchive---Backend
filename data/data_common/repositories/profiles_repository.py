@@ -12,7 +12,8 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Connection,
     NewsData,
     Phrase,
-    Hobby
+    Hobby,
+    UUID,
 )
 from loguru import logger
 
@@ -146,30 +147,31 @@ class ProfilesRepository:
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got {row[0]} from database")
-                    strengths = [
-                        Strength.from_dict(item) for item in json.loads(row[4])
-                    ]
-                    hobbies = json.loads(row[5])
-                    connections = [
-                        Connection.from_dict(item) for item in json.loads(row[6])
-                    ]
-                    news = [self.deserialize_news(item) for item in json.loads(row[7])]
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[9] if row[9] else None
+                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    news = [self.deserialize_news(item) for item in row[7]]
                     get_to_know = {
-                        k: [Phrase.from_dict(p) for p in v]
-                        for k, v in json.loads(row[8]).items()
+                        k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()
                     }
                     profile_data = (
-                        row[0],
-                        row[1],
-                        row[2],
-                        row[3],
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        news,
+                        connections,
                         strengths,
                         hobbies,
-                        connections,
-                        news,
-                        get_to_know,
-                        row[9],
-                        row[10],
                     )
                     return ProfileDTO.from_tuple(profile_data)
                 else:
@@ -398,7 +400,97 @@ class ProfilesRepository:
                     cursor.execute(select_query, (uuids,))
 
                 rows = cursor.fetchall()
-                profiles = [ProfileDTO.from_tuple(row) for row in rows]
+                logger.info(f"Got {len(rows)} profiles from database")
+                profiles = []
+
+                for row in rows:
+                    uuid = UUID(row[0])
+                    logger.debug(f"UUID: {uuid}")
+
+                    name = row[1] if row[1] else ""
+                    if name == "":
+                        logger.error(f"Name is empty for {uuid}")
+                    logger.debug(f"Name: {name}")
+
+                    company = row[2] if row[2] else ""
+                    if company == "":
+                        logger.error(f"Company is empty for {uuid}")
+                    logger.debug(f"Company: {company}")
+
+                    position = row[3] if row[3] else ""
+                    if position == "":
+                        logger.error(f"Position is empty for {uuid}")
+                    logger.debug(f"Position: {position}")
+
+                    summary = row[9] if row[9] else None
+                    logger.debug(f"Summary: {summary}")
+
+                    # Ensure strengths is a list of Strength objects
+                    strengths = (
+                        [Strength.from_dict(item) for item in json.loads(row[4])]
+                        if isinstance(row[4], str)
+                        else row[4]
+                    )
+                    logger.debug(f"Strengths: {strengths}")
+
+                    # Ensure hobbies is a list of UUIDs
+                    hobbies = (
+                        [UUID(hobby) for hobby in json.loads(row[5])]
+                        if isinstance(row[5], str)
+                        else row[5]
+                    )
+                    logger.debug(f"Hobbies: {hobbies}")
+
+                    # Ensure connections is a list of Connection objects
+                    connections = (
+                        [Connection.from_dict(item) for item in json.loads(row[6])]
+                        if isinstance(row[6], str)
+                        else row[6]
+                    )
+                    logger.debug(f"Connections: {connections}")
+
+                    # Ensure news is a list of NewsData objects
+                    news = (
+                        [NewsData.from_dict(item) for item in json.loads(row[7])]
+                        if isinstance(row[7], str)
+                        else row[7]
+                    )
+                    logger.debug(f"News: {news}")
+
+                    # Ensure get_to_know is a dictionary with lists of Phrase objects
+                    get_to_know = (
+                        {
+                            k: [Phrase.from_dict(p) for p in v]
+                            for k, v in json.loads(row[8]).items()
+                        }
+                        if isinstance(row[8], str)
+                        else row[8]
+                    )
+                    logger.debug(f"Get to know: {get_to_know}")
+
+                    # Ensure company field is present
+
+                    # Ensure picture_url is a valid URL or None
+                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
+                    if picture_url == "":
+                        picture_url = None
+
+                    logger.info(f"About to create ProfileDTO from tuple: {row}")
+
+                    profile_data = (
+                        uuid,  # uuid
+                        name,  # name
+                        company,  # company
+                        position,  # position
+                        summary,  # summary
+                        picture_url,  # picture_url
+                        get_to_know,
+                        news,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    profiles.append(ProfileDTO.from_tuple(profile_data))
                 return profiles
         except Exception as error:
             logger.error(f"Error fetching profiles by uuids: {error}")

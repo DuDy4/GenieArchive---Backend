@@ -1,9 +1,11 @@
 import asyncio
 import json
 import os
+from typing import List
 
 from loguru import logger
 
+from data.api.base_models import ParticipantEmail
 from data.data_common.dependencies.dependencies import meetings_repository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
@@ -93,7 +95,7 @@ class MeetingManager(GenieConsumer):
         return final_list
 
     @staticmethod
-    def filter_emails(host_email, participants_emails):
+    def filter_emails(host_email: str, participants_emails: List[ParticipantEmail]):
         """
         Filter emails of:
         1. is the organizer.
@@ -104,7 +106,9 @@ class MeetingManager(GenieConsumer):
         host_domain = host_email.split("@")[1]
         logger.info(f"Host email: {host_email}")
         for email_object in participants_emails:
-            if isinstance(email_object, dict):
+            if isinstance(email_object, ParticipantEmail):
+                email = email_object.email_address
+            elif isinstance(email_object, dict):
                 email = email_object.get("email")
             else:
                 email = email_object
