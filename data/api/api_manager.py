@@ -506,10 +506,7 @@ def get_profile_good_to_know(
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
-        connections = [
-            profiles_repository.get_connection_data(connection_uuid)
-            for connection_uuid in profile.connections
-        ]
+        connections = profile.connections
 
         good_to_know = {
             "news": news,
