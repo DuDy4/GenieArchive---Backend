@@ -45,6 +45,13 @@ class Hobby(BaseModel):
     hobby_name: str
     icon_url: HttpUrl
 
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            hobby_name=data["hobby_name"],
+            icon_url=data["icon_url"],
+        )
+
 
 class GoodToKnowResponse(BaseModel):
     news: List[NewsData]
