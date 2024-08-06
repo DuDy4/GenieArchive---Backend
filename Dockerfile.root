@@ -8,6 +8,7 @@ COPY start_api.py .
 COPY common ./common
 COPY app ./app
 COPY requirements.txt .
+COPY data ./data
 
 RUN apt-get update && \
     apt-get install -y git libpq-dev gcc build-essential && \
