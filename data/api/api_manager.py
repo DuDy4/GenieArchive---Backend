@@ -502,7 +502,7 @@ def get_profile_good_to_know(
         hobbies_uuid = profile.hobbies
         logger.info(f"Got hobbies: {hobbies_uuid}")
         hobbies = [
-            hobbies_repository.get_hobby(hobby_uuid) for hobby_uuid in hobbies_uuid
+            hobbies_repository.get_hobby(str(hobby_uuid)) for hobby_uuid in hobbies_uuid
         ]
         logger.info(f"Got hobbies: {hobbies}")
 
