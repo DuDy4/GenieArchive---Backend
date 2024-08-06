@@ -1,5 +1,5 @@
 #  Dockerfile.data      
-FROM python:3.9-slim
+FROM python:3.12-slim
 WORKDIR /app
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
