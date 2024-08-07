@@ -222,6 +222,38 @@ class PersonsRepository:
             logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
             return []
+        
+    def update_person_linkedin(self, email: str, linkedin: str) -> bool:
+        """
+        Update a person's LinkedIn URL by their email address.
+
+        :param email: Email address of the person to update.
+        :param linkedin: New LinkedIn URL to set.
+        :return: True if the update was successful, False otherwise.
+        """
+        if not email:
+            return False
+
+        update_query = """
+        UPDATE persons
+        SET linkedin = %s
+        WHERE email = %s;
+        """
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (linkedin, email))
+                self.conn.commit()
+                logger.info(f"Updated LinkedIn URL for {email}")
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating LinkedIn URL by email: {error.pgerror}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return
 
     def get_person_id(self, uuid):
         select_query = "SELECT id FROM persons WHERE uuid = %s;"

@@ -1,5 +1,5 @@
 # Dockerfile.root   
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -8,6 +8,7 @@ COPY start_api.py .
 COPY common ./common
 COPY app ./app
 COPY requirements.txt .
+COPY data ./data
 
 RUN apt-get update && \
     apt-get install -y git libpq-dev gcc build-essential && \
