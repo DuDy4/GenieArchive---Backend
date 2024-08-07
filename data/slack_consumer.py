@@ -60,7 +60,10 @@ class SlackConsumer(GenieConsumer):
         if company:
             message += f"""
             We know that this domain is associated with a company {company.name}.
-            {str(company)}
+
+            {"Company size: " + company.size if company.size else ""}
+
+            {company.overview if company.overview else ""}
             """
         send_message(message)
 
