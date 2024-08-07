@@ -55,6 +55,9 @@ if email:
 
         with st.form("enrichment_form"):
             linkedin_url = st.text_input("LinkedIn URL", value=linkedin or "")
+            if linkedin_url and linkedin_url != linkedin:
+                logger.info(f"Updating linkedin URL from [{linkedin}] to [{linkedin_url}]")
+                persons_repository.update_person_linkedin(email, linkedin_url)
             position = st.text_input("Position", value=position or "")
 
             st.subheader("Hobbies")
