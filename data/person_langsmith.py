@@ -62,6 +62,7 @@ class LangsmithConsumer(GenieConsumer):
         email_address = person.get("email")
         company_data = None
         company_dict = {}
+
         if email_address and isinstance(email_address, str) and "@" in email_address:
             company_data = self.company_repository.get_company_from_domain(
                 email_address.split("@")[1]
@@ -152,7 +153,3 @@ class LangsmithConsumer(GenieConsumer):
             event = GenieEvent(Topic.FAILED_TO_GET_LINKEDIN_URL, data_to_send, "public")
             event.send()
             return {"status": "failed"}
-        #
-        # event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
-        # event.send()
-        # return {"status": "success"}

@@ -10,7 +10,6 @@ from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Strength,
     Connection,
-    NewsData,
     Phrase,
     UUID,
 )
@@ -37,7 +36,6 @@ class ProfilesRepository:
             strengths JSONB,
             hobbies JSONB,
             connections JSONB,
-            news JSONB,
             get_to_know JSONB,
             summary TEXT,
             picture_url VARCHAR
@@ -51,57 +49,13 @@ class ProfilesRepository:
             logger.error(f"Error creating table: {error}")
             traceback.print_exc()
 
-    def insert_profile(self, profile: ProfileDTO) -> Union[str, None]:
-        insert_query = """
-            INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id;
-            """
-        profile_details = "\n".join([f"{k}: {v}" for k, v in profile.__dict__.items()])
-        logger.info(f"About to insert profile: {profile_details}")
-
-        profile_dict = profile.to_dict()
-        profile_data = (
-            str(profile_dict["uuid"]),
-            profile_dict["name"],
-            profile_dict["company"],
-            profile_dict["position"],
-            json.dumps(
-                [
-                    s if isinstance(s, dict) else s.to_dict()
-                    for s in profile_dict["strengths"]
-                ]
-            ),
-            json.dumps(profile_dict["hobbies"]),
-            json.dumps(
-                [
-                    c if isinstance(c, dict) else c.to_dict()
-                    for c in profile_dict["connections"]
-                ]
-            ),
-            json.dumps(
-                [self.serialize_news(n) for n in profile_dict["news"]],
-                default=self.json_serializer,
-            ),
-            json.dumps(
-                {
-                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
-                    for k, v in profile_dict["get_to_know"].items()
-                }
-            ),
-            profile_dict["summary"],
-            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
-        )
-
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, profile_data)
-                self.conn.commit()
-                profile_id = cursor.fetchone()[0]
-                logger.info(f"Inserted profile to database. profile id: {profile_id}")
-                return profile_id
-        except psycopg2.Error as error:
-            raise Exception(f"Error inserting profile, because: {error.pgerror}")
+    def save_profile(self, profile: ProfileDTO):
+        self.create_table_if_not_exists()
+        logger.debug(f"About to save profile: {profile}")
+        if self.exists(str(profile.uuid)):
+            self._update(profile)
+        else:
+            self._insert(profile)
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"About to check if uuid exists: {uuid}")
@@ -136,7 +90,7 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
+        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url
         FROM profiles
         WHERE uuid = %s;
         """
@@ -150,14 +104,13 @@ class ProfilesRepository:
                     name = row[1]
                     company = row[2]
                     position = row[3]
-                    summary = row[9] if row[9] else None
-                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
+                    summary = row[8] if row[8] else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
                     strengths = [Strength.from_dict(item) for item in row[4]]
                     hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                     connections = [Connection.from_dict(item) for item in row[6]]
-                    news = [self.deserialize_news(item) for item in row[7]]
                     get_to_know = {
-                        k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()
+                        k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()
                     }
                     profile_data = (
                         uuid,
@@ -167,7 +120,6 @@ class ProfilesRepository:
                         summary,
                         picture_url,
                         get_to_know,
-                        news,
                         connections,
                         strengths,
                         hobbies,
@@ -241,216 +193,6 @@ class ProfilesRepository:
             traceback.print_exc()
             return None
 
-    def get_news_by_email(self, email: str) -> list:
-        if not email:
-            return None
-        select_query = """
-        SELECT
-            jsonb_array_elements(news)->>'title' AS title,
-            jsonb_array_elements(news)->>'link' AS link,
-            jsonb_array_elements(news)->>'media' AS media
-        FROM profiles
-        JOIN persons on persons.uuid = profiles.uuid
-        WHERE persons.email = %s;
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email,))
-                rows = cursor.fetchall()
-                if rows:
-                    logger.info(f"Got {len(rows)} news articles from database")
-                    news = [
-                        {"title": row[0], "link": row[1], "source": row[2]}
-                        for row in rows
-                    ]
-                    return news
-                else:
-                    logger.info(f"Could not find news for {email}")
-                    return None
-        except Exception as error:
-            logger.error(f"Error fetching news by email: {error}")
-            traceback.print_exc()
-            return None
-
-    def update(self, profile: ProfileDTO):
-        update_query = """
-        UPDATE profiles
-        SET name = %s, company = %s, position = %s, strengths = %s, hobbies = %s, connections = %s, news = %s, get_to_know = %s, summary = %s, picture_url = %s
-        WHERE uuid = %s;
-        """
-        profile_dict = profile.to_dict()
-        profile_data = (
-            profile_dict["name"],
-            profile_dict["company"],
-            profile_dict["position"],
-            json.dumps(
-                [
-                    s if isinstance(s, dict) else s.to_dict()
-                    for s in profile_dict["strengths"]
-                ]
-            ),
-            json.dumps(profile_dict["hobbies"]),
-            json.dumps(
-                [
-                    c if isinstance(c, dict) else c.to_dict()
-                    for c in profile_dict["connections"]
-                ]
-            ),
-            json.dumps([self.serialize_news(n) for n in profile_dict["news"]]),
-            json.dumps(
-                {
-                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
-                    for k, v in profile_dict["get_to_know"].items()
-                }
-            ),
-            profile_dict["summary"],
-            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
-            str(profile_dict["uuid"]),
-        )
-
-        logger.info(f"Persisting profile data {profile_data}")
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, profile_data)
-                self.conn.commit()
-                logger.info(f"Updated profile with uuid: {profile.uuid}")
-        except psycopg2.Error as error:
-            raise Exception(f"Error updating profile, because: {error.pgerror}")
-
-    def save_profile(self, profile: ProfileDTO):
-        self.create_table_if_not_exists()
-        logger.debug(f"About to save profile: {profile}")
-        if self.exists(str(profile.uuid)):
-            self.update(profile)
-        else:
-            self.insert_profile(profile)
-
-    def get_profiles_from_list(self, uuids: list, search: Optional[str] = None) -> list:
-        """
-        Retrieve profiles from a list of UUIDs with optional search on profile names.
-
-        :param uuids: List of profile UUIDs.
-        :param search: Optional partial text to search profile names.
-        :return: List of ProfileDTO objects.
-        """
-        try:
-            logger.debug(
-                f"About to get profiles from list: {uuids} with search: {search}"
-            )
-            with self.conn.cursor() as cursor:
-                if search:
-                    select_query = """
-                    SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
-                    FROM profiles
-                    WHERE uuid = ANY(%s) AND name ILIKE %s;
-                    """
-                    search_pattern = f"%{search}%"
-                    cursor.execute(select_query, (uuids, search_pattern))
-                else:
-                    select_query = """
-                    SELECT uuid, name, company, position, strengths, hobbies, connections, news, get_to_know, summary, picture_url
-                    FROM profiles
-                    WHERE uuid = ANY(%s);
-                    """
-                    cursor.execute(select_query, (uuids,))
-
-                rows = cursor.fetchall()
-                logger.info(f"Got {len(rows)} profiles from database")
-                profiles = []
-
-                for row in rows:
-                    uuid = UUID(row[0])
-                    logger.debug(f"UUID: {uuid}")
-
-                    name = row[1] if row[1] else ""
-                    if name == "":
-                        logger.error(f"Name is empty for {uuid}")
-                    logger.debug(f"Name: {name}")
-
-                    company = row[2] if row[2] else ""
-                    if company == "":
-                        logger.error(f"Company is empty for {uuid}")
-                    logger.debug(f"Company: {company}")
-
-                    position = row[3] if row[3] else ""
-                    if position == "":
-                        logger.error(f"Position is empty for {uuid}")
-                    logger.debug(f"Position: {position}")
-
-                    summary = row[9] if row[9] else None
-                    logger.debug(f"Summary: {summary}")
-
-                    # Ensure strengths is a list of Strength objects
-                    strengths = (
-                        [Strength.from_dict(item) for item in json.loads(row[4])]
-                        if isinstance(row[4], str)
-                        else row[4]
-                    )
-                    logger.debug(f"Strengths: {strengths}")
-
-                    # Ensure hobbies is a list of UUIDs
-                    hobbies = (
-                        [UUID(hobby) for hobby in json.loads(row[5])]
-                        if isinstance(row[5], str)
-                        else row[5]
-                    )
-                    logger.debug(f"Hobbies: {hobbies}")
-
-                    # Ensure connections is a list of Connection objects
-                    connections = (
-                        [Connection.from_dict(item) for item in json.loads(row[6])]
-                        if isinstance(row[6], str)
-                        else row[6]
-                    )
-                    logger.debug(f"Connections: {connections}")
-
-                    # Ensure news is a list of NewsData objects
-                    news = (
-                        [NewsData.from_dict(item) for item in json.loads(row[7])]
-                        if isinstance(row[7], str)
-                        else row[7]
-                    )
-                    logger.debug(f"News: {news}")
-
-                    # Ensure get_to_know is a dictionary with lists of Phrase objects
-                    get_to_know = (
-                        {
-                            k: [Phrase.from_dict(p) for p in v]
-                            for k, v in json.loads(row[8]).items()
-                        }
-                        if isinstance(row[8], str)
-                        else row[8]
-                    )
-                    logger.debug(f"Get to know: {get_to_know}")
-
-                    # Ensure company field is present
-
-                    # Ensure picture_url is a valid URL or None
-                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
-                    if picture_url == "":
-                        picture_url = None
-
-                    logger.info(f"About to create ProfileDTO from tuple: {row}")
-
-                    profile_data = (
-                        uuid,  # uuid
-                        name,  # name
-                        company,  # company
-                        position,  # position
-                        summary,  # summary
-                        picture_url,  # picture_url
-                        get_to_know,
-                        news,
-                        connections,
-                        strengths,
-                        hobbies,
-                    )
-                    profiles.append(ProfileDTO.from_tuple(profile_data))
-                return profiles
-        except Exception as error:
-            logger.error(f"Error fetching profiles by uuids: {error}")
-            return []
-
     def get_profile_picture(self, uuid: str) -> Optional[str]:
         select_query = """
         SELECT picture_url
@@ -472,17 +214,6 @@ class ProfilesRepository:
             traceback.print_exc()
             return None
 
-    def serialize_news(self, news: Union[NewsData, dict]) -> dict:
-        if isinstance(news, dict):
-            return news
-        news_dict = news.to_dict()
-        news_dict["date"] = news_dict["date"].isoformat()  # Convert date to string
-        return news_dict
-
-    def deserialize_news(self, news: dict) -> NewsData:
-        news["date"] = date.fromisoformat(news["date"])  # Convert string back to date
-        return NewsData.from_dict(news)
-
     @staticmethod
     def json_serializer(obj):
         """JSON serializer for objects not serializable by default json code"""
@@ -491,3 +222,95 @@ class ProfilesRepository:
         if isinstance(obj, AnyUrl):
             return str(obj)
         raise TypeError(f"Type {type(obj)} not serializable")
+
+    def _insert(self, profile: ProfileDTO) -> Union[str, None]:
+        insert_query = """
+            INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+            """
+        profile_details = "\n".join([f"{k}: {v}" for k, v in profile.__dict__.items()])
+        logger.info(f"About to insert profile: {profile_details}")
+
+        profile_dict = profile.to_dict()
+        profile_data = (
+            str(profile_dict["uuid"]),
+            profile_dict["name"],
+            profile_dict["company"],
+            profile_dict["position"],
+            json.dumps(
+                [
+                    s if isinstance(s, dict) else s.to_dict()
+                    for s in profile_dict["strengths"]
+                ]
+            ),
+            json.dumps(profile_dict["hobbies"]),
+            json.dumps(
+                [
+                    c if isinstance(c, dict) else c.to_dict()
+                    for c in profile_dict["connections"]
+                ]
+            ),
+            json.dumps(
+                {
+                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
+                    for k, v in profile_dict["get_to_know"].items()
+                }
+            ),
+            profile_dict["summary"],
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
+        )
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(insert_query, profile_data)
+                self.conn.commit()
+                profile_id = cursor.fetchone()[0]
+                logger.info(f"Inserted profile to database. profile id: {profile_id}")
+                return profile_id
+        except psycopg2.Error as error:
+            raise Exception(f"Error inserting profile, because: {error.pgerror}")
+
+    def _update(self, profile: ProfileDTO):
+        update_query = """
+        UPDATE profiles
+        SET name = %s, company = %s, position = %s, strengths = %s, hobbies = %s, connections = %s, get_to_know = %s, summary = %s, picture_url = %s
+        WHERE uuid = %s;
+        """
+        profile_dict = profile.to_dict()
+        profile_data = (
+            profile_dict["name"],
+            profile_dict["company"],
+            profile_dict["position"],
+            json.dumps(
+                [
+                    s if isinstance(s, dict) else s.to_dict()
+                    for s in profile_dict["strengths"]
+                ]
+            ),
+            json.dumps(profile_dict["hobbies"]),
+            json.dumps(
+                [
+                    c if isinstance(c, dict) else c.to_dict()
+                    for c in profile_dict["connections"]
+                ]
+            ),
+            json.dumps(
+                {
+                    k: [p if isinstance(p, dict) else p.to_dict() for p in v]
+                    for k, v in profile_dict["get_to_know"].items()
+                }
+            ),
+            profile_dict["summary"],
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
+            str(profile_dict["uuid"]),
+        )
+
+        logger.info(f"Persisting profile data {profile_data}")
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, profile_data)
+                self.conn.commit()
+                logger.info(f"Updated profile with uuid: {profile.uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating profile, because: {error.pgerror}")

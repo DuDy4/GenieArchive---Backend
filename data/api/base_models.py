@@ -5,9 +5,8 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Connection,
     Phrase,
     Strength,
-    NewsData,
 )
-from data.data_common.data_transfer_objects.company_dto import CompanyDTO
+from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
 
 
 class UserResponse(BaseModel):

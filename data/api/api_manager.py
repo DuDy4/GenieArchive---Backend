@@ -485,6 +485,8 @@ def get_profile_good_to_know(
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     hobbies_repository: HobbiesRepository = Depends(hobbies_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
 ) -> GoodToKnowResponse:
     """
     Get the 'good-to-know' information of a profile - Mock version.
@@ -497,7 +499,10 @@ def get_profile_good_to_know(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        news = profile.news
+        profile_email = persons_repository.get_person_email(uuid)
+        logger.info(f"Got profile email: {profile_email}")
+        news = companies_repository.get_news_data_by_email(profile_email)
+        logger.info(f"Got news: {news}")
 
         hobbies_uuid = profile.hobbies
         logger.info(f"Got hobbies: {hobbies_uuid}")

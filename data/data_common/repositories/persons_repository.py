@@ -157,13 +157,12 @@ class PersonsRepository:
             traceback.print_exc()
             return []
 
-
     def get_person_complete_data(self, email: str) -> PersonDTO:
         if not email:
             return None
 
         # Generate a SQL query with a list of placeholders for UUIDs
-        query = f'''SELECT
+        query = f"""SELECT
                     p.uuid,
                     p.name,
                     p2.company,
@@ -189,8 +188,8 @@ class PersonsRepository:
                 LEFT JOIN
                     hobbies h ON hobby_uuid.value = h.uuid
                 WHERE p.email = %s;
-	
-                '''
+
+                """
 
         try:
             with self.conn.cursor() as cursor:
@@ -208,7 +207,13 @@ class PersonsRepository:
                         "linkedin": row[5],
                         "hobbies": [{"hobby": row[6], "icon_url": row[7]}],
                         "top_news": [{"headline": row[8], "url": row[9], "source": ""}],
-                        "relevant_connections": [{"name": row[10], "picture_url": row[11], "linkedin_url": ""}],
+                        "relevant_connections": [
+                            {
+                                "name": row[10],
+                                "picture_url": row[11],
+                                "linkedin_url": "",
+                            }
+                        ],
                     }
                 else:
                     logger.error(f"Error with getting person for {email}")
@@ -290,3 +295,11 @@ class PersonsRepository:
             logger.info(f"Person by email {email}: {person}")
             if person:
                 return PersonDTO.from_tuple(person)
+
+    def get_person_email(self, uuid):
+        query = """
+        SELECT email FROM persons WHERE uuid = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (uuid,))
+            return cursor.fetchone()[0]

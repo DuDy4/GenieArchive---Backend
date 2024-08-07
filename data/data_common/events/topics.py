@@ -36,6 +36,8 @@ class Topic:
     UP_TO_DATE_ENRICHED_DATA = (
         "up-to-date-enriched-data"  # People data labs already has the latest data
     )
+    COMPANY_NEWS_UP_TO_DATE = "company-news-up-to-date"
+
     ALREADY_FAILED_TO_ENRICH_EMAIL = (
         "already-failed-to-enrich-email"  # People data labs already failed to enrich
     )

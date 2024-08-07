@@ -1,10 +1,58 @@
 import json
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
+
+from loguru import logger
+from pydantic import HttpUrl, field_validator, BaseModel
+from datetime import date
+
 from data.data_common.utils.str_utils import (
     titleize_values,
     to_custom_title_case,
     get_uuid4,
 )
+
+
+class NewsData(BaseModel):
+    date: date
+    link: HttpUrl
+    media: str
+    title: str
+    summary: str
+
+    @field_validator("media", "title", "summary")
+    def not_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Field cannot be empty or whitespace")
+        return value
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "NewsData":
+        return cls.parse_raw(json_str)
+
+    def to_json(self) -> str:
+        return self.json()
+
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:
+        return self.date, self.link, self.media, self.title, self.summary
+
+    @classmethod
+    def from_tuple(
+        cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]
+    ) -> "NewsData":
+        return cls(
+            date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4]
+        )
+
+    def to_dict(self) -> Dict[str, any]:
+        return self.model_dump()
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "NewsData":
+        if "date" in data:
+            data["date"] = date.fromisoformat(data["date"])
+        if "link" in data:
+            data["link"] = HttpUrl(data["link"])
+        return cls(**data)
 
 
 class CompanyDTO:
@@ -17,8 +65,9 @@ class CompanyDTO:
         description: Optional[str],
         overview: Optional[str],
         challenges: Optional[Union[Dict, List[Dict]]],
-        technologies: Optional[Union[Dict, List[Dict]]],
+        technologies: Optional[Union[Dict, List[Dict], List[str]]],
         employees: Optional[Union[Dict, List[Dict]]],
+        news: Optional[List[NewsData]],
     ):
         self.uuid = uuid
         self.name = name
@@ -29,6 +78,7 @@ class CompanyDTO:
         self.challenges = challenges
         self.technologies = technologies
         self.employees = employees
+        self.news = news
 
     def to_dict(self):
         return {
@@ -41,6 +91,9 @@ class CompanyDTO:
             "challenges": self.challenges,
             "technologies": self.technologies,
             "employees": self.employees,
+            "news": [news_item.to_dict() for news_item in self.news]
+            if self.news
+            else None,
         }
 
     @staticmethod
@@ -55,6 +108,9 @@ class CompanyDTO:
             challenges=data.get("challenges", None),
             technologies=data.get("technologies", None),
             employees=data.get("employees", None),
+            news=[NewsData.from_dict(item) for item in data.get("news", [])]
+            if data.get("news")
+            else None,
         )
 
     @staticmethod
@@ -83,6 +139,9 @@ class CompanyDTO:
             challenges=data.get("challenges", {}),
             technologies=data.get("technologies", []),
             employees=processed_employees,
+            news=[NewsData.from_dict(item) for item in data.get("news", [])]
+            if data.get("news")
+            else None,
         )
 
     def to_tuple(self) -> tuple:
@@ -96,6 +155,7 @@ class CompanyDTO:
             self.challenges,
             self.technologies,
             self.employees,
+            self.news,
         )
 
     @staticmethod
@@ -110,6 +170,7 @@ class CompanyDTO:
             challenges=row[6],
             technologies=row[7],
             employees=row[8],
+            news=[NewsData.from_dict(item) for item in row[9]] if row[9] else None,
         )
 
     def to_json(self):
@@ -124,5 +185,5 @@ class CompanyDTO:
         return (
             f"CompanyDTO(uuid={self.uuid},\n name={self.name},\n domain={self.domain},\n size={self.size},\n "
             f"description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
-            f"technologies={self.technologies},\n employees={self.employees})"
+            f"technologies={self.technologies},\n employees={self.employees},\n news={self.news})"
         )

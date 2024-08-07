@@ -21,14 +21,12 @@ class Langsmith:
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
         logger.debug(f"Person data: {person_data.keys()}")
-        strengths = self.run_prompt_strength(person_data)
-        news = self.run_prompt_news(person_data)
-        strengths, news = await asyncio.gather(strengths, news)
+        strengths = await self.run_prompt_strength(person_data)
+        # news = self.run_prompt_news(person_data)
+        # strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = (
             strengths.get("strengths") if strengths.get("strengths") else strengths
         )
-        person_data["news"] = news.get("news") if isinstance(news, dict) else news
-        logger.debug(f"News: {news}")
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
         person_data["get_to_know"] = get_to_know
         return person_data
@@ -56,21 +54,21 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith")
         return response
 
-    async def run_prompt_news(self, person_data):
-        prompt = hub.pull("get_news")
-        try:
-            runnable = prompt | self.model
-            response = runnable.invoke(person_data)
-            if response.get("news"):
-                response = response.get("news")
-                if response and isinstance(response, list) and len(response) == 0:
-                    response = runnable.invoke(person_data)
-                    if response.get("news"):
-                        response = response.get("news")
-        except Exception as e:
-            response = f"Error: {e}"
-        logger.debug(f"Got news from Langsmith: {response}")
-        return response
+    # async def run_prompt_news(self, person_data):
+    #     prompt = hub.pull("get_news")
+    #     try:
+    #         runnable = prompt | self.model
+    #         response = runnable.invoke(person_data)
+    #         if response.get("news"):
+    #             response = response.get("news")
+    #             if response and isinstance(response, list) and len(response) == 0:
+    #                 response = runnable.invoke(person_data)
+    #                 if response.get("news"):
+    #                     response = response.get("news")
+    #     except Exception as e:
+    #         response = f"Error: {e}"
+    #     logger.debug(f"Got news from Langsmith: {response}")
+    #     return response
 
     async def run_prompt_get_to_know(self, person_data, company_data=None):
         prompt = hub.pull("dos-and-donts")
@@ -89,8 +87,8 @@ class Langsmith:
                 "hobbies": person_data.get("hobbies")
                 if person_data.get("hobbies")
                 else "not found",
-                "news": person_data.get("news")
-                if person_data.get("news")
+                "news": company_data.get("news")
+                if company_data and company_data.get("news")
                 else "not found",
                 "product_data": person_data.get("product_data")
                 if person_data.get("product_data")

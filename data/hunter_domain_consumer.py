@@ -61,6 +61,7 @@ class HunterDomainConsumer(GenieConsumer):
             logger.info(f"Employee not found for email: {email_address}")
             self.send_fail_event(email_address, company)
             return
+        # If found match employee, send event to create person
         if employee.get("name") and "None " not in employee.get("name"):
             person = PersonDTO(
                 uuid=get_uuid4(),
@@ -74,6 +75,7 @@ class HunterDomainConsumer(GenieConsumer):
         elif employee.get("first_name"):
             person = PersonDTO.from_hunter_employee(employee, company["organization"])
         else:
+            # Should not reach here, but just in case
             logger.error(f"Employee not found for email: {email_address}")
             return
         person_event = GenieEvent(
@@ -82,6 +84,7 @@ class HunterDomainConsumer(GenieConsumer):
         person_event.send()
         return {"status": "success"}
 
+    @staticmethod
     def send_fail_event(self, email_address: str, company: CompanyDTO = None):
         event = GenieEvent(
             topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
@@ -110,12 +113,7 @@ class HunterDomainConsumer(GenieConsumer):
             company = CompanyDTO.from_hunter_object(response["data"])
             self.company_repository.save_company(company)
         logger.info(f"Company: {company}")
-        # event = GenieEvent(
-        #     topic=Topic.NEW_COMPANY_DATA,
-        #     data=company.to_dict(),
-        #     scope="public",
-        # )
-        # event.send()
+
         if not company.overview or not company.challenges:
             response = self.langsmith.run_prompt_company_overview_challenges(
                 {"company_data": company.to_dict()}
@@ -127,6 +125,13 @@ class HunterDomainConsumer(GenieConsumer):
             company.overview = overview
             company.challenges = challenges
             self.company_repository.save_company(company)
+
+        event = GenieEvent(
+            topic=Topic.NEW_COMPANY_DATA,
+            data={"company_uuid": company.uuid},
+            scope="public",
+        )
+        event.send()
 
         return company, email_address
 
@@ -166,8 +171,3 @@ def find_employee_by_email(email: str, company: CompanyDTO):
             if employee.get("email") == email:
                 return employee
     return None
-
-
-#
-# data = asyncio.run(get_domain_info("alon@hanacovc.com"))
-# print(data)

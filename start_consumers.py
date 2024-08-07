@@ -8,15 +8,17 @@ from data.persons_manager import PersonManager
 from data.meetings_consumer import MeetingManager
 from data.hunter_domain_consumer import HunterDomainConsumer
 from data.slack_consumer import SlackConsumer
+from data.news_consumer import NewsConsumer
 from data.data_common.events.genie_consumer import GenieConsumer
 
 consumers = [
-    PersonManager(),
-    LangsmithConsumer(),
-    PDLConsumer(),
-    MeetingManager(),
-    HunterDomainConsumer(),
-    SlackConsumer(),
+    # PersonManager(),
+    # LangsmithConsumer(),
+    # PDLConsumer(),
+    # MeetingManager(),
+    # HunterDomainConsumer(),
+    # SlackConsumer(),
+    NewsConsumer(),
 ]
 
 
