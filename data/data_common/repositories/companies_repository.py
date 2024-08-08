@@ -142,10 +142,16 @@ class CompaniesRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (company_uuid,))
                 news = cursor.fetchone()
-                logger.debug(f"News data: {news}")
-                res_news = self.process_news(
-                    news[0]
-                )  # news is a tuple containing the news data
+                logger.debug(f"News data by email: {news}")
+                news = news[0]  # news is a tuple containing the news data
+                if len(news) > 2:
+                    news = news[:2]
+                res_news = self.process_news(news)
+                if not res_news:
+                    logger.warning(
+                        f"No news data for company with domain {company_domain}"
+                    )
+                    return []
                 return res_news
         except psycopg2.Error as error:
             logger.error(f"Error getting news data: {error}")
@@ -168,12 +174,15 @@ class CompaniesRepository:
                 cursor.execute(query, (company_domain,))
                 news = cursor.fetchone()
                 logger.debug(f"News data by email: {news}")
-                news = news[0]
+                news = news[0]  # news is a tuple containing the news data
                 if len(news) > 2:
                     news = news[:2]
-                res_news = self.process_news(
-                    news
-                )  # news is a tuple containing the news data
+                res_news = self.process_news(news)
+                if not res_news:
+                    logger.warning(
+                        f"No news data for company with domain {company_domain}"
+                    )
+                    return []
                 return res_news
         except psycopg2.Error as error:
             logger.error(f"Error getting news data by email: {error}")
