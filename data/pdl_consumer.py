@@ -10,7 +10,10 @@ from peopledatalabs import PDLPY
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
-from data.data_common.dependencies.dependencies import personal_data_repository
+from data.data_common.dependencies.dependencies import (
+    personal_data_repository,
+    companies_repository,
+)
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.repositories.personal_data_repository import (
@@ -37,6 +40,7 @@ class PDLConsumer(GenieConsumer):
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
+        self.company_repository = companies_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -225,6 +229,7 @@ class PDLConsumer(GenieConsumer):
                 return
 
         # If no personal data exists in database for the email
+        logger.info(f"No personal data found in database for {email}")
         personal_data = self.pdl_client.get_single_profile_from_email_address(email)
         if personal_data:
             experience: list = personal_data.get("experience")
@@ -250,10 +255,14 @@ class PDLConsumer(GenieConsumer):
                 linkedin_url=linkedin_url,
                 personal_data=json.dumps(personal_data),
             )
-            logger.info(f"Saved personal data for {email}")
             person = self.create_person(uuid)
-            self.send_event(person, personal_data, tenant_id)
-            return {"status": "success"}
+            logger.info(f"Created person from personal data: {person}")
+            if person:
+                self.send_event(person, personal_data, tenant_id)
+                return {"status": "success"}
+            else:
+                logger.error(f"Failed to create person from personal data")
+                return {"status": "failed"}
         # If no personal data exists in PDL for the email
         else:
             logger.info(f"Failed to fetch personal data for {email}")
@@ -298,7 +307,7 @@ class PDLConsumer(GenieConsumer):
                 f"Personal data not found for {uuid} - in circumstances it should not happen"
             )
             return None
-        personal_data = row_dict["personal_data"]
+        personal_data = row_dict.get("personal_data")
         logger.info(f"Personal data: {str(personal_data)[:300]}")
         personal_experience = personal_data.get("experience")
         logger.info(f"Personal experience: {str(personal_experience)[:300]}")
@@ -330,6 +339,15 @@ class PDLConsumer(GenieConsumer):
             position=position,
             timezone="",
         )
+        company_domain = (
+            person_email.split("@")[1]
+            if isinstance(person_email, str) and "@" in person_email
+            else ""
+        )
+        if company_domain:
+            company = self.company_repository.get_company_from_domain(company_domain)
+            if company:
+                person.company = company.name
         logger.info(f"Person: {person}")
         return person
 
@@ -524,31 +542,41 @@ class PDLClient:
 
     @staticmethod
     def fix_and_sort_experience(experience):
-        for exp in experience:
-            exp["end_date"] = (
-                exp["end_date"] or "9999-12-31"
-            )  # Treat ongoing as future date
-            exp["start_date"] = exp["start_date"] or "0000-01-01"
+        logger.info(f"Fixing and sorting experience: {experience}")
+        try:
+            for exp in experience:
+                exp["end_date"] = (
+                    exp.get("end_date") or "9999-12-31"
+                )  # Treat ongoing as future date
+                exp["start_date"] = exp.get("start_date") or "0000-01-01"
 
-            # Sort experience
-        sorted_experience = sorted(
-            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-        )
+                # Sort experience
+            sorted_experience = sorted(
+                experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
+            )
+        except:
+            logger.error(f"Error fixing and sorting experience: {experience}")
+            sorted_experience = experience
         for exp in sorted_experience:
-            if exp["end_date"] == "9999-12-31":
-                exp["end_date"] = None
-            if exp["start_date"] == "0000-01-01":
-                exp["start_date"] = None
-            title = exp.get("title")
-            if title and isinstance(title, dict):
-                name = title.get("name")
-                titleize_name = to_custom_title_case(name)
-                exp["title"]["name"] = titleize_name
-            company = exp.get("company")
-            if company and isinstance(company, dict):
-                name = company.get("name")
-                titleize_name = to_custom_title_case(name)
-                exp["company"]["name"] = titleize_name
+            try:
+                if exp.get("end_date") == "9999-12-31":
+                    exp["end_date"] = None
+                if exp.get("start_date") == "0000-01-01":
+                    exp["start_date"] = None
+                title = exp.get("title")
+                if title and isinstance(title, dict):
+                    name = title.get("name")
+                    titleize_name = to_custom_title_case(name)
+                    exp["title"]["name"] = titleize_name
+                company = exp.get("company")
+                if company and isinstance(company, dict):
+                    name = company.get("name")
+                    titleize_name = to_custom_title_case(name)
+                    exp["company"]["name"] = titleize_name
+            except Exception as e:
+                logger.error(f"Error: {e}")
+                traceback.print_exc()
+                continue
         return sorted_experience
 
     def is_up_to_date(self, existing_uuid):

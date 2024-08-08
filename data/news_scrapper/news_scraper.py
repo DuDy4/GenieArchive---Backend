@@ -19,7 +19,7 @@ class NewsScrapper:
         self.api_host = "google-news13.p.rapidapi.com"
         self.url = "https://google-news13.p.rapidapi.com/search"
 
-    async def get_news(self, company_name, limit=2):
+    async def get_news(self, company_name, limit=10):
         querystring = {"keyword": company_name, "lr": "en-US"}
         headers = {"x-rapidapi-key": self.api_key, "x-rapidapi-host": self.api_host}
 

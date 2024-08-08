@@ -1,19 +1,30 @@
 import os
+import json
 
 from loguru import logger
 
-from data.pdl import PDLClient
+from data.pdl_consumer import PDLClient
 from data.data_common.dependencies.dependencies import personal_data_repository
+
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
 
 pdl_key = os.environ.get("PDL_API_KEY")
 
-pdl_client = PDLClient(
-    api_key=pdl_key, personal_data_repository=personal_data_repository()
+event = GenieEvent(
+    topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+    data=json.dumps(
+        {
+            "tenant_id": "d91b83dd-44bd-443d-8ed0-b41ba2779a30",
+            "email": "dan.shevel@genieai.ai",
+        }
+    ),
+    scope="public",
 )
+event.send()
 
-data = pdl_client.get_single_profile_from_email_address("danshevel@gmail.com")
-logger.info(f"Dan Shevel's data: {data}")
+# data = pdl_client.get_single_profile_from_email_address("danshevel@gmail.com")
+# logger.info(f"Dan Shevel's data: {data}")
 
-
-data = pdl_client.get_single_profile_from_email_address("asaf.savich@kubiya.ai")
-logger.info(f"Asaf Savich's data: {data}")
+# data = pdl_client.get_single_profile_from_email_address("asaf.savich@kubiya.ai")
+# logger.info(f"Asaf Savich's data: {data}")

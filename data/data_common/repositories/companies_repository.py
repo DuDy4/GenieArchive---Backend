@@ -168,8 +168,11 @@ class CompaniesRepository:
                 cursor.execute(query, (company_domain,))
                 news = cursor.fetchone()
                 logger.debug(f"News data by email: {news}")
+                news = news[0]
+                if len(news) > 2:
+                    news = news[:2]
                 res_news = self.process_news(
-                    news[0]
+                    news
                 )  # news is a tuple containing the news data
                 return res_news
         except psycopg2.Error as error:
@@ -318,11 +321,9 @@ class CompaniesRepository:
     def _update(self, company_dto: CompanyDTO):
         update_query = """
         UPDATE companies
-        SET name = %s, domain = %s, size = %s, description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, news = %s, last_updated = CURRENT_TIMESTAMP
+        SET name = %s, domain = %s, size = %s, description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
-
-        company_dto.news = [self.serialize_news(n) for n in company_dto.news]
 
         company_values = (
             company_dto.name,
@@ -333,7 +334,6 @@ class CompaniesRepository:
             json.dumps(company_dto.challenges),
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
-            json.dumps(company_dto.news) if company_dto.news else None,
             company_dto.uuid,
         )
         try:
