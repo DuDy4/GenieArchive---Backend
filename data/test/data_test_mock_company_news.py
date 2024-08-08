@@ -46,20 +46,25 @@ company = CompanyDTO(
     ],
     technologies=["AI", "ML", "NLP"],
     employees=[],
-    news=news,
 )
 
 
 companies_repository.save_company(company)
 
 assert companies_repository.exists(company.uuid)
-
 logger.info("Companies save test passed")
+
 
 company = companies_repository.get_company(company.uuid)
 
 assert company == company
 logger.info("Companies get test passed")
+
+companies_repository.save_news(company.uuid, news)
+news_in_database = companies_repository.get_news(company.uuid)
+logger.debug(f"News in database: {news_in_database}")
+assert news_in_database == news
+logger.info("Companies save news test passed")
 
 wrong_news = [
     {
@@ -99,9 +104,9 @@ except Exception as e:
     logger.error(f"Error: {e}")
     logger.info("Companies save news test passed")
 finally:
-    news = companies_repository.get_news(company.uuid)
+    news_in_database = companies_repository.get_news(company.uuid)
     logger.debug(f"News: {news}")
-    assert news == company.news
+    assert news == news_in_database
     logger.info("Companies get news test passed")
 
 

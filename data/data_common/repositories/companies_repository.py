@@ -195,6 +195,7 @@ class CompaniesRepository:
         if not news:
             logger.error(f"Invalid news data: {news}, skip saving news")
             return None
+        news_dicts = [n.to_dict() if isinstance(n, NewsData) else n for n in news]
         update_query = """
         UPDATE companies
         SET news = %s, last_updated = CURRENT_TIMESTAMP
@@ -202,7 +203,7 @@ class CompaniesRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(news), uuid))
+                cursor.execute(update_query, (json.dumps(news_dicts), uuid))
                 self.conn.commit()
                 logger.info(f"Updated news in database")
         except psycopg2.Error as error:
@@ -285,8 +286,8 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, size, description, overview, challenges, technologies, employees, news
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                uuid, name, domain, size, description, overview, challenges, technologies, employees
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
         logger.info(f"About to insert company: {company_dto}")
@@ -300,10 +301,6 @@ class CompaniesRepository:
             json.dumps(company_dto.challenges),
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
-            json.dumps(
-                [self.serialize_news(n) for n in company_dto.news],
-                default=self.json_serializer,
-            ),
         )
 
         try:
@@ -413,7 +410,7 @@ class CompaniesRepository:
     def validate_news(news):
         if not news:
             return []
-
+        logger.debug(f"Validating news: {news}")
         i = 0
         while i < len(news):
             if isinstance(news[i], dict):
@@ -425,6 +422,8 @@ class CompaniesRepository:
                     i -= 1
                 finally:
                     i += 1
+            elif isinstance(news[i], NewsData):
+                i += 1
         return news
 
     @staticmethod

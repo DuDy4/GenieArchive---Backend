@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Optional, Union, Tuple
+from typing import List, Dict, Optional, Union, Tuple, Any
 
 from loguru import logger
 from pydantic import HttpUrl, field_validator, BaseModel
@@ -43,8 +43,14 @@ class NewsData(BaseModel):
             date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4]
         )
 
-    def to_dict(self) -> Dict[str, any]:
-        return self.model_dump()
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "date": self.date.isoformat(),
+            "link": str(self.link),
+            "media": self.media,
+            "title": self.title,
+            "summary": self.summary,
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "NewsData":
@@ -67,7 +73,7 @@ class CompanyDTO:
         challenges: Optional[Union[Dict, List[Dict]]],
         technologies: Optional[Union[Dict, List[Dict], List[str]]],
         employees: Optional[Union[Dict, List[Dict]]],
-        news: Optional[List[NewsData]],
+        news: Optional[List[NewsData]] = [],
     ):
         self.uuid = uuid
         self.name = name

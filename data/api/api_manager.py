@@ -560,7 +560,7 @@ def get_work_experience(
         fixed_experience = PDLClient.fix_and_sort_experience(experience)
 
         short_fixed_experience = fixed_experience[:10]
-        return JSONResponse(content=(short_fixed_experience))
+        return JSONResponse(content=(titleize_values(short_fixed_experience)))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
