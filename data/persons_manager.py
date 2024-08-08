@@ -128,9 +128,6 @@ class PersonManager(GenieConsumer):
         personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
         tenant_id = event_body.get("tenant_id")
-        if not personal_data:
-            logger.error("No personal data received in event")
-            personal_data = {}
         if not person_dict:
             logger.error("No person data received in event")
             return {"error": "No person data received in event"}
@@ -141,6 +138,11 @@ class PersonManager(GenieConsumer):
         personal_data_in_database = self.personal_data_repository.get_personal_data(
             person.uuid
         )
+        if not personal_data:
+            personal_data = personal_data_in_database
+            if not personal_data:
+                logger.error("No personal data received in event")
+                return {"error": "No personal data received in event"}
         if not person.position:
             logger.info("Person has no position, setting it from personal data")
             logger.debug(f"Position: {personal_data.get('job_title', '')}")
@@ -177,7 +179,9 @@ class PersonManager(GenieConsumer):
             )
             if not has_ownership:
                 self.ownerships_repository.save_ownership(person.uuid, tenant_id)
-
+        if not person or not personal_data:
+            logger.error("No person or personal data found")
+            return {"error": "No person or personal data found"}
         data_to_send = {"person": person.to_dict(), "personal_data": personal_data}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
