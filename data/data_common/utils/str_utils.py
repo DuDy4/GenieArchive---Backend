@@ -46,6 +46,7 @@ ABBREVIATIONS = {
     "pm",
     "qa",
     "cob",
+    "cro",
     "saas",
     "paas",
     "iaas",
