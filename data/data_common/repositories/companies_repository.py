@@ -104,6 +104,19 @@ class CompaniesRepository:
                 company = cursor.fetchone()
                 if company:
                     logger.info(f"Got company with domain {email_domain}")
+                    news = company[9]
+                    logger.debug(f"News data: {news}")
+                    valid_news = []
+                    for news_item in news:
+                        try:
+                            if isinstance(news_item, dict):
+                                news_item = NewsData.from_dict(news_item)
+                                logger.debug(f"Deserialized news: {news_item}")
+                                valid_news.append(news_item)
+                        except ValidationError:
+                            logger.error(f"Invalid news item: {news_item}")
+                    logger.debug(f"Valid news: {valid_news}")
+                    company = company[:9] + (valid_news,)
                     return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with domain {email_domain} does not exist")
                 return None

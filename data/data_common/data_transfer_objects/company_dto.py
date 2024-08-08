@@ -170,7 +170,7 @@ class CompanyDTO:
             challenges=row[6],
             technologies=row[7],
             employees=row[8],
-            news=[NewsData.from_dict(item) for item in row[9]] if row[9] else None,
+            news=row[9],
         )
 
     def to_json(self):

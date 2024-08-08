@@ -674,7 +674,7 @@ def fetch_google_meetings(
             .list(
                 calendarId="primary",
                 timeMin=now,
-                maxResults=10,
+                maxResults=25,
                 singleEvents=True,
                 orderBy="startTime",
             )

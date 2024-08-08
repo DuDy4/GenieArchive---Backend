@@ -127,6 +127,7 @@ class CompanyResponse(BaseModel):
     overview: Optional[str]
     challenges: Optional[List[Challenge]]
     technologies: Optional[List[str]]
+    news: Optional[List[NewsData]]
 
     @classmethod
     def from_company_dto(cls, company: CompanyDTO):
@@ -139,6 +140,7 @@ class CompanyResponse(BaseModel):
             overview=company.overview,
             challenges=company.challenges,
             technologies=company.technologies,
+            news=company.news if company.news else None,
         )
 
 
