@@ -109,6 +109,7 @@ class CompaniesRepository:
                         logger.info(
                             f"No news data for company with domain {email_domain}"
                         )
+                        news = []
                         company = company[:9] + ([],)
                     logger.debug(f"News data: {news}")
                     valid_news = []
