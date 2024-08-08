@@ -11,6 +11,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Strength,
     Connection,
     Phrase,
+    Hobby,
     UUID,
 )
 from loguru import logger
@@ -151,7 +152,7 @@ class ProfilesRepository:
                 if rows:
                     logger.info(f"Got {len(rows)} hobbies from database")
                     hobbies = [
-                        {"hobby_name": row[0], "icon_url": row[1]} for row in rows
+                        Hobby(hobby_name=row[0], icon_url=row[1]) for row in rows
                     ]
                     return hobbies
                 else:
@@ -166,27 +167,22 @@ class ProfilesRepository:
         if not email:
             return None
         select_query = """
-        SELECT
-            jsonb_array_elements(connections)->>'name' AS name,
-            jsonb_array_elements(connections)->>'image_url' AS image_url,
-            jsonb_array_elements(connections)->>'linkedin_url' AS linkedin_url
-        FROM profiles
+        SELECT connections  FROM profiles
         JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email,))
-                rows = cursor.fetchall()
-                if rows:
-                    logger.info(f"Got {len(rows)} connections from database")
-                    connections = [
-                        {"name": row[0], "image_url": row[1], "linkedin_url": row[2]}
-                        for row in rows
-                    ]
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got connections from database: {row[0]}")
+                    connections = []
+                    for connection_object in row[0]:
+                        connections.append(Connection.from_dict(connection_object))
                     return connections
                 else:
-                    logger.info(f"Could not find connections for {email}")
+                    logger.info(f"Could not find connection for {email}")
                     return None
         except Exception as error:
             logger.error(f"Error fetching connections by email: {error}")
@@ -214,21 +210,48 @@ class ProfilesRepository:
             traceback.print_exc()
             return None
 
-    @staticmethod
-    def json_serializer(obj):
-        """JSON serializer for objects not serializable by default json code"""
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        if isinstance(obj, AnyUrl):
-            return str(obj)
-        raise TypeError(f"Type {type(obj)} not serializable")
+    def update_hobbies_by_email(self, email: str, hobbies: list[str]):
+        update_query = """
+        UPDATE profiles
+        SET hobbies = %s
+        FROM persons
+        WHERE profiles.uuid = persons.uuid AND persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(hobbies), email))
+                self.conn.commit()
+                logger.info(f"Updated hobbies for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating hobbies, because: {error.pgerror}")
+
+    def update_connections_by_email(self, email: str, connections: list[Connection]):
+        update_query = """
+        UPDATE profiles
+        SET connections = %s
+        FROM persons
+        WHERE profiles.uuid = persons.uuid AND persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    update_query,
+                    (
+                        json.dumps([con.to_dict() for con in connections]),
+                        email,
+                    ),
+                )
+                self.conn.commit()
+                logger.info(f"Updated connections for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating connections, because: {error.pgerror}")
 
     def _insert(self, profile: ProfileDTO) -> Union[str, None]:
         insert_query = """
-            INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id;
-            """
+                INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id;
+                """
         profile_details = "\n".join([f"{k}: {v}" for k, v in profile.__dict__.items()])
         logger.info(f"About to insert profile: {profile_details}")
 

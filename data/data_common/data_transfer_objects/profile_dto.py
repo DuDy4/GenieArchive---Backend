@@ -4,6 +4,42 @@ from typing import List, Optional, Dict, Tuple
 from uuid import UUID
 
 
+class Hobby(BaseModel):
+    hobby_name: str
+    icon_url: str
+
+    @field_validator("hobby_name", "icon_url")
+    def not_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Field cannot be empty or whitespace")
+        return value
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Hobby":
+        return cls.parse_raw(json_str)
+
+    def to_json(self) -> str:
+        return self.json()
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Hobby":
+        return cls.parse_obj(data)
+
+    def to_tuple(self) -> Tuple[str, str]:
+        return self.hobby_name, self.icon_url
+
+    @classmethod
+    def from_tuple(cls, data: Tuple[str, str]) -> "Hobby":
+        return cls(hobby_name=data[0], icon_url=data[1])
+
+    def to_dict(self) -> Dict[str, any]:
+        return self.model_dump()
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "Hobby":
+        return cls(**data)
+
+
 class Phrase(BaseModel):
     phrase_text: str
     reasoning: str
@@ -104,39 +140,6 @@ class Connection(BaseModel):
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "Connection":
         return cls(**data)
-
-
-class Hobby(BaseModel):
-    uuid: UUID
-    name: str
-    icon_link: HttpUrl
-
-    @field_validator("name", "icon_link")
-    def not_empty(cls, value):
-        if not value.strip():
-            raise ValueError("Field cannot be empty or whitespace")
-        return value
-
-    def to_json(self) -> str:
-        return self.model_dump_json()
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "Hobby":
-        return cls.parse_raw(json_str)
-
-    def to_dict(self) -> dict:
-        return self.model_dump()
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "Hobby":
-        return cls.parse_obj(data)
-
-    def to_tuple(self) -> Tuple[UUID, str, HttpUrl]:
-        return self.uuid, self.name, self.icon_link
-
-    @classmethod
-    def from_tuple(cls, data: Tuple[UUID, str, HttpUrl]) -> "Hobby":
-        return cls(uuid=data[0], name=data[1], icon_link=data[2])
 
 
 class ProfileDTO(BaseModel):
