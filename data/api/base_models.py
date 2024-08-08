@@ -18,10 +18,13 @@ class UserResponse(BaseModel):
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
+    email: Optional[str]
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO):
-        return MiniProfileResponse(uuid=str(profile.uuid), name=str(profile.name))
+    def from_profile_dto(profile: ProfileDTO, email: Optional[str] = None):
+        return MiniProfileResponse(
+            uuid=str(profile.uuid), name=str(profile.name), email=email
+        )
 
 
 class MiniProfilesListResponse(BaseModel):

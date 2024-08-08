@@ -346,7 +346,10 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
+    return [
+        MiniProfileResponse.from_profile_dto(profiles[i], filtered_emails[i])
+        for i in range(len(profiles))
+    ]
 
 
 @v1_router.get(
