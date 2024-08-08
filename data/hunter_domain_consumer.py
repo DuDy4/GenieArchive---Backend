@@ -20,7 +20,11 @@ from data.data_common.utils.str_utils import get_uuid4
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 from data.data_common.repositories.companies_repository import CompaniesRepository
-from data.data_common.dependencies.dependencies import companies_repository
+from data.data_common.repositories.persons_repository import PersonsRepository
+from data.data_common.dependencies.dependencies import (
+    companies_repository,
+    persons_repository,
+)
 
 load_dotenv()
 
@@ -38,6 +42,7 @@ class HunterDomainConsumer(GenieConsumer):
         )
         self.company_repository = companies_repository()
         self.langsmith = Langsmith()
+        self.person_repository = persons_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -62,14 +67,15 @@ class HunterDomainConsumer(GenieConsumer):
             self.send_fail_event(email_address, company)
             return
         # If found match employee, send event to create person
+        person = self.person_repository.get_person_by_email(email_address)
         if employee.get("name") and "None " not in employee.get("name"):
             person = PersonDTO(
-                uuid=get_uuid4(),
-                name=employee.get("last_name"),
-                email=employee.get("email"),
-                position=employee.get("position"),
+                uuid=person.uuid if person.uuid else get_uuid4(),
+                name=person.name if person.name else employee.get("last_name"),
+                email=person.email if person.email else employee.get("email"),
+                position=person.email if person.email else employee.get("position"),
                 company=company.name,
-                linkedin=employee.get("linkedin"),
+                linkedin=person.email if person.email else employee.get("linkedin"),
                 timezone="",
             )
         elif employee.get("first_name"):
