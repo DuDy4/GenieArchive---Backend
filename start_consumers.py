@@ -12,12 +12,12 @@ from data.news_consumer import NewsConsumer
 from data.data_common.events.genie_consumer import GenieConsumer
 
 consumers = [
-    # PersonManager(),
-    # LangsmithConsumer(),
-    # PDLConsumer(),
-    # MeetingManager(),
-    # HunterDomainConsumer(),
-    # SlackConsumer(),
+    PersonManager(),
+    LangsmithConsumer(),
+    PDLConsumer(),
+    MeetingManager(),
+    HunterDomainConsumer(),
+    SlackConsumer(),
     NewsConsumer(),
 ]
 
