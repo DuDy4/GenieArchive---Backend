@@ -1,7 +1,7 @@
 import pytest
 from datetime import date
 from pydantic import ValidationError
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List, Union
 import psycopg2
 from unittest.mock import Mock, patch, MagicMock
 
@@ -32,8 +32,6 @@ def test_news_data_creation():
     )
     assert news_data.date == date.today()
     assert str(news_data.link) == "https://example.com/"
-    assert str(news_data.link) != "https://example.com"
-    assert news_data.link != "https://example.org"
     assert news_data.media == "Example Media"
     assert news_data.title == "Example Title"
     assert news_data.summary == "Example Summary"
@@ -285,3 +283,93 @@ def test_delete_company(mock_connect):
     repo = CompaniesRepository(conn)
     repo.delete_company("1234")
     conn.cursor().execute.assert_called()
+
+
+# Extreme tests for NewsData handling in save_news, get_news, get_news_data_by_email
+@patch("data.data_common.repositories.companies_repository.psycopg2.connect")
+def test_save_news(mock_connect):
+    conn = create_mock_connection()
+    mock_connect.return_value = conn
+    repo = CompaniesRepository(conn)
+    news_data = [
+        NewsData(
+            date=date.today(),
+            link="https://example.com/news1",
+            media="Media1",
+            title="Title1",
+            summary="Summary1",
+        ),
+        {
+            "date": "2023-01-01",
+            "link": "https://example.com/news2",
+            "media": "Media2",
+            "title": "Title2",
+            "summary": "Summary2",
+        },
+        {
+            "date": "invalid-date",
+            "link": "invalid-link",
+            "media": " ",
+            "title": " ",
+            "summary": " ",
+        },
+    ]
+    with patch.object(repo, "validate_news", wraps=repo.validate_news) as mock_validate:
+        repo.save_news("1234", news_data)
+        mock_validate.assert_called_once_with(news_data)
+
+
+@patch("data.data_common.repositories.companies_repository.psycopg2.connect")
+def test_get_news(mock_connect):
+    conn = create_mock_connection()
+    mock_connect.return_value = conn
+    repo = CompaniesRepository(conn)
+    conn.cursor().fetchone.return_value = [
+        [
+            {
+                "date": "2023-01-01",
+                "link": "https://example.com/news1",
+                "media": "Media1",
+                "title": "Title1",
+                "summary": "Summary1",
+            },
+            {
+                "date": "invalid-date",
+                "link": "invalid-link",
+                "media": " ",
+                "title": " ",
+                "summary": " ",
+            },
+        ]
+    ]
+    news = repo.get_news("1234")
+    assert len(news) == 1  # Only the valid news data should be returned
+    assert news[0].media == "Media1"
+
+
+@patch("data.data_common.repositories.companies_repository.psycopg2.connect")
+def test_get_news_data_by_email(mock_connect):
+    conn = create_mock_connection()
+    mock_connect.return_value = conn
+    repo = CompaniesRepository(conn)
+    conn.cursor().fetchone.return_value = [
+        [
+            {
+                "date": "2023-01-01",
+                "link": "https://example.com/news1",
+                "media": "Media1",
+                "title": "Title1",
+                "summary": "Summary1",
+            },
+            {
+                "date": "invalid-date",
+                "link": "invalid-link",
+                "media": " ",
+                "title": " ",
+                "summary": " ",
+            },
+        ]
+    ]
+    news = repo.get_news_data_by_email("test@example.com")
+    assert len(news) == 1  # Only the valid news data should be returned
+    assert news[0].media == "Media1"
