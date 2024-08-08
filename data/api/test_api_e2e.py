@@ -72,7 +72,7 @@ def test_get_user_account(test_client):
 
 def test_get_all_profiles(test_client):
     tenant_id = "testTenantId"
-    response = test_client.get(f"/v1/profiles/{tenant_id}")
+    response = test_client.get(f"/v1/{tenant_id}/profiles")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 

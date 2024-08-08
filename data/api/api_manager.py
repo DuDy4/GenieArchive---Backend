@@ -125,9 +125,9 @@ async def post_social_auth_data(
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")
     auth_claims = auth_data["data"]["claims"]
-    user_email = auth_claims["email"]
-    user_tenant_id = auth_claims["tenantId"]
-    user_name = auth_claims["userId"]
+    user_email = auth_claims.get("email")
+    user_tenant_id = auth_claims.get("tenantId")
+    user_name = auth_claims.get("userId")
     logger.info(
         f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}"
     )
