@@ -105,6 +105,11 @@ class CompaniesRepository:
                 if company:
                     logger.info(f"Got company with domain {email_domain}")
                     news = company[9]
+                    if not news:
+                        logger.info(
+                            f"No news data for company with domain {email_domain}"
+                        )
+                        company = company[:9] + ([],)
                     logger.debug(f"News data: {news}")
                     valid_news = []
                     for news_item in news:
