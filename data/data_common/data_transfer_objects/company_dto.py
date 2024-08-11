@@ -131,7 +131,7 @@ class CompanyDTO:
         ]
 
         return CompanyDTO(
-            uuid=data.get("uuid", get_uuid4()),  # Assuming get_uuid4() generates a new UUID
+            uuid=data.get("uuid", get_uuid4()),
             name=data.get("organization", ""),
             domain=data.get("domain", ""),
             size=data.get("headcount", ""),

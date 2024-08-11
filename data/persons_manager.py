@@ -6,6 +6,7 @@ import asyncio
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
+from loguru import logger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -21,6 +22,7 @@ from data.data_common.dependencies.dependencies import (
     interactions_repository,
     ownerships_repository,
     meetings_repository,
+    companies_repository,
 )
 
 from data.data_common.utils.str_utils import get_uuid4
@@ -54,6 +56,7 @@ class PersonManager(GenieConsumer):
         self.interactions_repository = interactions_repository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
+        self.companies_repository = companies_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -125,7 +128,6 @@ class PersonManager(GenieConsumer):
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
         tenant_id = event_body.get("tenant_id")
         if not person_dict:
@@ -135,12 +137,10 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person: PersonDTO = PersonDTO.from_dict(person_dict)
-        personal_data_in_database = self.personal_data_repository.get_personal_data(person.uuid)
+        personal_data = self.personal_data_repository.get_personal_data(person.uuid)
         if not personal_data:
-            personal_data = personal_data_in_database
-            if not personal_data:
-                logger.error("No personal data received in event")
-                return {"error": "No personal data received in event"}
+            logger.error("No personal data received in event")
+            return {"error": "No personal data received in event"}
         if not person.position:
             logger.info("Person has no position, setting it from personal data")
             logger.debug(f"Position: {personal_data.get('job_title', '')}")
@@ -210,6 +210,7 @@ class PersonManager(GenieConsumer):
         logger.debug(f"Picture urls: {picture_urls}")
         if picture_urls:
             profile["picture_url"] = picture_urls[0]
+
         if not profile.get("picture_url"):
             profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
@@ -226,7 +227,6 @@ class PersonManager(GenieConsumer):
                 "strengths": profile.get("strengths", []),
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
-                "news": profile.get("news", []),
                 "get_to_know": profile.get("get_to_know", {}),
                 "summary": profile.get("summary", ""),
                 "picture_url": profile.get("picture_url", ""),
@@ -305,6 +305,7 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
+        person = self.verify_person(person)
         profile = self.profiles_repository.exists(person.uuid)
         if not profile:
             logger.info("Profile does not exist in database")
@@ -329,6 +330,19 @@ class PersonManager(GenieConsumer):
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
         return {"status": "success"}
+
+    def verify_person(self, person: PersonDTO):
+        person_in_database = self.persons_repository.find_person_by_email(person.email)
+        personal_data = self.personal_data_repository.get_personal_data(person.uuid)
+        if person.name != person_in_database.name:
+            person.name = personal_data.get("full_name", "")
+        if person.position != person_in_database.position:
+            person.position = personal_data.get("job_title", "")
+        if person.company != person_in_database.company:
+            email_domain = person.email.split("@")[1]
+            company = self.companies_repository.get_company_from_domain(email_domain)
+            person.company = company.name if company else person.company
+        return person
 
 
 def get_profile_picture(url, platform):
