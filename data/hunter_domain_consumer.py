@@ -117,7 +117,7 @@ class HunterDomainConsumer(GenieConsumer):
                 return
             logger.info(f"Response: {response}")
             company = CompanyDTO.from_hunter_object(response["data"])
-            self.company_repository.save_company(company)
+            self.company_repository.save_company_without_news(company)
         logger.info(f"Company: {company}")
 
         if not company.overview or not company.challenges:
@@ -130,7 +130,7 @@ class HunterDomainConsumer(GenieConsumer):
             logger.info(f"Overview: {overview}, Challenges: {challenges}")
             company.overview = overview
             company.challenges = challenges
-            self.company_repository.save_company(company)
+            self.company_repository.save_company_without_news(company)
 
         event = GenieEvent(
             topic=Topic.NEW_COMPANY_DATA,

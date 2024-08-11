@@ -250,7 +250,7 @@ def test_save_company_insert(mock_connect):
     with patch.object(repo, "exists_domain", return_value=False):
         cursor = conn.cursor.return_value
         cursor.fetchone.return_value = [1]  # Mocking the return value of fetchone
-        repo.save_company(company_dto)
+        repo.save_company_without_news(company_dto)
         conn.cursor().execute.assert_called()
 
 
@@ -272,7 +272,7 @@ def test_save_company_update(mock_connect):
         news=[],
     )
     with patch.object(repo, "exists_domain", return_value=True):
-        repo.save_company(company_dto)
+        repo.save_company_without_news(company_dto)
         conn.cursor().execute.assert_called()
 
 

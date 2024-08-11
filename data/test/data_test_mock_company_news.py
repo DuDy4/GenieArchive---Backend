@@ -49,7 +49,7 @@ company = CompanyDTO(
 )
 
 
-companies_repository.save_company(company)
+companies_repository.save_company_without_news(company)
 
 assert companies_repository.exists(company.uuid)
 logger.info("Companies save test passed")

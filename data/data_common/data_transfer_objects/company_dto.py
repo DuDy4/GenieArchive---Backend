@@ -61,6 +61,69 @@ class NewsData(BaseModel):
         return cls(**data)
 
 
+import json
+from typing import List, Dict, Optional, Union, Tuple, Any
+
+from loguru import logger
+from pydantic import HttpUrl, field_validator, BaseModel
+from datetime import date
+
+from data.data_common.utils.str_utils import (
+    titleize_values,
+    to_custom_title_case,
+    get_uuid4,
+)
+
+
+class NewsData(BaseModel):
+    date: date
+    link: HttpUrl
+    media: str
+    title: str
+    summary: str
+
+    @field_validator("media", "title", "summary")
+    def not_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Field cannot be empty or whitespace")
+        return value
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "NewsData":
+        return cls.parse_raw(json_str)
+
+    def to_json(self) -> str:
+        return self.json()
+
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:
+        return self.date, self.link, self.media, self.title, self.summary
+
+    @classmethod
+    def from_tuple(
+        cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]
+    ) -> "NewsData":
+        return cls(
+            date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4]
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "date": self.date.isoformat(),
+            "link": str(self.link),
+            "media": self.media,
+            "title": self.title,
+            "summary": self.summary,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "NewsData":
+        if "date" in data:
+            data["date"] = date.fromisoformat(data["date"])
+        if "link" in data:
+            data["link"] = HttpUrl(data["link"])
+        return cls(**data)
+
+
 class CompanyDTO:
     def __init__(
         self,
@@ -68,6 +131,7 @@ class CompanyDTO:
         name: str,
         domain: str,
         size: Optional[str],
+        industry: Optional[str],
         description: Optional[str],
         overview: Optional[str],
         challenges: Optional[Union[Dict, List[Dict]]],
@@ -79,6 +143,7 @@ class CompanyDTO:
         self.name = name
         self.domain = domain
         self.size = size
+        self.industry = industry
         self.description = description
         self.overview = overview
         self.challenges = challenges
@@ -92,6 +157,7 @@ class CompanyDTO:
             "name": to_custom_title_case(self.name),
             "domain": self.domain,
             "size": self.size,
+            "industry": self.industry,
             "description": self.description,
             "overview": self.overview,
             "challenges": self.challenges,
@@ -109,6 +175,7 @@ class CompanyDTO:
             name=data.get("name", ""),
             domain=data.get("domain", ""),
             size=data.get("size", None),
+            industry=data.get("industry", None),
             description=data.get("description", None),
             overview=data.get("overview", None),
             challenges=data.get("challenges", None),
@@ -134,12 +201,11 @@ class CompanyDTO:
         ]
 
         return CompanyDTO(
-            uuid=data.get(
-                "uuid", get_uuid4()
-            ),  # Assuming get_uuid4() generates a new UUID
+            uuid=data.get("uuid", get_uuid4()),
             name=data.get("organization", ""),
             domain=data.get("domain", ""),
             size=data.get("headcount", ""),
+            industry=data.get("industry", ""),
             description=data.get("description", ""),
             overview=data.get("overview", ""),
             challenges=data.get("challenges", {}),
@@ -156,6 +222,7 @@ class CompanyDTO:
             self.name,
             self.domain,
             self.size,
+            self.industry,
             self.description,
             self.overview,
             self.challenges,
@@ -171,12 +238,13 @@ class CompanyDTO:
             name=row[1],
             domain=row[2],
             size=row[3],
-            description=row[4],
-            overview=row[5],
-            challenges=row[6],
-            technologies=row[7],
-            employees=row[8],
-            news=row[9],
+            industry=row[4],
+            description=row[5],
+            overview=row[6],
+            challenges=row[7],
+            technologies=row[8],
+            employees=row[9],
+            news=row[10],
         )
 
     def to_json(self):
@@ -190,6 +258,12 @@ class CompanyDTO:
     def __str__(self):
         return (
             f"CompanyDTO(uuid={self.uuid},\n name={self.name},\n domain={self.domain},\n size={self.size},\n "
-            f"description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
-            f"technologies={self.technologies},\n employees={self.employees},\n news={self.news})"
+            f"industry={self.industry},\n description={self.description},\n overview={self.overview},\n "
+            f"challenges={self.challenges},\n technologies={self.technologies},\n employees={self.employees},\n news={self.news})"
         )
+
+
+news_data = NewsData.from_tuple(
+    ("2021-09-01", "https://www.google.com", "CNN", "Title", "Summary")
+)
+logger.debug(news_data)
