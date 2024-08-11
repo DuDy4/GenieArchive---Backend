@@ -106,9 +106,7 @@ class CompaniesRepository:
                     logger.info(f"Got company with domain {email_domain}")
                     news = company[9]
                     if not news:
-                        logger.info(
-                            f"No news data for company with domain {email_domain}"
-                        )
+                        logger.info(f"No news data for company with domain {email_domain}")
                         news = []
                         company = company[:9] + ([],)
                     logger.debug(f"News data: {news}")
@@ -132,6 +130,7 @@ class CompaniesRepository:
             return None
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return None
 
     def get_news(self, company_uuid):
@@ -148,9 +147,7 @@ class CompaniesRepository:
                     news = news[:2]
                 res_news = self.process_news(news)
                 if not res_news:
-                    logger.warning(
-                        f"No news data for company with domain {company_domain}"
-                    )
+                    logger.warning(f"No news data for company with domain {company_domain}")
                     return []
                 return res_news
         except psycopg2.Error as error:
@@ -179,9 +176,7 @@ class CompaniesRepository:
                     news = news[:2]
                 res_news = self.process_news(news)
                 if not res_news:
-                    logger.warning(
-                        f"No news data for company with domain {company_domain}"
-                    )
+                    logger.warning(f"No news data for company with domain {company_domain}")
                     return []
                 return res_news
         except psycopg2.Error as error:
@@ -409,9 +404,7 @@ class CompaniesRepository:
                         res_news.append(deserialized_news)
                     logger.debug(f"Processed news: {res_news}")
                 except Exception as e:
-                    logger.error(
-                        f"Error deserializing news: {e}. Skipping this news item"
-                    )
+                    logger.error(f"Error deserializing news: {e}. Skipping this news item")
         logger.debug(f"News data: {res_news}")
         return res_news
 

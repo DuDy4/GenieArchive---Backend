@@ -47,9 +47,7 @@ class HunterDomainConsumer(GenieConsumer):
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
-        logger.info(
-            f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
-        )
+        logger.info(f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}")
         topic = event.properties.get(b"topic").decode("utf-8")
 
         match topic:
@@ -85,9 +83,7 @@ class HunterDomainConsumer(GenieConsumer):
             # Should not reach here, but just in case
             logger.error(f"Employee not found for email: {email_address}")
             return
-        person_event = GenieEvent(
-            topic=Topic.NEW_PERSON, data=person.to_json(), scope="public"
-        )
+        person_event = GenieEvent(topic=Topic.NEW_PERSON, data=person.to_json(), scope="public")
         person_event.send()
         return {"status": "success"}
 
@@ -122,9 +118,7 @@ class HunterDomainConsumer(GenieConsumer):
         logger.info(f"Company: {company}")
 
         if not company.overview or not company.challenges:
-            response = self.langsmith.run_prompt_company_overview_challenges(
-                {"company_data": company.to_dict()}
-            )
+            response = self.langsmith.run_prompt_company_overview_challenges({"company_data": company.to_dict()})
             logger.info(f"Response: {response}")
             overview = response.get("company_overview")
             challenges = response.get("challenges")
@@ -160,9 +154,7 @@ async def get_domain_info(email_address: str):
 
     logger.info(f"Domain: {domain}, API Key: {API_KEY}")
 
-    response = requests.get(
-        f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={API_KEY}"
-    )
+    response = requests.get(f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={API_KEY}")
 
     logger.info(f"Response: {response}")
     data = response.json()
@@ -178,3 +170,13 @@ def find_employee_by_email(email: str, company: CompanyDTO):
             if employee.get("email") == email:
                 return employee
     return None
+
+
+if __name__ == "__main__":
+    hunter_domain_consumer = HunterDomainConsumer()
+    try:
+        asyncio.run(hunter_domain_consumer.main())
+    except KeyboardInterrupt:
+        logger.info("Shutting down consumer")
+        hunter_domain_consumer.close()
+        sys.exit(0)

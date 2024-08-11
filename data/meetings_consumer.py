@@ -52,16 +52,12 @@ class MeetingManager(GenieConsumer):
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         self.meeting_repository.save_meeting(meeting)
         logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
-        emails_to_process = MeetingManager.filter_email_objects(
-            meeting.participants_emails
-        )
+        emails_to_process = MeetingManager.filter_email_objects(meeting.participants_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data=json.dumps(
-                    {"tenant_id": meeting.tenant_id, "email": email.get("email")}
-                ),
+                data=json.dumps({"tenant_id": meeting.tenant_id, "email": email.get("email")}),
                 scope="public",
             )
             event.send()
@@ -76,9 +72,7 @@ class MeetingManager(GenieConsumer):
         """
         final_list = []
 
-        host_email_list = [
-            email.get("email") for email in participants_emails if email.get("self")
-        ]
+        host_email_list = [email.get("email") for email in participants_emails if email.get("self")]
         host_email = host_email_list[0] if host_email_list else None
         if not host_email:
             return final_list
@@ -122,3 +116,11 @@ class MeetingManager(GenieConsumer):
                 final_list.append(email)
         logger.info(f"Final list: {final_list}")
         return final_list
+
+
+if __name__ == "__main__":
+    meetings_consumer = MeetingManager()
+    try:
+        asyncio.run(meetings_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

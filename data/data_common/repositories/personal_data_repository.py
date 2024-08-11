@@ -165,9 +165,7 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def get_personal_data_by_linkedin(
-        self, linkedin_profile_url: str
-    ) -> Optional[dict]:
+    def get_personal_data_by_linkedin(self, linkedin_profile_url: str) -> Optional[dict]:
         """
         Retrieve personal data associated with an uuid.
 
@@ -312,7 +310,7 @@ class PersonalDataRepository:
         self.create_table_if_not_exists()
         if isinstance(personal_data, dict):
             personal_data = json.dumps(personal_data)
-    
+
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -324,12 +322,12 @@ class PersonalDataRepository:
             )
             return
         self.update(person.uuid, personal_data)
-        # This use case is for when we try to fetch personal data by email and fail and then someone updates 
+        # This use case is for when we try to fetch personal data by email and fail and then someone updates
         # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
-        if person and person.linkedin and not self.exists_linkedin_url(person.linkedIn):
-            self.update_linkedin_url(person.uuid, person.linkedIn)
+        if person and person.linkedin and not self.exists_linkedin_url(person.linkedin):
+            self.update_linkedin_url(person.uuid, person.linkedin)
         return
-    
+
     def update_linkedin_url(self, uuid, linkedin_url):
         """
         Update the LinkedIn URL for a profile.

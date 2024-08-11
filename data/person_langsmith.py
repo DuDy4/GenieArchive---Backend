@@ -1,6 +1,7 @@
 import json
 import sys
 import os
+import asyncio
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -35,9 +36,7 @@ class LangsmithConsumer(GenieConsumer):
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
-        logger.info(
-            f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}"
-        )
+        logger.info(f"Processing event on topic {event.properties.get(b'topic').decode('utf-8')}")
         topic = event.properties.get(b"topic").decode("utf-8")
 
         match topic:
@@ -66,9 +65,7 @@ class LangsmithConsumer(GenieConsumer):
         company_dict = {}
 
         if email_address and isinstance(email_address, str) and "@" in email_address:
-            company_data = self.company_repository.get_company_from_domain(
-                email_address.split("@")[1]
-            )
+            company_data = self.company_repository.get_company_from_domain(email_address.split("@")[1])
         if company_data:
             company_dict = company_data.to_dict()
             company_dict.pop("uuid")
@@ -77,9 +74,7 @@ class LangsmithConsumer(GenieConsumer):
         logger.info(f"Company data: {company_data}")
 
         response = await self.langsmith.get_profile(person_data, company_dict)
-        logger.info(
-            f"Response: {response.keys() if isinstance(response, dict) else response}"
-        )
+        logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
 
         profile = {
             "strengths": response.get("strengths"),
@@ -105,9 +100,7 @@ class LangsmithConsumer(GenieConsumer):
         logger.info(f"Person: {person}")
 
         # Ask ChatGPT (through Langsmith) what can be told about this person
-        response = self.langsmith.ask_chatgpt(
-            f"What can you tell me about this person: {person}"
-        )
+        response = self.langsmith.ask_chatgpt(f"What can you tell me about this person: {person}")
         logger.info(f"Response from ChatGPT: {response}")
 
         data_to_send = {"person": person, "additional_info": response}
@@ -135,11 +128,7 @@ class LangsmithConsumer(GenieConsumer):
         logger.info(f"Response from ChatGPT: {response}")
 
         # Verify the response and ensure it is a valid LinkedIn URL
-        linkedin_url = (
-            response.get("linkedin_url")
-            if (response and isinstance(response, dict))
-            else None
-        )
+        linkedin_url = response.get("linkedin_url") if (response and isinstance(response, dict)) else None
         if linkedin_url and "linkedin.com" in linkedin_url:
             logger.info(f"Found LinkedIn URL: {linkedin_url}")
             data_to_send = {"email": email_address, "linkedin_url": linkedin_url}
@@ -155,3 +144,11 @@ class LangsmithConsumer(GenieConsumer):
             event = GenieEvent(Topic.FAILED_TO_GET_LINKEDIN_URL, data_to_send, "public")
             event.send()
             return {"status": "failed"}
+
+
+if __name__ == "__main__":
+    langsmith_consumer = LangsmithConsumer()
+    try:
+        asyncio.run(langsmith_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

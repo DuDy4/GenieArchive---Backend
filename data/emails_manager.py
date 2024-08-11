@@ -1,5 +1,7 @@
 import json
 import os
+import sys
+import asyncio
 
 from loguru import logger
 
@@ -48,3 +50,11 @@ class EmailManager(GenieConsumer):
         link = f"{APP_URL}/profiles/{name}/before-the-meeting"
         logger.info(f"Link: {link}")
         # Send email
+
+
+if __name__ == "__main__":
+    email_consumer = EmailManager()
+    try:
+        asyncio.run(email_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
