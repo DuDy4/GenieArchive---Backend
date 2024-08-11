@@ -8,6 +8,9 @@ class GenieLogger:
     def __init__(self):
         self.logger = logger
 
+    def get_ctx_id(self):
+        return context_id.get()
+
     def generate_short_context_id(self):
         full_uuid = str(uuid.uuid4())
         short_uuid = full_uuid.replace("-", "")[:12]  # Currently using the first 12 characters of the UUID for readability of the logs
