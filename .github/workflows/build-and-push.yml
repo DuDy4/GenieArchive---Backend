@@ -83,7 +83,7 @@ jobs:
       - name: Checkout genie-chart repository
         uses: actions/checkout@v3
         with:
-          repository: your-org/genie-chart
+          repository: thegenieai/genieai-helm-charts
           path: genie-chart
           token: ${{ secrets.GH_PAT }}
 
