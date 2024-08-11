@@ -79,12 +79,13 @@ jobs:
           echo "Job status: ${{ job.status }}"
           echo "Event name: ${{ github.event_name }}"
           echo "Ref: ${{ github.ref }}"
-            - name: Checkout genie-chart repository
+
+      - name: Checkout genie-chart repository
         uses: actions/checkout@v3
         with:
           repository: your-org/genie-chart
           path: genie-chart
-          token: ${{ secrets.GENIE_CHART_PAT }}
+          token: ${{ secrets.GH_PAT }}
 
       - name: Update genie-chart values
         run: |
