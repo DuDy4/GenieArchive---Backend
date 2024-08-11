@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from common.utils import env_utils
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 BOT_TOKEN = env_utils.get("SLACK_BOT_TOKEN")

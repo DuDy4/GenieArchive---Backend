@@ -8,20 +8,19 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
+BASE_URL = os.getenv("APOLLO_BASE_URL")
+API_KEY = os.getenv("APOLLO_API_KEY")
+
 
 class ApolloClient:
     def __init__(self):
         # Get API key from environment variables
-        self.api_key = os.getenv('APOLLO_API_TOKEN')
+        self.api_key = API_KEY
         if not self.api_key:
             raise ValueError("API key is missing. Please set it in the .env file.")
 
-        self.base_url = "https://api.apollo.io/v1"
-        self.headers = {
-            'Cache-Control': 'no-cache',
-            'Content-Type': 'application/json',
-            'X-Api-Key': self.api_key
-        }
+        self.base_url = BASE_URL
+        self.headers = {"Cache-Control": "no-cache", "Content-Type": "application/json", "X-Api-Key": self.api_key}
 
     def enrich_contact(self, emails):
         """
@@ -32,18 +31,19 @@ class ApolloClient:
         """
         url = f"{self.base_url}/people/bulk_match"
         details = [{"email": email} for email in emails]
-        data = {
-            "reveal_personal_emails": True,
-            "reveal_phone_number": True,
-            "webhook_url": "https://your_webhook_site",
-            "details": details
-        }
+        data = {"reveal_personal_emails": True, "reveal_phone_number": True, "webhook_url": "https://your_webhook_site", "details": details}
 
         try:
             response = requests.post(url, headers=self.headers, json=data)
             response.raise_for_status()  # Raise an error for bad responses
             result = response.json()
-            logger.info(f"Response received: {result}")
+            if result.get("matches"):
+                matches = result.get("matches")
+                logger.info(f"Got {len(matches)} matches")
+                if isinstance(matches, list):
+                    return matches[0]
+                logger.warning("Matches came back in other form than a list")
+            logger.error("Failed to get Apollo personal data")
             return result
 
         except requests.exceptions.HTTPError as http_err:
@@ -52,18 +52,3 @@ class ApolloClient:
             logger.error(f"Other error occurred: {err}")
 
         return None
-
-
-# Example usage:
-if __name__ == "__main__":
-    apollo_client = ApolloClient()
-
-    # Example emails to be sent
-    emails = ["adi@genieai.ai"]
-
-    response = apollo_client.enrich_contact(emails)
-
-    if response:
-        logger.info(f"API Response: {response}")
-    else:
-        logger.warning("No data found.")

@@ -4,6 +4,7 @@ import psycopg2
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -81,10 +82,10 @@ class PersonsRepository:
 
     def exists_properties(self, person: PersonDTO) -> bool:
         logger.info(f"About to check if person exists: {person}")
-        exists_query = "SELECT uuid FROM persons WHERE  linkedin = %s;"
+        exists_query = "SELECT uuid FROM persons WHERE email = %s;"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (person.linkedin,))
+                cursor.execute(exists_query, (person.email,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except psycopg2.Error as error:
@@ -101,7 +102,7 @@ class PersonsRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(query, (email,))
             return cursor.fetchone() is not None
-        
+
     def get_person_by_email(self, email: str) -> PersonDTO | None:
         select_query = """
         SELECT * FROM persons WHERE email = %s;
@@ -324,7 +325,7 @@ class PersonsRepository:
     def save_person(self, person: PersonDTO):
         self.create_table_if_not_exists()
         uuid = self.exists_properties(person)
-        logger.info(f"Person exists: {uuid}")
+        logger.info(f"Result of exists_properties: {uuid}")
         if uuid:
             self.update(person)
             return uuid

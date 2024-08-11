@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.slack.slack_bot import send_message
+from data.api_services.slack_bot import send_message
 
 
 from data.data_common.utils.str_utils import get_uuid4

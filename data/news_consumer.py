@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.news_scrapper.news_scraper import NewsScrapper
+from data.api_services.news_scraper import NewsScrapper
 
 from data.data_common.utils.str_utils import get_uuid4
 
@@ -58,7 +58,7 @@ class NewsConsumer(GenieConsumer):
         logger.info(f"Event body: {str(event_body)[:300]}")
         company_uuid = event_body.get("company_uuid")
         logger.info(f"Company UUID: {company_uuid}")
-        company = self.compannies_repository.get_company(company_uuid)
+        company = self.companies_repository.get_company(company_uuid)
         if isinstance(company, tuple):
             company = CompanyDTO.from_tuple(company)
         if isinstance(company, dict):

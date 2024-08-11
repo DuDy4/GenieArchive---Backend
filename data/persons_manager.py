@@ -126,7 +126,7 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person: PersonDTO = PersonDTO.from_dict(person_dict)
-        personal_data = self.personal_data_repository.get_personal_data(person.uuid)
+        personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
         if not personal_data:
             logger.error("No personal data received in event")
             return {"error": "No personal data received in event"}
@@ -138,8 +138,6 @@ class PersonManager(GenieConsumer):
             logger.info("Person has no name, setting it from personal data")
             logger.debug(f"Name: {personal_data.get('full_name', '')}")
             person.name = personal_data.get("full_name", "")
-        if personal_data_in_database != personal_data:
-            logger.error("Personal data in database does not match the one received from event")
         person_in_database = self.persons_repository.find_person_by_email(person.email)
         if not person_in_database:
             logger.error("Person not found in database")
@@ -336,7 +334,7 @@ class PersonManager(GenieConsumer):
 
     def verify_person(self, person: PersonDTO):
         person_in_database = self.persons_repository.find_person_by_email(person.email)
-        personal_data = self.personal_data_repository.get_personal_data(person.uuid)
+        personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
         if person.name != person_in_database.name:
             person.name = personal_data.get("full_name", "")
         if person.position != person_in_database.position:
