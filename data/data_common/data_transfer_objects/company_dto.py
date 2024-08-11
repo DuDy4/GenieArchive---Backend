@@ -13,13 +13,13 @@ from data.data_common.utils.str_utils import (
 
 
 class NewsData(BaseModel):
-    date: date
+    date: Optional[date]
     link: HttpUrl
     media: str
     title: str
-    summary: str
+    summary: Optional[str]
 
-    @field_validator("media", "title", "summary")
+    @field_validator("media", "title", "link")
     def not_empty(cls, value):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")

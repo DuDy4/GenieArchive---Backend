@@ -158,7 +158,7 @@ class PersonalDataRepository:
                 if personal_data:
                     return personal_data[0]
                 else:
-                    logger.warning("personalData was not found")
+                    logger.warning("personalData was not found in db by uuid")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -188,7 +188,7 @@ class PersonalDataRepository:
                 if personal_data:
                     return personal_data[1:]
                 else:
-                    logger.warning("personalData was not found")
+                    logger.warning("personalData was not found in db by linkedin url")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -215,7 +215,7 @@ class PersonalDataRepository:
                 if personal_data:
                     return personal_data[0]
                 else:
-                    logger.warning("personalData was not found")
+                    logger.warning("personalData was not found in db by email address")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -242,7 +242,7 @@ class PersonalDataRepository:
                 if uuid:
                     return uuid[0]
                 else:
-                    logger.warning("personalData was not found")
+                    logger.warning("personalData uuid was not found in db by email address")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -267,10 +267,11 @@ class PersonalDataRepository:
                 self.conn.commit()
                 logger.info("Updated personal data")
         except psycopg2.Error as e:
-            logger.error("Error updating personal data:", e)
+            logger.error(f"Failed to executre personal data query: {update_query}")
+            logger.error("psycopg2 Error updating personal data:", str(e))
             self.conn.rollback()
         except Exception as e:
-            logger.error("Error updating personal data:", e)
+            logger.error("Exception Error updating personal data:", str(e))
             self.conn.rollback()
         return
 
@@ -309,6 +310,9 @@ class PersonalDataRepository:
         :param personal_data: Personal data to save.
         """
         self.create_table_if_not_exists()
+        if isinstance(personal_data, dict):
+            personal_data = json.dumps(personal_data)
+    
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -320,6 +324,37 @@ class PersonalDataRepository:
             )
             return
         self.update(person.uuid, personal_data)
+        # This use case is for when we try to fetch personal data by email and fail and then someone updates 
+        # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
+        if person and person.linkedin and not self.exists_linkedin_url(person.linkedIn):
+            self.update_linkedin_url(person.uuid, person.linkedIn)
+        return
+    
+    def update_linkedin_url(self, uuid, linkedin_url):
+        """
+        Update the LinkedIn URL for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :param linkedin_url: LinkedIn URL to update.
+        """
+        update_query = """
+        UPDATE personalData
+        SET linkedin_url = %s
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (linkedin_url, uuid))
+                self.conn.commit()
+                logger.info("Updated LinkedIn URL")
+        except psycopg2.Error as e:
+            logger.error("Error updating LinkedIn URL:", e)
+            traceback.print_exc()
+            self.conn.rollback()
+        except Exception as e:
+            logger.error("Error updating LinkedIn URL:", e)
+            traceback.print_exc()
+            self.conn.rollback()
         return
 
     def get_last_updated(self, uuid):
@@ -399,7 +434,7 @@ class PersonalDataRepository:
                     }
                     return personal_data_dict
                 else:
-                    logger.warning("personalData was not found")
+                    logger.warning("personalData object was not found in db by uuid")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)

@@ -72,31 +72,21 @@ class PDLConsumer(GenieConsumer):
 
         person.linkedin = self.pdl_client.fix_linkedin_url(person.linkedin)
         if self.personal_data_repository.exists_linkedin_url(person.linkedin):
-            logger.info(
-                f"Profile for {person.linkedin} already exists in the database."
-            )
+            logger.info(f"Profile for {person.linkedin} already exists in the database.")
             if self.pdl_client.is_up_to_date(person.uuid):
-                logger.info(
-                    f"Personal data is up-to-date. Skipping update for {person.uuid}."
-                )
-                personal_data = self.personal_data_repository.get_personal_data(
-                    person.uuid
-                )
+                logger.info(f"Personal data is up-to-date. Skipping update for {person.uuid}.")
+                personal_data = self.personal_data_repository.get_personal_data(person.uuid)
 
                 data_to_transfer = {
                     "person": person.to_dict(),
                     "personal_data": personal_data,
                 }
-                event = GenieEvent(
-                    Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public"
-                )
+                event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
                 logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
                 return
             else:
-                logger.info(
-                    f"Personal data for {person.name} is outdated. Fetching new data"
-                )
+                logger.info(f"Personal data for {person.name} is outdated. Fetching new data")
                 personal_data = self.pdl_client.fetch_profile(person)
                 if not personal_data:
                     logger.error(f"Failed to fetch personal data for {person.name}")
@@ -105,9 +95,7 @@ class PDLConsumer(GenieConsumer):
                         personal_data,
                         self.personal_data_repository.TRIED_BUT_FAILED,
                     )
-                    logger.info(
-                        f"Updated timestamp for failing to get personal data for {person.name}"
-                    )
+                    logger.info(f"Updated timestamp for failing to get personal data for {person.name}")
                     event = GenieEvent(
                         Topic.FAILED_TO_ENRICH_DATA,
                         {"person": person.to_dict()},
@@ -125,9 +113,7 @@ class PDLConsumer(GenieConsumer):
                 event.send()
                 logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
         else:
-            logger.info(
-                f"Person {person.name} not found in the database. Fetching new personal data"
-            )
+            logger.info(f"Person {person.name} not found in the database. Fetching new personal data")
             profile = self.pdl_client.fetch_profile(person)
             data_to_transfer = {"person": person.to_dict(), "personal_data": profile}
             event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
@@ -196,9 +182,7 @@ class PDLConsumer(GenieConsumer):
                     "person": person.to_dict(),
                     "personal_data": personal_data,
                 }
-                event = GenieEvent(
-                    Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public"
-                )
+                event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
                 logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
 
@@ -380,7 +364,6 @@ class PDLClient:
         self._fetched_profiles = set()
 
     def fetch_profile(self, person):
-        profile = None
         if person.linkedin:
             personal_data = self.get_single_profile(person.linkedin)
         elif person.email:
@@ -394,7 +377,10 @@ class PDLClient:
             else self.personal_data_repository.TRIED_BUT_FAILED
         )
         self.personal_data_repository.save_personal_data(person, personal_data, status)
-        return profile
+        if not person.name:
+            person.name = personal_data.get("full_name", "")
+            person.position = personal_data.get("job_title", "")
+        return personal_data
 
     def identify_person(
         self, email, first_name, last_name, company
@@ -444,7 +430,7 @@ class PDLClient:
             logger.warning(f"Need Payment")
             return
         else:
-            logger.info(f"Got profile for {linkedin_profile_url} from PDL")
+            logger.info(f"Got profile for {linkedin_profile_url} from PDL. Data: {str(response['data'])[:200]}")
             return response["data"]
 
     def get_single_profile_from_email_address(

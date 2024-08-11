@@ -100,6 +100,24 @@ class PersonsRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(query, (email,))
             return cursor.fetchone() is not None
+        
+    def get_person_by_email(self, email: str) -> PersonDTO | None:
+        select_query = """
+        SELECT * FROM persons WHERE email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                person = cursor.fetchone()
+                if person:
+                    logger.info(f"Got person with email {email}")
+                    return PersonDTO.from_tuple(person[1:])
+                logger.info(f"Person with email {email} does not exist")
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error getting person by email: {error}")
+            traceback.print_exc()
+            return None
 
     def get_person(self, uuid: str) -> PersonDTO | None:
         select_query = """
@@ -171,16 +189,12 @@ class PersonsRepository:
                     p.linkedin,
                     h.hobby_name,
                     h.icon_url,
-                    news_data->'title' as news_title,
-                    news_data->'link' as news_link,
                     connections_data->'name' as connection_name,
                     connections_data->'image_url' as connection_image
                 FROM
                     persons p
                 LEFT JOIN
                     profiles p2 ON p.uuid = p2.uuid
-                LEFT JOIN
-                    LATERAL jsonb_array_elements(p2.news) AS news_data ON TRUE
                 LEFT JOIN
                     LATERAL jsonb_array_elements(p2.connections) AS connections_data ON TRUE
                 LEFT JOIN
@@ -206,11 +220,10 @@ class PersonsRepository:
                         "position": row[4],
                         "linkedin": row[5],
                         "hobbies": [{"hobby": row[6], "icon_url": row[7]}],
-                        "top_news": [{"headline": row[8], "url": row[9], "source": ""}],
                         "relevant_connections": [
                             {
-                                "name": row[10],
-                                "picture_url": row[11],
+                                "name": row[8],
+                                "picture_url": row[9],
                                 "linkedin_url": "",
                             }
                         ],

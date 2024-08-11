@@ -147,13 +147,12 @@ class PersonManager(GenieConsumer):
             logger.info("Person has no position, setting it from personal data")
             logger.debug(f"Position: {personal_data.get('job_title', '')}")
             person.position = personal_data.get("job_title", "")
-            logger.debug(f"Person: {person}")
+        if not person.name:
+            logger.info("Person has no name, setting it from personal data")
+            logger.debug(f"Name: {personal_data.get('full_name', '')}")
+            person.name = personal_data.get("full_name", "")
         if personal_data_in_database != personal_data:
-            logger.error(
-                "Personal data in database does not match the one received from event"
-            )
-            # logger.debug(f"Personal data in database: {personal_data_in_database}")
-            # logger.debug(f"Personal data received: {personal_data}")
+            logger.error("Personal data in database does not match the one received from event")
         person_in_database = self.persons_repository.find_person_by_email(person.email)
         if not person_in_database:
             logger.error("Person not found in database")
@@ -167,8 +166,7 @@ class PersonManager(GenieConsumer):
         # If person is found in the database, check that it is not an empty person (only email and uuid)
         if (
             person_in_database
-            and not person_in_database.name
-            and not person_in_database.linkedin
+            and (not person_in_database.name or not person_in_database.linkedin)
         ):
             self.persons_repository.update(person)
             logger.info("Updated person in database")

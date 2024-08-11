@@ -2,3 +2,7 @@
 name = "genie"
 version = "1.0.4"
 description = "Genie AI"
+
+[tool.black]
+line-length = 180
+

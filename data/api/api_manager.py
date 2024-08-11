@@ -6,6 +6,7 @@ import traceback
 import datetime
 import requests
 import urllib.parse
+import uuid
 
 
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
@@ -564,6 +565,33 @@ def get_work_experience(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
+@v1_router.get("/internal/sync-profile/{person_uuid}") 
+def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)) -> JSONResponse:
+    """
+    Sync a profile with the PDL API.
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = os.environ.get("INTERNAL_API_KEY","g3n13admin")
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    validate_uuid(person_uuid)
+    person = persons_repository.get_person(person_uuid)
+    if not person:
+        logger.error(f"Person not found: {person_uuid}")
+        return JSONResponse(content={"error": "Person not found"})
+    logger.info(f"Got person: {person}")
+    if person.linkedin:
+        event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person.to_json(), "public")
+        event.send()
+    else:
+        logger.error(f"Person does not have a LinkedIn URL")
+        return JSONResponse(content={"error": "Person does not have a LinkedIn URL"})
+    return JSONResponse(content={"message": "Profile sync initiated for " + person.email})
+    
+
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
     response_model=MeetingResponse,
@@ -700,3 +728,11 @@ def fetch_google_meetings(
         event.send()
 
     return JSONResponse(content=titleize_values({"events": meetings}))
+
+
+def validate_uuid(uuid_string: str):
+    try:
+        val = uuid.UUID(uuid_string, version=4)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    return str(val)

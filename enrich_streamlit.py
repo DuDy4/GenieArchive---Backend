@@ -1,6 +1,7 @@
 import streamlit as st
 from loguru import logger
-from data.data_common.data_transfer_objects.profile_dto import NewsData, ProfileDTO
+from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.data_transfer_objects.company_dto import NewsData
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     hobbies_repository,
@@ -31,6 +32,7 @@ st.title("Genie Profile Enrichment")
 email = st.text_input("Search by Email")
 
 if email:
+    person_object = persons_repository.get_person_by_email(email)
     person = persons_repository.get_person_complete_data(email)
 
     if person:
