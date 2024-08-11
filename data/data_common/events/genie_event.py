@@ -3,7 +3,8 @@ import os
 
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from common.utils import env_utils
 

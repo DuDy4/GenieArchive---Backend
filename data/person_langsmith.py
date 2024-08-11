@@ -3,7 +3,6 @@ import sys
 import os
 
 from dotenv import load_dotenv
-from loguru import logger
 
 from common.utils import env_utils
 
@@ -15,7 +14,8 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.dependencies.dependencies import companies_repository
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 load_dotenv()
 
 

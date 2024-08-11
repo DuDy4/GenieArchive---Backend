@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
-from loguru import logger
+from common.genie_logger import GenieLogger
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
@@ -73,7 +73,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.meetings_consumer import MeetingManager
-
+logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 

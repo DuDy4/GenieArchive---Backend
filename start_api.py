@@ -4,18 +4,33 @@ import traceback
 import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from loguru import logger
+
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
 
-# from starlette_context import middleware, context, plugins
-# from starlette_context.middleware import ContextMiddleware
-
 from data.api.api_manager import v1_router
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 load_dotenv()
+
+GENIE_CONTEXT_HEADER = "genie-context"
+class GenieContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        genie_context = None
+        if request.headers and GENIE_CONTEXT_HEADER in request.headers:
+            genie_context = request.headers[GENIE_CONTEXT_HEADER]
+        if not genie_context:
+            logger.bind_context()
+        else:
+            logger.info(f"Found Genie context")
+        response = await call_next(request)
+        return response
+    
+
 app = FastAPI(
     title="Profile Management API",
     description="This is an API for managing users, contacts and profiles.",
@@ -34,6 +49,7 @@ app.add_middleware(
     SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600
 )
 
+app.add_middleware(GenieContextMiddleware)
 
 @app.exception_handler(Exception)
 async def exception_handler(request: Request, exc: Exception):

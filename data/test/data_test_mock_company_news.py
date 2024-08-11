@@ -1,6 +1,7 @@
 import os
 import sys
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

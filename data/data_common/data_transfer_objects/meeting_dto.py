@@ -2,11 +2,12 @@ import hashlib
 import json
 import re
 
-from loguru import logger
+
 
 from data.data_common.utils.str_utils import get_uuid4
 from pydantic import BaseModel
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 class MeetingDTO:
     def __init__(

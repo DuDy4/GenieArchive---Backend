@@ -4,8 +4,6 @@ import os
 import sys
 import traceback
 
-from loguru import logger
-
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -19,6 +17,10 @@ from data.data_common.utils.str_utils import get_uuid4
 
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.dependencies.dependencies import companies_repository
+
+
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 CONSUMER_GROUP = "news_consumer_group"
 

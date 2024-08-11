@@ -8,12 +8,10 @@ import httpx
 from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from common.utils import env_utils
-
-logger.remove()  # Remove the default configuration
-logger.add(sys.stderr, level="TRACE")  # Set the logging level to DEBUG
 
 
 class GenieConsumer:

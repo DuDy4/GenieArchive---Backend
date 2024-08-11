@@ -1,4 +1,3 @@
-from loguru import logger
 import sys
 import os
 import psycopg2
@@ -7,7 +6,8 @@ from psycopg2 import sql
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.data_common.dependencies.dependencies import get_db_connection
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 def drop_table(table_name: str):
     """

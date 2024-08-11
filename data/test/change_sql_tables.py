@@ -1,6 +1,5 @@
 import os
 import sys
-from loguru import logger
 import traceback
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -17,6 +16,8 @@ profiles_repository = ProfilesRepository(conn=get_db_connection())
 companies_repository.create_table_if_not_exists()
 profiles_repository.create_table_if_not_exists()
 
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 def update_profiles_repository_columns():
     query = """

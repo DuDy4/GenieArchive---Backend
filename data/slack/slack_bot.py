@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-from loguru import logger
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.rtm_v2 import RTMClient
@@ -9,7 +8,8 @@ from slack_sdk.rtm_v2 import RTMClient
 from concurrent.futures import ThreadPoolExecutor
 
 from common.utils import env_utils
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 BOT_TOKEN = env_utils.get("SLACK_BOT_TOKEN")
 CHANNEL = env_utils.get("SLACK_CHANNEL")

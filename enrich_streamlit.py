@@ -1,5 +1,5 @@
 import streamlit as st
-from loguru import logger
+
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.data_transfer_objects.company_dto import NewsData
 from data.data_common.dependencies.dependencies import (
@@ -11,6 +11,8 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     companies_repository,
 )
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 # Password protection
 def check_password():

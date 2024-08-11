@@ -2,7 +2,8 @@ import re
 import requests
 from urllib.parse import urlparse, unquote
 
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class GoogleSearchAPI:

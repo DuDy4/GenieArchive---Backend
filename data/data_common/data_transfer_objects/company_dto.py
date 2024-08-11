@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Optional, Union, Tuple, Any
 
-from loguru import logger
+
 from pydantic import HttpUrl, field_validator, BaseModel
 from datetime import date
 
@@ -10,7 +10,8 @@ from data.data_common.utils.str_utils import (
     to_custom_title_case,
     get_uuid4,
 )
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 class NewsData(BaseModel):
     date: Optional[date]

@@ -1,9 +1,11 @@
 import traceback
 from typing import Optional
 import psycopg2
-from loguru import logger
 import json
 import hashlib
+
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 

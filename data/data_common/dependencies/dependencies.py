@@ -1,5 +1,3 @@
-from loguru import logger
-
 from data.data_common.repositories.contacts_repository import ContactsRepository
 from data.data_common.repositories.interactions_repository import InteractionsRepository
 
@@ -14,6 +12,8 @@ from ..repositories.google_creds_repository import GoogleCredsRepository
 from ..repositories.ownerships_repository import OwnershipsRepository
 from ..repositories.hobbies_repository import HobbiesRepository
 from ..repositories.companies_repository import CompaniesRepository
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 def tenants_repository() -> TenantsRepository:

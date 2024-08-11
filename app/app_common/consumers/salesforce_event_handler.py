@@ -1,10 +1,10 @@
-from loguru import logger
 from data.data_common.repositories.contacts_repository import ContactsRepository
 from ..data_transfer_objects.person_dto import PersonDTO
 
 from ..events.genie_event import GenieEvent
 from ..events.topics import Topic
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 class SalesforceEventHandler:
     def __init__(self, contacts_repository: ContactsRepository):

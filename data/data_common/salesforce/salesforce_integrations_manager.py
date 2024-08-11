@@ -13,7 +13,6 @@ from urllib.parse import urlencode
 from dotenv import load_dotenv
 import requests
 from simple_salesforce import Salesforce
-from loguru import logger
 from requests_oauthlib import OAuth2Session
 from common.utils import env_utils
 from data.data_common.repositories.tenants_repository import TenantsRepository
@@ -32,7 +31,8 @@ from data.data_common.salesforce.deployment_code import (
     class_code,
     metadata_package,
 )
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 load_dotenv()
 
 SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")

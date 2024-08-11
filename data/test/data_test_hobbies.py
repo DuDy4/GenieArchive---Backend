@@ -1,4 +1,3 @@
-from loguru import logger
 import sys
 import os
 
@@ -9,6 +8,8 @@ from data.data_common.dependencies.dependencies import (
     hobbies_repository,
     get_db_connection,
 )
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 hobby1 = {
     "uuid": "a79d4460-8d40-4f30-88a1-b7d0eb3ff2ed",
