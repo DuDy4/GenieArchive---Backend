@@ -24,10 +24,13 @@ class NewsData(BaseModel):
 
     @field_validator("media", "title", "link")
     def not_empty(cls, value):
-        if isinstance(value, HttpUrl):
-            value = str(value)
-        if not value.strip():
+        # Convert HttpUrl to str if needed, otherwise ensure it's a string
+        value_to_check = str(value)
+
+        # Check if the value is empty or whitespace
+        if not value_to_check.strip():
             raise ValueError("Field cannot be empty or whitespace")
+
         return value
 
     @classmethod

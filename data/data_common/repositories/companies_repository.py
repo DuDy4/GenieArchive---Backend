@@ -122,7 +122,7 @@ class CompaniesRepository:
                         except ValidationError:
                             logger.error(f"Invalid news item: {news_item}")
                     logger.debug(f"Valid news: {valid_news}")
-                    company = company[:9] + (valid_news,)
+                    company = company[:10] + (valid_news,)
                     return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with domain {email_domain} does not exist")
                 return None
@@ -188,7 +188,7 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return None
 
-    def save_company(self, company: CompanyDTO):
+    def save_company_without_news(self, company: CompanyDTO):
         self.create_table_if_not_exists()
         if not company.uuid:
             company.uuid = get_uuid4()
@@ -295,8 +295,8 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, size, description, overview, challenges, technologies, employees
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                uuid, name, domain, size,  description, overview, challenges, technologies, employees
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
         logger.info(f"About to insert company: {company_dto}")
@@ -362,35 +362,6 @@ class CompaniesRepository:
         if news.get("link") and isinstance(news["link"], AnyUrl):
             news["link"] = str(news["link"])
         return news
-
-    # @staticmethod
-    # def deserialize_news(news: dict) -> NewsData | None:
-    #     try:
-    #         if news.get("date"):
-    #             logger.debug(f"Date: {news['date']}, type: {type(news['date'])}")
-    #             if isinstance(news["date"], str):
-    #                 try:
-    #                     logger.debug(f"Attempting to convert date string: {news['date']}")
-    #                     news["date"] = date.fromisoformat(news["date"])  # Convert string back to date
-    #                     logger.debug(f"Converted date: {news['date']}, type: {type(news['date'])}")
-    #                 except ValueError as ve:
-    #                     logger.error(f"ValueError in fromisoformat: {ve}")
-    #                     return None
-    #             else:
-    #                 logger.error(f"Date field is not a string: {news['date']}")
-    #         if news.get("link"):
-    #             logger.debug(f"Link: {news['link']}, type: {type(news['link'])}")
-    #             try:
-    #                 news["link"] = AnyUrl(news["link"])
-    #                 logger.debug(f"Converted link: {news['link']}, type: {type(news['link'])}")
-    #             except ValidationError as ve:
-    #                 logger.error(f"ValidationError for link: {ve}")
-    #                 return None
-    #     except Exception as e:
-    #         logger.error(f"Error deserializing news: {e}")
-    #         return None
-    #     logger.debug(f"Deserialized news: {news}")
-    #     return NewsData.from_dict(news)
 
     @staticmethod
     def process_news(news: List[dict]) -> List[NewsData]:

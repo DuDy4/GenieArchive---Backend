@@ -6,7 +6,7 @@ import asyncio
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
-from loguru import logger
+from pydantic import ValidationError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -15,11 +15,17 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.repositories.persons_repository import PersonsRepository
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+from data.data_common.repositories.profiles_repository import ProfilesRepository
+from data.data_common.repositories.ownerships_repository import OwnershipsRepository
+from data.data_common.repositories.meetings_repository import MeetingsRepository
+from data.data_common.repositories.companies_repository import CompaniesRepository
+
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     profiles_repository,
-    interactions_repository,
     ownerships_repository,
     meetings_repository,
     companies_repository,
@@ -42,7 +48,6 @@ class PersonManager(GenieConsumer):
             topics=[
                 Topic.NEW_CONTACT,
                 Topic.NEW_PERSON,
-                Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
                 Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
@@ -53,7 +58,6 @@ class PersonManager(GenieConsumer):
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
-        self.interactions_repository = interactions_repository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
         self.companies_repository = companies_repository()
@@ -71,9 +75,6 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_PERSON:
                 logger.info("Handling new person")
                 await self.handle_new_person(event)
-            case Topic.NEW_INTERACTION:
-                logger.info("Handling new interaction")
-                await self.handle_new_interaction(event)
             case Topic.UPDATED_ENRICHED_DATA:
                 logger.info("Handling updated enriched data")
                 await self.handle_updated_enriched_data(event)
@@ -108,18 +109,6 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person_json, "public")
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
-        return {"status": "success"}
-
-    async def handle_new_interaction(self, event):
-        # Assuming the event body contains a JSON string with the contact data
-        interaction_data = event.body_as_str()
-        # should gather all of the interactions of this person, and the personal data - then send to langsmith
-        self.interactions_repository.save_interaction(interaction_data)
-        logger.info("Saved interaction to interactions_repository")
-
-        # Here we should implement whatever we want to do with the interaction data
-        # event = GenieEvent(Topic., interaction_data, "public")
-        # event.send()
         return {"status": "success"}
 
     async def handle_updated_enriched_data(self, event):
@@ -311,6 +300,20 @@ class PersonManager(GenieConsumer):
             logger.info("Profile does not exist in database")
             await self.handle_updated_enriched_data(event)
             return
+        try:
+            profile = self.profiles_repository.get_profile_data(person.uuid)
+            logger.info(f"Profile: {profile}")
+            return {"status": "success"}
+        except ValidationError as e:
+            person = self.verify_person(person)
+            logger.error(f"Profile data is invalid: {e}")
+            profile.name = person.name
+            profile.company = person.company
+            profile.position = person.position
+            logger.info(f"Profile: {profile}")
+            self.profiles_repository.save_profile(profile)
+            return {"status": "success"}
+
         logger.info("Profile exists in database. Skipping profile building")
 
     async def handle_new_person(self, event):

@@ -78,9 +78,10 @@ class PDLConsumer(GenieConsumer):
                 logger.info(f"Personal data is up-to-date. Skipping update for {person.uuid}.")
                 personal_data = self.personal_data_repository.get_personal_data(person.uuid)
 
+                person = self.verify_person(person, personal_data)
+
                 data_to_transfer = {
                     "person": person.to_dict(),
-                    "personal_data": personal_data,
                 }
                 event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
@@ -172,7 +173,6 @@ class PDLConsumer(GenieConsumer):
                 personal_data = personal_data_in_repo
                 data_to_transfer = {
                     "person": person.to_dict(),
-                    "personal_data": personal_data,
                 }
                 event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
@@ -260,6 +260,26 @@ class PDLConsumer(GenieConsumer):
         event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
         event.send()
         logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
+
+    def verify_person(self, person, personal_data):
+        if not personal_data:
+            return person
+        personal_experience = personal_data.get("experience")
+        if personal_experience and isinstance(personal_experience, list):
+            personal_experience = personal_experience[0]
+
+        if personal_experience and isinstance(personal_experience, dict):
+            title_object = personal_experience.get("title")
+            if title_object and isinstance(title_object, dict):
+                position = title_object.get("name")
+            else:
+                position = personal_experience.get["job_title"]
+            company_object = personal_experience.get("company")
+            if company_object and isinstance(company_object, dict):
+                company = company_object.get("name")
+            person.position = position
+            person.company = company
+        return
 
     def create_person(self, uuid):
         row_dict = self.personal_data_repository.get_personal_data_row(uuid)
