@@ -18,15 +18,17 @@ producer = EventHubProducerClient.from_connection_string(
 
 
 class GenieEvent:
-    def __init__(self, topic, data: str | dict, scope):
+    def __init__(self, topic, data: str | dict, scope, ctx_id=None):
         self.topic = topic
         self.data: str = self.ensure_json_format(data)
         self.scope = scope
+        ctx_id = ctx_id if ctx_id else logger.get_ctx_id()
+        self.ctx_id = ctx_id
 
     def send(self):
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
-        event.properties = {"topic": self.topic, "scope": self.scope}
+        event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id}
         logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope}]")
         event_data_batch.add(event)
 
