@@ -3,9 +3,11 @@ import os
 from peopledatalabs import PDLPY
 from dotenv import load_dotenv
 
+from common.utils import env_utils
+
 # Create a client, specifying your API key
 load_dotenv()
-pdl_key = os.environ.get("PDL_API_KEY")
+pdl_key = env_utils.get("PDL_API_KEY")
 client = PDLPY(
     api_key=pdl_key,
 )

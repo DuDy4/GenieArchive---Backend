@@ -8,6 +8,7 @@ from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
+from common.utils import env_utils
 
 # from starlette_context import middleware, context, plugins
 # from starlette_context.middleware import ContextMiddleware
@@ -30,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(
-    SessionMiddleware, secret_key=os.environ.get("APP_SECRET_KEY"), max_age=3600
+    SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600
 )
 
 
@@ -50,8 +51,8 @@ def read_root(request: Request):
 
 app.include_router(v1_router)
 
-PORT = int(os.environ.get("PERSON_PORT", 8000))
-use_https = os.environ.get("USE_HTTPS", "false").lower() == "true"
+PORT = int(env_utils.get("PERSON_PORT", 8000))
+use_https = env_utils.get("USE_HTTPS", "false").lower() == "true"
 
 if __name__ == "__main__":
     uvicorn.run(

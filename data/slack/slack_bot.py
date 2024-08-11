@@ -8,9 +8,11 @@ from slack_sdk.rtm_v2 import RTMClient
 
 from concurrent.futures import ThreadPoolExecutor
 
+from common.utils import env_utils
 
-BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
-CHANNEL = os.environ.get("SLACK_CHANNEL")
+
+BOT_TOKEN = env_utils.get("SLACK_BOT_TOKEN")
+CHANNEL = env_utils.get("SLACK_CHANNEL")
 if not BOT_TOKEN:
     raise ValueError("SLACK_BOT_TOKEN is not set in the environment variables")
 client = WebClient(token=BOT_TOKEN)

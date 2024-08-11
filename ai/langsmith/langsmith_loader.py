@@ -3,6 +3,8 @@ import os
 
 from loguru import logger
 
+from common.utils import env_utils
+
 from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
@@ -13,7 +15,7 @@ load_dotenv()
 
 class Langsmith:
     def __init__(self):
-        self.api_key = os.environ.get("LANGSMITH_API_KEY")
+        self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = "https://api.langsmith.com/v1"
         self.model = ChatOpenAI(model=Models.GPT_4O)
 

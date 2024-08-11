@@ -3,10 +3,12 @@ import os
 from dotenv import load_dotenv
 from loguru import logger
 
+from common.utils import env_utils
+
 load_dotenv()
 
-API_KEY = os.getenv("FACEBOOK_WRAP_API_TOKEN")
-ACTOR_ID = os.getenv("FACEBOOK_WRAP_ACTOR_ID")
+API_KEY = env_utils.get("FACEBOOK_WRAP_API_TOKEN")
+ACTOR_ID = env_utils.get("FACEBOOK_WRAP_ACTOR_ID")
 
 
 class FacebookWrapper:

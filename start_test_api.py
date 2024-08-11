@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 # from starlette_context import middleware, context, plugins
 # from starlette_context.middleware import ContextMiddleware
 
+from common.utils import env_utils
 from data.api.test_api_unit import v1_router
 
 load_dotenv()
@@ -21,12 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(
-    SessionMiddleware, secret_key=os.environ.get("APP_SECRET_KEY"), max_age=3600
+    SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600
 )
 
 app.include_router(v1_router)
 
-PORT = int(os.environ.get("TEST_PORT", 8002))
+PORT = int(env_utils.get("TEST_PORT", 8002))
 
 
 if __name__ == "__main__":

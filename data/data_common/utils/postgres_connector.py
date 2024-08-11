@@ -5,15 +5,18 @@ from dotenv import load_dotenv
 import os
 from contextlib import contextmanager
 
+from common.utils import env_utils
+
+
 # Load environment variables from a .env file
 load_dotenv()
 
 # Retrieve the environment variables
-db_user = os.getenv("DB_USER")
-host = os.getenv("DB_HOST")
-database = os.getenv("DB_NAME")
-password = os.getenv("DB_PASSWORD")
-port = int(os.getenv("DB_PORT"))
+db_user = env_utils.get("DB_USER")
+host = env_utils.get("DB_HOST")
+database = env_utils.get("DB_NAME")
+password = env_utils.get("DB_PASSWORD")
+port = int(env_utils.get("DB_PORT"))
 
 
 def create_database_if_not_exists():

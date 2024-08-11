@@ -15,17 +15,18 @@ from starlette.responses import PlainTextResponse, RedirectResponse, JSONRespons
 
 #
 # profile_picture = ProfilePicture(
-#     os.environ.get("GOOGLE_DEVELOPER_API_KEY"),
-#     os.environ.get("GOOGLE_CX")
+#     env_utils.get("GOOGLE_DEVELOPER_API_KEY"),
+#     env_utils.get("GOOGLE_CX")
 # )
 
 from redis import Redis
 
 from app_common.repositories.tenants_repository import TenantsRepository
 from app_common.dependencies.dependencies import tenants_repository
+from common.utils import env_utils
 
-SELF_URL = os.environ.get("self_url", "https://localhost:3000")
-PERSON_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = env_utils.get("self_url", "https://localhost:3000")
+PERSON_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
 v1_router = APIRouter(prefix="/v1")

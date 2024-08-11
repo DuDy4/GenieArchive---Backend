@@ -6,6 +6,7 @@ import asyncio
 from dotenv import load_dotenv
 from loguru import logger
 
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -28,8 +29,8 @@ from data.data_common.dependencies.dependencies import (
 
 load_dotenv()
 
-PERSON_PORT = os.environ.get("PERSON_PORT", 8000)
-API_KEY = os.environ.get("HUNTER_API_KEY")
+PERSON_PORT = env_utils.get("PERSON_PORT", 8000)
+API_KEY = env_utils.get("HUNTER_API_KEY")
 
 CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group"
 

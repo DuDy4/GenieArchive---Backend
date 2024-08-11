@@ -6,10 +6,12 @@ from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from loguru import logger
 
+from common.utils import env_utils
+
 load_dotenv()
 
-connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
-eventhub_name = os.environ.get("EVENTHUB_NAME", "")
+connection_str = env_utils.get("EVENTHUB_CONNECTION_STRING", "")
+eventhub_name = env_utils.get("EVENTHUB_NAME", "")
 producer = EventHubProducerClient.from_connection_string(
     conn_str=connection_str, eventhub_name=eventhub_name
 )

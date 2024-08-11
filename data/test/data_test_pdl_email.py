@@ -3,13 +3,14 @@ import json
 
 from loguru import logger
 
+from common.utils import env_utils
 from data.pdl_consumer import PDLClient
 from data.data_common.dependencies.dependencies import personal_data_repository
 
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
-pdl_key = os.environ.get("PDL_API_KEY")
+pdl_key = env_utils.get("PDL_API_KEY")
 
 event = GenieEvent(
     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,

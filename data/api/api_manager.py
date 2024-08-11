@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from loguru import logger
 
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case
 
@@ -73,11 +74,11 @@ from data.data_common.utils.str_utils import get_uuid4
 
 from data.meetings_consumer import MeetingManager
 
-SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+GOOGLE_CLIENT_ID = env_utils.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = env_utils.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
@@ -573,7 +574,7 @@ def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepo
     - **person_uuid**: The UUID of the person to sync.
     - **api_key**: The internal API key
     """
-    internal_api_key = os.environ.get("INTERNAL_API_KEY","g3n13admin")
+    internal_api_key = env_utils.get("INTERNAL_API_KEY","g3n13admin")
     if api_key != internal_api_key:
         logger.error(f"Invalid API key: {api_key}")
         return JSONResponse(content={"error": "Invalid API key"})

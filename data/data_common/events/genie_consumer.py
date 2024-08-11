@@ -10,6 +10,8 @@ from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from loguru import logger
 
+from common.utils import env_utils
+
 logger.remove()  # Remove the default configuration
 logger.add(sys.stderr, level="TRACE")  # Set the logging level to DEBUG
 
@@ -19,10 +21,10 @@ class GenieConsumer:
 
     def __init__(self, topics, consumer_group="$Default"):
         self.consumer_group = consumer_group
-        connection_str = os.environ.get("EVENTHUB_CONNECTION_STRING", "")
-        eventhub_name = os.environ.get("EVENTHUB_NAME", "")
-        storage_connection_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
-        blob_container_name = os.environ.get("BLOB_CONTAINER_NAME", "")
+        connection_str = env_utils.get("EVENTHUB_CONNECTION_STRING", "")
+        eventhub_name = env_utils.get("EVENTHUB_NAME", "")
+        storage_connection_str = env_utils.get("AZURE_STORAGE_CONNECTION_STRING", "")
+        blob_container_name = env_utils.get("BLOB_CONTAINER_NAME", "")
         checkpoint_store = BlobCheckpointStore.from_connection_string(
             storage_connection_str, blob_container_name
         )

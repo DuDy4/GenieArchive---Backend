@@ -9,6 +9,7 @@ from peopledatalabs import PDLPY
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from common.utils import env_utils
 from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 from data.data_common.dependencies.dependencies import (
     personal_data_repository,
@@ -23,10 +24,10 @@ from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 load_dotenv()
-PDL_API_KEY = os.environ.get("PDL_API_KEY")
+PDL_API_KEY = env_utils.get("PDL_API_KEY")
 CONSUMER_GROUP = "pdlconsumergroup"
 MIN_INTERVAL_TO_FETCH_PROFILES = int(
-    os.environ.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24 * 60)
+    env_utils.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24 * 60)
 )  # Default: 24 hours
 
 

@@ -5,6 +5,7 @@ from typing import List
 
 from loguru import logger
 
+from common.utils import env_utils
 from data.api.base_models import ParticipantEmail
 from data.data_common.dependencies.dependencies import meetings_repository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
@@ -17,7 +18,7 @@ import requests
 
 CONSUMER_GROUP = "meeting_manager_consumer_group"
 
-APP_URL = os.environ.get("APP_URL", "http://localhost:1234")
+APP_URL = env_utils.get("APP_URL", "http://localhost:1234")
 
 
 async def fetch_public_domains():

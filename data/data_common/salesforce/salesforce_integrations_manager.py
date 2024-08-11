@@ -15,6 +15,7 @@ import requests
 from simple_salesforce import Salesforce
 from loguru import logger
 from requests_oauthlib import OAuth2Session
+from common.utils import env_utils
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
 from data.data_common.utils.str_utils import get_uuid4
@@ -34,12 +35,12 @@ from data.data_common.salesforce.deployment_code import (
 
 load_dotenv()
 
-SELF_URL = os.environ.get("SELF_URL", "https://localhost:8000")
-SALESFORCE_CLIENT_ID = os.environ.get("SALESFORCE_CLIENT_ID")
-SALESFORCE_CLIENT_SECRET = os.environ.get("SALESFORCE_CLIENT_SECRET")
-SALESFORCE_LOGIN_URL = os.environ.get("SALESFORCE_LOGIN_URL")
+SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")
+SALESFORCE_CLIENT_ID = env_utils.get("SALESFORCE_CLIENT_ID")
+SALESFORCE_CLIENT_SECRET = env_utils.get("SALESFORCE_CLIENT_SECRET")
+SALESFORCE_LOGIN_URL = env_utils.get("SALESFORCE_LOGIN_URL")
 SALESFORCE_REDIRECT_URI = SELF_URL + "/v1/salesforce/callback"
-SALESFORCE_TOKEN_URL = os.environ.get("SALESFORCE_TOKEN_URL")
+SALESFORCE_TOKEN_URL = env_utils.get("SALESFORCE_TOKEN_URL")
 
 tenants_repository = tenants_repository()
 

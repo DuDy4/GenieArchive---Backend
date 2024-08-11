@@ -3,6 +3,7 @@ import os
 
 from loguru import logger
 
+from common.utils import env_utils
 from data.data_common.dependencies.dependencies import profiles_repository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
@@ -11,7 +12,7 @@ from data.data_common.events.topics import Topic
 
 CONSUMER_GROUP = "emailmanagerconsumergroup"
 
-APP_URL = os.environ.get("APP_URL", "http://localhost:1234")
+APP_URL = env_utils.get("APP_URL", "http://localhost:1234")
 
 
 class EmailManager(GenieConsumer):

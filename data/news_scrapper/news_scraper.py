@@ -5,17 +5,19 @@ from datetime import datetime
 import json
 from loguru import logger
 
+from common.utils import env_utils
+
 # Load environment variables
 load_dotenv()
 
-API_KEY = os.getenv("RAPIDAPI_KEY")
-API_HOST = os.getenv("API_HOST")
-API_URL = os.getenv("API_URL")
+API_KEY = env_utils.get("RAPIDAPI_KEY")
+API_HOST = env_utils.get("API_HOST")
+API_URL = env_utils.get("API_URL")
 
 
 class NewsScrapper:
     def __init__(self):
-        self.api_key = os.getenv("RAPIDAPI_KEY")
+        self.api_key = env_utils.get("RAPIDAPI_KEY")
         self.api_host = "google-news13.p.rapidapi.com"
         self.url = "https://google-news13.p.rapidapi.com/search"
 

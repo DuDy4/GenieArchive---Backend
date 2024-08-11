@@ -21,6 +21,7 @@ from google.oauth2 import id_token
 from google.auth import credentials
 
 
+from common.utils import env_utils
 from data.api.base_models import *
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
@@ -58,7 +59,7 @@ from data.data_common.utils.str_utils import get_uuid4
 
 from data.meetings_consumer import MeetingManager
 
-SELF_URL = os.environ.get("PERSON_URL", "https://localhost:8000")
+SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 
 v1_router = APIRouter(prefix="/v1")

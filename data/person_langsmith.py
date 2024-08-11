@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 from loguru import logger
 
+from common.utils import env_utils
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ai.langsmith.langsmith_loader import Langsmith
@@ -17,7 +19,7 @@ from data.data_common.dependencies.dependencies import companies_repository
 load_dotenv()
 
 
-PERSON_PORT = os.environ.get("PERSON_PORT", 8005)
+PERSON_PORT = env_utils.get("PERSON_PORT", 8005)
 
 CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 
