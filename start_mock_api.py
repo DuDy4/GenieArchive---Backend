@@ -4,7 +4,6 @@ import traceback
 import uvicorn
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
@@ -16,6 +15,8 @@ from fastapi import Depends, FastAPI, Request, HTTPException
 
 from common.utils import env_utils
 from data.api.mock_api import v1_router
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 load_dotenv()
 app = FastAPI(

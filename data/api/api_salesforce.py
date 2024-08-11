@@ -10,7 +10,6 @@ import urllib.parse
 
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
-from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
@@ -58,7 +57,8 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.meetings_consumer import MeetingManager
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
 

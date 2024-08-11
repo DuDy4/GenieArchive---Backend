@@ -8,7 +8,6 @@ from fastapi.routing import APIRouter
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
-from loguru import logger
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 
 # from app_common.utils.api_classes import GoogleSearchAPI, ProfilePicture
@@ -24,6 +23,8 @@ from redis import Redis
 from app_common.repositories.tenants_repository import TenantsRepository
 from app_common.dependencies.dependencies import tenants_repository
 from common.utils import env_utils
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 SELF_URL = env_utils.get("self_url", "https://localhost:3000")
 PERSON_URL = env_utils.get("PERSON_URL", "https://localhost:8000")

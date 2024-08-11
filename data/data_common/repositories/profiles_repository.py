@@ -14,7 +14,8 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Hobby,
     UUID,
 )
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class ProfilesRepository:

@@ -5,7 +5,6 @@ import sys
 import asyncio
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from loguru import logger
 from peopledatalabs import PDLPY
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -23,7 +22,9 @@ from data.data_common.repositories.personal_data_repository import (
 )
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from common.genie_logger import GenieLogger
 
+logger = GenieLogger()
 load_dotenv()
 PDL_API_KEY = env_utils.get("PDL_API_KEY")
 CONSUMER_GROUP = "pdlconsumergroup"

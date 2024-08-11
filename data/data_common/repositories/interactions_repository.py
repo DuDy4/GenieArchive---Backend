@@ -1,6 +1,7 @@
 from typing import Optional
 import psycopg2
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from data.data_common.data_transfer_objects.interaction_dto import InteractionDTO
 

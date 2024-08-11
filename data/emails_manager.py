@@ -3,7 +3,9 @@ import os
 import sys
 import asyncio
 
-from loguru import logger
+from common.genie_logger import GenieLogger
+
+logger = GenieLogger()
 
 from common.utils import env_utils
 from data.data_common.dependencies.dependencies import profiles_repository

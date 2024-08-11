@@ -5,7 +5,8 @@ from typing import Optional, Union, List
 import psycopg2
 
 from data.data_common.data_transfer_objects.contact_dto import ContactDTO
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class ContactsRepository:

@@ -1,7 +1,6 @@
 import asyncio
 import os
 
-from loguru import logger
 
 from common.utils import env_utils
 
@@ -9,7 +8,8 @@ from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
-
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 load_dotenv()
 
 

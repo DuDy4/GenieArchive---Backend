@@ -1,4 +1,5 @@
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from app_common.repositories.tenants_repository import TenantsRepository
 

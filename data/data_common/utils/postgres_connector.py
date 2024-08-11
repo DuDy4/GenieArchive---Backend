@@ -1,14 +1,13 @@
 import psycopg2
-from loguru import logger
 from psycopg2 import sql
 from dotenv import load_dotenv
 import os
 from contextlib import contextmanager
 
 from common.utils import env_utils
+from common.genie_logger import GenieLogger
 
-
-# Load environment variables from a .env file
+logger = GenieLogger()
 load_dotenv()
 
 # Retrieve the environment variables

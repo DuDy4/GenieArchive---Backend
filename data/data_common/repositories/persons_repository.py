@@ -3,7 +3,8 @@ import traceback
 import psycopg2
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class PersonsRepository:

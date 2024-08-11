@@ -4,7 +4,6 @@ import os
 import requests
 import asyncio
 from dotenv import load_dotenv
-from loguru import logger
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
@@ -26,7 +25,9 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
     persons_repository,
 )
+from common.genie_logger import GenieLogger
 
+logger = GenieLogger()
 load_dotenv()
 
 PERSON_PORT = env_utils.get("PERSON_PORT", 8000)

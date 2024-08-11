@@ -6,7 +6,6 @@ import asyncio
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
-from loguru import logger
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -25,7 +24,9 @@ from data.data_common.dependencies.dependencies import (
 )
 
 from data.data_common.utils.str_utils import get_uuid4
+from common.genie_logger import GenieLogger
 
+logger = GenieLogger()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 CONSUMER_GROUP = "personmanagerconsumergroup"

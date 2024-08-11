@@ -1,7 +1,6 @@
 import asyncio
 import sys
 
-from loguru import logger
 from data.pdl_consumer import PDLConsumer
 from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
@@ -10,6 +9,8 @@ from data.hunter_domain_consumer import HunterDomainConsumer
 from data.slack_consumer import SlackConsumer
 from data.news_consumer import NewsConsumer
 from data.data_common.events.genie_consumer import GenieConsumer
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 consumers = [
     PersonManager(),

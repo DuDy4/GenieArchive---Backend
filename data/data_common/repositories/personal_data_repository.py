@@ -3,7 +3,9 @@ import json
 import psycopg2
 import traceback
 
-from loguru import logger
+from common.genie_logger import GenieLogger
+
+logger = GenieLogger()
 
 
 class PersonalDataRepository:

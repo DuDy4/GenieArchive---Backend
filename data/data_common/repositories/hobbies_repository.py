@@ -2,7 +2,8 @@ import traceback
 from typing import Optional
 import uuid
 import psycopg2
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class HobbiesRepository:

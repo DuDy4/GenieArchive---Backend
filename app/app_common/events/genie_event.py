@@ -4,7 +4,8 @@ import asyncio
 
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 from common.utils import env_utils
 
@@ -18,10 +19,11 @@ producer = EventHubProducerClient.from_connection_string(
 
 
 class GenieEvent:
-    def __init__(self, topic, data: str | dict, scope):
+    def __init__(self, topic, data: str | dict, scope, ctx_id=None):
         self.topic = topic
         self.data: str = self.ensure_json_format(data)
         self.scope = scope
+        self.ctx_id = ctx_id
 
     def send(self):
 

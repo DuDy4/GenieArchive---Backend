@@ -5,7 +5,8 @@ from typing import Optional, Union, List
 import psycopg2
 from common.utils.str_utils import get_uuid4
 
-from loguru import logger
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 
 
 class TenantsRepository:
