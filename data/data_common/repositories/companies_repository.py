@@ -296,7 +296,7 @@ class CompaniesRepository:
         insert_query = """
             INSERT INTO companies (
                 uuid, name, domain, size,  description, overview, challenges, technologies, employees
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
         logger.info(f"About to insert company: {company_dto}")
