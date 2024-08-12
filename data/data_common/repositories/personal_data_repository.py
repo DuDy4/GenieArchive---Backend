@@ -69,7 +69,9 @@ class PersonalDataRepository:
         if pdl_personal_data:
             columns.append("pdl_personal_data")
             columns.append("pdl_status")
-            values.append(json.dumps(pdl_personal_data) if isinstance(pdl_personal_data, dict) else pdl_personal_data)  # Convert dict to JSON string
+            values.append(
+                json.dumps(pdl_personal_data) if isinstance(pdl_personal_data, dict) else pdl_personal_data
+            )  # Convert dict to JSON string
             values.append(pdl_status)
 
         if apollo_personal_data:
@@ -619,7 +621,7 @@ class PersonalDataRepository:
         :return: Social media links if profile exists, None otherwise.
         """
         select_query = """
-        SELECT personal_data -> 'profiles'
+        SELECT pdl_personal_data -> 'profiles'
         FROM personalData
         WHERE uuid = %s
         """
