@@ -10,7 +10,7 @@ from data.data_common.events.topics import Topic
 def test_news_consumer():
     event = GenieEvent(
         topic=Topic.NEW_COMPANY_DATA,
-        data='{"company_uuid": "140ed066-5a07-4191-9b82-e0ba983806d5"}',
+        data='{"company_uuid": "e2b828f3-d39d-4473-94dc-6efc11f4add6"}',
         scope="public",
     )
     assert event
