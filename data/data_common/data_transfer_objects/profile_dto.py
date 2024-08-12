@@ -2,6 +2,7 @@ import json
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Tuple
 from uuid import UUID
+from data.data_common.utils.str_utils import to_custom_title_case
 
 
 class Hobby(BaseModel):
@@ -129,9 +130,7 @@ class Connection(BaseModel):
         return self.name, self.image_url, self.linkedin_url
 
     @classmethod
-    def from_tuple(
-        cls, data: Tuple[str, Optional[HttpUrl], Optional[HttpUrl]]
-    ) -> "Connection":
+    def from_tuple(cls, data: Tuple[str, Optional[HttpUrl], Optional[HttpUrl]]) -> "Connection":
         return cls(name=data[0], image_url=data[1], linkedin_url=data[2])
 
     def to_dict(self) -> Dict[str, any]:
@@ -233,9 +232,9 @@ class ProfileDTO(BaseModel):
     ) -> "ProfileDTO":
         return cls(
             uuid=data[0],
-            name=data[1],
-            company=data[2],
-            position=data[3],
+            name=to_custom_title_case(data[1]),
+            company=to_custom_title_case(data[2]),
+            position=to_custom_title_case(data[3]),
             summary=data[4],
             picture_url=data[5],
             get_to_know=data[6],
