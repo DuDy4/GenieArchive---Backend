@@ -295,8 +295,8 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, size,  description, overview, challenges, technologies, employees
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                uuid, name, domain, size,  description, overview, challenges, technologies, employees, news
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
         logger.info(f"About to insert company: {company_dto}")
@@ -310,6 +310,7 @@ class CompaniesRepository:
             json.dumps(company_dto.challenges),
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
+            json.dumps([]),
         )
 
         try:
