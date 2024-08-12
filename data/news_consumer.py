@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.news_scrapper.news_scraper import NewsScrapper
+from data.api_services.news_scraper import NewsScrapper
 
 from data.data_common.utils.str_utils import get_uuid4
 
@@ -20,6 +20,7 @@ from data.data_common.dependencies.dependencies import companies_repository
 
 
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 CONSUMER_GROUP = "news_consumer_group"
@@ -35,7 +36,7 @@ class NewsConsumer(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.company_repository: CompaniesRepository = companies_repository()
+        self.companies_repository: CompaniesRepository = companies_repository()
         self.news_scrapper = NewsScrapper()
 
     async def process_event(self, event):
@@ -57,18 +58,20 @@ class NewsConsumer(GenieConsumer):
         logger.info(f"Event body: {str(event_body)[:300]}")
         company_uuid = event_body.get("company_uuid")
         logger.info(f"Company UUID: {company_uuid}")
-        company = self.company_repository.get_company(company_uuid)
+        company = self.companies_repository.get_company(company_uuid)
         if isinstance(company, tuple):
             company = CompanyDTO.from_tuple(company)
         if isinstance(company, dict):
             company = CompanyDTO.from_dict(company)
         logger.info(f"Company: {str(company)[:300]}")
 
+        if not company:
+            logger.error(f"Company not found for UUID: {company_uuid}")
+            return {"error": "Company not found"}
+
         # If already has news, check if it's outdated. if not - skip news fetching
         if company.news:
-            logger.info(
-                f"Company already has news: {company.news}. Checking if it's outdated"
-            )
+            logger.info(f"Company already has news: {company.news}. Checking if it's outdated")
             outdated = await self.news_scrapper.is_news_outdated(company.news)
             if not outdated:
                 logger.info(f"News is not outdated. Skipping news update")
@@ -98,7 +101,7 @@ class NewsConsumer(GenieConsumer):
             if isinstance(news, dict):
                 if news.get("news"):
                     news = news.get("news")
-            self.company_repository.save_news(company.uuid, news)
+            self.companies_repository.save_news(company.uuid, news)
             company.news = news
             logger.info(f"Saved news for company: {company.name}. News: {news}")
             event = GenieEvent(
@@ -108,3 +111,11 @@ class NewsConsumer(GenieConsumer):
             )
             event.send()
             logger.info(f"Sent event for company news update: {company.name}")
+
+
+if __name__ == "__main__":
+    news_consumer = NewsConsumer()
+    try:
+        asyncio.run(news_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Optional, Union, List
 import psycopg2
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 from pydantic import AnyUrl, ValidationError
 
@@ -107,9 +108,7 @@ class CompaniesRepository:
                     logger.info(f"Got company with domain {email_domain}")
                     news = company[9]
                     if not news:
-                        logger.info(
-                            f"No news data for company with domain {email_domain}"
-                        )
+                        logger.info(f"No news data for company with domain {email_domain}")
                         news = []
                         company = company[:9] + ([],)
                     logger.debug(f"News data: {news}")
@@ -123,7 +122,7 @@ class CompaniesRepository:
                         except ValidationError:
                             logger.error(f"Invalid news item: {news_item}")
                     logger.debug(f"Valid news: {valid_news}")
-                    company = company[:9] + (valid_news,)
+                    company = company[:10] + (valid_news,)
                     return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with domain {email_domain} does not exist")
                 return None
@@ -133,6 +132,7 @@ class CompaniesRepository:
             return None
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return None
 
     def get_news(self, company_uuid):
@@ -149,9 +149,7 @@ class CompaniesRepository:
                     news = news[:2]
                 res_news = self.process_news(news)
                 if not res_news:
-                    logger.warning(
-                        f"No news data for company with domain {company_domain}"
-                    )
+                    logger.warning(f"No news data for company with domain {company_domain}")
                     return []
                 return res_news
         except psycopg2.Error as error:
@@ -180,9 +178,7 @@ class CompaniesRepository:
                     news = news[:2]
                 res_news = self.process_news(news)
                 if not res_news:
-                    logger.warning(
-                        f"No news data for company with domain {company_domain}"
-                    )
+                    logger.warning(f"No news data for company with domain {company_domain}")
                     return []
                 return res_news
         except psycopg2.Error as error:
@@ -192,7 +188,7 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return None
 
-    def save_company(self, company: CompanyDTO):
+    def save_company_without_news(self, company: CompanyDTO):
         self.create_table_if_not_exists()
         if not company.uuid:
             company.uuid = get_uuid4()
@@ -299,7 +295,7 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, size, description, overview, challenges, technologies, employees
+                uuid, name, domain, size,  description, overview, challenges, technologies, employees
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
@@ -367,35 +363,6 @@ class CompaniesRepository:
             news["link"] = str(news["link"])
         return news
 
-    # @staticmethod
-    # def deserialize_news(news: dict) -> NewsData | None:
-    #     try:
-    #         if news.get("date"):
-    #             logger.debug(f"Date: {news['date']}, type: {type(news['date'])}")
-    #             if isinstance(news["date"], str):
-    #                 try:
-    #                     logger.debug(f"Attempting to convert date string: {news['date']}")
-    #                     news["date"] = date.fromisoformat(news["date"])  # Convert string back to date
-    #                     logger.debug(f"Converted date: {news['date']}, type: {type(news['date'])}")
-    #                 except ValueError as ve:
-    #                     logger.error(f"ValueError in fromisoformat: {ve}")
-    #                     return None
-    #             else:
-    #                 logger.error(f"Date field is not a string: {news['date']}")
-    #         if news.get("link"):
-    #             logger.debug(f"Link: {news['link']}, type: {type(news['link'])}")
-    #             try:
-    #                 news["link"] = AnyUrl(news["link"])
-    #                 logger.debug(f"Converted link: {news['link']}, type: {type(news['link'])}")
-    #             except ValidationError as ve:
-    #                 logger.error(f"ValidationError for link: {ve}")
-    #                 return None
-    #     except Exception as e:
-    #         logger.error(f"Error deserializing news: {e}")
-    #         return None
-    #     logger.debug(f"Deserialized news: {news}")
-    #     return NewsData.from_dict(news)
-
     @staticmethod
     def process_news(news: List[dict]) -> List[NewsData]:
         logger.debug(f"News data: {news}")
@@ -410,9 +377,7 @@ class CompaniesRepository:
                         res_news.append(deserialized_news)
                     logger.debug(f"Processed news: {res_news}")
                 except Exception as e:
-                    logger.error(
-                        f"Error deserializing news: {e}. Skipping this news item"
-                    )
+                    logger.error(f"Error deserializing news: {e}. Skipping this news item")
         logger.debug(f"News data: {res_news}")
         return res_news
 

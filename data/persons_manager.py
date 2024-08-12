@@ -1,10 +1,12 @@
 import json
 import os
 import sys
+import asyncio
 
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
+from pydantic import ValidationError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -13,17 +15,25 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.repositories.persons_repository import PersonsRepository
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+from data.data_common.repositories.profiles_repository import ProfilesRepository
+from data.data_common.repositories.ownerships_repository import OwnershipsRepository
+from data.data_common.repositories.meetings_repository import MeetingsRepository
+from data.data_common.repositories.companies_repository import CompaniesRepository
+
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
     profiles_repository,
-    interactions_repository,
     ownerships_repository,
     meetings_repository,
+    companies_repository,
 )
 
 from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -38,7 +48,6 @@ class PersonManager(GenieConsumer):
             topics=[
                 Topic.NEW_CONTACT,
                 Topic.NEW_PERSON,
-                Topic.NEW_INTERACTION,
                 Topic.UPDATED_ENRICHED_DATA,
                 Topic.NEW_PROCESSED_PROFILE,
                 Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
@@ -49,9 +58,9 @@ class PersonManager(GenieConsumer):
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
-        self.interactions_repository = interactions_repository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
+        self.companies_repository = companies_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -66,16 +75,11 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_PERSON:
                 logger.info("Handling new person")
                 await self.handle_new_person(event)
-            case Topic.NEW_INTERACTION:
-                logger.info("Handling new interaction")
-                await self.handle_new_interaction(event)
             case Topic.UPDATED_ENRICHED_DATA:
                 logger.info("Handling updated enriched data")
                 await self.handle_updated_enriched_data(event)
             case Topic.UP_TO_DATE_ENRICHED_DATA:
-                logger.info(
-                    "Personal data is up to date, Checking for existing profile"
-                )
+                logger.info("Personal data is up to date, Checking for existing profile")
                 await self.check_profile_data(event)
             case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
@@ -107,25 +111,12 @@ class PersonManager(GenieConsumer):
         logger.info("Sent 'pdl' event to the event queue")
         return {"status": "success"}
 
-    async def handle_new_interaction(self, event):
-        # Assuming the event body contains a JSON string with the contact data
-        interaction_data = event.body_as_str()
-        # should gather all of the interactions of this person, and the personal data - then send to langsmith
-        self.interactions_repository.save_interaction(interaction_data)
-        logger.info("Saved interaction to interactions_repository")
-
-        # Here we should implement whatever we want to do with the interaction data
-        # event = GenieEvent(Topic., interaction_data, "public")
-        # event.send()
-        return {"status": "success"}
-
     async def handle_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        personal_data = event_body.get("personal_data")
         person_dict = event_body.get("person")
         tenant_id = event_body.get("tenant_id")
         if not person_dict:
@@ -135,14 +126,10 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person: PersonDTO = PersonDTO.from_dict(person_dict)
-        personal_data_in_database = self.personal_data_repository.get_personal_data(
-            person.uuid
-        )
+        personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
         if not personal_data:
-            personal_data = personal_data_in_database
-            if not personal_data:
-                logger.error("No personal data received in event")
-                return {"error": "No personal data received in event"}
+            logger.error("No personal data received in event")
+            return {"error": "No personal data received in event"}
         if not person.position:
             logger.info("Person has no position, setting it from personal data")
             logger.debug(f"Position: {personal_data.get('job_title', '')}")
@@ -151,30 +138,21 @@ class PersonManager(GenieConsumer):
             logger.info("Person has no name, setting it from personal data")
             logger.debug(f"Name: {personal_data.get('full_name', '')}")
             person.name = personal_data.get("full_name", "")
-        if personal_data_in_database != personal_data:
-            logger.error("Personal data in database does not match the one received from event")
         person_in_database = self.persons_repository.find_person_by_email(person.email)
         if not person_in_database:
             logger.error("Person not found in database")
             self.persons_repository.save_person(person)
         else:
-            self.personal_data_repository.update_uuid(
-                person.uuid, person_in_database.uuid
-            )
+            self.personal_data_repository.update_uuid(person.uuid, person_in_database.uuid)
             person.uuid = person_in_database.uuid
 
         # If person is found in the database, check that it is not an empty person (only email and uuid)
-        if (
-            person_in_database
-            and (not person_in_database.name or not person_in_database.linkedin)
-        ):
+        if person_in_database and (not person_in_database.name or not person_in_database.linkedin):
             self.persons_repository.update(person)
             logger.info("Updated person in database")
 
         if tenant_id:
-            has_ownership = self.ownerships_repository.check_ownership(
-                tenant_id, person.uuid
-            )
+            has_ownership = self.ownerships_repository.check_ownership(tenant_id, person.uuid)
             if not has_ownership:
                 self.ownerships_repository.save_ownership(person.uuid, tenant_id)
         if not person or not personal_data:
@@ -200,6 +178,17 @@ class PersonManager(GenieConsumer):
         if isinstance(profile, str):
             profile = json.loads(profile)
         logger.debug(f"Person: {person_dict},\n Profile: {str(profile)}")
+
+        person = PersonDTO.from_dict(person_dict)
+        if not person.company:
+            logger.info("Person has no company, setting it from profile")
+            email_domain = person.email.split("@")[1]
+            company_data = self.personal_data_repository.get_company_from_domain(email_domain)
+            if company_data:
+                person.company = company_data.name
+
+        self.persons_repository.save_person(person)
+
         uuid = person_dict.get("uuid") if person_dict.get("uuid") else get_uuid4()
 
         # This is a test to get profile picture from social media links
@@ -210,33 +199,27 @@ class PersonManager(GenieConsumer):
             profile["picture_url"] = picture_urls[0]
 
         if not profile.get("picture_url"):
-            profile[
-                "picture_url"
-            ] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+            profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+
+        if profile.get("strengths") and isinstance(profile["strengths"], dict):
+            logger.warning("Strengths is a dict again...")
+            profile["strengths"] = profile.get("strengths")
 
         profile_person = ProfileDTO.from_dict(
             {
                 "uuid": uuid,
                 "name": person_dict.get("name"),
                 "company": person_dict.get("company"),
-                "position": person_dict.get("position")
-                if person_dict.get("position")
-                else profile.get("job_title", ""),
+                "position": person_dict.get("position") if person_dict.get("position") else profile.get("job_title", ""),
                 "strengths": profile.get("strengths", []),
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
-                "news": profile.get("news", []),
                 "get_to_know": profile.get("get_to_know", {}),
                 "summary": profile.get("summary", ""),
                 "picture_url": profile.get("picture_url", ""),
             }
         )
-        profile_details = "\n".join(
-            [
-                f"{k}: {len(v) if isinstance(v, list) else v}"
-                for k, v in profile_person.__dict__.items()
-            ]
-        )
+        profile_details = "\n".join([f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_person.__dict__.items()])
         logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_person)
         json_profile = profile_person.to_json()
@@ -288,9 +271,7 @@ class PersonManager(GenieConsumer):
             if not self.persons_repository.exist_email(email):
                 self.persons_repository.insert(person)
             self.ownerships_repository.save_ownership(uuid, tenant_id)
-            logger.info(
-                f"Saved new person: {person} to persons repository and ownerships repository"
-            )
+            logger.info(f"Saved new person: {person} to persons repository and ownerships repository")
             event = GenieEvent(
                 Topic.NEW_EMAIL_ADDRESS_TO_ENRICH,
                 json.dumps({"uuid": uuid, "email": email, "tenant_id": tenant_id}),
@@ -298,9 +279,7 @@ class PersonManager(GenieConsumer):
             )
             event.send()
 
-        event = GenieEvent(
-            Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, person.to_json(), "public"
-        )
+        event = GenieEvent(Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, person.to_json(), "public")
         event.send()
         return {"status": "success"}
 
@@ -313,11 +292,26 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
+        person = self.verify_person(person)
         profile = self.profiles_repository.exists(person.uuid)
         if not profile:
             logger.info("Profile does not exist in database")
             await self.handle_updated_enriched_data(event)
             return
+        try:
+            profile = self.profiles_repository.get_profile_data(person.uuid)
+            logger.info(f"Profile: {profile}")
+            return {"status": "success"}
+        except ValidationError as e:
+            person = self.verify_person(person)
+            logger.error(f"Profile data is invalid: {e}")
+            profile.name = person.name
+            profile.company = person.company
+            profile.position = person.position
+            logger.info(f"Profile: {profile}")
+            self.profiles_repository.save_profile(profile)
+            return {"status": "success"}
+
         logger.info("Profile exists in database. Skipping profile building")
 
     async def handle_new_person(self, event):
@@ -337,6 +331,19 @@ class PersonManager(GenieConsumer):
         event.send()
         logger.info("Sent 'pdl' event to the event queue")
         return {"status": "success"}
+
+    def verify_person(self, person: PersonDTO):
+        person_in_database = self.persons_repository.find_person_by_email(person.email)
+        personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
+        if person.name != person_in_database.name:
+            person.name = personal_data.get("full_name", "")
+        if person.position != person_in_database.position:
+            person.position = personal_data.get("job_title", "")
+        if person.company != person_in_database.company:
+            email_domain = person.email.split("@")[1]
+            company = self.companies_repository.get_company_from_domain(email_domain)
+            person.company = company.name if company else person.company
+        return person
 
 
 def get_profile_picture(url, platform):
@@ -377,3 +384,11 @@ def get_picture_from_social_links_list(links: list[dict]):
             if picture_url:
                 return picture_url
     return None
+
+
+if __name__ == "__main__":
+    person_consumer = PersonManager()
+    try:
+        asyncio.run(person_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

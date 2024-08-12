@@ -11,7 +11,9 @@ from data.data_common.utils.str_utils import (
     get_uuid4,
 )
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
+
 
 class NewsData(BaseModel):
     date: Optional[date]
@@ -22,8 +24,13 @@ class NewsData(BaseModel):
 
     @field_validator("media", "title", "link")
     def not_empty(cls, value):
-        if not value.strip():
+        # Convert HttpUrl to str if needed, otherwise ensure it's a string
+        value_to_check = str(value)
+
+        # Check if the value is empty or whitespace
+        if not value_to_check.strip():
             raise ValueError("Field cannot be empty or whitespace")
+
         return value
 
     @classmethod
@@ -37,12 +44,8 @@ class NewsData(BaseModel):
         return self.date, self.link, self.media, self.title, self.summary
 
     @classmethod
-    def from_tuple(
-        cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]
-    ) -> "NewsData":
-        return cls(
-            date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4]
-        )
+    def from_tuple(cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]) -> "NewsData":
+        return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -98,9 +101,7 @@ class CompanyDTO:
             "challenges": self.challenges,
             "technologies": self.technologies,
             "employees": self.employees,
-            "news": [news_item.to_dict() for news_item in self.news]
-            if self.news
-            else None,
+            "news": [news_item.to_dict() for news_item in self.news] if self.news else None,
         }
 
     @staticmethod
@@ -115,9 +116,7 @@ class CompanyDTO:
             challenges=data.get("challenges", None),
             technologies=data.get("technologies", None),
             employees=data.get("employees", None),
-            news=[NewsData.from_dict(item) for item in data.get("news", [])]
-            if data.get("news")
-            else None,
+            news=[NewsData.from_dict(item) for item in data.get("news", [])] if data.get("news") else None,
         )
 
     @staticmethod
@@ -125,7 +124,7 @@ class CompanyDTO:
         employees = data.get("emails") or data.get("employees") or []
         processed_employees = [
             {
-                "name": f"{email.get('first_name', '')} {email.get('last_name', '')}".strip(),
+                "name": f"{email.get('first_name', '')} {email.get('last_name', '')}",
                 "email": email.get("value"),
                 "position": email.get("position"),
                 "linkedin": email.get("linkedin"),
@@ -135,9 +134,7 @@ class CompanyDTO:
         ]
 
         return CompanyDTO(
-            uuid=data.get(
-                "uuid", get_uuid4()
-            ),  # Assuming get_uuid4() generates a new UUID
+            uuid=data.get("uuid", get_uuid4()),
             name=data.get("organization", ""),
             domain=data.get("domain", ""),
             size=data.get("headcount", ""),
@@ -146,9 +143,7 @@ class CompanyDTO:
             challenges=data.get("challenges", {}),
             technologies=data.get("technologies", []),
             employees=processed_employees,
-            news=[NewsData.from_dict(item) for item in data.get("news", [])]
-            if data.get("news")
-            else None,
+            news=[NewsData.from_dict(item) for item in data.get("news", [])] if data.get("news") else None,
         )
 
     def to_tuple(self) -> tuple:

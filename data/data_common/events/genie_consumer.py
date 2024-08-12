@@ -9,6 +9,7 @@ from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 from common.utils import env_utils
@@ -23,9 +24,7 @@ class GenieConsumer:
         eventhub_name = env_utils.get("EVENTHUB_NAME", "")
         storage_connection_str = env_utils.get("AZURE_STORAGE_CONNECTION_STRING", "")
         blob_container_name = env_utils.get("BLOB_CONTAINER_NAME", "")
-        checkpoint_store = BlobCheckpointStore.from_connection_string(
-            storage_connection_str, blob_container_name
-        )
+        checkpoint_store = BlobCheckpointStore.from_connection_string(storage_connection_str, blob_container_name)
         self.consumer = EventHubConsumerClient.from_connection_string(
             conn_str=connection_str,
             consumer_group=consumer_group,
@@ -40,18 +39,11 @@ class GenieConsumer:
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
-                context_id = event.properties.get(b"ctx_id")
-                if context_id:
-                    logger.bind_context(context_id.decode("utf-8"))
-                logger.info(
-                    f"TOPIC={topic.decode('utf-8')} | About to process event: {str(event)[:300]}"
-                )
+                logger.info(f"TOPIC={topic.decode('utf-8')} | About to process event: {str(event)[:300]}")
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(
-                    f"Skipping topic [{topic.decode('utf-8')}]. Consumer group: {self.consumer_group}"
-                )
+                logger.info(f"Skipping topic [{topic.decode('utf-8')}]. Consumer group: {self.consumer_group}")
         except Exception as e:
             logger.error(f"Exception occurred: {e}")
             logger.error("Detailed traceback information:")
@@ -63,17 +55,13 @@ class GenieConsumer:
         raise NotImplementedError("Must be implemented in subclass")
 
     async def start(self):
-        logger.info(
-            f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}"
-        )
+        logger.info(f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}")
         async with httpx.AsyncClient() as client:
             self.client = client
             GenieConsumer.active_clients.add(client)
             try:
                 async with self.consumer:
-                    await self.consumer.receive(
-                        on_event=self.on_event, starting_position="-1", prefetch=1
-                    )
+                    await self.consumer.receive(on_event=self.on_event, starting_position="-1", prefetch=1)
                     await self._shutdown_event.wait()
             except asyncio.CancelledError:
                 logger.warning("Consumer cancelled, closing consumer.")
@@ -113,3 +101,10 @@ class GenieConsumer:
                 await consumer.stop()
         cls.active_clients.clear()
         logger.info("Cleanup completed, all consumers closed.")
+
+    async def main(self):
+        try:
+            await self.start()
+        except KeyboardInterrupt:
+            logger.info("Received KeyboardInterrupt, stopping consumers.")
+            await self.cleanup()

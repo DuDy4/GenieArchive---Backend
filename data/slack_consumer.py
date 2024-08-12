@@ -5,13 +5,12 @@ import sys
 import traceback
 
 
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.slack.slack_bot import send_message
+from data.api_services.slack_bot import send_message
 
 
 from data.data_common.utils.str_utils import get_uuid4
@@ -19,6 +18,7 @@ from data.data_common.utils.str_utils import get_uuid4
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.dependencies.dependencies import companies_repository
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 CONSUMER_GROUP = "slack_consumer_group"
 
@@ -79,25 +79,10 @@ class SlackConsumer(GenieConsumer):
         """
         send_message(message)
 
-    # async def start(self):
-    #     logger.info(
-    #         f"Starting consumer for topics: {self.topics} on group: {self.consumer._consumer_group}"
-    #     )
-    #     try:
-    #         task1 = asyncio.create_task(run_rtm_client())
-    #         logger.info("Created task for RTM client")
-    #         task2 = asyncio.create_task(
-    #             self.consumer.receive(
-    #                 on_event=self.on_event, starting_position="-1", prefetch=1
-    #             )
-    #         )
-    #         logger.info("Created task for consumer receive")
-    #         await asyncio.gather(task1, task2)
-    #     except asyncio.CancelledError:
-    #         logger.warning("Consumer cancelled, closing consumer.")
-    #         await self.consumer.close()
-    #     except Exception as e:
-    #         logger.error(f"Error occurred while running consumer: {e}")
-    #         logger.error("Detailed traceback information:")
-    #         traceback.print_exc()
-    #         await self.consumer.close()
+
+if __name__ == "__main__":
+    slack_consumer = SlackConsumer()
+    try:
+        asyncio.run(slack_consumer.main())
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

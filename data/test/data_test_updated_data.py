@@ -19,11 +19,9 @@ def test_new_contact():
     persons_repository = PersonsRepository(get_db_connection())
     personal_data_repository = PersonalDataRepository(get_db_connection())
     person = persons_repository.get_person(uuid)
-    personal_data = personal_data_repository.get_personal_data(uuid)
+    personal_data = personal_data_repository.get_pdl_personal_data(uuid)
     data_to_send = {"person": person.to_dict(), "response": personal_data}
-    event = GenieEvent(
-        topic=Topic.UPDATED_ENRICHED_DATA, data=data_to_send, scope="public"
-    )
+    event = GenieEvent(topic=Topic.UPDATED_ENRICHED_DATA, data=data_to_send, scope="public")
     event.send()
 
 

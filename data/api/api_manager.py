@@ -73,6 +73,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.meetings_consumer import MeetingManager
+
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
@@ -130,9 +131,7 @@ async def post_social_auth_data(
     user_email = auth_claims.get("email")
     user_tenant_id = auth_claims.get("tenantId")
     user_name = auth_claims.get("userId")
-    logger.info(
-        f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}"
-    )
+    logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
     tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email}
     tenants_repository.insert(tenant_data)
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
@@ -210,9 +209,7 @@ async def get_user_account(
 
         if uuid:
             logger.info(f"User already exists in database")
-            salesforce_creds = tenants_repository.get_salesforce_credentials(
-                data.get("tenantId")
-            )
+            salesforce_creds = tenants_repository.get_salesforce_credentials(data.get("tenantId"))
             logger.debug(f"Salesforce creds: {salesforce_creds}")
             return {
                 "message": "User already exists in database",
@@ -256,13 +253,9 @@ async def get_all_profiles(
 
     profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
     logger.info(f"Got profiles: {len(profiles_list)}")
-    profiles_response_list = [
-        ProfileResponse(profile=profile) for profile in profiles_list
-    ]
+    profiles_response_list = [ProfileResponse(profile=profile) for profile in profiles_list]
 
-    logger.debug(
-        f"Profiles: {[profile.profile.name for profile in profiles_response_list]}"
-    )
+    logger.debug(f"Profiles: {[profile.profile.name for profile in profiles_response_list]}")
     return profiles_list
 
 
@@ -301,9 +294,7 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get(
-    "/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse]
-)
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
 def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
@@ -329,9 +320,7 @@ def get_all_profile_for_meeting(
     logger.info(f"Tenant email: {tenant_email}")
     participants_emails = meeting.participants_emails
     logger.debug(f"Participants emails: {participants_emails}")
-    filtered_participants_emails = MeetingManager.filter_emails(
-        host_email=tenant_email, participants_emails=participants_emails
-    )
+    filtered_participants_emails = MeetingManager.filter_emails(host_email=tenant_email, participants_emails=participants_emails)
     logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
     filtered_emails = filtered_participants_emails
@@ -348,23 +337,16 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return [
-        MiniProfileResponse.from_profile_dto(profiles[i], filtered_emails[i])
-        for i in range(len(profiles))
-    ]
+    return [MiniProfileResponse.from_profile_dto(profiles[i], filtered_emails[i]) for i in range(len(profiles))]
 
 
-@v1_router.get(
-    "/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo
-)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
 def get_profile_attendee_info(
     uuid: str,
     tenant_id: str,
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-    personal_data_repository: PersonalDataRepository = Depends(
-        personal_data_repository
-    ),
+    personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
 ) -> AttendeeInfo:
     """
     Get the attendee-info of a profile - Mock version.
@@ -441,9 +423,7 @@ def get_profile_strengths(
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
     if profile:
-        strengths_formatted = "".join(
-            [f"\n{strength}\n" for strength in profile.strengths]
-        )
+        strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
         logger.info(f"strengths: {strengths_formatted}")
         return StrengthsListResponse(strengths=profile.strengths)
     return JSONResponse(content={"error": "Could not find profile"})
@@ -473,17 +453,13 @@ def get_profile_get_to_know(
     profile = profiles_repository.get_profile_data(uuid)
     logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
-        formated_get_to_know = "".join(
-            [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
-        )
+        formated_get_to_know = "".join([(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()])
         logger.info(f"Get to know: {formated_get_to_know}")
         return GetToKnowResponse(**profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get(
-    "/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse
-)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
 def get_profile_good_to_know(
     uuid: str,
     tenant_id: str,
@@ -511,9 +487,7 @@ def get_profile_good_to_know(
 
         hobbies_uuid = profile.hobbies
         logger.info(f"Got hobbies: {hobbies_uuid}")
-        hobbies = [
-            hobbies_repository.get_hobby(str(hobby_uuid)) for hobby_uuid in hobbies_uuid
-        ]
+        hobbies = [hobbies_repository.get_hobby(str(hobby_uuid)) for hobby_uuid in hobbies_uuid]
         logger.info(f"Got hobbies: {hobbies}")
 
         connections = profile.connections
@@ -523,9 +497,7 @@ def get_profile_good_to_know(
             "hobbies": hobbies,
             "connections": connections,
         }
-        formatted_good_to_know = "".join(
-            [(f"\n{key}: {value}\n") for key, value in good_to_know.items()]
-        )
+        formatted_good_to_know = "".join([(f"\n{key}: {value}\n") for key, value in good_to_know.items()])
         logger.info(f"Good to know: {formatted_good_to_know}")
         return GoodToKnowResponse(**good_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
@@ -538,9 +510,7 @@ def get_profile_good_to_know(
 def get_work_experience(
     uuid: str,
     tenant_id: str,
-    personal_data_repository: PersonalDataRepository = Depends(
-        personal_data_repository
-    ),
+    personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
 ) -> WorkExperienceResponse:
     """
@@ -551,7 +521,7 @@ def get_work_experience(
     """
     logger.info(f"Got work experience request for profile: {uuid}")
 
-    personal_data = personal_data_repository.get_personal_data(uuid)
+    personal_data = personal_data_repository.get_pdl_personal_data(uuid)
 
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
@@ -566,7 +536,7 @@ def get_work_experience(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/internal/sync-profile/{person_uuid}") 
+@v1_router.get("/internal/sync-profile/{person_uuid}")
 def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)) -> JSONResponse:
     """
     Sync a profile with the PDL API.
@@ -574,7 +544,7 @@ def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepo
     - **person_uuid**: The UUID of the person to sync.
     - **api_key**: The internal API key
     """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY","g3n13admin")
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", "g3n13admin")
     if api_key != internal_api_key:
         logger.error(f"Invalid API key: {api_key}")
         return JSONResponse(content={"error": "Invalid API key"})
@@ -591,7 +561,7 @@ def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepo
         logger.error(f"Person does not have a LinkedIn URL")
         return JSONResponse(content={"error": "Person does not have a LinkedIn URL"})
     return JSONResponse(content={"message": "Profile sync initiated for " + person.email})
-    
+
 
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
@@ -618,15 +588,11 @@ def get_meeting_info(
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"})
 
-    participants = [
-        ParticipantEmail.from_dict(email) for email in meeting.participants_emails
-    ]
+    participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
     host_email_list = [email.email_address for email in participants if email.self]
     host_email = host_email_list[0] if host_email_list else None
     logger.debug(f"Host email: {host_email}")
-    filtered_participants_emails = MeetingManager.filter_emails(
-        host_email, participants
-    )
+    filtered_participants_emails = MeetingManager.filter_emails(host_email, participants)
     logger.info(f"Filtered participants: {filtered_participants_emails}")
 
     domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
@@ -711,9 +677,7 @@ def fetch_google_meetings(
         )
     except Exception as e:
         logger.error(f"Error fetching events from Google Calendar: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error fetching events from Google Calendar"
-        )
+        raise HTTPException(status_code=500, detail="Error fetching events from Google Calendar")
 
     meetings = events_result.get("items", [])
     logger.info(f"Fetched events: {meetings}")
@@ -723,9 +687,7 @@ def fetch_google_meetings(
     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
     for meeting in meetings:
         meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-        event = GenieEvent(
-            topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public"
-        )
+        event = GenieEvent(topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public")
         event.send()
 
     return JSONResponse(content=titleize_values({"events": meetings}))

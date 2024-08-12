@@ -56,9 +56,7 @@ client = TestClient(app)
 
 @pytest.mark.asyncio
 async def test_root_redirect():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/")
     assert response.status_code == 307
     assert response.headers["location"] == "http://test/docs"
@@ -66,9 +64,7 @@ async def test_root_redirect():
 
 @pytest.mark.asyncio
 async def test_get_user_info():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/user-info")
     assert response.status_code == 200
     data = response.json()
@@ -90,9 +86,7 @@ async def test_test_google_token_invalid(mocker):
     mocker.patch("requests.get", return_value=mock_response)
 
     response = None
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         try:
             response = await ac.get(f"/v1/test-google-token?token={token}")
         except requests.exceptions.HTTPError:
@@ -128,9 +122,7 @@ async def test_successful_login(mocker):
     app.dependency_overrides[GoogleCredsRepository] = lambda: mock_google_creds_repo
     app.dependency_overrides[TenantsRepository] = lambda: mock_tenants_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post("/v1/successful-login", json=mock_request_data)
 
     assert response.status_code == 200
@@ -164,9 +156,7 @@ async def test_post_social_auth_data(mocker):
     app.dependency_overrides[GoogleCredsRepository] = lambda: mock_google_creds_repo
     app.dependency_overrides[TenantsRepository] = lambda: mock_tenants_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post("/v1/social-auth-data", json=mock_request_data)
 
     assert response.status_code == 200
@@ -214,16 +204,10 @@ async def test_get_all_profiles(mocker):
     app.dependency_overrides[profiles_repository] = lambda: mock_profiles_repo
     app.dependency_overrides[ownerships_repository] = lambda: mock_ownerships_repo
     # Adding debug logging
-    print(
-        f"Mock ownerships_repo.get_all_persons_for_tenant: {mock_ownerships_repo.get_all_persons_for_tenant.return_value}"
-    )
-    print(
-        f"Mock profiles_repo.get_profiles_from_list: {mock_profiles_repo.get_profiles_from_list.return_value}"
-    )
+    print(f"Mock ownerships_repo.get_all_persons_for_tenant: {mock_ownerships_repo.get_all_persons_for_tenant.return_value}")
+    print(f"Mock profiles_repo.get_profiles_from_list: {mock_profiles_repo.get_profiles_from_list.return_value}")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/profiles")
 
     print(f"Response status code: {response.status_code}")
@@ -276,19 +260,11 @@ async def test_get_all_meetings_by_profile_name(mocker):
     app.dependency_overrides[PersonsRepository] = lambda: mock_persons_repo
 
     # Adding debug logging
-    print(
-        f"Mock ownerships_repo.get_all_persons_for_tenant: {mock_ownerships_repo.get_all_persons_for_tenant.return_value}"
-    )
-    print(
-        f"Mock persons_repo.get_emails_list: {mock_persons_repo.get_emails_list.return_value}"
-    )
-    print(
-        f"Mock meetings_repo.get_meetings_by_participants_emails: {mock_meetings_repo.get_meetings_by_participants_emails.return_value}"
-    )
+    print(f"Mock ownerships_repo.get_all_persons_for_tenant: {mock_ownerships_repo.get_all_persons_for_tenant.return_value}")
+    print(f"Mock persons_repo.get_emails_list: {mock_persons_repo.get_emails_list.return_value}")
+    print(f"Mock meetings_repo.get_meetings_by_participants_emails: {mock_meetings_repo.get_meetings_by_participants_emails.return_value}")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/meetings?name=John")
 
     print(f"Response status code: {response.status_code}")
@@ -337,16 +313,10 @@ async def test_get_profile_attendee_info(mocker):
     app.dependency_overrides[personal_data_repository] = lambda: mock_personal_data_repo
 
     # Adding debug logging
-    print(
-        f"Mock profiles_repo.get_profile_data: {mock_profiles_repo.get_profile_data.return_value}"
-    )
-    print(
-        f"Mock personal_data_repo.get_social_media_links: {mock_personal_data_repo.get_social_media_links.return_value}"
-    )
+    print(f"Mock profiles_repo.get_profile_data: {mock_profiles_repo.get_profile_data.return_value}")
+    print(f"Mock personal_data_repo.get_social_media_links: {mock_personal_data_repo.get_social_media_links.return_value}")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/profiles/uuid1/attendee-info")
 
     print(f"Response status code: {response.status_code}")
@@ -372,9 +342,7 @@ async def test_get_profile_strengths(mocker):
         picture_url="http://example.com/pic1.jpg",
         get_to_know={"avoid": [], "best_practices": [], "phrases_to_use": []},
         connections=[],
-        strengths=[
-            Strength(strength_name="Strength1", reasoning="Reasoning1", score=75)
-        ],
+        strengths=[Strength(strength_name="Strength1", reasoning="Reasoning1", score=75)],
         hobbies=[],
     )
 
@@ -384,13 +352,9 @@ async def test_get_profile_strengths(mocker):
     app.dependency_overrides[ownerships_repository] = lambda: mock_ownerships_repo
 
     # Adding debug logging
-    print(
-        f"Mock profiles_repo.get_profile_data: {mock_profiles_repo.get_profile_data.return_value}"
-    )
+    print(f"Mock profiles_repo.get_profile_data: {mock_profiles_repo.get_profile_data.return_value}")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/profiles/uuid1/strengths")
 
     print(f"Response status code: {response.status_code}")
@@ -427,9 +391,7 @@ async def test_get_profile_get_to_know(mocker):
     app.dependency_overrides[profiles_repository] = lambda: mock_profiles_repo
     app.dependency_overrides[ownerships_repository] = lambda: mock_ownerships_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/profiles/uuid1/get-to-know")
 
     assert response.status_code == 200
@@ -503,9 +465,7 @@ async def test_get_profile_good_to_know(mocker):
         linkedin="http://linkedin.com/in/person",
         timezone="",
     )
-    mock_persons_repo.get_person_email.return_value = (
-        "test@example.com"  # Ensure this returns a valid email
-    )
+    mock_persons_repo.get_person_email.return_value = "test@example.com"  # Ensure this returns a valid email
     mock_profiles_repo.get_profile_picture.return_value = "http://example.com/pic.jpg"
     mock_companies_repo.get_news_data_by_email.return_value = [
         NewsData(
@@ -517,7 +477,7 @@ async def test_get_profile_good_to_know(mocker):
         ),
         NewsData(
             date=date(2024, 7, 31),
-            link="http://example.com/news2",
+            link="https://example.com/news2",
             media="Media Source 2",
             title="Title 2",
             summary="Summary 2",
@@ -537,9 +497,7 @@ async def test_get_profile_good_to_know(mocker):
     app.dependency_overrides[companies_repository] = lambda: mock_companies_repo
     app.dependency_overrides[hobbies_repository] = lambda: mock_hobbies_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.get("/v1/TestTenantId/profiles/uuid1/good-to-know")
 
     assert response.status_code == 200
