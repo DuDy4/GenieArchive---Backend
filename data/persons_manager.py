@@ -183,7 +183,7 @@ class PersonManager(GenieConsumer):
         if not person.company:
             logger.info("Person has no company, setting it from profile")
             email_domain = person.email.split("@")[1]
-            company_data = self.personal_data_repository.get_company_from_domain(email_domain)
+            company_data = self.companies_repository.get_company_from_domain(email_domain)
             if company_data:
                 person.company = company_data.name
 
@@ -210,7 +210,9 @@ class PersonManager(GenieConsumer):
                 "uuid": uuid,
                 "name": person_dict.get("name"),
                 "company": person_dict.get("company"),
-                "position": person_dict.get("position") if person_dict.get("position") else profile.get("job_title", ""),
+                "position": person_dict.get("position")
+                if person_dict.get("position")
+                else profile.get("job_title", ""),
                 "strengths": profile.get("strengths", []),
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
@@ -219,7 +221,9 @@ class PersonManager(GenieConsumer):
                 "picture_url": profile.get("picture_url", ""),
             }
         )
-        profile_details = "\n".join([f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_person.__dict__.items()])
+        profile_details = "\n".join(
+            [f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_person.__dict__.items()]
+        )
         logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_person)
         json_profile = profile_person.to_json()
