@@ -144,12 +144,17 @@ class CompaniesRepository:
                 cursor.execute(select_query, (company_uuid,))
                 news = cursor.fetchone()
                 logger.debug(f"News data by email: {news}")
+                if news is None:
+                    logger.error(
+                        f"No news data for company: {company_uuid}, and news is null instead of empty list"
+                    )
+                    return []
                 news = news[0]  # news is a tuple containing the news data
                 if len(news) > 2:
                     news = news[:2]
                 res_news = self.process_news(news)
                 if not res_news:
-                    logger.warning(f"No news data for company with domain {company_domain}")
+                    logger.warning(f"No news data for company: {company_uuid}")
                     return []
                 return res_news
         except psycopg2.Error as error:
@@ -172,8 +177,14 @@ class CompaniesRepository:
             with (self.conn.cursor() as cursor):
                 cursor.execute(query, (company_domain,))
                 news = cursor.fetchone()
+                if news is None:
+                    logger.error(f"No news data for email: {email}, and news is null instead of empty list")
+                    return []
                 logger.debug(f"News data by email: {news}")
-                news = news[0]  # news is a tuple containing the news data
+                if not news:
+                    news = []  # In case news is null
+                else:
+                    news = news[0]  # news is a tuple containing the news data
                 if len(news) > 2:
                     news = news[:2]
                 res_news = self.process_news(news)
@@ -227,6 +238,8 @@ class CompaniesRepository:
             return None
         company_domain = email.split("@")[1]
         self.validate_news(news)
+        if news is None:
+            news = []
 
         query = """
         UPDATE companies
