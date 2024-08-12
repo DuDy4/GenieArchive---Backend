@@ -72,6 +72,8 @@ ABBREVIATIONS = {
     "byod",
     "bom",
     "poc",
+    "gtm",
+    "cro",
 }
 
 
@@ -80,7 +82,7 @@ def get_uuid4():
     return str(new_uuid)
 
 
-def to_custom_title_case(value):
+def to_custom_title_case(value) -> str:
     if isinstance(value, str):
         words = value.split()
         if len(words) == 0:
@@ -140,9 +142,7 @@ def titleize_values(data):
         return [titleize_values(item) for item in data]
     if isinstance(data, dict):
         return {
-            k: titleize_values(v)
-            if isinstance(v, (dict, list))
-            else titleize_sentence(v)
+            k: titleize_values(v) if isinstance(v, (dict, list)) else titleize_sentence(v)
             for k, v in data.items()
         }
     return titleize_sentence(data)
