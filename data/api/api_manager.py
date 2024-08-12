@@ -380,16 +380,17 @@ def get_profile_attendee_info(
     position = profile.position
     links = personal_data_repository.get_social_media_links(uuid)
     logger.info(f"Got links: {links}, type: {type(links)}")
-    for link in links:
-        link.pop("id")
-        link.pop("username")
-        link["platform"] = link.pop("network")
+    if links and len(links) > 0:
+        for link in links:
+            link.pop("id")
+            link.pop("username")
+            link["platform"] = link.pop("network")
     profile = {
         "picture": picture,
         "name": name,
         "company": company,
         "position": position,
-        "social_media_links": links,
+        "social_media_links": links or [],
     }
     logger.info(f"Attendee info: {profile}")
     return AttendeeInfo(**profile)
@@ -537,7 +538,9 @@ def get_work_experience(
 
 
 @v1_router.get("/internal/sync-profile/{person_uuid}")
-def sync_profile(person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)) -> JSONResponse:
+def sync_profile(
+    person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)
+) -> JSONResponse:
     """
     Sync a profile with the PDL API.
 
