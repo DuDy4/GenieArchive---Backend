@@ -91,10 +91,8 @@ def titleize_name(name: str) -> str:
         return name
     title_cased = []
     for i, word in enumerate(words):
-        if "." in word and i > 0:
-            words[i - 1] = words[i - 1].capitalize()
-            words[i + 1] = words[i + 1].capitalize()
-            title_cased.append(word)
+        if "." in word:
+            title_cased.append(word.upper())
         else:
             title_cased.append(word.capitalize())
     return " ".join(title_cased)
