@@ -28,7 +28,6 @@ class MiniProfileResponse(BaseModel):
 
     @staticmethod
     def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
-        logger.debug(f"Profile: {profile}, person: {person}")
         if not profile:
             logger.error("Profile is None")
             return None

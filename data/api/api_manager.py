@@ -327,20 +327,20 @@ def get_all_profile_for_meeting(
     logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
     filtered_emails = filtered_participants_emails
-    logger.debug(f"Filtered emails: {filtered_emails}")
+    logger.info(f"Filtered emails: {filtered_emails}")
     persons = []
     for email in filtered_emails:
         person = persons_repository.find_person_by_email(email)
         if person:
             persons.append(person)
-    logger.info(f"Got persons_uuid for the meeting: {persons}")
+    logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
     profiles = []
     for person in persons:
         profile = profiles_repository.get_profile_data(person.uuid)
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             profiles.append(profile)
-    logger.info(f"Sending profiles: {profiles}")
+    logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
     return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
 
 
