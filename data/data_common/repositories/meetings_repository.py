@@ -5,6 +5,7 @@ import json
 import hashlib
 
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
@@ -47,9 +48,7 @@ class MeetingsRepository:
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
         logger.debug(f"Meeting to insert: {meeting}")
         if self.exists(meeting.google_calendar_id):
-            logger.info(
-                f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists"
-            )
+            logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
         insert_query = """
         INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time)
@@ -58,9 +57,17 @@ class MeetingsRepository:
         """
 
         # Convert the participants_emails to JSON string
-        meeting_data = meeting.to_tuple()
         meeting_data = (
-            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
+            meeting.uuid,
+            meeting.google_calendar_id,
+            meeting.tenant_id,
+            json.dumps(meeting.participants_emails),
+            hash_participants(meeting.participants_emails),
+            meeting.link,
+            meeting.subject,
+            meeting.location,
+            meeting.start_time,
+            meeting.end_time,
         )
         logger.info(f"About to insert meeting data: {meeting_data}")
 
@@ -86,17 +93,13 @@ class MeetingsRepository:
         exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
             with self.conn.cursor() as cursor:
-                logger.info(
-                    f"About to execute check if uuid exists: {google_calendar_id}"
-                )
+                logger.info(f"About to execute check if uuid exists: {google_calendar_id}")
                 cursor.execute(exists_query, (google_calendar_id,))
                 result = cursor.fetchone() is not None
                 logger.info(f"{google_calendar_id} existence in database: {result}")
                 return result
         except psycopg2.Error as error:
-            logger.error(
-                f"Error checking existence of uuid {google_calendar_id}: {error}"
-            )
+            logger.error(f"Error checking existence of uuid {google_calendar_id}: {error}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
@@ -124,9 +127,7 @@ class MeetingsRepository:
                     ),
                 )
                 result = cursor.fetchone() is not None
-                logger.info(
-                    f"{meeting.google_calendar_id} existence in database without changes: {result}"
-                )
+                logger.info(f"{meeting.google_calendar_id} existence in database without changes: {result}")
                 return result
         except psycopg2.Error as error:
             logger.error(
@@ -217,9 +218,7 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
-    def get_meetings_by_participants_emails(
-        self, emails: list[str]
-    ) -> list[MeetingDTO]:
+    def get_meetings_by_participants_emails(self, emails: list[str]) -> list[MeetingDTO]:
         """
         Get a list of meetings that have participants with the given emails.
 
@@ -241,9 +240,7 @@ class MeetingsRepository:
                 logger.info(f"Retrieved meetings for participants emails: {emails}")
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
-            logger.error(
-                f"Error fetching meetings by participants emails: {error.pgerror}"
-            )
+            logger.error(f"Error fetching meetings by participants emails: {error.pgerror}")
             traceback.print_exc()
             return []
         except Exception as e:
@@ -258,9 +255,7 @@ class MeetingsRepository:
         WHERE google_calendar_id = %s;
         """
         meeting_data = meeting.to_tuple()
-        meeting_data = (
-            meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
-        )
+        meeting_data = meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
 
         meeting_data = meeting_data[2:] + (meeting_data[1],)  # move uuid to the end
         try:
@@ -284,9 +279,7 @@ class MeetingsRepository:
                 )
                 return
             self.update(meeting)
-            logger.info(
-                f"Meeting with uuid {meeting.uuid} already exists. Updated meeting."
-            )
+            logger.info(f"Meeting with uuid {meeting.uuid} already exists. Updated meeting.")
         else:
             self.insert_meeting(meeting)
 

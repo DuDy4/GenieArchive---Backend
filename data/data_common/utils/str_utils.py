@@ -1,4 +1,5 @@
 import uuid
+from common.genie_logger import logger
 
 SMALL_WORDS = {
     "and",
@@ -82,31 +83,44 @@ def get_uuid4():
     return str(new_uuid)
 
 
+def titleize_name(name: str) -> str:
+    if not name:
+        return name
+    words = name.split(" ")
+    if not words:
+        return name
+    title_cased = []
+    for i, word in enumerate(words):
+        if "." in word and i > 0:
+            words[i - 1] = words[i - 1].capitalize()
+            words[i + 1] = words[i + 1].capitalize()
+            title_cased.append(word)
+        else:
+            title_cased.append(word.capitalize())
+    return " ".join(title_cased)
+
+
 def to_custom_title_case(value) -> str:
     if isinstance(value, str):
         words = value.split()
         if len(words) == 0:
             return value
-        if len(words) == 1:
-            if words[0].lower() in SMALL_WORDS:
-                return words[0].lower()
-            if words[0].lower() in ABBREVIATIONS:
-                return words[0].upper()
-            return words[0].capitalize()
-        title_cased = [words[0].capitalize()]
-        for word in words[1:-1]:
+        # if len(words) == 1:
+        #     if words[0].lower() in SMALL_WORDS:
+        #         return words[0].lower()
+        #     if len(words[0]) < 4 and words[0] not in SMALL_WORDS:
+        #         logger.debug(f"Word: {words[0]}")
+        #         return words[0].upper()
+        #     return words[0].capitalize()
+        # title_cased = [words[0].capitalize()]
+        title_cased = []
+        for word in words:
             if word.lower() in SMALL_WORDS:
                 title_cased.append(word.lower())
-            elif word.lower() in ABBREVIATIONS:
+            elif len(word) < 4 and word.lower() not in SMALL_WORDS:
                 title_cased.append(word.upper())
             else:
                 title_cased.append(word.capitalize())
-        if len(words) > 1:
-            last_word = words[-1]
-            if last_word.lower() in ABBREVIATIONS:
-                title_cased.append(last_word.upper())
-            else:
-                title_cased.append(last_word.capitalize())
         return " ".join(title_cased)
     if isinstance(value, list):
         return [to_custom_title_case(item) for item in value]

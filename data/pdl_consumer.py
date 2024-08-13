@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import asyncio
+import traceback
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from peopledatalabs import PDLPY
@@ -28,7 +29,9 @@ logger = GenieLogger()
 load_dotenv()
 PDL_API_KEY = env_utils.get("PDL_API_KEY")
 CONSUMER_GROUP = "pdlconsumergroup"
-MIN_INTERVAL_TO_FETCH_PROFILES = int(env_utils.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24 * 60))  # Default: 24 hours
+MIN_INTERVAL_TO_FETCH_PROFILES = int(
+    env_utils.get("MIN_INTERVAL_TO_FETCH_PROFILES", 60 * 60 * 24 * 60)
+)  # Default: 24 hours
 
 
 class PDLConsumer(GenieConsumer):
@@ -162,7 +165,10 @@ class PDLConsumer(GenieConsumer):
             # If personal data exists in database and is up-to-date, skip
             if self.pdl_client.is_up_to_date(existing_uuid):
                 # If already tried but failed before, skip
-                if self.personal_data_repository.get_pdl_status(existing_uuid) == self.personal_data_repository.TRIED_BUT_FAILED:
+                if (
+                    self.personal_data_repository.get_pdl_status(existing_uuid)
+                    == self.personal_data_repository.TRIED_BUT_FAILED
+                ):
                     logger.info(f"Already tried but failed for {email}, skipping...")
                     event = GenieEvent(
                         Topic.ALREADY_FAILED_TO_ENRICH_EMAIL,
@@ -327,7 +333,9 @@ class PDLConsumer(GenieConsumer):
 
         person_name = row_dict.get("name", "") or personal_data.get("full_name")
         person_email = row_dict.get("email", "")
-        logger.info(f"Position: {position}, Company: {company}, Person Name: {person_name}, Person Email: {person_email}")
+        logger.info(
+            f"Position: {position}, Company: {company}, Person Name: {person_name}, Person Email: {person_email}"
+        )
 
         person = PersonDTO(
             uuid=uuid,
@@ -338,7 +346,9 @@ class PDLConsumer(GenieConsumer):
             position=position,
             timezone="",
         )
-        company_domain = person_email.split("@")[1] if isinstance(person_email, str) and "@" in person_email else ""
+        company_domain = (
+            person_email.split("@")[1] if isinstance(person_email, str) and "@" in person_email else ""
+        )
         if company_domain:
             company = self.company_repository.get_company_from_domain(company_domain)
             if company:
@@ -382,7 +392,11 @@ class PDLClient:
         else:
             logger.warning(f"No LinkedIn or email for {person.uuid}")
             return
-        status = self.personal_data_repository.FETCHED if personal_data else self.personal_data_repository.TRIED_BUT_FAILED
+        status = (
+            self.personal_data_repository.FETCHED
+            if personal_data
+            else self.personal_data_repository.TRIED_BUT_FAILED
+        )
         self.personal_data_repository.save_pdl_personal_data(person, personal_data, status)
         if not person.name:
             person.name = personal_data.get("full_name", "")
@@ -416,7 +430,9 @@ class PDLClient:
             logger.info("error:", response)
 
     def get_single_profile(self, linkedin_profile_url: str) -> dict[str, dict] | None:
-        existing_profile = self.personal_data_repository.get_pdl_personal_data_by_linkedin(linkedin_profile_url)
+        existing_profile = self.personal_data_repository.get_pdl_personal_data_by_linkedin(
+            linkedin_profile_url
+        )
         if existing_profile:
             if not self.does_need_update(existing_profile[0]):
                 return existing_profile
@@ -433,7 +449,9 @@ class PDLClient:
             logger.warning(f"Need Payment")
             return
         else:
-            logger.info(f"Got profile for {linkedin_profile_url} from PDL. Data: {str(response['data'])[:200]}")
+            logger.info(
+                f"Got profile for {linkedin_profile_url} from PDL. Data: {str(response['data'])[:200]}"
+            )
             return response["data"]
 
     def get_single_profile_from_email_address(self, email_address: str) -> dict[str, dict] | None:
@@ -509,14 +527,15 @@ class PDLClient:
 
     @staticmethod
     def fix_and_sort_experience(experience):
-        logger.info(f"Fixing and sorting experience: {experience}")
         try:
             for exp in experience:
                 exp["end_date"] = exp.get("end_date") or "9999-12-31"  # Treat ongoing as future date
                 exp["start_date"] = exp.get("start_date") or "0000-01-01"
 
                 # Sort experience
-            sorted_experience = sorted(experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True)
+            sorted_experience = sorted(
+                experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
+            )
         except:
             logger.error(f"Error fixing and sorting experience: {experience}")
             sorted_experience = experience
@@ -540,7 +559,7 @@ class PDLClient:
                 logger.error(f"Error: {e}")
                 traceback.print_exc()
                 continue
-        return sorted_experience
+        return to_custom_title_case(sorted_experience)
 
     def is_up_to_date(self, existing_uuid):
         last_updated_timestamp = self.personal_data_repository.get_pdl_last_updated(existing_uuid)
@@ -548,7 +567,9 @@ class PDLClient:
             logger.debug(f"Last updated: {last_updated_timestamp}")
             time_since_last_update = datetime.now() - last_updated_timestamp
             if time_since_last_update < timedelta(seconds=MIN_INTERVAL_TO_FETCH_PROFILES):
-                logger.info(f"Skipping update for uuid: {existing_uuid}, last updated {time_since_last_update} ago.")
+                logger.info(
+                    f"Skipping update for uuid: {existing_uuid}, last updated {time_since_last_update} ago."
+                )
                 return True
         return False
 

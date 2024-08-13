@@ -7,6 +7,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Strength,
 )
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
+from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
 
 
 class UserResponse(BaseModel):
@@ -22,9 +23,7 @@ class MiniProfileResponse(BaseModel):
 
     @staticmethod
     def from_profile_dto(profile: ProfileDTO, email: Optional[str] = None):
-        return MiniProfileResponse(
-            uuid=str(profile.uuid), name=str(profile.name), email=email
-        )
+        return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)), email=email)
 
 
 class MiniProfilesListResponse(BaseModel):
@@ -33,9 +32,7 @@ class MiniProfilesListResponse(BaseModel):
     @staticmethod
     def from_profiles_list(profiles: List[ProfileDTO]):
         return MiniProfilesListResponse(
-            profiles=[
-                MiniProfileResponse.from_profile_dto(profile) for profile in profiles
-            ]
+            profiles=[MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
         )
 
 
@@ -173,10 +170,7 @@ class MeetingResponse(BaseModel):
     def from_dict(cls, data: Dict):
         return cls(
             uuid=data["uuid"],
-            participants_emails=[
-                ParticipantEmail.from_dict(email)
-                for email in data["participants_emails"]
-            ],
+            participants_emails=[ParticipantEmail.from_dict(email) for email in data["participants_emails"]],
             link=data["link"],
             subject=data["subject"],
             start_time=data["start_time"],
