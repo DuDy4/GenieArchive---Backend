@@ -102,7 +102,7 @@ class PDLConsumer(GenieConsumer):
                     logger.error(f"Failed to fetch personal data for {person.name}")
                     self.personal_data_repository.save_pdl_personal_data(
                         person=person,
-                        status=self.personal_data_repository.TRIED_BUT_FAILED,
+                        pdl_status=self.personal_data_repository.TRIED_BUT_FAILED,
                         pdl_personal_data=personal_data,
                     )
                     logger.info(f"Updated timestamp for failing to get personal data for {person.name}")
