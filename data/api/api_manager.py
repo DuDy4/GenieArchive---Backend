@@ -291,6 +291,7 @@ async def get_all_meetings_by_profile_name(
     dict_meetings = [meeting.to_dict() for meeting in meetings]
     # sort by meeting.start_time
     dict_meetings.sort(key=lambda x: x["start_time"])
+    logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
     return JSONResponse(content=dict_meetings)
 
 
@@ -320,7 +321,9 @@ def get_all_profile_for_meeting(
     logger.info(f"Tenant email: {tenant_email}")
     participants_emails = meeting.participants_emails
     logger.debug(f"Participants emails: {participants_emails}")
-    filtered_participants_emails = MeetingManager.filter_emails(host_email=tenant_email, participants_emails=participants_emails)
+    filtered_participants_emails = MeetingManager.filter_emails(
+        host_email=tenant_email, participants_emails=participants_emails
+    )
     logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
     filtered_emails = filtered_participants_emails
@@ -337,7 +340,9 @@ def get_all_profile_for_meeting(
         if profile:
             profiles.append(profile)
     logger.info(f"Sending profiles: {profiles}")
-    return [MiniProfileResponse.from_profile_dto(profiles[i], filtered_emails[i]) for i in range(len(profiles))]
+    return [
+        MiniProfileResponse.from_profile_dto(profiles[i], filtered_emails[i]) for i in range(len(profiles))
+    ]
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
@@ -454,7 +459,9 @@ def get_profile_get_to_know(
     profile = profiles_repository.get_profile_data(uuid)
     logger.info(f"Got profile: {str(profile)[:300]}")
     if profile:
-        formated_get_to_know = "".join([(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()])
+        formated_get_to_know = "".join(
+            [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
+        )
         logger.info(f"Get to know: {formated_get_to_know}")
         return GetToKnowResponse(**profile.get_to_know)
     return JSONResponse(content={"error": "Could not find profile"})
@@ -533,7 +540,8 @@ def get_work_experience(
         fixed_experience = PDLClient.fix_and_sort_experience(experience)
 
         short_fixed_experience = fixed_experience[:10]
-        return JSONResponse(content=(titleize_values(short_fixed_experience)))
+
+        return JSONResponse(content=(to_custom_title_case(short_fixed_experience)))
     return JSONResponse(content={"error": "Could not find profile"})
 
 
