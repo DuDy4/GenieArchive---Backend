@@ -83,6 +83,23 @@ def get_uuid4():
     return str(new_uuid)
 
 
+def titleize_name(name: str) -> str:
+    if not name:
+        return name
+    words = name.split(" ")
+    if not words:
+        return name
+    title_cased = []
+    for i, word in enumerate(words):
+        if "." in word and i > 0:
+            words[i - 1] = words[i - 1].capitalize()
+            words[i + 1] = words[i + 1].capitalize()
+            title_cased.append(word)
+        else:
+            title_cased.append(word.capitalize())
+    return " ".join(title_cased)
+
+
 def to_custom_title_case(value) -> str:
     if isinstance(value, str):
         words = value.split()

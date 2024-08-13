@@ -15,7 +15,7 @@ from common.genie_logger import GenieLogger
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
-from data.data_common.utils.str_utils import titleize_values, to_custom_title_case
+from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, titleize_name
 
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
@@ -380,7 +380,7 @@ def get_profile_attendee_info(
     profile = ProfileDTO.from_dict(profile.to_dict())
 
     picture = profile.picture_url
-    name = profile.name
+    name = titleize_name(profile.name)
     company = profile.company
     position = profile.position
     links = personal_data_repository.get_social_media_links(uuid)
