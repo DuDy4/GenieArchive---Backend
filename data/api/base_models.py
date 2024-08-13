@@ -6,8 +6,13 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Phrase,
     Strength,
 )
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
+
+from common.genie_logger import GenieLogger
+
+logger = GenieLogger()
 
 
 class UserResponse(BaseModel):
@@ -22,8 +27,18 @@ class MiniProfileResponse(BaseModel):
     email: Optional[str]
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO, email: Optional[str] = None):
-        return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)), email=email)
+    def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
+        logger.debug(f"Profile: {profile}, person: {person}")
+        if not profile:
+            logger.error("Profile is None")
+            return None
+        if not person:
+            return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
+        return MiniProfileResponse(
+            uuid=str(profile.uuid),
+            name=titleize_name(str(profile.name)),
+            email=person.email if person.uuid == str(profile.uuid) else None,
+        )
 
 
 class MiniProfilesListResponse(BaseModel):
