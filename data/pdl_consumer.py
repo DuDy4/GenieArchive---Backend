@@ -73,6 +73,9 @@ class PDLConsumer(GenieConsumer):
                 return {"error": "Invalid JSON"}
         person = PersonDTO.from_json(event_body)
         logger.info(f"Person: {person}")
+        if not person:
+            logger.error(f"Failed to create person from event body")
+            return {"status": "failed"}
 
         person.linkedin = self.pdl_client.fix_linkedin_url(person.linkedin)
         if self.personal_data_repository.exists_linkedin_url(person.linkedin):
@@ -83,10 +86,25 @@ class PDLConsumer(GenieConsumer):
                 if pdl_status == self.personal_data_repository.TRIED_BUT_FAILED or not pdl_status:
                     # If already tried but failed before, check if apollo has new information since last fetch
                     if self.pdl_client.has_other_new_data(person.uuid):
-                        logger.warning(f"Profile for {person.linkedin} has other new data.")
-                        personal_data = self.pdl_client.fetch_profile(person)
-                        self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
+                        logger.warning(f"Profile for {person.uuid} has other new data.")
+                        if person.linkedin:
+                            personal_data = self.pdl_client.fetch_profile(person)
+                            result = self.pdl_client.handle_fetched_profile(
+                                person.email, personal_data, person
+                            )
+                            return result
+                        else:
+                            logger.error(f"LinkedIn URL not found for {person.uuid}")
+                            self.personal_data_repository.update_pdl_status(
+                                person.uuid, self.personal_data_repository.TRIED_BUT_FAILED
+                            )
 
+                            event = GenieEvent(
+                                Topic.FAILED_TO_GET_LINKEDIN_URL,
+                                {"person": person.to_dict(), "email": person.email},
+                                "public",
+                            )
+                            return {"status": "failed"}
                     # If already tried but failed before, and no new data from apollo, send up-to-date event
                     data_to_transfer = {
                         "person": person.to_dict() if person else None,
@@ -119,12 +137,13 @@ class PDLConsumer(GenieConsumer):
             else:
                 logger.info(f"Personal data for {person.name} is outdated. Fetching new data")
                 personal_data = self.pdl_client.fetch_profile(person)
-                self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
-
+                result = self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
+                return result
         else:
             logger.info(f"Person {person.name} not found in the database. Fetching new personal data")
             profile = self.pdl_client.fetch_profile(person)
-            self.pdl_client.handle_fetched_profile(person.email, profile, person)
+            result = self.pdl_client.handle_fetched_profile(person.email, profile, person)
+            return result
             # data_to_transfer = {"person": person.to_dict(), "personal_data": profile}
             # event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
             # event.send()
@@ -167,10 +186,24 @@ class PDLConsumer(GenieConsumer):
             # If personal data exists in database and is up-to-date, skip
             if self.pdl_client.is_up_to_date(existing_uuid):
                 # If already tried but failed before, skip
-                if (
-                    self.personal_data_repository.get_pdl_status(existing_uuid)
-                    == self.personal_data_repository.TRIED_BUT_FAILED
-                ):
+                pdl_status = self.personal_data_repository.get_pdl_status(existing_uuid)
+                logger.debug(f"Status: {pdl_status}")
+                if pdl_status == self.personal_data_repository.TRIED_BUT_FAILED or not pdl_status:
+                    if self.pdl_client.has_other_new_data(existing_uuid):
+                        logger.warning(f"Profile for {existing_uuid} has other new data.")
+                        person = PersonDTO(
+                            uuid=existing_uuid,
+                            name="",
+                            email=email,
+                            linkedin="",
+                            company="",
+                            position="",
+                            timezone="",
+                        )
+                        personal_data = self.pdl_client.fetch_profile(person)
+                        if personal_data:
+                            person = self.pdl_client.create_person_from_personal_data(existing_uuid)
+                        result = self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
                     logger.info(f"Already tried but failed for {email}, skipping...")
                     event = GenieEvent(
                         Topic.ALREADY_FAILED_TO_ENRICH_EMAIL,
@@ -355,8 +388,10 @@ class PDLClient:
             else self.personal_data_repository.TRIED_BUT_FAILED
         )
         logger.debug(f"Status: {status}")
-        self.personal_data_repository.save_pdl_personal_data(person, personal_data, status)
-        if not person.name:
+        self.personal_data_repository.save_pdl_personal_data(
+            person=person, personal_data=personal_data, status=status
+        )
+        if not person.name and personal_data:
             person.name = personal_data.get("full_name", "")
             person.position = personal_data.get("job_title", "")
 
@@ -567,6 +602,7 @@ class PDLClient:
         event = GenieEvent(Topic.UPDATED_ENRICHED_DATA, data_to_transfer, "public")
         event.send()
         logger.info(f"Sending event to {Topic.UPDATED_ENRICHED_DATA}")
+        return {"status": "success"}
 
     @staticmethod
     def fix_and_sort_experience(experience):
@@ -610,10 +646,9 @@ class PDLClient:
             logger.debug(f"Last updated: {last_updated_timestamp}")
             time_since_last_update = datetime.now() - last_updated_timestamp
             if time_since_last_update < timedelta(seconds=MIN_INTERVAL_TO_FETCH_PROFILES):
-                logger.info(
-                    f"Skipping update for uuid: {existing_uuid}, last updated {time_since_last_update} ago."
-                )
+                logger.info(f"{existing_uuid} is up-to-date")
                 return True
+        logger.info(f"{existing_uuid} is not up-to-date")
         return False
 
     def has_other_new_data(self, existing_uuid):

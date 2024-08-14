@@ -72,6 +72,10 @@ class PersonalDataRepository:
                 json.dumps(pdl_personal_data) if isinstance(pdl_personal_data, dict) else pdl_personal_data
             )  # Convert dict to JSON string
             values.append(pdl_status)
+        else:
+            if pdl_status:
+                columns.append("pdl_status")
+                values.append(pdl_status)
 
         if apollo_personal_data:
             columns.append("apollo_personal_data")
@@ -82,6 +86,10 @@ class PersonalDataRepository:
                 else apollo_personal_data
             )  # Convert dict to JSON string
             values.append(apollo_status)
+        else:
+            if apollo_status:
+                columns.append("apollo_status")
+                values.append(apollo_status)
 
         # Build the query dynamically
         insert_query = f"""
@@ -96,6 +104,9 @@ class PersonalDataRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(insert_query, tuple(values))
+                logger.debug(
+                    f"Inserted personalData into database: {[(columns[i], values[i]) for i in range(len(columns))]}"
+                )
                 self.conn.commit()
                 logger.info("Inserted personalData into database")
         except psycopg2.IntegrityError as e:
@@ -365,7 +376,7 @@ class PersonalDataRepository:
         """
         update_query = f"""
         UPDATE personalData
-        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = %s {f', name = {name}' if name else ''}
+        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = %s {f", name = '{name}'" if name else ''}
         WHERE uuid = %s
         """
         try:
@@ -435,6 +446,33 @@ class PersonalDataRepository:
             # self.conn.rollback()
         return
 
+    def update_pdl_status(self, uuid, status):
+        """
+        Update the status for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :param status: New status for the profile.
+        """
+        update_query = """
+        UPDATE personalData
+        SET pdl_status = %s pdl_last_updated = CURRENT_TIMESTAMP
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (status, uuid))
+                self.conn.commit()
+                logger.info("Updated status")
+        except psycopg2.Error as e:
+            logger.error("Error updating status:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        except Exception as e:
+            logger.error("Error updating status:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        return
+
     def save_pdl_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"):
         """
         Save personal data to the database.
@@ -442,7 +480,7 @@ class PersonalDataRepository:
         :param person: Person object.
         :param personal_data: Personal data to save.
         """
-        self.create_table_if_not_exists()
+        logger.debug(f"Saving personal data for {person.email}")
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -453,7 +491,12 @@ class PersonalDataRepository:
                 pdl_status=status,
             )
             return
-        self.update_pdl_personal_data(uuid=person.uuid, personal_data=personal_data, name=person.name)
+        if person.name:
+            self.update_pdl_personal_data(
+                uuid=person.uuid, personal_data=personal_data, status=status, name=person.name
+            )
+        else:
+            self.update_pdl_personal_data(uuid=person.uuid, personal_data=personal_data, status=status)
         # This use case is for when we try to fetch personal data by email and fail and then someone updates
         # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
         if person and person.linkedin and not self.exists_linkedin_url(person.linkedin):
