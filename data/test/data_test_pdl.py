@@ -9,7 +9,7 @@ from data.data_common.events.topics import Topic
 
 def test_new_contacts():
 
-    test_data = """{"uuid": "592ff140-91c2-475e-8bc2-1ce23328896a", "name": "Asaf Savich", "company": "", "email": "asaf@trywonder.ai", "linkedin": "", "position": "", "timezone": ""}"""
+    test_data = """{"uuid": "592ff140-91c2-475e-8bc2-1ce23328896a", "name": "", "company": "", "email": "asaf@trywonder.ai", "linkedin": "", "position": "", "timezone": ""}"""
 
     event = GenieEvent(topic=Topic.NEW_CONTACT_TO_ENRICH, data=test_data, scope="public")
     event.send()

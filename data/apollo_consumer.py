@@ -79,6 +79,15 @@ class ApolloConsumer(GenieConsumer):
                     logger.info(f"Personal data already exists for email: {person.email}")
                     return {"status": "ok"}
                 # return {"status": "ok"}
+        apollo_personal_data_from_db = self.personal_data_repository.get_apollo_personal_data_by_email(
+            person.email
+        )
+        if apollo_personal_data_from_db:
+            logger.warning(f"Already have personal data from apollo for email: {person.email}")
+            logger.debug(f"Personal data: {str(apollo_personal_data_from_db)[:300]}")
+            logger.error(f"To avoid loops, stopping here")
+            return {"status": "ok"}
+
         apollo_personal_data = self.apollo_client.enrich_contact([person.email])
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
@@ -161,6 +170,8 @@ class ApolloConsumer(GenieConsumer):
         linkedin_url = apollo_personal_data.get("linkedin_url")
         person = self.create_person_from_apollo_data(person, apollo_personal_data)
         person.linkedin = linkedin_url
+        if not person.linkedin:
+            logger.warning(f"Got personal data from Apollo, but no linkedin url: {person}")
         self.persons_repository.save_person(person)
         event = GenieEvent(
             topic=Topic.NEW_PERSON,

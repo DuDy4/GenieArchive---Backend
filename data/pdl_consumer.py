@@ -445,6 +445,10 @@ class PDLClient:
             str: The shortened URL.
         """
 
+        if not linkedin_url:
+            logger.error(f"Trying to fix Linkedin URL, but it is None or empty: {linkedin_url}")
+            return ""
+
         linkedin_url = linkedin_url.replace("http://www.linkedin.com/in/", "linkedin.com/in/")
         linkedin_url = linkedin_url.replace("https://www.linkedin.com/in/", "linkedin.com/in/")
         linkedin_url = linkedin_url.replace("http://linkedin.com/in/", "linkedin.com/in/")
