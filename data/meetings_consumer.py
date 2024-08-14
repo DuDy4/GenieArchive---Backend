@@ -63,6 +63,12 @@ class MeetingManager(GenieConsumer):
                 scope="public",
             )
             event.send()
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+                data=json.dumps({"tenant_id": meeting.tenant_id, "email": email.get("email")}),
+                scope="private",
+            )
+            event.send()
 
     @staticmethod
     def filter_email_objects(participants_emails):

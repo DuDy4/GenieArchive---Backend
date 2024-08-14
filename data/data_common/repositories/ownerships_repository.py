@@ -2,6 +2,7 @@ import traceback
 from typing import Optional
 import psycopg2
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 import json
 
@@ -57,7 +58,6 @@ class OwnershipsRepository:
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error(f"Error: {error}")
             traceback.print_exc()
-            self.conn.rollback()
 
     def insert(self, uuid, tenant_id):
         insert_query = """
@@ -71,9 +71,7 @@ class OwnershipsRepository:
                 cursor.execute(insert_query, (uuid, tenant_id))
                 self.conn.commit()
                 ownership_id = cursor.fetchone()[0]
-                logger.info(
-                    f"Inserted ownership to database. Ownership id: {ownership_id}"
-                )
+                logger.info(f"Inserted ownership to database. Ownership id: {ownership_id}")
                 return ownership_id
         except psycopg2.Error as error:
             logger.error(f"Error inserting ownership: {error.pgerror}")

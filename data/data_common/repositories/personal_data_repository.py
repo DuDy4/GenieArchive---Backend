@@ -42,13 +42,12 @@ class PersonalDataRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self.conn.commit()
-                logger.info("Created personalData table")
         except psycopg2.Error as e:
             logger.error(f"Error creating table: {e.pgcode}: {e.pgerror}")
-            self.conn.rollback()
+            # self.conn.rollback()
         except Exception as e:
             logger.error(f"Error creating table: {repr(e)}")
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def insert(
         self,
@@ -78,7 +77,9 @@ class PersonalDataRepository:
             columns.append("apollo_personal_data")
             columns.append("apollo_status")
             values.append(
-                json.dumps(apollo_personal_data) if isinstance(apollo_personal_data, dict) else apollo_personal_data
+                json.dumps(apollo_personal_data)
+                if isinstance(apollo_personal_data, dict)
+                else apollo_personal_data
             )  # Convert dict to JSON string
             values.append(apollo_status)
 
@@ -99,12 +100,12 @@ class PersonalDataRepository:
                 logger.info("Inserted personalData into database")
         except psycopg2.IntegrityError as e:
             logger.error("PersonalData with this UUID already exists")
-            self.conn.rollback()
+            # self.conn.rollback()
             traceback.print_exc()
         except Exception as e:
             logger.error(f"Error inserting personalData: {e}")
             logger.error(traceback.format_exc())
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def exists_uuid(self, uuid: str) -> bool:
         """
@@ -179,7 +180,11 @@ class PersonalDataRepository:
                 personal_data = cursor.fetchone()
                 if personal_data and personal_data[0]:
                     logger.info(f"Got personal data: {str(personal_data)[:300]}")
-                    return json.loads(personal_data[0]) if isinstance(personal_data[0], str) else personal_data[0]
+                    return (
+                        json.loads(personal_data[0])
+                        if isinstance(personal_data[0], str)
+                        else personal_data[0]
+                    )
                 else:
                     logger.warning("personalData was not found in db by uuid")
                     return None
@@ -201,7 +206,11 @@ class PersonalDataRepository:
                 personal_data = cursor.fetchone()
                 if personal_data and personal_data[0]:
                     logger.info(f"Got personal data: {str(personal_data)[:300]}")
-                    return json.loads(personal_data[0]) if isinstance(personal_data[0], str) else personal_data[0]
+                    return (
+                        json.loads(personal_data[0])
+                        if isinstance(personal_data[0], str)
+                        else personal_data[0]
+                    )
                 else:
                     logger.warning("personalData was not found in db by uuid")
                     return None
@@ -347,7 +356,7 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def update_pdl_personal_data(self, uuid, personal_data):
+    def update_pdl_personal_data(self, uuid, personal_data, status="FETCHED"):
         """
         Save personal data to the database.
 
@@ -356,21 +365,21 @@ class PersonalDataRepository:
         """
         update_query = """
         UPDATE personalData
-        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = 'FETCHED'
+        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = %s
         WHERE uuid = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(personal_data), uuid))
+                cursor.execute(update_query, (json.dumps(personal_data), status, uuid))
                 self.conn.commit()
                 logger.info("Updated personal data")
         except psycopg2.Error as e:
             logger.error(f"Failed to executre personal data query: {update_query}")
             logger.error("psycopg2 Error updating personal data:", str(e))
-            self.conn.rollback()
+            # self.conn.rollback()
         except Exception as e:
             logger.error("Exception Error updating personal data:", str(e))
-            self.conn.rollback()
+            # self.conn.rollback()
         return
 
     def update_apollo_personal_data(self, uuid, personal_data):
@@ -393,10 +402,10 @@ class PersonalDataRepository:
         except psycopg2.Error as e:
             logger.error(f"Failed to executre personal data query: {update_query}")
             logger.error("psycopg2 Error updating personal data:", str(e))
-            self.conn.rollback()
+            # self.conn.rollback()
         except Exception as e:
             logger.error("Exception Error updating personal data:", str(e))
-            self.conn.rollback()
+            # self.conn.rollback()
         return
 
     def update_uuid(self, uuid, uuid1):
@@ -419,14 +428,14 @@ class PersonalDataRepository:
         except psycopg2.Error as e:
             logger.error("Error updating UUID:", e)
             traceback.print_exc()
-            self.conn.rollback()
+            # self.conn.rollback()
         except Exception as e:
             logger.error("Error updating UUID:", e)
             traceback.print_exc()
-            self.conn.rollback()
+            # self.conn.rollback()
         return
 
-    def save_pdl_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str):
+    def save_pdl_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"):
         """
         Save personal data to the database.
 
@@ -451,7 +460,9 @@ class PersonalDataRepository:
             self.update_linkedin_url(person.uuid, person.linkedin)
         return
 
-    def save_apollo_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"):
+    def save_apollo_personal_data(
+        self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"
+    ):
         """
         Save personal data to the database.
 
@@ -496,11 +507,11 @@ class PersonalDataRepository:
         except psycopg2.Error as e:
             logger.error("Error updating LinkedIn URL:", e)
             traceback.print_exc()
-            self.conn.rollback()
+            # self.conn.rollback()
         except Exception as e:
             logger.error("Error updating LinkedIn URL:", e)
             traceback.print_exc()
-            self.conn.rollback()
+            # self.conn.rollback()
         return
 
     def get_pdl_last_updated(self, uuid):

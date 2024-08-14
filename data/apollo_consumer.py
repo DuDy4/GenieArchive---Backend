@@ -74,27 +74,48 @@ class ApolloConsumer(GenieConsumer):
         if person_in_db:
             if person_in_db.linkedin:
                 logger.info(f"Person in database already has linkedin_url: {person_in_db.linkedin}")
-                return {"status": "ok"}
+                personal_data = self.personal_data_repository.get_personal_uuid_by_email(person.email)
+                if personal_data:
+                    logger.info(f"Personal data already exists for email: {person.email}")
+                    return {"status": "ok"}
+                # return {"status": "ok"}
         apollo_personal_data = self.apollo_client.enrich_contact([person.email])
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
             logger.error(f"Failed to get personal data for person: {person}")
+            if not person:
+                logger.error(f"Unexpected error: person is None")
+                person = person_in_db
             event = GenieEvent(
                 topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
-                body=person.dict(),
+                data={"person": person.to_dict(), "email": person.email},
+                scope="public",
             )
+            event.send()
             return {"error": "Failed to get personal data"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
         linkedin_url = apollo_personal_data.get("linkedin_url")
+
+        # Should not happen, but just in case
         if not linkedin_url:
             logger.error(f"Failed to get linkedin url for person: {person}")
+            if not person:
+                logger.error(f"Unexpected error: person is None")
+                person = person_in_db
+            event = GenieEvent(
+                topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
+                data={"person": person.to_dict(), "email": person.email},
+                scope="public",
+            )
+            event.send()
             return {"error": "Failed to get linkedin url"}
         logger.info(f"Got linkedin url: {linkedin_url}")
         person.linkedin = linkedin_url
         self.persons_repository.save_person(person)
         event = GenieEvent(
             topic=Topic.NEW_PERSON,
-            body=person.dict(),
+            data=person.to_dict(),
+            scope="public",
         )
         event.send()
         logger.info(f"Sent new person event: {person}")
@@ -128,11 +149,13 @@ class ApolloConsumer(GenieConsumer):
 
         apollo_personal_data = self.apollo_client.enrich_contact([email])
         if not apollo_personal_data:
-            logger.error(f"Failed to get personal data for person: {person}")
+            logger.warning(f"Failed to get personal data for person: {person}")
             event = GenieEvent(
                 topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
-                body=person.dict(),
+                data={"person": person.to_dict(), "email": person.email},
+                scope="public",
             )
+            event.send()
             return {"error": "Failed to get personal data"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
         linkedin_url = apollo_personal_data.get("linkedin_url")
