@@ -2,6 +2,7 @@ import os
 import json
 
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 from common.utils import env_utils

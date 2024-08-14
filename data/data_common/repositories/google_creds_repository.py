@@ -6,6 +6,7 @@ import psycopg2
 from common.utils.str_utils import get_uuid4
 
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -34,7 +35,7 @@ class GoogleCredsRepository:
                 self.conn.commit()
         except Exception as error:
             logger.error("Error creating table:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def insert(self, creds: dict):
         insert_query = """
@@ -65,7 +66,7 @@ class GoogleCredsRepository:
                 self.conn.commit()
         except Exception as error:
             logger.error("Error inserting credentials:", error)
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def exists(self, email: str) -> bool:
         query = """
@@ -118,10 +119,10 @@ class GoogleCredsRepository:
                 logger.info("Updated credentials in database")
                 return
         except psycopg2.Error as error:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Error updating credentials, because: {error.pgerror}")
             traceback.print_exc()
         except Exception as e:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
+            # traceback.print_exc()

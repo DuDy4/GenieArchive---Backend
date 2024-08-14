@@ -43,7 +43,7 @@ class MeetingsRepository:
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error(f"Error: {error}")
             traceback.print_exc()
-            self.conn.rollback()
+            # self.conn.rollback()
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
         logger.debug(f"Meeting to insert: {meeting}")
@@ -79,12 +79,12 @@ class MeetingsRepository:
                 logger.info(f"Inserted meeting to database. Meeting id: {meeting_id}")
                 return meeting_id
         except psycopg2.Error as error:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Error inserting meeting: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error inserting meeting, because: {error}")
         except Exception as e:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
             raise Exception(f"Unexpected error: {e}")
@@ -264,7 +264,7 @@ class MeetingsRepository:
                 self.conn.commit()
                 logger.info(f"Updated meeting with uuid: {meeting.uuid}")
         except psycopg2.Error as error:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Error updating meeting: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error updating meeting, because: {error.pgerror}")
@@ -291,7 +291,7 @@ class MeetingsRepository:
                 self.conn.commit()
                 logger.info(f"Deleted meeting with uuid: {uuid}")
         except psycopg2.Error as error:
-            self.conn.rollback()
+            # self.conn.rollback()
             logger.error(f"Error deleting meeting: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error deleting meeting, because: {error.pgerror}")

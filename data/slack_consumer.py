@@ -30,7 +30,7 @@ class SlackConsumer(GenieConsumer):
         super().__init__(
             topics=[
                 Topic.FAILED_TO_GET_LINKEDIN_URL,
-                Topic.FAILED_TO_ENRICH_DATA,
+                Topic.FAILED_TO_GET_PERSONAL_DATA,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -44,9 +44,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.FAILED_TO_GET_LINKEDIN_URL:
                 logger.info("Handling failed attempt to get linkedin url")
                 await self.handle_failed_to_get_linkedin_url(event)
-            case Topic.FAILED_TO_ENRICH_DATA:
+            case Topic.FAILED_TO_GET_PERSONAL_DATA:
                 logger.info("Handling failed attempt to enrich data")
-                await self.handle_failed_to_enrich_data(event)
+                await self.handle_failed_to_get_personal_data(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -68,7 +68,7 @@ class SlackConsumer(GenieConsumer):
             """
         send_message(message)
 
-    async def handle_failed_to_enrich_data(self, event):
+    async def handle_failed_to_get_personal_data(self, event):
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):

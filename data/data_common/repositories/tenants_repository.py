@@ -6,6 +6,7 @@ import psycopg2
 from common.utils.str_utils import get_uuid4
 
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -88,9 +89,7 @@ class TenantsRepository:
             logger.error("Error checking if tenant exists:", error)
             logger.error(traceback.format_exc())
 
-    def update_salesforce_credentials(
-        self, tenant_id: str, salesforce_credentials: dict
-    ):
+    def update_salesforce_credentials(self, tenant_id: str, salesforce_credentials: dict):
         update_query = """
         UPDATE tenants SET salesforce_client_url = %s, salesforce_refresh_token = %s, salesforce_access_token = %s
         WHERE tenant_id = %s
@@ -148,9 +147,7 @@ class TenantsRepository:
         return False
 
     def get_refresh_token(self, tenant_id: str):
-        select_query = (
-            """SELECT salesforce_refresh_token FROM tenants WHERE tenant_id = %s"""
-        )
+        select_query = """SELECT salesforce_refresh_token FROM tenants WHERE tenant_id = %s"""
         try:
             logger.debug(f"Getting refresh token for tenant: {tenant_id}")
             with self.conn.cursor() as cursor:
@@ -189,6 +186,9 @@ class TenantsRepository:
                 cursor.execute(select_query, (email,))
                 result = cursor.fetchone()
                 logger.info(f"Result of tenant id query: {result}")
+                if len(result) > 1:
+                    logger.error("More than one tenant found for email")
+                    return result[0]
                 if result is not None:
                     return result[0]
                 else:

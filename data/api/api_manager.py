@@ -115,7 +115,7 @@ def get_user(request: Request):
     return JSONResponse(content=tenant)
 
 
-@v1_router.post("/successful-login", response_model=UserResponse)
+@v1_router.post("/successful-login")
 async def post_social_auth_data(
     request: Request,
     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
@@ -135,7 +135,12 @@ async def post_social_auth_data(
     tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email}
     tenants_repository.insert(tenant_data)
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
-    return JSONResponse(content={"verdict": "allow"})
+    response = {
+        "claims": {
+            "tenantId": user_tenant_id,
+        },
+    }
+    return {"verdict": "allow", "response": response}
 
 
 @v1_router.post("/social-auth-data", response_model=UserResponse)
@@ -281,6 +286,10 @@ async def get_all_meetings_by_profile_name(
 
     """
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+
+    if not tenant_id:
+        logger.error("Tenant ID not provided")
+        return JSONResponse(content={"error": "Tenant ID not provided"})
 
     # persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
     # logger.info(f"Got persons_uuid: {persons_uuid}")
