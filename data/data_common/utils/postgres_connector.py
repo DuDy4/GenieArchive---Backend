@@ -1,4 +1,5 @@
 import psycopg2
+import traceback
 from psycopg2 import sql
 from dotenv import load_dotenv
 import os

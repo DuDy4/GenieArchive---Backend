@@ -41,10 +41,12 @@ class GenieLogger:
         return extra_object
     
     def set_topic(self, topic_name):
-        topic.set(topic_name)
+        if topic_name:
+            topic.set(topic_name)
 
     def set_endpoint(self, endpoint_name):
-        endpoint.set(endpoint_name)
+        if endpoint_name:
+            endpoint.set(endpoint_name)
 
     def bind_context(self, ctx_id=None):
         if ctx_id is None:

@@ -41,8 +41,10 @@ class GenieConsumer:
             if topic and (topic.decode("utf-8") in self.topics):
                 decoded_topic = topic.decode("utf-8")
                 if b"ctx_id" in event.properties:
-                    decoded_ctx_id = event.properties.get(b"ctx_id", b"").decode("utf-8")
-                    logger.bind_context(decoded_ctx_id)
+                    ctx_id = event.properties.get(b"ctx_id")
+                    if ctx_id:
+                        decoded_ctx_id = ctx_id.decode("utf-8")
+                        logger.bind_context(decoded_ctx_id)
                 logger.set_topic(decoded_topic)
                 logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
                 event_result = await self.process_event(event)
