@@ -373,6 +373,14 @@ class PersonManager(GenieConsumer):
                 else:
                     logger.info(f"Person has no linkedin, no need to try PDL again")
                 apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+                logger.debug(f"Apollo personal data: {str(apollo_personal_data)[:300]}")
+                if not apollo_personal_data:
+                    logger.error(f"Failed to get personal data for person: {person}")
+                    return {"error": "Failed to get personal data"}
+                logger.debug(f"Person before verification: {person}")
+                person = self.verify_person_with_apollo_data(person)
+                logger.debug(f"Person after verification: {person}")
+                self.persons_repository.save_person(person)
                 event = GenieEvent(
                     topic=Topic.NEW_PERSONAL_DATA,
                     data={"person": person.to_dict(), "personal_data": apollo_personal_data},
@@ -389,6 +397,10 @@ class PersonManager(GenieConsumer):
                 if not apollo_personal_data:
                     logger.error(f"Failed to get personal data for person: {person}")
                     return {"error": "Failed to get personal data"}
+                logger.debug(f"Person before verification: {person}")
+                person = self.verify_person_with_apollo_data(person)
+                logger.debug(f"Person after verification: {person}")
+                self.persons_repository.save_person(person)
                 event = GenieEvent(
                     topic=Topic.NEW_PERSONAL_DATA,
                     data={"person": person.to_dict(), "personal_data": apollo_personal_data},

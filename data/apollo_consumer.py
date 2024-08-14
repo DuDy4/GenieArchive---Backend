@@ -106,13 +106,17 @@ class ApolloConsumer(GenieConsumer):
             event.send()
             return {"error": "Failed to get personal data"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
+
+        person = self.create_person_from_apollo_data(person, apollo_personal_data)
+        logger.info(f"Person after creating from apollo data: {person}")
+        self.persons_repository.save_person(person)
+
         linkedin_url = apollo_personal_data.get("linkedin_url")
 
         # Should not happen, but just in case
         if not linkedin_url:
             logger.error(f"Failed to get linkedin url for person: {person}")
         else:
-
             logger.info(f"Got linkedin url: {linkedin_url}")
             person.linkedin = linkedin_url
             self.persons_repository.save_person(person)
@@ -179,8 +183,10 @@ class ApolloConsumer(GenieConsumer):
 
     def create_person_from_apollo_data(self, person, apollo_data):
         person.name = apollo_data.get("name")
-        person.company = apollo_data.get("company")
-        person.position = apollo_data.get("position")
+        company_organization = apollo_data.get("organization")
+        company_name = company_organization.get("name") if company_organization else None
+        person.company = company_name
+        person.position = apollo_data.get("title")
         person.linkedin = apollo_data.get("linkedin_url")
         return person
 

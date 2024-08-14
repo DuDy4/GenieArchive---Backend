@@ -429,7 +429,7 @@ class PersonalDataRepository:
             # self.conn.rollback()
         return
 
-    def update_apollo_personal_data(self, uuid, personal_data):
+    def update_apollo_personal_data(self, uuid, personal_data, status="FETCHED"):
         """
         Save personal data to the database.
 
@@ -441,12 +441,12 @@ class PersonalDataRepository:
 
         update_query = """
         UPDATE personalData
-        SET apollo_personal_data = %s, apollo_last_updated = CURRENT_TIMESTAMP, apollo_status = 'FETCHED'
+        SET apollo_personal_data = %s, apollo_last_updated = CURRENT_TIMESTAMP, apollo_status = %s
         WHERE uuid = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(personal_data), uuid))
+                cursor.execute(update_query, (json.dumps(personal_data), status, uuid))
                 self.conn.commit()
                 logger.info("Updated personal data")
         except psycopg2.Error as e:
@@ -565,7 +565,7 @@ class PersonalDataRepository:
                 apollo_status=status,
             )
             return
-        self.update_apollo_personal_data(person.uuid, personal_data)
+        self.update_apollo_personal_data(person.uuid, personal_data, status)
         # This use case is for when we try to fetch personal data by email and fail and then someone updates
         # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
         if person and person.linkedin and not self.exists_linkedin_url(person.linkedin):
