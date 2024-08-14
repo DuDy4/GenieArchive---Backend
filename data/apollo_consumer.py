@@ -35,8 +35,8 @@ class ApolloConsumer(GenieConsumer):
     ):
         super().__init__(
             topics=[
-                Topic.FAILED_TO_ENRICH_EMAIL,
-                Topic.FAILED_TO_ENRICH_DATA,
+                Topic.APOLLO_NEW_EMAIL_ADDRESS_TO_ENRICH,
+                Topic.APOLLO_NEW_PERSON_TO_ENRICH,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -49,16 +49,16 @@ class ApolloConsumer(GenieConsumer):
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         match topic:
-            case Topic.FAILED_TO_ENRICH_EMAIL:
+            case Topic.APOLLO_NEW_EMAIL_ADDRESS_TO_ENRICH:
                 logger.info("Handling failed attempt to get linkedin url")
-                await self.handle_failed_to_enrich_email(event)
-            case Topic.FAILED_TO_ENRICH_DATA:
+                await self.handle_new_email_address_to_enrich(event)
+            case Topic.APOLLO_NEW_PERSON_TO_ENRICH:
                 logger.info("Handling failed attempt to enrich data")
-                await self.handle_failed_to_enrich_data(event)
+                await self.handle_new_person_to_enrich(event)
             case _:
-                logger.info(f"Unknown topic: {topic}")
+                logger.error(f"Should not have reached here: {topic}, consumer_group: {CONSUMER_GROUP}")
 
-    async def handle_failed_to_enrich_data(self, event):
+    async def handle_new_person_to_enrich(self, event):
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
@@ -88,10 +88,13 @@ class ApolloConsumer(GenieConsumer):
             logger.error(f"To avoid loops, stopping here")
             return {"status": "ok"}
 
-        apollo_personal_data = self.apollo_client.enrich_contact([person.email])
+        apollo_personal_data = self.apollo_client.enrich_person([person.email])
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
+            self.personal_data_repository.save_apollo_personal_data(
+                person=person, personal_data=None, status=self.personal_data_repository.TRIED_BUT_FAILED
+            )
             if not person:
                 logger.error(f"Unexpected error: person is None")
                 person = person_in_db
@@ -108,21 +111,13 @@ class ApolloConsumer(GenieConsumer):
         # Should not happen, but just in case
         if not linkedin_url:
             logger.error(f"Failed to get linkedin url for person: {person}")
-            if not person:
-                logger.error(f"Unexpected error: person is None")
-                person = person_in_db
-            event = GenieEvent(
-                topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
-                data={"person": person.to_dict(), "email": person.email},
-                scope="public",
-            )
-            event.send()
-            return {"error": "Failed to get linkedin url"}
-        logger.info(f"Got linkedin url: {linkedin_url}")
-        person.linkedin = linkedin_url
-        self.persons_repository.save_person(person)
+        else:
+
+            logger.info(f"Got linkedin url: {linkedin_url}")
+            person.linkedin = linkedin_url
+            self.persons_repository.save_person(person)
         event = GenieEvent(
-            topic=Topic.NEW_PERSON,
+            topic=Topic.APOLLO_UPDATED_ENRICHED_DATA,
             data={"person": person.to_dict()},
             scope="public",
         )
@@ -130,7 +125,7 @@ class ApolloConsumer(GenieConsumer):
         logger.info(f"Sent new person event: {person}")
         return {"status": "ok"}
 
-    async def handle_failed_to_enrich_email(self, event):
+    async def handle_new_email_address_to_enrich(self, event):
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
@@ -156,7 +151,7 @@ class ApolloConsumer(GenieConsumer):
             logger.info(f"Person already has linkedin: {person.linkedin}")
             return {"status": "ok"}
 
-        apollo_personal_data = self.apollo_client.enrich_contact([email])
+        apollo_personal_data = self.apollo_client.enrich_person([email])
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
             event = GenieEvent(

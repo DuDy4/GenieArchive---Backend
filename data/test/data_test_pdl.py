@@ -11,7 +11,7 @@ def test_new_contacts():
 
     test_data = """{"uuid": "592ff140-91c2-475e-8bc2-1ce23328896a", "name": "", "company": "", "email": "asaf@trywonder.ai", "linkedin": "", "position": "", "timezone": ""}"""
 
-    event = GenieEvent(topic=Topic.NEW_CONTACT_TO_ENRICH, data=test_data, scope="public")
+    event = GenieEvent(topic=Topic.PDL_NEW_PERSON_TO_ENRICH, data=test_data, scope="public")
     event.send()
 
 

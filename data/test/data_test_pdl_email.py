@@ -19,7 +19,7 @@ event = GenieEvent(
     data=json.dumps(
         {
             "tenant_id": "d91b83dd-44bd-443d-8ed0-b41ba2779a30",
-            "email": "dan.shevel@genieai.ai",
+            "email": "sam@bilanc.co",
         }
     ),
     scope="public",
