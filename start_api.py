@@ -4,7 +4,8 @@ import traceback
 import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-
+from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry import trace
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
@@ -14,6 +15,7 @@ from common.utils import env_utils
 from data.api.api_manager import v1_router
 from common.genie_logger import GenieLogger
 logger = GenieLogger()
+configure_azure_monitor()
 
 load_dotenv()
 
@@ -27,6 +29,8 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
             logger.bind_context()
         else:
             logger.info(f"Found Genie context")
+        if request.url and request.url.path:
+            logger.set_endpoint(request.url.path)
         response = await call_next(request)
         return response
     
@@ -69,7 +73,7 @@ app.include_router(v1_router)
 
 PORT = int(env_utils.get("PERSON_PORT", 8000))
 use_https = env_utils.get("USE_HTTPS", "false").lower() == "true"
-
+logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}")
 if __name__ == "__main__":
     uvicorn.run(
         app, 

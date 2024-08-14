@@ -39,11 +39,16 @@ class GenieConsumer:
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
-                logger.info(f"TOPIC={topic.decode('utf-8')} | About to process event: {str(event)[:300]}")
+                decoded_topic = topic.decode("utf-8")
+                if b"ctx_id" in event.properties:
+                    decoded_ctx_id = event.properties.get(b"ctx_id", b"").decode("utf-8")
+                    logger.bind_context(decoded_ctx_id)
+                logger.set_topic(decoded_topic)
+                logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(f"Skipping topic [{topic.decode('utf-8')}]. Consumer group: {self.consumer_group}")
+                logger.info(f"Skipping topic [{topic.decode("utf-8")}]. Consumer group: {self.consumer_group}")
         except Exception as e:
             logger.error(f"Exception occurred: {e}")
             logger.error("Detailed traceback information:")

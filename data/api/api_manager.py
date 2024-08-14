@@ -174,7 +174,7 @@ async def post_social_auth_data(
         )
     else:
         logger.error("Tenant ID not found. Skipping credentials insertion")
-    return JSONResponse(content={"tenantId": "TestOwner"})
+    return JSONResponse(content={"verdict": "allow"})
 
 
 @v1_router.post(

@@ -34,7 +34,7 @@ st.title("Genie Profile Enrichment")
 email = st.text_input("Search by Email")
 
 if email:
-    logger.bind_context()
+    # logger.bind_context()
     person_object = persons_repository.get_person_by_email(email)
     person = persons_repository.get_person_complete_data(email)
 
