@@ -128,7 +128,7 @@ class PDLConsumer(GenieConsumer):
                     }
                     event = GenieEvent(Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON, data_to_transfer, "public")
                     event.send()
-                    logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
+                    logger.info(f"Sending event to {Topic.PDL_UP_TO_DATE_ENRICHED_DATA}")
                     return
 
                 # If already fetched and up-to-date, send up-to-date event
@@ -148,9 +148,9 @@ class PDLConsumer(GenieConsumer):
                 data_to_transfer = {
                     "person": person.to_dict(),
                 }
-                event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
+                event = GenieEvent(Topic.PDL_UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
-                logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
+                logger.info(f"Sending event to {Topic.PDL_UP_TO_DATE_ENRICHED_DATA}")
                 return
             else:
                 logger.info(f"Personal data for {person.name} is outdated. Fetching new data")
@@ -223,14 +223,26 @@ class PDLConsumer(GenieConsumer):
                             person = self.pdl_client.create_person_from_personal_data(existing_uuid)
                         result = self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
                     logger.info(f"Already tried but failed for {email}, skipping...")
+                    apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(
+                        existing_uuid
+                    )
+                    if not apollo_personal_data:
+                        event = GenieEvent(
+                            Topic.ALREADY_PDL_FAILED_TO_ENRICH_EMAIL,
+                            {"email": email, "tenant_id": tenant_id},
+                            "public",
+                        )
+                        event.send()
+                        logger.info(f"Sending event to {Topic.ALREADY_PDL_FAILED_TO_ENRICH_EMAIL}")
+                        return
+                    logger.info(f"Already tried but failed for {email}, but has apollo data.")
                     event = GenieEvent(
-                        Topic.ALREADY_PDL_FAILED_TO_ENRICH_EMAIL,
+                        Topic.PDL_FAILED_TO_ENRICH_EMAIL,
                         {"email": email, "tenant_id": tenant_id},
                         "public",
                     )
                     event.send()
-                    logger.info(f"Sending event to {Topic.ALREADY_PDL_FAILED_TO_ENRICH_EMAIL}")
-                    return
+                    return {"status": "failed"}
 
                 # If it has up-to-date personal data, send event
                 person = self.pdl_client.create_person_from_personal_data(existing_uuid)
@@ -242,9 +254,9 @@ class PDLConsumer(GenieConsumer):
                 data_to_transfer = {
                     "person": person.to_dict(),
                 }
-                event = GenieEvent(Topic.UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
+                event = GenieEvent(Topic.PDL_UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
-                logger.info(f"Sending event to {Topic.UP_TO_DATE_ENRICHED_DATA}")
+                logger.info(f"Sending event to {Topic.PDL_UP_TO_DATE_ENRICHED_DATA}")
 
             # If passed long time since last pdl fetch, fetch again
             else:

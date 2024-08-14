@@ -54,7 +54,8 @@ class PersonManager(GenieConsumer):
                 Topic.PDL_FAILED_TO_ENRICH_EMAIL,
                 Topic.NEW_PROCESSED_PROFILE,
                 Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                Topic.UP_TO_DATE_ENRICHED_DATA,
+                Topic.PDL_UP_TO_DATE_ENRICHED_DATA,
+                Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -87,7 +88,10 @@ class PersonManager(GenieConsumer):
             case Topic.APOLLO_UPDATED_ENRICHED_DATA:
                 logger.info("Handling updated enriched data")
                 await self.handle_apollo_updated_enriched_data(event)
-            case Topic.UP_TO_DATE_ENRICHED_DATA:
+            case Topic.PDL_UP_TO_DATE_ENRICHED_DATA:
+                logger.info("Personal data is up to date, Checking for existing profile")
+                await self.check_profile_data(event)
+            case Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA:
                 logger.info("Personal data is up to date, Checking for existing profile")
                 await self.check_profile_data(event)
             case Topic.PDL_FAILED_TO_ENRICH_PERSON:
@@ -179,9 +183,13 @@ class PersonManager(GenieConsumer):
             return {"status": "success"}
         else:
             logger.info("Person not found in database")
-            uuid = person.uuid if person else get_uuid4()
+
+            # In case only person was deleted from database
+            person_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
+            if not person_uuid:
+                person_uuid = get_uuid4()
             person = PersonDTO(
-                uuid=uuid,
+                uuid=person_uuid,
                 name="",
                 company="",
                 email=email,
@@ -191,11 +199,11 @@ class PersonManager(GenieConsumer):
             )
             if not self.persons_repository.exist_email(email):
                 self.persons_repository.insert(person)
-            self.ownerships_repository.save_ownership(uuid, tenant_id)
+            self.ownerships_repository.save_ownership(person_uuid, tenant_id)
             logger.info(f"Saved new person: {person} to persons repository and ownerships repository")
             event = GenieEvent(
                 Topic.PDL_NEW_EMAIL_ADDRESS_TO_ENRICH,
-                json.dumps({"uuid": uuid, "email": email, "tenant_id": tenant_id}),
+                json.dumps({"uuid": person_uuid, "email": email, "tenant_id": tenant_id}),
                 "public",
             )
             event.send()
@@ -259,6 +267,8 @@ class PersonManager(GenieConsumer):
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person}")
+            person = self.verify_person_with_apollo_data(person)
+            self.persons_repository.save_person(person)
             return {"status": "success"}
         event = GenieEvent(
             Topic.APOLLO_NEW_PERSON_TO_ENRICH,
@@ -499,18 +509,31 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
-        self.check_profile_data_from_person(person)
+        result = await self.check_profile_data_from_person(person)
+        logger.info(f"Result: {result}")
+        return {"status": "success"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):
         if not person or not isinstance(person, PersonDTO):
             logger.error(f"Invalid person data: {person}")
             return {"error": "Invalid person data"}
-        person = self.verify_person_with_pdl_data(person)
+        logger.debug(f"Person: {person}")
+        pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
+        apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+        if pdl_personal_data:
+            person = self.verify_person_with_pdl_data(person)
+        elif apollo_personal_data:
+            person = self.verify_person_with_apollo_data(person)
+        logger.debug(f"Person after verification: {person}")
+        self.persons_repository.save_person(person)
         profile = self.profiles_repository.exists(person.uuid)
         if not profile:
             logger.warning("Profile does not exist in database")
             # Need to implement a call to langsmith, but ensure there is no one in process
-
+            logger.warning(
+                "Need to implement a call to langsmith,"
+                " but need to think about a way to do it only if there is no langsmith in progress"
+            )
             return
         try:
             profile = self.profiles_repository.get_profile_data(person.uuid)

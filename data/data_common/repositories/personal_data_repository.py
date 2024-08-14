@@ -512,6 +512,33 @@ class PersonalDataRepository:
             # self.conn.rollback()
         return
 
+    def update_name_in_personal_data(self, uuid, name):
+        """
+        Update the name for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :param name: New name for the profile.
+        """
+        update_query = """
+        UPDATE personalData
+        SET name = %s
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (name, uuid))
+                self.conn.commit()
+                logger.info("Updated name")
+        except psycopg2.Error as e:
+            logger.error("Error updating name:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        except Exception as e:
+            logger.error("Error updating name:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        return
+
     def save_pdl_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"):
         """
         Save personal data to the database.

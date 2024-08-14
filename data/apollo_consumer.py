@@ -85,7 +85,15 @@ class ApolloConsumer(GenieConsumer):
         if apollo_personal_data_from_db:
             logger.warning(f"Already have personal data from apollo for email: {person.email}")
             logger.debug(f"Personal data: {str(apollo_personal_data_from_db)[:300]}")
-            logger.error(f"To avoid loops, stopping here")
+            person = self.create_person_from_apollo_data(person, apollo_personal_data_from_db)
+            self.persons_repository.save_person(person)
+            # logger.error(f"To avoid loops, stopping here")
+            event = GenieEvent(
+                topic=Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
+                data={"person": person.to_dict()},
+                scope="public",
+            )
+            event.send()
             return {"status": "ok"}
 
         apollo_personal_data = self.apollo_client.enrich_person([person.email])
@@ -106,7 +114,9 @@ class ApolloConsumer(GenieConsumer):
             event.send()
             return {"error": "Failed to get personal data"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
-
+        if not person.name:
+            person.name = apollo_personal_data.get("name")
+        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
         person = self.create_person_from_apollo_data(person, apollo_personal_data)
         logger.info(f"Person after creating from apollo data: {person}")
         self.persons_repository.save_person(person)
@@ -166,6 +176,9 @@ class ApolloConsumer(GenieConsumer):
             event.send()
             return {"error": "Failed to get personal data"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
+        if not person.name:
+            person.name = apollo_personal_data.get("name")
+        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
         linkedin_url = apollo_personal_data.get("linkedin_url")
         person = self.create_person_from_apollo_data(person, apollo_personal_data)
         person.linkedin = linkedin_url

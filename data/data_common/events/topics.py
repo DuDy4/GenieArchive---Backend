@@ -35,7 +35,8 @@ class Topic:
     # Events that stops the process
 
     # Events that notify that all is well (no action needed or end of successful process)
-    UP_TO_DATE_ENRICHED_DATA = "up-to-date-enriched-data"  # People data labs already has the latest data
+    PDL_UP_TO_DATE_ENRICHED_DATA = "up-to-date-enriched-data"  # People data labs already has the latest data
+    APOLLO_UP_TO_DATE_ENRICHED_DATA = "apollo-up-to-date-personal-data"  # Apollo already has the latest data
     COMPANY_NEWS_UP_TO_DATE = "company-news-up-to-date"
 
     ALREADY_PDL_FAILED_TO_ENRICH_EMAIL = (
