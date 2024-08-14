@@ -205,7 +205,9 @@ class PDLConsumer(GenieConsumer):
             personal_data = self.merge_personal_data(personal_data_in_repo, personal_data)
             if personal_data:
                 if personal_data != personal_data_in_repo:
-                    self.personal_data_repository.update_pdl_personal_data(existing_uuid, personal_data)
+                    self.personal_data_repository.update_pdl_personal_data(
+                        uuid=existing_uuid, personal_data=personal_data
+                    )
                 person = self.pdl_client.create_person_from_personal_data(existing_uuid)
                 self.send_event(person, personal_data, tenant_id)
                 return {"status": "success"}
@@ -357,6 +359,7 @@ class PDLClient:
         if not person.name:
             person.name = personal_data.get("full_name", "")
             person.position = personal_data.get("job_title", "")
+
         return personal_data
 
     def identify_person(self, email, first_name, last_name, company) -> list[dict] | None:

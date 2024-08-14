@@ -277,13 +277,12 @@ class PersonManager(GenieConsumer):
             self.ownerships_repository.save_ownership(uuid, tenant_id)
             logger.info(f"Saved new person: {person} to persons repository and ownerships repository")
 
-            # This next part was moved to meeting consumer:
-            # event = GenieEvent(
-            #     Topic.NEW_EMAIL_ADDRESS_TO_ENRICH,
-            #     json.dumps({"uuid": uuid, "email": email, "tenant_id": tenant_id}),
-            #     "public",
-            # )
-            # event.send()
+            event = GenieEvent(
+                Topic.NEW_EMAIL_ADDRESS_TO_ENRICH,
+                json.dumps({"uuid": uuid, "email": email, "tenant_id": tenant_id}),
+                "public",
+            )
+            event.send()
 
         # event = GenieEvent(Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, person.to_json(), "public")
         # event.send()

@@ -356,16 +356,16 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def update_pdl_personal_data(self, uuid, personal_data, status="FETCHED"):
+    def update_pdl_personal_data(self, uuid, personal_data, status="FETCHED", name=None):
         """
         Save personal data to the database.
 
         :param uuid: Unique identifier for the personalData.
         :param personal_data: Personal data to save.
         """
-        update_query = """
+        update_query = f"""
         UPDATE personalData
-        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = %s
+        SET pdl_personal_data = %s, pdl_last_updated = CURRENT_TIMESTAMP, pdl_status = %s {f', name = {name}' if name else ''}
         WHERE uuid = %s
         """
         try:
@@ -453,7 +453,7 @@ class PersonalDataRepository:
                 pdl_status=status,
             )
             return
-        self.update_pdl_personal_data(person.uuid, personal_data)
+        self.update_pdl_personal_data(uuid=person.uuid, personal_data=personal_data, name=person.name)
         # This use case is for when we try to fetch personal data by email and fail and then someone updates
         # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
         if person and person.linkedin and not self.exists_linkedin_url(person.linkedin):

@@ -82,7 +82,7 @@ class ApolloConsumer(GenieConsumer):
         apollo_personal_data = self.apollo_client.enrich_contact([person.email])
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
-            logger.error(f"Failed to get personal data for person: {person}")
+            logger.warning(f"Failed to get personal data for person: {person}")
             if not person:
                 logger.error(f"Unexpected error: person is None")
                 person = person_in_db
