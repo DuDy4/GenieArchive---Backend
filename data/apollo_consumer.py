@@ -123,7 +123,7 @@ class ApolloConsumer(GenieConsumer):
         self.persons_repository.save_person(person)
         event = GenieEvent(
             topic=Topic.NEW_PERSON,
-            data=person.to_dict(),
+            data={"person": person.to_dict()},
             scope="public",
         )
         event.send()
