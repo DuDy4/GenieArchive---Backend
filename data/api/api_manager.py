@@ -40,16 +40,6 @@ from data.data_common.repositories.ownerships_repository import OwnershipsReposi
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 from data.data_common.repositories.companies_repository import CompaniesRepository
 
-from data.api.mock_api import profiles, meetings
-
-from data.data_common.salesforce.salesforce_event_handler import SalesforceEventHandler
-from data.data_common.salesforce.salesforce_integrations_manager import (
-    handle_callback,
-    get_authorization_url,
-    create_salesforce_client,
-    SalesforceAgent,
-    handle_new_contacts_event,
-)
 
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
@@ -66,6 +56,7 @@ from data.data_common.dependencies.dependencies import (
 )
 
 from data.pdl_consumer import PDLClient
+from data.apollo_consumer import ApolloConsumer
 
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
@@ -82,6 +73,7 @@ GOOGLE_CLIENT_ID = env_utils.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env_utils.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+DEFAULT_INTERNAL_API_KEY="g3n13admin"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -544,12 +536,14 @@ def get_work_experience(
 
     if personal_data:
         experience = personal_data["experience"]
-
         fixed_experience = PDLClient.fix_and_sort_experience(experience)
-
+    else:
+        personal_data = personal_data_repository.get_apollo_personal_data(uuid)
+        fixed_experience = ApolloConsumer.fix_experience_from_apollo_data(personal_data)
+    if fixed_experience:
         short_fixed_experience = fixed_experience[:10]
-
         return JSONResponse(content=(to_custom_title_case(short_fixed_experience)))
+        
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -563,7 +557,7 @@ def sync_profile(
     - **person_uuid**: The UUID of the person to sync.
     - **api_key**: The internal API key
     """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY", "g3n13admin")
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
     if api_key != internal_api_key:
         logger.error(f"Invalid API key: {api_key}")
         return JSONResponse(content={"error": "Invalid API key"})
@@ -580,6 +574,47 @@ def sync_profile(
         logger.error(f"Person does not have a LinkedIn URL")
         return JSONResponse(content={"error": "Person does not have a LinkedIn URL"})
     return JSONResponse(content={"message": "Profile sync initiated for " + person.email})
+
+
+@v1_router.get("/internal/sync-email/{person_uuid}")
+def sync_profile(
+    person_uuid: str, 
+    api_key: str, 
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    validate_uuid(person_uuid)
+    person = persons_repository.get_person(person_uuid)
+    if not person:
+        logger.error(f"Person not found: {person_uuid}")
+        return JSONResponse(content={"error": "Person not found"})
+    logger.info(f"Got person: {person}")
+    tenants = ownerships_repository.get_tenants_for_person(person_uuid)   
+    if not tenants or len(tenants) == 0:
+        logger.error(f"Person does not have any tenants: {person_uuid}")
+        return JSONResponse(content={"error": "Person does not have any tenants"})
+    event = GenieEvent(
+        topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+        data=json.dumps(
+            {
+                "tenant_id": tenants[0],
+                "email": person.email,
+            }
+        ),
+        scope="public",
+    )
+    event.send()
+    return JSONResponse(content={"message": "Profile email sync initiated for " + person.email})
 
 
 @v1_router.get(

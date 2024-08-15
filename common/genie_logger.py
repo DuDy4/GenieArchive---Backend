@@ -6,7 +6,8 @@ logging.getLogger("azure.core").setLevel(logging.WARNING)
 logging.getLogger("azure.monitor").setLevel(logging.WARNING)
 logging.getLogger("azure").setLevel(logging.WARNING)
 logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
-log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
+#log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
+log_format = "{asctime} [{levelname}] - {name}.{funcName} - {filename}:{lineno}: {message}"
 logging.basicConfig(
     level=logging.INFO,
     format=log_format,

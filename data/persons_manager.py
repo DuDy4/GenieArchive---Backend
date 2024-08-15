@@ -514,34 +514,39 @@ class PersonManager(GenieConsumer):
         return {"status": "success"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):
-        if not person or not isinstance(person, PersonDTO):
+        if not person:
             logger.error(f"Invalid person data: {person}")
             return {"error": "Invalid person data"}
         logger.debug(f"Person: {person}")
         pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+        fetched_personal_data = None
         if pdl_personal_data:
+            fetched_personal_data = pdl_personal_data
             person = self.verify_person_with_pdl_data(person)
         elif apollo_personal_data:
+            fetched_personal_data = apollo_personal_data
             person = self.verify_person_with_apollo_data(person)
         logger.debug(f"Person after verification: {person}")
         self.persons_repository.save_person(person)
-        profile = self.profiles_repository.exists(person.uuid)
-        if not profile:
+        profile_exists = self.profiles_repository.exists(person.uuid)
+        if not profile_exists:
             logger.warning("Profile does not exist in database")
             # Need to implement a call to langsmith, but ensure there is no one in process
             logger.warning(
                 "Need to implement a call to langsmith,"
                 " but need to think about a way to do it only if there is no langsmith in progress"
             )
-            return
+            self.profiles_repository.save_new_profile_from_person(person)
         try:
             profile = self.profiles_repository.get_profile_data(person.uuid)
-            logger.info(f"Profile: {profile}")
             if not profile.picture_url:
                 profile.picture_url = self.personal_data_repository.get_profile_picture(person.uuid)
                 logger.info(f"Updated profile picture url: {profile.picture_url}")
-
+            if not profile.strengths and fetched_personal_data:
+                logger.info(f"Profile does not have strengths, sending event to langsmith. Email: {person.email}")
+                data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}    
+                GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public").send()
             return {"status": "success"}
         except ValidationError as e:
             person = self.verify_person_with_apollo_data(person)

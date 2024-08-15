@@ -13,7 +13,6 @@ from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
-from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.dependencies.dependencies import companies_repository
 from common.genie_logger import GenieLogger
 
@@ -44,12 +43,7 @@ class LangsmithConsumer(GenieConsumer):
             case Topic.NEW_PERSONAL_DATA:
                 logger.info("Handling new personal data to process")
                 await self.handle_new_personal_data(event)
-            # case Topic.FAILED_TO_ENRICH_DATA:
-            #     logger.info("Handling failed attempt to enrich data")
-            #     await self.handle_failed_to_enrich_data(event)
-            # case Topic.FAILED_TO_GET_DOMAIN_INFO:
-            #     logger.info("Handling failed attempt to enrich email")
-            #     await self.handle_failed_to_enrich_email(event)
+
 
     async def handle_new_personal_data(self, event):
         event_body = event.body_as_str()
@@ -60,8 +54,8 @@ class LangsmithConsumer(GenieConsumer):
         personal_data = event_body.get("personal_data")
         person_data = {"personal_data": personal_data}
         person = event_body.get("person")
-        logger.info(f"Person: {person}")
         email_address = person.get("email")
+        logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
         company_data = None
         company_dict = {}
 

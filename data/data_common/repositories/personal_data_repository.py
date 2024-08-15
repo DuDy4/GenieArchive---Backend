@@ -200,14 +200,14 @@ class PersonalDataRepository:
                 cursor.execute(select_query, (uuid,))
                 personal_data = cursor.fetchone()
                 if personal_data and personal_data[0]:
-                    logger.info(f"Got personal data: {str(personal_data)[:300]}")
+                    logger.info(f"Got personal data from PDL: {str(personal_data)[:300]}")
                     return (
                         json.loads(personal_data[0])
                         if isinstance(personal_data[0], str)
                         else personal_data[0]
                     )
                 else:
-                    logger.warning("pdl personalData was not found in db by uuid")
+                    logger.warning(f"pdl personalData was not found in db by uuid {uuid}")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -226,7 +226,7 @@ class PersonalDataRepository:
                 cursor.execute(select_query, (uuid,))
                 personal_data = cursor.fetchone()
                 if personal_data and personal_data[0]:
-                    logger.info(f"Got personal data: {str(personal_data)[:300]}")
+                    logger.info(f"Got personal data from apollo: {str(personal_data)[:300]}")
                     return (
                         json.loads(personal_data[0])
                         if isinstance(personal_data[0], str)
@@ -494,7 +494,7 @@ class PersonalDataRepository:
         """
         update_query = """
         UPDATE personalData
-        SET pdl_status = %s pdl_last_updated = CURRENT_TIMESTAMP
+        SET pdl_status = %s, pdl_last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
         try:

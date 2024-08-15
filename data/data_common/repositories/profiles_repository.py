@@ -6,6 +6,7 @@ from typing import Union, Optional
 import psycopg2
 from pydantic import AnyUrl
 
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Strength,
@@ -50,6 +51,14 @@ class ProfilesRepository:
         except Exception as error:
             logger.error(f"Error creating table: {error}")
             traceback.print_exc()
+
+
+    def save_new_profile_from_person(self, person: PersonDTO):
+        self.create_table_if_not_exists()
+        logger.debug(f"About to save profile from person: {person}")
+        profile = ProfileDTO(uuid=person.uuid, name=person.name, company=person.company, position=person.position)
+        self.save_profile(profile)
+
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
@@ -399,8 +408,8 @@ class ProfilesRepository:
                     for k, v in profile_dict["get_to_know"].items()
                 }
             ),
-            profile_dict["summary"],
-            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
+            profile_dict["summary"] if profile_dict["summary"] else '',
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png',
         )
 
         try:

@@ -34,6 +34,22 @@ class OwnershipsRepository:
             logger.error(f"Error getting all ownerships: {error.pgerror}")
             traceback.print_exc()
             return []
+        
+    def get_tenants_for_person(self, uuid):
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT tenant_id FROM ownerships WHERE person_uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                tenants = cursor.fetchall()
+                tenants = [tenant[0] for tenant in tenants]
+                return tenants
+        except psycopg2.Error as error:
+            logger.error(f"Error getting all tenants for person: {error.pgerror}")
+            traceback.print_exc()
+            return []
 
     def save_ownership(self, uuid, tenant_id):
         self.create_table_if_not_exists()

@@ -44,7 +44,7 @@ class GoogleCredsRepository:
         """
         if self.exists(creds.get("email")):
             logger.info(
-                "OVerriding existing google creds in database for email:",
+                "Overriding existing google creds in database for email:",
                 creds.get("email"),
             )
             self.update_creds(creds)
