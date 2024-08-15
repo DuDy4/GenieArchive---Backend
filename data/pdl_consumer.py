@@ -74,14 +74,17 @@ class PDLConsumer(GenieConsumer):
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON: {event_body}")
                 return {"error": "Invalid JSON"}
-        person = PersonDTO.from_dict(event_body)
+        if event_body.get("person"):
+            person = PersonDTO.from_dict(event_body.get("person"))
+        else:
+            person = PersonDTO.from_dict(event_body)
         logger.info(f"Person: {person}")
         if not person:
             logger.error(f"Failed to create person from event body")
             return {"status": "failed"}
 
         person.linkedin = self.pdl_client.fix_linkedin_url(person.linkedin)
-        if self.personal_data_repository.exists_linkedin_url(person.linkedin):
+        if person.linkedin and self.personal_data_repository.exists_linkedin_url(person.linkedin):
             logger.info(
                 f"Personal data for {person.name if person.name else person.uuid} already exists in the database."
             )

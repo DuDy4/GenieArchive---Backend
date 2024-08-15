@@ -266,7 +266,7 @@ class PersonManager(GenieConsumer):
             return {"error": "Person not found in event body"}
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
-            logger.info(f"Person already has apollo personal data: {person}")
+            logger.info(f"Person already has apollo personal data: {person.email}")
             person = self.verify_person_with_apollo_data(person)
             self.persons_repository.save_person(person)
             return {"status": "success"}
@@ -299,7 +299,7 @@ class PersonManager(GenieConsumer):
             logger.warning(f"Person has no linkedin: {person}")
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
-            logger.info(f"Person already has apollo personal data: {person}")
+            logger.info(f"Person already has apollo personal data: {person.email}")
             return {"status": "success"}
         event = GenieEvent(
             Topic.APOLLO_NEW_PERSON_TO_ENRICH,
@@ -376,7 +376,7 @@ class PersonManager(GenieConsumer):
                 update_profile_picture_url(person)
                 return {"status": "success"}
             else:
-                logger.info(f"PDL data is up to date for person: {person}")
+                logger.info(f"PDL data is out of date for person: {person}")
                 if person.linkedin:
                     send_new_person_event(person)
                     return {"status": "success"}
