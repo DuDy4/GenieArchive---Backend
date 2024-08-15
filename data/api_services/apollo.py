@@ -1,8 +1,7 @@
-import logging
-
 import requests
-from loguru import logger
 from dotenv import load_dotenv
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
 import os
 
 # Load environment variables from .env file
