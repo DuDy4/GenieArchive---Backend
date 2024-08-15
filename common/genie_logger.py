@@ -1,4 +1,3 @@
-#from loguru import logger
 import logging
 logger = logging.getLogger("genie_logger")
 logger.setLevel(logging.DEBUG)
@@ -70,7 +69,12 @@ class GenieLogger:
         ctx_id = context_id.get()
         if ctx_id:
             message = f"[CTX={ctx_id}] {message}"
-        self.logger.log(level, message, *args, **kwargs, stacklevel=3, extra=self.get_extra())
+        # self.logger.log(level, message, *args, **kwargs, stacklevel=3, extra=self.get_extra())
+        #self.logger.log(level, message, *args, stacklevel=3, extra=self.get_extra(), **kwargs)
+        if args:
+            message = message % args if '%' in message else f"{message} {' '.join(map(str, args))}"
+        
+        self.logger.log(level, message, stacklevel=3, extra=self.get_extra(), **kwargs)
 
     def info(self, message, *args, **kwargs):
         self.log(logging.INFO, message, *args, **kwargs)
