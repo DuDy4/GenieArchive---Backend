@@ -32,10 +32,10 @@ class PersonalDataRepository:
             linkedin_url VARCHAR,
             pdl_personal_data JSONB,
             pdl_status TEXT,
-            pdl_last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            pdl_last_updated TIMESTAMP,
             apollo_personal_data JSONB,
             apollo_status TEXT,
-            apollo_last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            apollo_last_updated TIMESTAMP
         );
         """
         try:
@@ -57,8 +57,8 @@ class PersonalDataRepository:
         linkedin_url: Optional[str] = None,
         pdl_personal_data: Optional[dict] = None,
         apollo_personal_data: Optional[dict] = None,
-        pdl_status: str = "FETCHED",
-        apollo_status: str = "FETCHED",
+        pdl_status: str = None,
+        apollo_status: str = None,
     ):
         # Start with the mandatory columns and values
         columns = ["uuid", "name", "email", "linkedin_url"]
@@ -70,12 +70,11 @@ class PersonalDataRepository:
             columns.append("pdl_status")
             values.append(
                 json.dumps(pdl_personal_data) if isinstance(pdl_personal_data, dict) else pdl_personal_data
-            )  # Convert dict to JSON string
+            )
             values.append(pdl_status)
-        else:
-            if pdl_status:
-                columns.append("pdl_status")
-                values.append(pdl_status)
+        elif pdl_status:
+            columns.append("pdl_status")
+            values.append(pdl_status)
 
         if apollo_personal_data:
             columns.append("apollo_personal_data")
@@ -84,14 +83,13 @@ class PersonalDataRepository:
                 json.dumps(apollo_personal_data)
                 if isinstance(apollo_personal_data, dict)
                 else apollo_personal_data
-            )  # Convert dict to JSON string
+            )
             values.append(apollo_status)
-        else:
-            if apollo_status:
-                columns.append("apollo_status")
-                values.append(apollo_status)
+        elif apollo_status:
+            columns.append("apollo_status")
+            values.append(apollo_status)
 
-        # Build the query dynamically
+        # Build the insert query dynamically
         insert_query = f"""
         INSERT INTO personalData ({', '.join(columns)})
         VALUES ({', '.join(['%s'] * len(values))})
@@ -104,19 +102,31 @@ class PersonalDataRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(insert_query, tuple(values))
+                self.conn.commit()
+
+                # Conditionally update the timestamps
+                if pdl_personal_data or pdl_status:
+                    cursor.execute(
+                        "UPDATE personalData SET pdl_last_updated = CURRENT_TIMESTAMP WHERE uuid = %s",
+                        (uuid,),
+                    )
+                if apollo_personal_data or apollo_status:
+                    cursor.execute(
+                        "UPDATE personalData SET apollo_last_updated = CURRENT_TIMESTAMP WHERE uuid = %s",
+                        (uuid,),
+                    )
+
+                self.conn.commit()
                 logger.debug(
                     f"Inserted personalData into database: {[(columns[i], values[i]) for i in range(len(columns))]}"
                 )
-                self.conn.commit()
                 logger.info("Inserted personalData into database")
         except psycopg2.IntegrityError as e:
             logger.error("PersonalData with this UUID already exists")
-            # self.conn.rollback()
             traceback.print_exc()
         except Exception as e:
             logger.error(f"Error inserting personalData: {e}")
             logger.error(traceback.format_exc())
-            # self.conn.rollback()
 
     def exists_uuid(self, uuid: str) -> bool:
         """
@@ -197,7 +207,7 @@ class PersonalDataRepository:
                         else personal_data[0]
                     )
                 else:
-                    logger.warning("personalData was not found in db by uuid")
+                    logger.warning("pdl personalData was not found in db by uuid")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -223,7 +233,7 @@ class PersonalDataRepository:
                         else personal_data[0]
                     )
                 else:
-                    logger.warning("personalData was not found in db by uuid")
+                    logger.warning("apollo personalData was not found in db by uuid")
                     return None
         except Exception as e:
             logger.error(f"Error retrieving personal data: {e}", e)
@@ -367,6 +377,32 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
+    def get_profile_picture_url(self, uuid: str):
+        """
+        Retrieve the profile picture URL for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :return: Profile picture URL if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT apollo_personal_data -> 'photo_url'
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                profile_picture_url = cursor.fetchone()
+                if profile_picture_url:
+                    return profile_picture_url[0]
+                else:
+                    logger.warning("Profile was not found")
+                    return ""
+        except Exception as e:
+            logger.error(f"Error retrieving profile picture URL: {e}", e)
+            traceback.format_exc()
+            return None
+
     def update_pdl_personal_data(self, uuid, personal_data, status="FETCHED", name=None):
         """
         Save personal data to the database.
@@ -393,21 +429,24 @@ class PersonalDataRepository:
             # self.conn.rollback()
         return
 
-    def update_apollo_personal_data(self, uuid, personal_data):
+    def update_apollo_personal_data(self, uuid, personal_data, status="FETCHED"):
         """
         Save personal data to the database.
 
         :param uuid: Unique identifier for the personalData.
         :param personal_data: Personal data to save.
         """
+
+        logger.debug(f"Updating personal data for {uuid}, apollo_personal_data: {str(personal_data)[:300]}")
+
         update_query = """
         UPDATE personalData
-        SET apollo_personal_data = %s, apollo_last_updated = CURRENT_TIMESTAMP, apollo_status = 'FETCHED'
+        SET apollo_personal_data = %s, apollo_last_updated = CURRENT_TIMESTAMP, apollo_status = %s
         WHERE uuid = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(personal_data), uuid))
+                cursor.execute(update_query, (json.dumps(personal_data), status, uuid))
                 self.conn.commit()
                 logger.info("Updated personal data")
         except psycopg2.Error as e:
@@ -473,6 +512,33 @@ class PersonalDataRepository:
             # self.conn.rollback()
         return
 
+    def update_name_in_personal_data(self, uuid, name):
+        """
+        Update the name for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :param name: New name for the profile.
+        """
+        update_query = """
+        UPDATE personalData
+        SET name = %s
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (name, uuid))
+                self.conn.commit()
+                logger.info("Updated name")
+        except psycopg2.Error as e:
+            logger.error("Error updating name:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        except Exception as e:
+            logger.error("Error updating name:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        return
+
     def save_pdl_personal_data(self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"):
         """
         Save personal data to the database.
@@ -513,6 +579,9 @@ class PersonalDataRepository:
         :param personal_data: Personal data to save.
         """
         self.create_table_if_not_exists()
+        logger.debug(
+            f"Saving personal data for {person.uuid}, apollo_personal_data: {str(personal_data)[:300]}"
+        )
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -523,7 +592,7 @@ class PersonalDataRepository:
                 apollo_status=status,
             )
             return
-        self.update_apollo_personal_data(person.uuid, personal_data)
+        self.update_apollo_personal_data(person.uuid, personal_data, status)
         # This use case is for when we try to fetch personal data by email and fail and then someone updates
         # linkekdin url and we are able to fetch personal data but linkedin url is still missing from table
         if person and person.linkedin and not self.exists_linkedin_url(person.linkedin):

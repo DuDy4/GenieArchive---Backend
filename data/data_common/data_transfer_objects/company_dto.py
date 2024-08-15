@@ -101,7 +101,9 @@ class CompanyDTO:
             "challenges": self.challenges,
             "technologies": self.technologies,
             "employees": self.employees,
-            "news": [news_item.to_dict() for news_item in self.news] if self.news else None,
+            "news": [news_item.to_dict() for news_item in self.news if not isinstance(news_item, dict)]
+            if self.news
+            else None,
         }
 
     @staticmethod

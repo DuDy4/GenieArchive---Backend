@@ -8,11 +8,11 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
 
-def test_failed_to_enrich_email(email_address: str):
+def test_pdl_failed_to_enrich_email(email_address: str):
 
     test_data = {"email": email_address}
 
-    event = GenieEvent(topic=Topic.FAILED_TO_ENRICH_EMAIL, data=json.dumps(test_data), scope="public")
+    event = GenieEvent(topic=Topic.PDL_FAILED_TO_ENRICH_EMAIL, data=json.dumps(test_data), scope="public")
     event.send()
 
 

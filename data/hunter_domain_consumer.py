@@ -52,16 +52,16 @@ class HunterDomainConsumer(GenieConsumer):
         topic = event.properties.get(b"topic").decode("utf-8")
 
         match topic:
-            # case Topic.FAILED_TO_ENRICH_EMAIL:
+            # case Topic.PDL_FAILED_TO_ENRICH_EMAIL:
             #     logger.info("Handling failed attempt to enrich email")
-            #     await self.handle_failed_to_enrich_email(event)
+            #     await self.handle_PDL_FAILED_TO_ENRICH_email(event)
             case Topic.NEW_EMAIL_TO_PROCESS_DOMAIN:
                 logger.info("Handling new email to process domain")
                 await self.handle_company_from_domain(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
-    # async def handle_failed_to_enrich_email(self, event):
+    # async def handle_PDL_FAILED_TO_ENRICH_email(self, event):
     #     company, email_address = await self.handle_company_from_domain(event)
     #     employee = find_employee_by_email(email_address, company)
     #     if not employee:
@@ -121,7 +121,9 @@ class HunterDomainConsumer(GenieConsumer):
         logger.info(f"Company: {company}")
 
         if not company.overview or not company.challenges:
-            response = self.langsmith.run_prompt_company_overview_challenges({"company_data": company.to_dict()})
+            response = self.langsmith.run_prompt_company_overview_challenges(
+                {"company_data": company.to_dict()}
+            )
             logger.info(f"Response: {response}")
             overview = response.get("company_overview")
             challenges = response.get("challenges")

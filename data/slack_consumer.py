@@ -57,15 +57,18 @@ class SlackConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email = event_body.get("email")
-        company = self.company_repository.get_company_from_domain(email.split("@")[1])
+        domain = email.split("@")[1] if "@" in email else None
+        company = None
+        if domain:
+            company = self.company_repository.get_company_from_domain(email.split("@")[1])
         message = f"failed to identify info for email: {email}."
         if company:
             message += f"""
             We know that this domain is associated with a company {company.name}.
 
-            {"Company size: " + company.size if company.size else ""}
+            {"Company size: " + company.size if company and company.size else ""}
 
-            {company.overview if company.overview else ""}
+            {company.overview if company and company.overview else ""}
             """
         send_message(message)
 

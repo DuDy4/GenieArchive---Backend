@@ -574,7 +574,7 @@ def sync_profile(
         return JSONResponse(content={"error": "Person not found"})
     logger.info(f"Got person: {person}")
     if person.linkedin:
-        event = GenieEvent(Topic.NEW_CONTACT_TO_ENRICH, person.to_json(), "public")
+        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person.to_json(), "public")
         event.send()
     else:
         logger.error(f"Person does not have a LinkedIn URL")
