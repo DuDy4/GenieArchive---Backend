@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 logger = GenieLogger()
-
+from azure.monitor.opentelemetry import configure_azure_monitor
+configure_azure_monitor()
 from common.utils import env_utils
 
 load_dotenv()

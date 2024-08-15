@@ -2,6 +2,18 @@
 import logging
 logger = logging.getLogger("genie_logger")
 logger.setLevel(logging.DEBUG)
+# Suppress azure logs by setting their log level to WARNING
+logging.getLogger("azure.core").setLevel(logging.WARNING)
+logging.getLogger("azure.monitor").setLevel(logging.WARNING)
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
+log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
+logging.basicConfig(
+    level=logging.INFO,
+    format=log_format,
+    style="{"
+)
+#logger.propagate = False
 import uuid
 from contextvars import ContextVar
 
@@ -58,9 +70,7 @@ class GenieLogger:
         ctx_id = context_id.get()
         if ctx_id:
             message = f"[CTX={ctx_id}] {message}"
-        # self.logger.opt(depth=2).log(level, message, *args, **kwargs)
         self.logger.log(level, message, *args, **kwargs, stacklevel=3, extra=self.get_extra())
-        # self.logger.warn(message, *args, **kwargs, stacklevel=3)
 
     def info(self, message, *args, **kwargs):
         self.log(logging.INFO, message, *args, **kwargs)

@@ -6,7 +6,8 @@ import traceback
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
+from dotenv import load_dotenv
+load_dotenv()
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic

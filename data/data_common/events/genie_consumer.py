@@ -9,7 +9,10 @@ from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from common.genie_logger import GenieLogger
-
+from azure.monitor.opentelemetry import configure_azure_monitor
+from dotenv import load_dotenv
+load_dotenv()
+configure_azure_monitor()
 logger = GenieLogger()
 
 from common.utils import env_utils
