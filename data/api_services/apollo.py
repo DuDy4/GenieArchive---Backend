@@ -36,7 +36,7 @@ class ApolloClient:
         details = [{"email": email} for email in emails]
         data = {
             "reveal_personal_emails": True,
-            "reveal_phone_number": True,
+            "reveal_phone_number": False,
             "webhook_url": "https://your_webhook_site",
             "details": details,
         }
