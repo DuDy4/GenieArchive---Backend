@@ -714,16 +714,18 @@ def fetch_google_meetings(
     credentials = Credentials(token=access_token)
     service = build("calendar", "v3", credentials=credentials)
 
-    now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
-    logger.info(f"Fetching meetings starting from: {now}")
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+      # 'Z' indicates UTC time
+    now_minus_10_hours = (datetime.datetime.utcnow() - datetime.timedelta(hours=10)).isoformat() + "Z"
+    logger.info(f"[EMAIL={user_email}] Fetching meetings starting from: {now_minus_10_hours}")
 
     try:
         events_result = (
             service.events()
             .list(
                 calendarId="primary",
-                timeMin=now,
-                maxResults=25,
+                timeMin=now_minus_10_hours,
+                maxResults=30,
                 singleEvents=True,
                 orderBy="startTime",
             )
