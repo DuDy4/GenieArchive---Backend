@@ -170,6 +170,7 @@ class PersonManager(GenieConsumer):
                 logger.info(f"Person already has pdl personal data: {person}")
                 check_profile = await self.check_profile_data_from_person(person)
                 return {"status": "success"}
+            
 
             logger.info(f"Person found: {person}")
             event = GenieEvent(

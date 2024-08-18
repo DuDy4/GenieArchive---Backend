@@ -213,6 +213,48 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.print_exc()
             return None
+        
+    def should_do_personl_data_lookup(self, uuid: str) -> bool:
+        """
+        Check if a there's a potential for personal data update.
+        The reasons for additional data lookup are:
+        1. The last update was more than 30 days ago.
+        2. PDL data exists
+        3. Apollo data exists
+        4. LinkedIn URL exists
+
+        :param uuid: Unique identifier for the personalData.
+        :return: True if personalData exists, False otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+            SELECT 
+                CASE 
+                    WHEN pdl_status = 'TRIED_BUT_FAILED'
+                    AND pdl_last_updated > NOW() - INTERVAL '30 days'
+                    AND apollo_status = 'TRIED_BUT_FAILED'
+                    AND apollo_last_updated > NOW() - INTERVAL '30 days'
+                    AND (linkedin_url IS NULL OR linkedin_url = '')
+                    THEN true
+                    ELSE false
+                END AS update_failed_recently
+            FROM 
+                personaldata
+            WHERE 
+                uuid = %s; 
+
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                update_failed_recently = cursor.fetchone()
+                return not update_failed_recently[0]
+        except psycopg2.Error as e:
+            logger.error("Error checking for existing personalData:", e)
+            return False
+        except Exception as e:
+            logger.error("Error checking personalData existence:", e)
+            return False
 
     def get_apollo_personal_data(self, uuid: str) -> Optional[dict]:
         self.create_table_if_not_exists()
