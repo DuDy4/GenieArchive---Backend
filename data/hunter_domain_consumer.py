@@ -30,7 +30,7 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 load_dotenv()
 
-PERSON_PORT = env_utils.get("PERSON_PORT", 8000)
+
 API_KEY = env_utils.get("HUNTER_API_KEY")
 
 CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group"
@@ -52,52 +52,12 @@ class HunterDomainConsumer(GenieConsumer):
         topic = event.properties.get(b"topic").decode("utf-8")
 
         match topic:
-            # case Topic.PDL_FAILED_TO_ENRICH_EMAIL:
-            #     logger.info("Handling failed attempt to enrich email")
-            #     await self.handle_PDL_FAILED_TO_ENRICH_email(event)
             case Topic.NEW_EMAIL_TO_PROCESS_DOMAIN:
                 logger.info("Handling new email to process domain")
                 await self.handle_company_from_domain(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
-    # async def handle_PDL_FAILED_TO_ENRICH_email(self, event):
-    #     company, email_address = await self.handle_company_from_domain(event)
-    #     employee = find_employee_by_email(email_address, company)
-    #     if not employee:
-    #         logger.info(f"Employee not found for email: {email_address}")
-    #         self.send_fail_event(email_address, company)
-    #         return
-    #     # If found match employee, send event to create person
-    #     person = self.person_repository.get_person_by_email(email_address)
-    #     if employee.get("name") and "None " not in employee.get("name"):
-    #         person = PersonDTO(
-    #             uuid=person.uuid if person.uuid else get_uuid4(),
-    #             name=person.name if person.name else employee.get("last_name"),
-    #             email=person.email if person.email else employee.get("email"),
-    #             position=person.email if person.email else employee.get("position"),
-    #             company=company.name,
-    #             linkedin=person.email if person.email else employee.get("linkedin"),
-    #             timezone="",
-    #         )
-    #     elif employee.get("first_name"):
-    #         person = PersonDTO.from_hunter_employee(employee, company["organization"])
-    #     else:
-    #         # Should not reach here, but just in case
-    #         logger.error(f"Employee not found for email: {email_address}")
-    #         return
-    #     person_event = GenieEvent(topic=Topic.NEW_PERSON, data=person.to_json(), scope="public")
-    #     person_event.send()
-    #     return {"status": "success"}
-    #
-    # @staticmethod
-    # def send_fail_event(self, email_address: str, company: CompanyDTO = None):
-    #     event = GenieEvent(
-    #         topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
-    #         data={"email": email_address, "company": company.to_dict()},
-    #         scope="public",
-    #     )
-    #     event.send()
 
     async def handle_company_from_domain(self, event):
         event_body = event.body_as_str()
@@ -134,7 +94,7 @@ class HunterDomainConsumer(GenieConsumer):
 
         event = GenieEvent(
             topic=Topic.NEW_COMPANY_DATA,
-            data={"company_uuid": company.uuid},
+            data={"company_uuid": company.uuid, "company_name": company.name},
             scope="public",
         )
         event.send()
@@ -149,7 +109,7 @@ def get_domain_from_email(email: str) -> str:
 
 async def get_domain_info(email_address: str):
     """
-    Get domain information from Hunter API
+Get domain information from Hunter API
     Args:
         email_address (str): The email address to get domain information for.
     Returns:

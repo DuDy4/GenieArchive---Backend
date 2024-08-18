@@ -200,7 +200,7 @@ class PersonalDataRepository:
                 cursor.execute(select_query, (uuid,))
                 personal_data = cursor.fetchone()
                 if personal_data and personal_data[0]:
-                    logger.info(f"Got personal data from PDL: {str(personal_data)[:300]}")
+                    logger.info(f"Got PDL data from DB: {str(personal_data)[:300]}")
                     return (
                         json.loads(personal_data[0])
                         if isinstance(personal_data[0], str)

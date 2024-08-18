@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Optional, Union, List
 import psycopg2
 from common.genie_logger import GenieLogger
+from common.utils.json_utils import clean_json
 
 logger = GenieLogger()
 from pydantic import AnyUrl, ValidationError
@@ -65,7 +66,8 @@ class CompaniesRepository:
             technologies JSONB,
             employees JSONB,
             news JSONB,
-            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            news_last_updated TIMESTAMP 
         );
         """
         try:
@@ -84,9 +86,8 @@ class CompaniesRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
                 company = cursor.fetchone()
-                logger.debug(f"Company: {company}")
                 if company:
-                    logger.info(f"Got company with uuid {uuid}")
+                    logger.info(f"Got company with uuid {uuid} and name {company[1]}")
                     return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with uuid {uuid} does not exist")
                 return None
@@ -208,6 +209,24 @@ class CompaniesRepository:
             return company.uuid
         else:
             return self._insert(company)
+        
+    def get_news_last_updated(self, company_uuid):
+        select_query = """
+        SELECT news_last_updated FROM companies WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (company_uuid,))
+                last_updated = cursor.fetchone()
+                if last_updated:
+                    return last_updated[0]
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error getting news last updated: {error}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return None
 
     def save_news(self, uuid, news: Union[List[NewsData], List[dict]]):
         self.create_table_if_not_exists()
@@ -218,12 +237,12 @@ class CompaniesRepository:
         news_dicts = [n.to_dict() if isinstance(n, NewsData) else n for n in news]
         update_query = """
         UPDATE companies
-        SET news = %s, last_updated = CURRENT_TIMESTAMP
+        SET news = %s, news_last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(news_dicts), uuid))
+                cursor.execute(update_query, (clean_json(json.dumps(news_dicts)), uuid))
                 self.conn.commit()
                 logger.info(f"Updated news in database")
         except psycopg2.Error as error:
