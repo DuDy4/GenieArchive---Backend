@@ -6,6 +6,7 @@ from datetime import date
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 load_dotenv()
 from data.data_common.data_transfer_objects.company_dto import NewsData
 
