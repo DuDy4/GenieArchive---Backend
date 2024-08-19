@@ -31,7 +31,7 @@ class Tavily:
         if not topic:
             logger.error("Topic is missing")
             return
-        query = f"What are the lates updates about {topic}? Only return answers with a score of 0.8 and above"
+        query = f"What are the lates updates about the company {topic}? Only return answers with a score of 0.8 and above"
         response = tavily_client.search(query)
 
         news_list = []
