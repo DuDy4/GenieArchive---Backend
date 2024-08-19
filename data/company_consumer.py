@@ -67,9 +67,12 @@ class CompanyConsumer(GenieConsumer):
             tavily_client = Tavily()
             logger.info(f"Fetching new for company {company_name}")
             news_list = tavily_client.get_news(company_name)
-            logger.info(f"Fetched {len(news_list)} news for company {company_name}")
-            self.companies_repository.save_news(company_uuid, news_list)
-            logger.info(f"Company news for {company_name} updated")
+            if news_list and len(news_list) > 0:
+                logger.info(f"Fetched {len(news_list)} news for company {company_name}")
+                self.companies_repository.save_news(company_uuid, news_list)
+                logger.info(f"Company news for {company_name} updated")
+            else:
+                logger.info(f"No news found for company {company_name}")
             return {"status": "success"}
 
 
