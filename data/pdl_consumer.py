@@ -15,12 +15,15 @@ from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     companies_repository,
+    persons_repository,
 )
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.repositories.personal_data_repository import (
     PersonalDataRepository,
 )
+from data.data_common.repositories.companies_repository import CompaniesRepository
+from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from common.genie_logger import GenieLogger
@@ -44,7 +47,8 @@ class PDLConsumer(GenieConsumer):
         )
         self.personal_data_repository = personal_data_repository()
         self.pdl_client = create_pdl_client(self.personal_data_repository)
-        self.company_repository = companies_repository()
+        self.company_repository: CompaniesRepository = companies_repository()
+        self.persons_repository: PersonsRepository = persons_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -265,6 +269,17 @@ class PDLConsumer(GenieConsumer):
             else:
                 personal_data = self.pdl_client.get_single_profile_from_email_address(email)
                 if not personal_data:
+                    person = self.persons_repository.get_person(existing_uuid)
+                    if not person:
+                        person = PersonDTO(
+                            uuid=existing_uuid,
+                            name="",
+                            email=email,
+                            linkedin="",
+                            company="",
+                            position="",
+                            timezone="",
+                        )
                     self.personal_data_repository.save_pdl_personal_data(
                         person=person,
                         personal_data=None,
@@ -315,9 +330,7 @@ class PDLConsumer(GenieConsumer):
                 uuid = get_uuid4()
             person = self.pdl_client.create_person_from_personal_data(uuid)
             logger.info(f"Created person from personal data: {person}")
-            self.personal_data_repository.save_pdl_personal_data(
-                person=person, email=email, personal_data=personal_data
-            )
+            self.personal_data_repository.save_pdl_personal_data(person=person, personal_data=personal_data)
 
             person = self.pdl_client.create_person_from_personal_data(uuid)
             logger.info(f"Created person from personal data: {person}")
