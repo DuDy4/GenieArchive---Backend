@@ -11,6 +11,7 @@ from datetime import datetime
 from common.utils.json_utils import clean_json
 from data.api_services.tavily_client import Tavily
 from dotenv import load_dotenv
+
 load_dotenv()
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
@@ -24,6 +25,7 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 CONSUMER_GROUP = "company_consumer_group"
 COMPANY_LAST_UPDATE_INTERVAL_SECONDS = 30 * 24 * 60 * 60  # 30 Days
+
 
 class CompanyConsumer(GenieConsumer):
     def __init__(
@@ -55,13 +57,16 @@ class CompanyConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         company_uuid = event_body.get("company_uuid")
         if company_uuid:
-            compant_dto = self.companies_repository.get_company(company_uuid)
-            if not compant_dto:
+            company_dto = self.companies_repository.get_company(company_uuid)
+            if not company_dto:
                 logger.error(f"Company not found for uuid: {company_uuid}")
                 return
-            company_name = compant_dto.name
+            company_name = company_dto.name
             news_last_update = self.companies_repository.get_news_last_updated(company_uuid)
-            if news_last_update and (datetime.now() - news_last_update).total_seconds() < COMPANY_LAST_UPDATE_INTERVAL_SECONDS :
+            if (
+                news_last_update
+                and (datetime.now() - news_last_update).total_seconds() < COMPANY_LAST_UPDATE_INTERVAL_SECONDS
+            ):
                 logger.info(f"Company news for {company_name} is up to date")
                 return {"status": "success"}
             tavily_client = Tavily()
