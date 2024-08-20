@@ -25,6 +25,7 @@ class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
     email: Optional[str]
+    profile_picture: Optional[str]
 
     @staticmethod
     def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
@@ -37,6 +38,15 @@ class MiniProfileResponse(BaseModel):
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
             email=person.email if person.uuid == str(profile.uuid) else None,
+        )
+
+    @staticmethod
+    def from_dict(data: Dict):
+        return MiniProfileResponse(
+            uuid=data["uuid"],
+            name=data["name"],
+            email=data.get("email", None),
+            profile_picture=data.get("profile_picture", None),
         )
 
 
@@ -195,3 +205,91 @@ class MeetingResponse(BaseModel):
 
 class MeetingsListResponse(BaseModel):
     meetings: List[MeetingResponse]
+
+
+class MeetingCompany(BaseModel):
+    name: str
+    overview: str
+    size: str
+    industry: str
+    country: str
+    annual_revenue: str
+    total_funding: str
+    last_raised_at: str
+    main_costumers: str
+    main_competitors: str
+    technologies: List[str]
+    challenges: List[Challenge]
+    news: List[NewsData]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            name=data.get("name", ""),
+            overview=data.get("overview", ""),
+            size=data.get("size", ""),
+            industry=data.get("industry", ""),
+            country=data.get("country", ""),
+            annual_revenue=data.get("annual_revenue", ""),
+            total_funding=data.get("total_funding", ""),
+            last_raised_at=data.get("last_raised_at", ""),
+            main_costumers=data.get("main_costumers", ""),
+            main_competitors=data.get("main_competitors", ""),
+            technologies=data.get("technologies", []),
+            challenges=data.get("challenges", []),
+            news=data.get("news", []),
+        )
+
+
+class Guideline(BaseModel):
+    text: str
+    duration: str
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            text=data.get("text", ""),
+            time=data.get("duration", ""),
+        )
+
+
+class GuideLines(BaseModel):
+    total_duration: str
+    guidelines: List[Guideline]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            time=data.get("time", ""),
+            guidelines=[Guideline.from_dict(guideline) for guideline in data.get("guidelines", [])],
+        )
+
+
+class MiniMeeting(BaseModel):
+    subject: str
+    video_link: str
+    guidelines: GuideLines
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            subject=data.get("subject", ""),
+            video_link=data.get("video_link", ""),
+            guidelines=data.get("guidelines", ""),
+        )
+
+
+class MeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
+    company: MeetingCompany
+    participants: List[MiniProfileResponse]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            meeting=MiniMeeting.from_dict(data.get("meeting", {})),
+            company=MeetingCompany.from_dict(data.get("company", {})),
+            participants=[
+                MiniProfileResponse.from_dict(participant) for participant in data.get("participants", [])
+            ],
+        )

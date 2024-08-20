@@ -73,7 +73,7 @@ GOOGLE_CLIENT_ID = env_utils.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env_utils.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
-DEFAULT_INTERNAL_API_KEY="g3n13admin"
+DEFAULT_INTERNAL_API_KEY = "g3n13admin"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -108,7 +108,7 @@ def get_user(request: Request):
 
 
 @v1_router.post("/successful-login")
-async def post_social_auth_data(
+async def post_successful_login(
     request: Request,
     google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
@@ -543,7 +543,7 @@ def get_work_experience(
     if fixed_experience:
         short_fixed_experience = fixed_experience[:10]
         return JSONResponse(content=(to_custom_title_case(short_fixed_experience)))
-        
+
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -578,8 +578,8 @@ def sync_profile(
 
 @v1_router.get("/internal/sync-email/{person_uuid}")
 def sync_profile(
-    person_uuid: str, 
-    api_key: str, 
+    person_uuid: str,
+    api_key: str,
     persons_repository: PersonsRepository = Depends(persons_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
 ) -> JSONResponse:
@@ -599,7 +599,7 @@ def sync_profile(
         logger.error(f"Person not found: {person_uuid}")
         return JSONResponse(content={"error": "Person not found"})
     logger.info(f"Got person: {person}")
-    tenants = ownerships_repository.get_tenants_for_person(person_uuid)   
+    tenants = ownerships_repository.get_tenants_for_person(person_uuid)
     if not tenants or len(tenants) == 0:
         logger.error(f"Person does not have any tenants: {person_uuid}")
         return JSONResponse(content={"error": "Person does not have any tenants"})
@@ -679,6 +679,144 @@ def get_meeting_info(
 
 
 @v1_router.get(
+    "/{tenant_id}/meeting-overview/{meeting_uuid}",
+    response_model=MeetingOverviewResponse,
+)
+def get_meeting_overview(
+    tenant_id: str,
+    meeting_uuid: str,
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+) -> MeetingOverviewResponse:
+    """
+    Get the meeting information.
+
+    - **tenant_id**: Tenant ID
+    - **meeting_id**: Meeting ID
+    """
+    logger.info(f"Got meeting info request for meeting: {meeting_uuid}")
+
+    meeting = meetings_repository.get_meeting_data(meeting_uuid)
+    if not meeting:
+        return JSONResponse(content={"error": "Meeting not found"})
+
+    if meeting.tenant_id != tenant_id:
+        return JSONResponse(content={"error": "Tenant mismatch"})
+
+    participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
+    host_email_list = [email.email_address for email in participants if email.self]
+    host_email = host_email_list[0] if host_email_list else None
+    logger.debug(f"Host email: {host_email}")
+    filtered_participants_emails = MeetingManager.filter_emails(host_email, participants)
+    logger.info(f"Filtered participants: {filtered_participants_emails}")
+
+    domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
+    domain_emails = list(set(domain_emails))
+    logger.info(f"Domain emails: {domain_emails}")
+
+    companies = []
+
+    for domain in domain_emails:
+        company = companies_repository.get_company_from_domain(domain)
+        logger.info(f"Company: {company}")
+        company_response = CompanyResponse.from_company_dto(company)
+        # company_dict = company.to_dict()
+        # if company:
+        #     company_dict.pop("uuid")
+        #     company_dict.pop("domain")
+        #     company_dict.pop("employees")
+        #     companies.append(company_dict)
+        companies.append(company_response)
+
+    logger.info(f"Companies: {companies}")
+
+    meeting_dict = meeting.to_dict()
+    meeting_dict.pop("participants_hash")
+    meeting_dict.pop("tenant_id")
+    meeting_dict.pop("google_calendar_id")
+    meeting_dict["companies"] = companies
+
+    return MeetingOverviewResponse.from_dict(meeting_dict)
+
+
+@v1_router.get(
+    "/{tenant_id}/meeting-overview-mock/{meeting_uuid}",
+    response_model=MeetingOverviewResponse,
+)
+def get_meeting_overview(
+    tenant_id: str,
+    meeting_uuid: str,
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+) -> MeetingOverviewResponse:
+    """
+    Get the meeting information.
+
+    - **tenant_id**: Tenant ID
+    - **meeting_id**: Meeting ID
+    """
+    meeting_dict = {
+        "meeting": {
+            "subject": "Quarterly Business Review",
+            "video_link": "https://example.com/video",
+            "guidelines": {
+                "total_duration": "60m",
+                "guidelines": [
+                    {"text": "Review the financial report.", "duration": "15m"},
+                    {"text": "Prepare questions for the Q&A session.", "duration": "30m"},
+                ],
+            },
+        },
+        "company": {
+            "name": "Tech Innovators Inc.",
+            "overview": "A leading company in tech innovation.",
+            "size": "500-1000",
+            "industry": "Technology",
+            "country": "USA",
+            "annual_revenue": "100M-500M",
+            "total_funding": "50M",
+            "last_raised_at": "2023-06-15",
+            "main_costumers": "Fortune 500 companies",
+            "main_competitors": "Tech Giants Ltd.",
+            "technologies": ["Artificial Intelligence", "Machine Learning", "Cloud Computing"],
+            "challenges": [
+                {
+                    "challenge_name": "Scalability",
+                    "reasoning": "The company is expanding rapidly.",
+                    "score": 8,
+                }
+            ],
+            "news": [
+                {
+                    "date": "2024-08-20",
+                    "link": "https://example.com/news-article",
+                    "media": "TechNews",
+                    "title": "Tech Innovators Inc. announces new AI platform",
+                    "summary": "The company has launched a new AI platform that will revolutionize the industry.",
+                }
+            ],
+        },
+        "participants": [
+            {
+                "uuid": "123e4567-e89b-12d3-a456-426614174000",
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "profile_picture": "https://example.com/profile-picture.jpg",
+            },
+            {
+                "uuid": "987e6543-e21b-12d3-a456-426614174001",
+                "name": "Jane Smith",
+                "email": "jane.smith@example.com",
+                "profile_picture": "https://example.com/profile-picture2.jpg",
+            },
+        ],
+    }
+    return MeetingOverviewResponse.from_dict(meeting_dict)
+
+
+@v1_router.get(
     "/google/meetings/{user_email}",
     response_class=JSONResponse,
     summary="Fetches all Google Calendar meetings for a tenant",
@@ -715,7 +853,7 @@ def fetch_google_meetings(
     service = build("calendar", "v3", credentials=credentials)
 
     now = datetime.datetime.utcnow().isoformat() + "Z"
-      # 'Z' indicates UTC time
+    # 'Z' indicates UTC time
     now_minus_10_hours = (datetime.datetime.utcnow() - datetime.timedelta(hours=10)).isoformat() + "Z"
     logger.info(f"[EMAIL={user_email}] Fetching meetings starting from: {now_minus_10_hours}")
 
