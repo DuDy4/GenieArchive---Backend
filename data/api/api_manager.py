@@ -680,7 +680,7 @@ def get_meeting_info(
 
 @v1_router.get(
     "/{tenant_id}/meeting-overview/{meeting_uuid}",
-    response_model=MeetingOverviewResponse,
+    response_model=MiniMeetingOverviewResponse,
 )
 def get_meeting_overview(
     tenant_id: str,
@@ -688,7 +688,7 @@ def get_meeting_overview(
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> MeetingOverviewResponse:
+) -> MiniMeetingOverviewResponse:
     """
     Get the meeting information.
 
@@ -703,6 +703,25 @@ def get_meeting_overview(
 
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"})
+
+    meeting_dict = meeting.to_dict()
+    if not meeting_dict.get("guidelines"):
+        mock_guidelines = {
+            "total_duration": "60m",
+            "guidelines": [
+                {"text": "Small talk", "duration": "5m"},
+                {"text": "Review the financial report", "duration": "10m"},
+                {"text": "Prepare questions for the Q&A session", "duration": "30m"},
+                {"text": "Discuss the marketing strategy", "duration": "15m"},
+            ],
+        }
+    meeting_to_send = {
+        "subject": meeting.subject,
+        "video_link": meeting.link,
+        "guidelines": meeting_dict.get("guidelines") if meeting_dict.get("guidelines") else mock_guidelines,
+    }
+    mini_meeting = MiniMeeting.from_dict(meeting_to_send)
+    logger.info(f"Mini meeting: {mini_meeting}")
 
     participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
     host_email_list = [email.email_address for email in participants if email.self]
@@ -730,21 +749,45 @@ def get_meeting_overview(
         companies.append(company_response)
 
     logger.info(f"Companies: {companies}")
+    mini_company = {}
+    if companies:
+        company = companies[0]
+        news = []
+        domain = company.domain
+        for new in company.news:
+            link = str(new.link)
+            if domain not in link:
+                news.append(new)
+        company.news = news[:3]
 
-    meeting_dict = meeting.to_dict()
-    meeting_dict.pop("participants_hash")
-    meeting_dict.pop("tenant_id")
-    meeting_dict.pop("google_calendar_id")
-    meeting_dict["companies"] = companies
+        mini_company = MiniMeetingCompany.from_company_dto(company)
+    else:
+        logger.error("No companies found")
+    logger.info(f"Company: {mini_company}")
 
-    return MeetingOverviewResponse.from_dict(meeting_dict)
+    mini_participants = []
+
+    for participant in filtered_participants_emails:
+        profile = profiles_repository.get_profile_data_by_email(participant)
+        if profile:
+            profile_response = MiniProfileResponse.from_profile_dto_and_email(profile, participant)
+            logger.info(f"Profile: {profile_response}")
+            mini_participants.append(profile_response)
+
+    logger.info(f"Meeting participants: {mini_participants}")
+
+    return MiniMeetingOverviewResponse(
+        meeting=mini_meeting,
+        company=mini_company,
+        participants=mini_participants,
+    )
 
 
 @v1_router.get(
     "/{tenant_id}/meeting-overview-mock/{meeting_uuid}",
     response_model=MeetingOverviewResponse,
 )
-def get_meeting_overview(
+def get_meeting_overview_mock(
     tenant_id: str,
     meeting_uuid: str,
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
@@ -764,8 +807,8 @@ def get_meeting_overview(
             "guidelines": {
                 "total_duration": "60m",
                 "guidelines": [
-                    {"text": "Review the financial report.", "duration": "15m"},
-                    {"text": "Prepare questions for the Q&A session.", "duration": "30m"},
+                    {"text": "Review the financial report", "duration": "15m"},
+                    {"text": "Prepare questions for the Q&A session", "duration": "30m"},
                 ],
             },
         },
@@ -803,13 +846,13 @@ def get_meeting_overview(
                 "uuid": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "John Doe",
                 "email": "john.doe@example.com",
-                "profile_picture": "https://example.com/profile-picture.jpg",
+                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
             },
             {
                 "uuid": "987e6543-e21b-12d3-a456-426614174001",
                 "name": "Jane Smith",
                 "email": "jane.smith@example.com",
-                "profile_picture": "https://example.com/profile-picture2.jpg",
+                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
             },
         ],
     }

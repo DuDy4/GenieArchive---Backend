@@ -42,6 +42,18 @@ class MiniProfileResponse(BaseModel):
         )
 
     @staticmethod
+    def from_profile_dto_and_email(profile: ProfileDTO, email: str):
+        if not profile:
+            logger.error("Profile is None")
+            return None
+        return MiniProfileResponse(
+            uuid=str(profile.uuid),
+            name=titleize_name(str(profile.name)),
+            email=email,
+            profile_picture=str(profile.picture_url) if profile.picture_url else None,
+        )
+
+    @staticmethod
     def from_dict(data: Dict):
         return MiniProfileResponse(
             uuid=data["uuid"],
@@ -214,11 +226,11 @@ class MeetingCompany(BaseModel):
     size: str
     industry: str
     country: str
-    annual_revenue: str
-    total_funding: str
-    last_raised_at: str
-    main_costumers: str
-    main_competitors: str
+    annual_revenue: Optional[str]
+    total_funding: Optional[str]
+    last_raised_at: Optional[str]
+    main_costumers: Optional[str]
+    main_competitors: Optional[str]
     technologies: List[str]
     challenges: List[Challenge]
     news: List[NewsData]
@@ -239,6 +251,65 @@ class MeetingCompany(BaseModel):
             technologies=data.get("technologies", []),
             challenges=data.get("challenges", []),
             news=data.get("news", []),
+        )
+
+    @classmethod
+    def from_company_dto(cls, company: CompanyDTO):
+        return cls(
+            name=company.name,
+            overview=company.overview,
+            size=company.size,
+            industry=company.industry,
+            country=company.country,
+            annual_revenue=company.annual_revenue,
+            total_funding=company.total_funding,
+            last_raised_at=company.last_raised_at,
+            main_costumers=company.main_costumers,
+            main_competitors=company.main_competitors,
+            technologies=company.technologies,
+            challenges=company.challenges,
+            news=company.news,
+        )
+
+
+class MiniMeetingCompany(BaseModel):
+    name: str
+    overview: str
+    size: str
+    technologies: List[str]
+    challenges: List[Challenge]
+    news: List[NewsData]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            name=data.get("name", ""),
+            overview=data.get("overview", ""),
+            size=data.get("size", ""),
+            technologies=data.get("technologies", []),
+            challenges=data.get("challenges", []),
+            news=data.get("news", []),
+        )
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "overview": self.overview,
+            "size": self.size,
+            "technologies": self.technologies,
+            "challenges": self.challenges,
+            "news": self.news,
+        }
+
+    @classmethod
+    def from_company_dto(cls, company: CompanyDTO):
+        return cls(
+            name=company.name,
+            overview=company.overview,
+            size=company.size,
+            technologies=company.technologies,
+            challenges=company.challenges,
+            news=company.news,
         )
 
 
@@ -269,7 +340,7 @@ class GuideLines(BaseModel):
 class MiniMeeting(BaseModel):
     subject: str
     video_link: str
-    guidelines: GuideLines
+    guidelines: Optional[GuideLines]
 
     @classmethod
     def from_dict(cls, data: Dict):
@@ -278,6 +349,36 @@ class MiniMeeting(BaseModel):
             video_link=data.get("video_link", ""),
             guidelines=data.get("guidelines", ""),
         )
+
+    def to_dict(self):
+        return {
+            "subject": self.subject,
+            "video_link": self.video_link,
+            "guidelines": self.guidelines,
+        }
+
+
+class MiniMeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
+    company: MiniMeetingCompany
+    participants: List[MiniProfileResponse]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            meeting=MiniMeeting.from_dict(data.get("meeting", {})),
+            company=MeetingCompany.from_dict(data.get("company", {})),
+            participants=[
+                MiniProfileResponse.from_dict(participant) for participant in data.get("participants", [])
+            ],
+        )
+
+    def to_dict(self):
+        return {
+            "meeting": self.meeting.to_dict(),
+            "company": self.company.to_dict(),
+            "participants": [participant.to_dict() for participant in self.participants],
+        }
 
 
 class MeetingOverviewResponse(BaseModel):
