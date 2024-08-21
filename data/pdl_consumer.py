@@ -260,6 +260,7 @@ class PDLConsumer(GenieConsumer):
                 personal_data = personal_data_in_repo
                 data_to_transfer = {
                     "person": person.to_dict(),
+                    "tenant_id": tenant_id,
                 }
                 event = GenieEvent(Topic.PDL_UP_TO_DATE_ENRICHED_DATA, data_to_transfer, "public")
                 event.send()
