@@ -168,9 +168,9 @@ class PersonManager(GenieConsumer):
             apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
             if pdl_personal_data or apollo_personal_data:
                 logger.info(f"Person already has pdl personal data: {person}")
+                self.ownerships_repository.save_ownership(person.uuid, tenant_id)
                 check_profile = await self.check_profile_data_from_person(person)
                 return {"status": "success"}
-            
 
             logger.info(f"Person found: {person}")
             event = GenieEvent(
@@ -510,6 +510,10 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
+        tenant_id = event_body.get("tenant_id")
+        logger.debug(f"Person: {person}, Tenant: {tenant_id}")
+        self.ownerships_repository.save_ownership(person.uuid, tenant_id)
+
         result = await self.check_profile_data_from_person(person)
         logger.info(f"Result: {result}")
         return {"status": "success"}
@@ -545,8 +549,10 @@ class PersonManager(GenieConsumer):
                 profile.picture_url = self.personal_data_repository.get_profile_picture(person.uuid)
                 logger.info(f"Updated profile picture url: {profile.picture_url}")
             if not profile.strengths and fetched_personal_data:
-                logger.info(f"Profile does not have strengths, sending event to langsmith. Email: {person.email}")
-                data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}    
+                logger.info(
+                    f"Profile does not have strengths, sending event to langsmith. Email: {person.email}"
+                )
+                data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
                 GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public").send()
             return {"status": "success"}
         except ValidationError as e:
