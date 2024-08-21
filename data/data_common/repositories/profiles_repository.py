@@ -16,6 +16,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     UUID,
 )
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -52,13 +53,13 @@ class ProfilesRepository:
             logger.error(f"Error creating table: {error}")
             traceback.print_exc()
 
-
     def save_new_profile_from_person(self, person: PersonDTO):
         self.create_table_if_not_exists()
         logger.debug(f"About to save profile from person: {person}")
-        profile = ProfileDTO(uuid=person.uuid, name=person.name, company=person.company, position=person.position)
+        profile = ProfileDTO(
+            uuid=person.uuid, name=person.name, company=person.company, position=person.position
+        )
         self.save_profile(profile)
-
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
@@ -120,9 +121,7 @@ class ProfilesRepository:
                     strengths = [Strength.from_dict(item) for item in row[4]]
                     hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                     connections = [Connection.from_dict(item) for item in row[6]]
-                    get_to_know = {
-                        k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()
-                    }
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
                     profile_data = (
                         uuid,
                         name,
@@ -153,9 +152,7 @@ class ProfilesRepository:
         :return: List of ProfileDTO objects.
         """
         try:
-            logger.debug(
-                f"About to get profiles from list: {uuids} with search: {search}"
-            )
+            logger.debug(f"About to get profiles from list: {uuids} with search: {search}")
             with self.conn.cursor() as cursor:
                 if search:
                     select_query = """
@@ -209,9 +206,7 @@ class ProfilesRepository:
 
                     # Ensure hobbies is a list of UUIDs
                     hobbies = (
-                        [UUID(hobby) for hobby in json.loads(row[5])]
-                        if isinstance(row[5], str)
-                        else row[5]
+                        [UUID(hobby) for hobby in json.loads(row[5])] if isinstance(row[5], str) else row[5]
                     )
                     logger.debug(f"Hobbies: {hobbies}")
 
@@ -225,10 +220,7 @@ class ProfilesRepository:
 
                     # Ensure get_to_know is a dictionary with lists of Phrase objects
                     get_to_know = (
-                        {
-                            k: [Phrase.from_dict(p) for p in v]
-                            for k, v in json.loads(row[7]).items()
-                        }
+                        {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
                         if isinstance(row[7], str)
                         else row[7]
                     )
@@ -262,6 +254,50 @@ class ProfilesRepository:
             traceback.print_exc()
             return []
 
+    def get_profile_data_by_email(self, email: str) -> Union[ProfileDTO, None]:
+        select_query = """
+        SELECT profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid
+        WHERE persons.email = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got {row[0]} from database")
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[8] if row[8] else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                    profile_data = (
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    return ProfileDTO.from_tuple(profile_data)
+                else:
+                    logger.error(f"Error with getting profile data for {email}")
+                    traceback.print_exc()
+        except Exception as error:
+            logger.error(f"Error fetching profile data by email: {error}")
+            traceback.print_exc()
+        return None
+
     def get_hobbies_by_email(self, email: str) -> list:
         if not email:
             return None
@@ -279,9 +315,7 @@ class ProfilesRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} hobbies from database")
-                    hobbies = [
-                        Hobby(hobby_name=row[0], icon_url=row[1]) for row in rows
-                    ]
+                    hobbies = [Hobby(hobby_name=row[0], icon_url=row[1]) for row in rows]
                     return hobbies
                 else:
                     logger.info(f"Could not find hobbies for {email}")
@@ -389,27 +423,19 @@ class ProfilesRepository:
             profile_dict["name"],
             profile_dict["company"],
             profile_dict["position"],
-            json.dumps(
-                [
-                    s if isinstance(s, dict) else s.to_dict()
-                    for s in profile_dict["strengths"]
-                ]
-            ),
+            json.dumps([s if isinstance(s, dict) else s.to_dict() for s in profile_dict["strengths"]]),
             json.dumps(profile_dict["hobbies"]),
-            json.dumps(
-                [
-                    c if isinstance(c, dict) else c.to_dict()
-                    for c in profile_dict["connections"]
-                ]
-            ),
+            json.dumps([c if isinstance(c, dict) else c.to_dict() for c in profile_dict["connections"]]),
             json.dumps(
                 {
                     k: [p if isinstance(p, dict) else p.to_dict() for p in v]
                     for k, v in profile_dict["get_to_know"].items()
                 }
             ),
-            profile_dict["summary"] if profile_dict["summary"] else '',
-            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png',
+            profile_dict["summary"] if profile_dict["summary"] else "",
+            str(profile_dict["picture_url"])
+            if profile_dict["picture_url"]
+            else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png",
         )
 
         try:
@@ -433,19 +459,9 @@ class ProfilesRepository:
             profile_dict["name"],
             profile_dict["company"],
             profile_dict["position"],
-            json.dumps(
-                [
-                    s if isinstance(s, dict) else s.to_dict()
-                    for s in profile_dict["strengths"]
-                ]
-            ),
+            json.dumps([s if isinstance(s, dict) else s.to_dict() for s in profile_dict["strengths"]]),
             json.dumps(profile_dict["hobbies"]),
-            json.dumps(
-                [
-                    c if isinstance(c, dict) else c.to_dict()
-                    for c in profile_dict["connections"]
-                ]
-            ),
+            json.dumps([c if isinstance(c, dict) else c.to_dict() for c in profile_dict["connections"]]),
             json.dumps(
                 {
                     k: [p if isinstance(p, dict) else p.to_dict() for p in v]
