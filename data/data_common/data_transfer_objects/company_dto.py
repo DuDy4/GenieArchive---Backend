@@ -58,11 +58,14 @@ class NewsData(BaseModel):
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "NewsData":
-        if "date" in data:
-            data["date"] = date.fromisoformat(data["date"])
-        if "link" in data:
-            data["link"] = HttpUrl(data["link"])
-        return cls(**data)
+        data = titleize_values(data)
+        return cls(
+            date=data.get("date"),
+            link=data.get("link"),
+            media=data.get("media"),
+            title=data.get("title"),
+            summary=data.get("summary"),
+        )
 
 
 class CompanyDTO:
