@@ -38,6 +38,7 @@ class MiniProfileResponse(BaseModel):
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
             email=person.email if person.uuid == str(profile.uuid) else None,
+            profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
     @staticmethod
