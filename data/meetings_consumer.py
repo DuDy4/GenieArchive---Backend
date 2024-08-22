@@ -52,8 +52,14 @@ class MeetingManager(GenieConsumer):
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
+        logger.debug(f"Meeting: {meeting}")
+        meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
+            meeting.google_calendar_id
+        )
+        if self.check_same_meeting(meeting, meeting_in_database):
+            logger.info("Meeting already in database")
+            return
         self.meeting_repository.save_meeting(meeting)
-        logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
         emails_to_process = MeetingManager.filter_email_objects(meeting.participants_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
@@ -124,6 +130,30 @@ class MeetingManager(GenieConsumer):
                 final_list.append(email)
         logger.info(f"Final list: {final_list}")
         return final_list
+
+    def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
+        logger.debug(f"About to check if meetings are the same: {meeting}, {meeting_in_database}")
+        if not meeting_in_database:
+            return False
+        if meeting.start_time != meeting_in_database.start_time:
+            return False
+        # logger.debug(f"Meeting start times are the same")
+        if meeting.end_time != meeting_in_database.end_time:
+            return False
+        # logger.debug(f"Meeting end times are the same")
+        if meeting.location != meeting_in_database.location:
+            return False
+        # logger.debug(f"Meeting locations are the same")
+        if meeting.subject != meeting_in_database.subject:
+            return False
+        # logger.debug(f"Meeting subjects are the same")
+        if meeting.link != meeting_in_database.link:
+            return False
+        # logger.debug(f"Meeting links are the same")
+        if meeting.participants_hash != meeting_in_database.participants_hash:
+            return False
+        # logger.debug(f"Meeting participants hashes are the same")
+        return True
 
 
 if __name__ == "__main__":
