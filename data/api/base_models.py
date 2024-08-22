@@ -275,7 +275,7 @@ class MeetingCompany(BaseModel):
 class MiniMeetingCompany(BaseModel):
     name: str
     overview: str
-    size: str
+    size: Optional[str] | None
     technologies: List[str]
     challenges: List[Challenge]
     news: List[NewsData]
