@@ -577,7 +577,7 @@ def sync_profile(
 
 
 @v1_router.get("/internal/sync-email/{person_uuid}")
-def sync_profile(
+def sync_email(
     person_uuid: str,
     api_key: str,
     persons_repository: PersonsRepository = Depends(persons_repository),
