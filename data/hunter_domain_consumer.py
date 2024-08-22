@@ -58,7 +58,6 @@ class HunterDomainConsumer(GenieConsumer):
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
-
     async def handle_company_from_domain(self, event):
         event_body = event.body_as_str()
         logger.info(f"Event body: {event_body}")
@@ -109,21 +108,18 @@ def get_domain_from_email(email: str) -> str:
 
 async def get_domain_info(email_address: str):
     """
-Get domain information from Hunter API
-    Args:
-        email_address (str): The email address to get domain information for.
-    Returns:
-        dict: The domain information.
+    Get domain information from Hunter API
+        Args:
+            email_address (str): The email address to get domain information for.
+        Returns:
+            dict: The domain information.
     """
     domain = get_domain_from_email(email_address)
-
-    logger.info(f"Domain: {domain}, API Key: {API_KEY}")
-
     response = requests.get(f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={API_KEY}")
 
     logger.info(f"Response: {response}")
     data = response.json()
-    logger.info(f"Data: {data}")
+    logger.info(f"Hunter data: {data}")
 
     return data
 
