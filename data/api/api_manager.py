@@ -705,20 +705,10 @@ def get_meeting_overview(
         return JSONResponse(content={"error": "Tenant mismatch"})
 
     meeting_dict = meeting.to_dict()
-    if not meeting_dict.get("guidelines"):
-        mock_guidelines = {
-            "total_duration": "60m",
-            "guidelines": [
-                {"text": "Small talk", "duration": "5m"},
-                {"text": "Review the financial report", "duration": "10m"},
-                {"text": "Prepare questions for the Q&A session", "duration": "30m"},
-                {"text": "Discuss the marketing strategy", "duration": "15m"},
-            ],
-        }
     meeting_to_send = {
         "subject": meeting.subject,
         "video_link": meeting.link,
-        "guidelines": meeting_dict.get("guidelines") if meeting_dict.get("guidelines") else mock_guidelines,
+        "guidelines": meeting_dict.get("guidelines") if meeting_dict.get("guidelines") else None,
     }
     mini_meeting = MiniMeeting.from_dict(meeting_to_send)
     logger.info(f"Mini meeting: {mini_meeting}")
