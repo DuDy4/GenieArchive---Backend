@@ -56,6 +56,7 @@ class PersonManager(GenieConsumer):
                 Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 Topic.PDL_UP_TO_DATE_ENRICHED_DATA,
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
+                Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -103,6 +104,9 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_PROCESSED_PROFILE:
                 logger.info("Handling new processed data")
                 await self.handle_new_processed_profile(event)
+            case Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON:
+                logger.info("Handling already failed to enrich person")
+                await self.handle_pdl_already_failed_to_enrich_person(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -501,6 +505,43 @@ class PersonManager(GenieConsumer):
         logger.info("Saved new processed data to profiles_repository")
         return {"status": "success"}
 
+    async def handle_pdl_already_failed_to_enrich_person(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person_dict = event_body.get("person")
+        if isinstance(person_dict, str):
+            person_dict = json.loads(person_dict)
+        person = PersonDTO.from_dict(person_dict)
+        if not person:
+            logger.error(f"Person not found in event body: {event_body}")
+            return {"error": "Person not found in event body"}
+        apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+        if apollo_personal_data:
+            logger.info(f"Person already has apollo personal data: {person.email}")
+            person = self.verify_person_with_apollo_data(person)
+            self.persons_repository.save_person(person)
+            return self.check_profile_data_from_person(person)
+        apollo_status = self.personal_data_repository.get_apollo_status(person.uuid)
+        if apollo_status == self.personal_data_repository.TRIED_BUT_FAILED:
+            logger.info(f"Person already tried to get apollo data: {person.email}")
+            return {"status": "failure"}
+        elif apollo_status == self.personal_data_repository.FETCHED:
+            logger.info(f"Person already has apollo data: {person.email}")
+            return {"status": "success"}
+
+        elif not apollo_status:
+            logger.info(f"Person has not tried to get apollo data: {person.email}")
+            event = GenieEvent(
+                Topic.APOLLO_NEW_PERSON_TO_ENRICH,
+                data={"person": person.to_dict()},
+                scope="public",
+            )
+            event.send()
+            logger.info(f"Sent 'apollo' event to the event queue")
+            return {"status": "success"}
+
     async def check_profile_data(self, event):
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
@@ -561,12 +602,10 @@ class PersonManager(GenieConsumer):
             profile.name = person.name
             profile.company = person.company
             profile.position = person.position
-            profile.picture_url = self.personal_data_repository.get_profile_picture(person.uuid)
+            profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
             logger.info(f"Profile: {profile}")
             self.profiles_repository.save_profile(profile)
             return {"status": "success"}
-
-        logger.info("Profile exists in database. Skipping profile building")
 
     def verify_person_with_pdl_data(self, person: PersonDTO):
         person_in_database = self.persons_repository.find_person_by_email(person.email)

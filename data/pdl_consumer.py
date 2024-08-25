@@ -135,7 +135,7 @@ class PDLConsumer(GenieConsumer):
                     }
                     event = GenieEvent(Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON, data_to_transfer, "public")
                     event.send()
-                    logger.info(f"Sending event to {Topic.PDL_UP_TO_DATE_ENRICHED_DATA}")
+                    logger.info(f"Sending event to {Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON}")
                     return
 
                 # If already fetched and up-to-date, send up-to-date event
