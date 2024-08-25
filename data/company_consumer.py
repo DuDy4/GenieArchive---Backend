@@ -96,6 +96,11 @@ class CompanyConsumer(GenieConsumer):
             company = await self.fetch_company_data(email_domain)
             if not company:
                 logger.error(f"Company not found for domain: {email_domain}")
+                event = GenieEvent(
+                    topic=Topic.FAILED_TO_GET_COMPANY_DATA,
+                    data={"email": email_address},
+                    scope="public",
+                )
                 return
         logger.info(f"Company: {company}")
 

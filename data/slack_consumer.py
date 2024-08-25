@@ -7,6 +7,7 @@ import traceback
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
+
 load_dotenv()
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
@@ -32,6 +33,7 @@ class SlackConsumer(GenieConsumer):
             topics=[
                 Topic.FAILED_TO_GET_LINKEDIN_URL,
                 Topic.FAILED_TO_GET_PERSONAL_DATA,
+                # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
         )

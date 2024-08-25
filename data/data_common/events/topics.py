@@ -64,7 +64,7 @@ class Topic:
     FAILED_TO_ENRICH_PERSON = (
         "failed-to-enrich-person"  # PersonManager notify (slack) that person enrichment failed
     )
-    FAILED_TO_GET_DOMAIN_INFO = "failed-to-get-domain-info"  # Hunter.io failed to get domain info
+    FAILED_TO_GET_COMPANY_DATA = "failed-to-get-company-data"  # CompanyConsumer failed to get company data
     FAILED_TO_GET_LINKEDIN_URL = (
         "failed-to-get-linkedin-url"  # NOT ACTIVE - Langsmith failed to get LinkedIn url
     )
