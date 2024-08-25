@@ -9,6 +9,7 @@ Leads_updated_only_vagif.csv
 data/test/specific_persons_test
 data/test/data_test_meetings.py
 data/test/data_test_new_processed_profile.py
+data/test/data_test_company_consumer.py
 
 .idea/
 
