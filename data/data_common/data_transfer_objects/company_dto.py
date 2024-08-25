@@ -251,7 +251,20 @@ class CompanyDTO:
             FundingEvent.from_apollo_object(funding) for funding in data.get("funding_events", [])
         ]
 
+        social_links = []
+        if data.get("linkedin_url"):
+            social_links.append(SocialMediaLinks(platform="linkedin", url=data.get("linkedin_url")))
+        if data.get("twitter_url"):
+            social_links.append(SocialMediaLinks(platform="twitter", url=data.get("twitter_url")))
+        if data.get("facebook_url"):
+            social_links.append(SocialMediaLinks(platform="facebook", url=data.get("facebook_url")))
+        if data.get("instagram_url"):
+            social_links.append(SocialMediaLinks(platform="instagram", url=data.get("instagram_url")))
+        if data.get("youtube_url"):
+            social_links.append(SocialMediaLinks(platform="youtube", url=data.get("youtube_url")))
+
         technologies = data.get("current_technologies", [])
+        technologies = [tech.get("name") for tech in technologies]
 
         return CompanyDTO(
             uuid=data.get("uuid", get_uuid4()),
@@ -263,21 +276,11 @@ class CompanyDTO:
             size=str(data.get("estimated_num_employees", None)),
             industry=data.get("industry", None),
             description=data.get("seo_description", None),
-            overview=data.get("short_description", None),
-            challenges=None,
+            overview=None,
+            challenges=[],
             technologies=technologies,
             employees=None,
-            social_links=[
-                SocialMediaLinks(platform="linkedin", url=data.get("linkedin_url", ""))
-                if data.get("linkedin_url")
-                else None,
-                SocialMediaLinks(platform="twitter", url=data.get("twitter_url", ""))
-                if data.get("twitter_url")
-                else None,
-                SocialMediaLinks(platform="facebook", url=data.get("facebook_url", ""))
-                if data.get("facebook_url")
-                else None,
-            ],
+            social_links=social_links,
             annual_revenue=data.get("annual_revenue_printed", None),
             total_funding=data.get("total_funding_printed", None),
             funding_rounds=funding_rounds,
