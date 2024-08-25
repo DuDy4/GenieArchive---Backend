@@ -11,8 +11,6 @@ from data.data_common.utils.str_utils import (
 )
 from common.genie_logger import GenieLogger
 
-from data.api.base_models import SocialMediaLinks
-
 logger = GenieLogger()
 
 
@@ -73,6 +71,30 @@ class FundingEvent(BaseModel):
             type=data.get("type"),
             investors=data.get("investors").split(", ") if data.get("investors") else [],
             amount=data.get("amount") + " " + data.get("currency"),
+        )
+
+
+class SocialMediaLinks(BaseModel):
+    url: HttpUrl | str
+    platform: str
+
+    @field_validator("url", "platform")
+    def not_empty(cls, value):
+        if not value:
+            raise ValueError("Field cannot be empty")
+        return value
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "url": str(self.url),
+            "platform": self.platform,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "SocialMediaLinks":
+        return cls(
+            url=data.get("url"),
+            platform=data.get("platform"),
         )
 
 

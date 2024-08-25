@@ -7,7 +7,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Strength,
 )
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
+from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData, SocialMediaLinks
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
 
 from common.genie_logger import GenieLogger
@@ -123,11 +123,6 @@ class WorkExperienceResponse(BaseModel):
     @classmethod
     def from_list_of_dict(cls, data: List[Dict]):
         return cls(experience=[WorkPlace.from_dict(work_place) for work_place in data])
-
-
-class SocialMediaLinks(BaseModel):
-    url: HttpUrl | str
-    platform: str
 
 
 class AttendeeInfo(BaseModel):
