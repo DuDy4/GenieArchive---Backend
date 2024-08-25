@@ -28,7 +28,7 @@ CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_PERSONAL_DATA, Topic.FAILED_TO_GET_DOMAIN_INFO],
+            topics=[Topic.NEW_PERSONAL_DATA],
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
         self.langsmith = Langsmith()
@@ -43,7 +43,6 @@ class LangsmithConsumer(GenieConsumer):
             case Topic.NEW_PERSONAL_DATA:
                 logger.info("Handling new personal data to process")
                 await self.handle_new_personal_data(event)
-
 
     async def handle_new_personal_data(self, event):
         event_body = event.body_as_str()
