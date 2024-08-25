@@ -387,9 +387,9 @@ def get_profile_attendee_info(
     logger.info(f"Got links: {links}, type: {type(links)}")
     if links and len(links) > 0:
         for link in links:
-            link.pop("id")
-            link.pop("username")
-            link["platform"] = link.pop("network")
+            link.pop("id") if link.get("id") else None
+            link.pop("username") if link.get("username") else None
+            link["platform"] = link.pop("network") if link.get("network") else None
     profile = {
         "picture": picture,
         "name": name,
