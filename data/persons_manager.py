@@ -522,7 +522,7 @@ class PersonManager(GenieConsumer):
             logger.info(f"Person already has apollo personal data: {person.email}")
             person = self.verify_person_with_apollo_data(person)
             self.persons_repository.save_person(person)
-            return self.check_profile_data_from_person(person)
+            return await self.check_profile_data_from_person(person)
         apollo_status = self.personal_data_repository.get_apollo_status(person.uuid)
         if apollo_status == self.personal_data_repository.TRIED_BUT_FAILED:
             logger.info(f"Person already tried to get apollo data: {person.email}")
