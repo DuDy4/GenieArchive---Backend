@@ -39,7 +39,7 @@ CONSUMER_GROUP_HUNTER_DOMAIN = "hunter_domain_consumer_group"
 class HunterDomainConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_EMAIL_TO_PROCESS_DOMAIN],
+            topics=[],
             consumer_group=CONSUMER_GROUP_HUNTER_DOMAIN,
         )
         self.company_repository = companies_repository()
@@ -99,6 +99,14 @@ class HunterDomainConsumer(GenieConsumer):
         event.send()
 
         return company, email_address
+
+    def send_fail_event(self, email_address):
+        event = GenieEvent(
+            topic=Topic.FAILED_TO_GET_DOMAIN_INFO,
+            data={"email": email_address},
+            scope="public",
+        )
+        event.send()
 
 
 def get_domain_from_email(email: str) -> str:
