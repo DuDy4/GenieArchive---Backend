@@ -195,6 +195,28 @@ class MeetingsRepository:
             traceback.print_exc()
         return None
 
+    def get_meeting_by_google_calendar_id(self, google_calendar_id: str) -> Optional[MeetingDTO]:
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        FROM meetings
+        WHERE google_calendar_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (google_calendar_id,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got meeting data {row[0]} from database")
+                    return MeetingDTO.from_tuple(row)
+                else:
+                    logger.error(f"Meeting not found for {google_calendar_id}")
+                    traceback.print_exc()
+        except Exception as error:
+            logger.error("Error fetching meeting data by google_calendar_id:", error)
+            traceback.print_exception(error)
+            traceback.print_exc()
+        return None
+
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
