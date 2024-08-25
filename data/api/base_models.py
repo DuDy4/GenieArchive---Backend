@@ -274,6 +274,7 @@ class MeetingCompany(BaseModel):
 
 class MiniMeetingCompany(BaseModel):
     name: str
+    description: str
     overview: str
     size: Optional[str] | None
     technologies: List[str]
@@ -284,6 +285,7 @@ class MiniMeetingCompany(BaseModel):
     def from_dict(cls, data: Dict):
         return cls(
             name=data.get("name", ""),
+            description=data.get("description", ""),
             overview=data.get("overview", ""),
             size=data.get("size", ""),
             technologies=data.get("technologies", []),
@@ -294,6 +296,7 @@ class MiniMeetingCompany(BaseModel):
     def to_dict(self):
         return {
             "name": self.name,
+            "description": self.description,
             "overview": self.overview,
             "size": self.size,
             "technologies": self.technologies,
@@ -305,6 +308,7 @@ class MiniMeetingCompany(BaseModel):
     def from_company_dto(cls, company: CompanyDTO):
         return cls(
             name=company.name,
+            description=company.description,
             overview=company.overview,
             size=company.size,
             technologies=company.technologies,
