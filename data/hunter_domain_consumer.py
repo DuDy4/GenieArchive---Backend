@@ -117,7 +117,7 @@ async def get_domain_info(email_address: str):
     domain = get_domain_from_email(email_address)
     response = requests.get(f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={API_KEY}")
 
-    logger.info(f"Response: {response}")
+    logger.info(f"Hunter response: {response}")
     data = response.json()
     logger.info(f"Hunter data: {data}")
 

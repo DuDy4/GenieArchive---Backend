@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 import os
 
@@ -64,4 +65,24 @@ class ApolloClient:
         except Exception as err:
             logger.error(f"Other error occurred: {err}")
 
+        return None
+
+    def enrich_company(self, domain):
+        """
+        Get company data by domain using Apollo API.
+
+        :param domain: The domain of the company to fetch data for.
+        :return: The API response as a dictionary.
+        """
+        url = f"{self.base_url}/organizations/enrich?domain={domain}"
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()  # Raise an error for bad responses
+            result = response.json()
+            logger.info(f"Got company data for domain {domain}: {result}")
+            return result
+        except requests.exceptions.HTTPError as http_err:
+            logger.error(f"HTTP error occurred: {http_err}")
+        except Exception as err:
+            logger.error(f"Other error occurred: {err}")
         return None
