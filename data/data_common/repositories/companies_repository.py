@@ -5,42 +5,11 @@ from typing import Optional, Union, List
 import psycopg2
 from common.genie_logger import GenieLogger
 from common.utils.json_utils import clean_json
-
-logger = GenieLogger()
 from pydantic import AnyUrl, ValidationError
-
 from common.utils.str_utils import get_uuid4
-
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
 
-
-def _process_employee_data(employees: Union[str, List[dict]]) -> List[dict]:
-    result_employee_data = []
-    logger.info(f"Processing employees: {employees}")
-    if not employees:
-        return []
-    for employee in employees:
-        if not employee.get("first_name"):
-            if employee.get("name"):
-                result_employee_data.append(employee)
-            logger.info(f"Skipping employee: {employee}")
-            continue
-        name = employee.get("first_name") + " " + employee.get("last_name")
-        email = employee.get("value")
-        position = employee.get("position")
-        linkedin = employee.get("linkedin")
-        department = employee.get("department")
-        result_employee_data.append(
-            {
-                "name": name,
-                "email": email,
-                "position": position,
-                "linkedin": linkedin,
-                "department": department,
-            }
-        )
-    logger.info(f"Processed employees: {result_employee_data}")
-    return result_employee_data
+logger = GenieLogger()
 
 
 class CompaniesRepository:
@@ -59,15 +28,23 @@ class CompaniesRepository:
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
             domain VARCHAR,
+            address VARCHAR,
+            logo VARCHAR,
+            founded_year INT,
             size VARCHAR,
+            industry VARCHAR,
             description TEXT,
             overview TEXT,
             challenges JSONB,
             technologies JSONB,
             employees JSONB,
+            social_links JSONB,
+            annual_revenue VARCHAR,
+            total_funding VARCHAR,
+            funding_rounds JSONB,
             news JSONB,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            news_last_updated TIMESTAMP 
+            news_last_updated TIMESTAMP
         );
         """
         try:
@@ -79,7 +56,7 @@ class CompaniesRepository:
 
     def get_company(self, uuid: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT uuid, name, domain, size, description, overview, challenges, technologies, employees, news
+        SELECT uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE uuid = %s;
         """
         try:
@@ -98,7 +75,7 @@ class CompaniesRepository:
 
     def get_company_from_domain(self, email_domain: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT uuid, name, domain, size, description, overview, challenges, technologies, employees, news
+        SELECT uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE domain = %s;
         """
         try:
@@ -107,23 +84,6 @@ class CompaniesRepository:
                 company = cursor.fetchone()
                 if company:
                     logger.info(f"Got company with domain {email_domain}")
-                    news = company[9]
-                    if not news:
-                        logger.info(f"No news data for company with domain {email_domain}")
-                        news = []
-                        company = company[:9] + ([],)
-                    logger.debug(f"News data: {news}")
-                    valid_news = []
-                    for news_item in news:
-                        try:
-                            if isinstance(news_item, dict):
-                                news_item = NewsData.from_dict(news_item)
-                                logger.debug(f"Deserialized news: {news_item}")
-                                valid_news.append(news_item)
-                        except ValidationError:
-                            logger.error(f"Invalid news item: {news_item}")
-                    logger.debug(f"Valid news: {valid_news}")
-                    company = company[:10] + (valid_news,)
                     return CompanyDTO.from_tuple(company)
                 logger.info(f"Company with domain {email_domain} does not exist")
                 return None
@@ -136,70 +96,6 @@ class CompaniesRepository:
             traceback.print_exc()
             return None
 
-    def get_news(self, company_uuid):
-        select_query = """
-        SELECT news FROM companies WHERE uuid = %s;
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (company_uuid,))
-                news = cursor.fetchone()
-                logger.debug(f"News data by email: {news}")
-                if news is None:
-                    logger.error(
-                        f"No news data for company: {company_uuid}, and news is null instead of empty list"
-                    )
-                    return []
-                news = news[0]  # news is a tuple containing the news data
-                if len(news) > 2:
-                    news = news[:2]
-                res_news = self.process_news(news)
-                if not res_news:
-                    logger.warning(f"No news data for company: {company_uuid}")
-                    return []
-                return res_news
-        except psycopg2.Error as error:
-            logger.error(f"Error getting news data: {error}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return
-
-    def get_news_data_by_email(self, email):
-        if "@" not in email:
-            logger.error(f"Invalid email: {email}")
-            return None
-        company_domain = email.split("@")[1]
-        logger.info(f"Company domain: {company_domain}, email: {email}")
-        query = """
-        SELECT news FROM companies WHERE domain = %s;
-        """
-        try:
-            with (self.conn.cursor() as cursor):
-                cursor.execute(query, (company_domain,))
-                news = cursor.fetchone()
-                if news is None:
-                    logger.error(f"No news data for email: {email}, and news is null instead of empty list")
-                    return []
-                logger.debug(f"News data by email: {news}")
-                if not news:
-                    news = []  # In case news is null
-                else:
-                    news = news[0]  # news is a tuple containing the news data
-                if len(news) > 2:
-                    news = news[:2]
-                res_news = self.process_news(news)
-                if not res_news:
-                    logger.warning(f"No news data for company with domain {company_domain}")
-                    return []
-                return res_news
-        except psycopg2.Error as error:
-            logger.error(f"Error getting news data by email: {error}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return None
-
     def save_company_without_news(self, company: CompanyDTO):
         self.create_table_if_not_exists()
         if not company.uuid:
@@ -209,7 +105,7 @@ class CompaniesRepository:
             return company.uuid
         else:
             return self._insert(company)
-        
+
     def get_news_last_updated(self, company_uuid):
         select_query = """
         SELECT news_last_updated FROM companies WHERE uuid = %s;
@@ -327,8 +223,8 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, size,  description, overview, challenges, technologies, employees, news
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
         logger.info(f"About to insert company: {company_dto}")
@@ -336,12 +232,26 @@ class CompaniesRepository:
             company_dto.uuid,
             company_dto.name,
             company_dto.domain,
+            company_dto.address,
+            company_dto.logo,
+            company_dto.founded_year,
             company_dto.size,
+            company_dto.industry,
             company_dto.description,
             company_dto.overview,
             json.dumps(company_dto.challenges),
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
+            json.dumps(
+                [link.to_dict() for link in company_dto.social_links] if company_dto.social_links else None
+            ),
+            company_dto.annual_revenue,
+            company_dto.total_funding,
+            json.dumps(
+                [round.to_dict() for round in company_dto.funding_rounds]
+                if company_dto.funding_rounds
+                else None
+            ),
             json.dumps([]),
         )
 
@@ -360,19 +270,35 @@ class CompaniesRepository:
     def _update(self, company_dto: CompanyDTO):
         update_query = """
         UPDATE companies
-        SET name = %s, domain = %s, size = %s, description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, last_updated = CURRENT_TIMESTAMP
+        SET name = %s, domain = %s, address = %s, logo = %s, founded_year = %s, size = %s, industry = %s,
+        description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, social_links = %s,
+        annual_revenue = %s, total_funding = %s, funding_rounds = %s, last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
 
         company_values = (
             company_dto.name,
             company_dto.domain,
+            company_dto.address,
+            company_dto.logo,
+            company_dto.founded_year,
             company_dto.size,
+            company_dto.industry,
             company_dto.description,
             company_dto.overview,
             json.dumps(company_dto.challenges),
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
+            json.dumps(
+                [link.to_dict() for link in company_dto.social_links] if company_dto.social_links else None
+            ),
+            company_dto.annual_revenue,
+            company_dto.total_funding,
+            json.dumps(
+                [funding_round.to_dict() for funding_round in company_dto.funding_rounds]
+                if company_dto.funding_rounds
+                else None
+            ),
             company_dto.uuid,
         )
         try:

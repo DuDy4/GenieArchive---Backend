@@ -67,7 +67,7 @@ class ApolloClient:
 
         return None
 
-    def enrich_company(self, domain):
+    async def enrich_company(self, domain):
         """
         Get company data by domain using Apollo API.
 
