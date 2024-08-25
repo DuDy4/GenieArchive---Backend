@@ -280,6 +280,7 @@ class MidMeetingCompany(BaseModel):
     size: Optional[str] | None
     industry: Optional[str] | None
     address: Optional[str] | None
+    country: Optional[str] | None
     annual_revenue: Optional[str] | None
     total_funding: Optional[str] | None
     funding_rounds: Optional[List[FundingEvent]] | None
@@ -297,6 +298,7 @@ class MidMeetingCompany(BaseModel):
             size=data.get("size", ""),
             industry=data.get("industry", ""),
             address=data.get("address", ""),
+            country=data.get("country", ""),
             annual_revenue=data.get("annual_revenue", ""),
             total_funding=data.get("total_funding", ""),
             funding_rounds=data.get("funding_rounds", ""),
@@ -314,6 +316,7 @@ class MidMeetingCompany(BaseModel):
             "size": self.size,
             "industry": self.industry,
             "address": self.address,
+            "country": self.country,
             "annual_revenue": self.annual_revenue,
             "total_funding": self.total_funding,
             "funding_rounds": self.funding_rounds,
@@ -332,6 +335,7 @@ class MidMeetingCompany(BaseModel):
             size=company.size,
             industry=company.industry,
             address=company.address,
+            country=company.country,
             annual_revenue=company.annual_revenue,
             total_funding=company.total_funding,
             funding_rounds=company.funding_rounds,
