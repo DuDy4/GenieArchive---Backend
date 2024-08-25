@@ -151,7 +151,7 @@ class CompanyConsumer(GenieConsumer):
         if not company_data:
             logger.warning(f"Hunter couldn't find company data for domain: {email_domain}")
             return None
-        company = CompanyDTO.from_hunter_object(company_data)
+        company = CompanyDTO.from_hunter_object(company_data["data"])
         logger.info(f"Company data fetched from Hunter: {str(company)[:300]}")
         self.companies_repository.save_company_without_news(company)
         return company

@@ -16,7 +16,6 @@ logger = GenieLogger()
 
 class FundingEvent(BaseModel):
     date: date
-    news_url: Optional[HttpUrl]
     type: Optional[str]
     investors: Optional[List[str]]
     amount: str
@@ -46,7 +45,6 @@ class FundingEvent(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "date": self.date.isoformat(),
-            "news_url": str(self.news_url),
             "type": self.type,
             "investors": self.investors,
             "amount": self.amount,
@@ -57,7 +55,6 @@ class FundingEvent(BaseModel):
         data = titleize_values(data)
         return cls(
             date=data.get("date"),
-            news_url=data.get("news_url"),
             type=data.get("type"),
             investors=data.get("investors"),
             amount=data.get("amount"),
@@ -67,9 +64,10 @@ class FundingEvent(BaseModel):
     def from_apollo_object(cls, data: dict) -> "FundingEvent":
         return cls(
             date=data.get("date"),
-            news_url=data.get("news_url"),
-            type=data.get("type"),
-            investors=data.get("investors").split(", ") if data.get("investors") else [],
+            type=titleize_values(data.get("type")),
+            investors=to_custom_title_case(
+                data.get("investors").split(", ") if data.get("investors") else []
+            ),
             amount=data.get("amount") + " " + data.get("currency"),
         )
 
@@ -94,7 +92,7 @@ class SocialMediaLinks(BaseModel):
     def from_dict(cls, data: Dict[str, any]) -> "SocialMediaLinks":
         return cls(
             url=data.get("url"),
-            platform=data.get("platform"),
+            platform=to_custom_title_case(data.get("platform")),
         )
 
 
@@ -158,6 +156,7 @@ class CompanyDTO:
         name: str,
         domain: str,
         address: Optional[str],
+        country: Optional[str],
         logo: Optional[str],
         founded_year: Optional[int],
         size: Optional[str],
@@ -177,12 +176,13 @@ class CompanyDTO:
         self.name = name
         self.domain = domain
         self.address = address
+        self.country = country
         self.logo = logo
         self.founded_year = founded_year
         self.size = size
-        self.industry = industry
-        self.description = description
-        self.overview = overview
+        self.industry = titleize_values(industry)
+        self.description = titleize_values(description)
+        self.overview = titleize_values(overview)
         self.challenges = challenges
         self.technologies = technologies
         self.employees = employees
@@ -198,6 +198,7 @@ class CompanyDTO:
             "name": to_custom_title_case(self.name),
             "domain": self.domain,
             "address": self.address,
+            "country": titleize_values(self.country),
             "logo": self.logo,
             "founded_year": self.founded_year,
             "size": self.size,
@@ -207,7 +208,9 @@ class CompanyDTO:
             "challenges": self.challenges,
             "technologies": self.technologies,
             "employees": self.employees,
-            "social_links": [link.to_dict() for link in self.social_links] if self.social_links else None,
+            "social_links": [link.to_dict() for link in self.social_links if not isinstance(link, dict)]
+            if self.social_links
+            else None,
             "annual_revenue": self.annual_revenue,
             "total_funding": self.total_funding,
             "funding_rounds": [round.to_dict() for round in self.funding_rounds]
@@ -225,6 +228,7 @@ class CompanyDTO:
             name=data.get("name", ""),
             domain=data.get("domain", ""),
             address=data.get("address", None),
+            country=data.get("country", None),
             logo=data.get("logo", None),
             founded_year=data.get("founded_year", None),
             size=data.get("size", None),
@@ -251,6 +255,8 @@ class CompanyDTO:
             FundingEvent.from_apollo_object(funding) for funding in data.get("funding_events", [])
         ]
 
+        sorted_funding_rounds = sorted(funding_rounds, key=lambda x: x.date, reverse=True)
+
         social_links = []
         if data.get("linkedin_url"):
             social_links.append(SocialMediaLinks(platform="linkedin", url=data.get("linkedin_url")))
@@ -271,11 +277,12 @@ class CompanyDTO:
             name=data.get("name", ""),
             domain=data.get("primary_domain", ""),
             address=data.get("raw_address", None),
+            country=data.get("country", None),
             logo=data.get("logo_url", None),
             founded_year=data.get("founded_year", None),
             size=str(data.get("estimated_num_employees", None)),
-            industry=data.get("industry", None),
-            description=data.get("seo_description", None),
+            industry=titleize_values(data.get("industry", None)),
+            description=titleize_values(data.get("seo_description", None)),
             overview=None,
             challenges=[],
             technologies=technologies,
@@ -283,7 +290,7 @@ class CompanyDTO:
             social_links=social_links,
             annual_revenue=data.get("annual_revenue_printed", None),
             total_funding=data.get("total_funding_printed", None),
-            funding_rounds=funding_rounds,
+            funding_rounds=sorted_funding_rounds,
             news=None,
         )
 
@@ -320,6 +327,7 @@ class CompanyDTO:
             address=f"{data.get('street', '')}, {data.get('city', '')}, {data.get('state', '')}, {data.get('postal_code', '')}".strip(
                 ", "
             ),
+            country=data.get("country", ""),
             logo=None,
             founded_year=None,
             size=data.get("headcount", ""),
@@ -342,6 +350,7 @@ class CompanyDTO:
             self.name,
             self.domain,
             self.address,
+            self.country,
             self.logo,
             self.founded_year,
             self.size,
@@ -365,20 +374,21 @@ class CompanyDTO:
             name=row[1],
             domain=row[2],
             address=row[3],
-            logo=row[4],
-            founded_year=row[5],
-            size=row[6],
-            industry=row[7],
-            description=row[8],
-            overview=row[9],
-            challenges=row[10],
-            technologies=row[11],
-            employees=row[12],
-            social_links=row[13],
-            annual_revenue=row[14],
-            total_funding=row[15],
-            funding_rounds=row[16],
-            news=row[17],
+            country=row[4],
+            logo=row[5],
+            founded_year=row[6],
+            size=row[7],
+            industry=row[8],
+            description=row[9],
+            overview=row[10],
+            challenges=row[11],
+            technologies=row[12],
+            employees=row[13],
+            social_links=row[14],
+            annual_revenue=row[15],
+            total_funding=row[16],
+            funding_rounds=row[17],
+            news=row[18],
         )
 
     def to_json(self):
@@ -392,8 +402,8 @@ class CompanyDTO:
     def __str__(self):
         return (
             f"CompanyDTO(uuid={self.uuid},\n name={self.name},\n domain={self.domain},\n address={self.address},\n "
-            f"logo={self.logo},\n founded_year={self.founded_year},\n size={self.size},\n industry={self.industry},\n "
-            f"description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
+            f"country={self.country},\n logo={self.logo},\n founded_year={self.founded_year},\n size={self.size},\n "
+            f"industry={self.industry},\n description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
             f"technologies={self.technologies},\n employees={self.employees},\n social_links={self.social_links},\n "
             f"annual_revenue={self.annual_revenue},\n total_funding={self.total_funding},\n funding_rounds={self.funding_rounds},\n "
             f"news={self.news})"

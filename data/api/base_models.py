@@ -7,7 +7,12 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Strength,
 )
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData, SocialMediaLinks
+from data.data_common.data_transfer_objects.company_dto import (
+    CompanyDTO,
+    NewsData,
+    SocialMediaLinks,
+    FundingEvent,
+)
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
 
 from common.genie_logger import GenieLogger
@@ -267,6 +272,75 @@ class MeetingCompany(BaseModel):
         )
 
 
+class MidMeetingCompany(BaseModel):
+    name: str
+    description: Optional[str] | None
+    logo: str
+    overview: Optional[str] | None
+    size: Optional[str] | None
+    industry: Optional[str] | None
+    address: Optional[str] | None
+    annual_revenue: Optional[str] | None
+    total_funding: Optional[str] | None
+    funding_rounds: Optional[List[FundingEvent]] | None
+    technologies: List[str]
+    challenges: List[Challenge]
+    news: List[NewsData]
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            logo=data.get("logo", ""),
+            overview=data.get("overview", ""),
+            size=data.get("size", ""),
+            industry=data.get("industry", ""),
+            address=data.get("address", ""),
+            annual_revenue=data.get("annual_revenue", ""),
+            total_funding=data.get("total_funding", ""),
+            funding_rounds=data.get("funding_rounds", ""),
+            technologies=data.get("technologies", []),
+            challenges=data.get("challenges", []),
+            news=data.get("news", []),
+        )
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "description": self.description,
+            "logo": self.logo,
+            "overview": self.overview,
+            "size": self.size,
+            "industry": self.industry,
+            "address": self.address,
+            "annual_revenue": self.annual_revenue,
+            "total_funding": self.total_funding,
+            "funding_rounds": self.funding_rounds,
+            "technologies": self.technologies,
+            "challenges": self.challenges,
+            "news": self.news,
+        }
+
+    @classmethod
+    def from_company_dto(cls, company: CompanyDTO):
+        return cls(
+            name=company.name,
+            description=company.description,
+            logo=company.logo,
+            overview=company.overview,
+            size=company.size,
+            industry=company.industry,
+            address=company.address,
+            annual_revenue=company.annual_revenue,
+            total_funding=company.total_funding,
+            funding_rounds=company.funding_rounds,
+            technologies=company.technologies,
+            challenges=company.challenges,
+            news=company.news,
+        )
+
+
 class MiniMeetingCompany(BaseModel):
     name: str
     description: str
@@ -359,14 +433,14 @@ class MiniMeeting(BaseModel):
 
 class MiniMeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
-    company: MiniMeetingCompany
+    company: MidMeetingCompany
     participants: List[MiniProfileResponse]
 
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
             meeting=MiniMeeting.from_dict(data.get("meeting", {})),
-            company=MeetingCompany.from_dict(data.get("company", {})),
+            company=MidMeetingCompany.from_dict(data.get("company", {})),
             participants=[
                 MiniProfileResponse.from_dict(participant) for participant in data.get("participants", [])
             ],

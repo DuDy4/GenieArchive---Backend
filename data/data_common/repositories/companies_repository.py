@@ -29,6 +29,7 @@ class CompaniesRepository:
             name VARCHAR,
             domain VARCHAR,
             address VARCHAR,
+            country VARCHAR,
             logo VARCHAR,
             founded_year INT,
             size VARCHAR,
@@ -56,7 +57,7 @@ class CompaniesRepository:
 
     def get_company(self, uuid: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+        SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE uuid = %s;
         """
         try:
@@ -75,7 +76,7 @@ class CompaniesRepository:
 
     def get_company_from_domain(self, email_domain: str) -> Optional[CompanyDTO]:
         select_query = """
-        SELECT uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+        SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE domain = %s;
         """
         try:
@@ -94,6 +95,41 @@ class CompaniesRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
+            return None
+
+    def get_news_data_by_email(self, email):
+        if "@" not in email:
+            logger.error(f"Invalid email: {email}")
+            return None
+        company_domain = email.split("@")[1]
+        logger.info(f"Company domain: {company_domain}, email: {email}")
+        query = """
+        SELECT news FROM companies WHERE domain = %s;
+        """
+        try:
+            with (self.conn.cursor() as cursor):
+                cursor.execute(query, (company_domain,))
+                news = cursor.fetchone()
+                if news is None:
+                    logger.error(f"No news data for email: {email}, and news is null instead of empty list")
+                    return []
+                logger.debug(f"News data by email: {news}")
+                if not news:
+                    news = []  # In case news is null
+                else:
+                    news = news[0]  # news is a tuple containing the news data
+                if len(news) > 2:
+                    news = news[:2]
+                res_news = self.process_news(news)
+                if not res_news:
+                    logger.warning(f"No news data for company with domain {company_domain}")
+                    return []
+                return res_news
+        except psycopg2.Error as error:
+            logger.error(f"Error getting news data by email: {error}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             return None
 
     def save_company_without_news(self, company: CompanyDTO):
@@ -223,7 +259,8 @@ class CompaniesRepository:
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
             INSERT INTO companies (
-                uuid, name, domain, address, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+                uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview,
+                 challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """
@@ -233,6 +270,7 @@ class CompaniesRepository:
             company_dto.name,
             company_dto.domain,
             company_dto.address,
+            company_dto.country,
             company_dto.logo,
             company_dto.founded_year,
             company_dto.size,
@@ -243,7 +281,9 @@ class CompaniesRepository:
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
             json.dumps(
-                [link.to_dict() for link in company_dto.social_links] if company_dto.social_links else None
+                [link.to_dict() for link in company_dto.social_links if not isinstance(link, dict)]
+                if company_dto.social_links
+                else None
             ),
             company_dto.annual_revenue,
             company_dto.total_funding,
@@ -252,7 +292,6 @@ class CompaniesRepository:
                 if company_dto.funding_rounds
                 else None
             ),
-            json.dumps([]),
         )
 
         try:
@@ -270,7 +309,7 @@ class CompaniesRepository:
     def _update(self, company_dto: CompanyDTO):
         update_query = """
         UPDATE companies
-        SET name = %s, domain = %s, address = %s, logo = %s, founded_year = %s, size = %s, industry = %s,
+        SET name = %s, domain = %s, address = %s, country = %s, logo = %s, founded_year = %s, size = %s, industry = %s,
         description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, social_links = %s,
         annual_revenue = %s, total_funding = %s, funding_rounds = %s, last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
@@ -280,6 +319,7 @@ class CompaniesRepository:
             company_dto.name,
             company_dto.domain,
             company_dto.address,
+            company_dto.country,
             company_dto.logo,
             company_dto.founded_year,
             company_dto.size,
@@ -290,7 +330,9 @@ class CompaniesRepository:
             json.dumps(company_dto.technologies),
             json.dumps(company_dto.employees),
             json.dumps(
-                [link.to_dict() for link in company_dto.social_links] if company_dto.social_links else None
+                [link.to_dict() for link in company_dto.social_links if not isinstance(link, dict)]
+                if company_dto.social_links
+                else None
             ),
             company_dto.annual_revenue,
             company_dto.total_funding,
