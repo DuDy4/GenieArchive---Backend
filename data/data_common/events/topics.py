@@ -2,6 +2,9 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    NEW_MEETINGS_TO_PROCESS = (
+        "new-meetings-to-process"  # api_manager calls to MeetingManager to process new meetings
+    )
     NEW_MEETING = "new-meeting"
     NEW_COMPANY_DATA = "new-company-data"
     NEW_PERSON = "new-person"
