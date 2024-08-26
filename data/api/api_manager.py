@@ -729,31 +729,28 @@ def get_meeting_overview(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
-        company_response = CompanyResponse.from_company_dto(company)
-        # company_dict = company.to_dict()
-        # if company:
-        #     company_dict.pop("uuid")
-        #     company_dict.pop("domain")
-        #     company_dict.pop("employees")
-        #     companies.append(company_dict)
-        companies.append(company_response)
+        companies.append(company)
 
     logger.info(f"Companies: {companies}")
-    mini_company = {}
+    mid_company = {}
     if companies:
         company = companies[0]
         news = []
         domain = company.domain
         for new in company.news:
-            link = str(new.link)
-            if domain not in link:
+            link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
+            if isinstance(new, dict):
+                new["link"] = link
+            elif isinstance(new, NewsData):
+                new.link = link
+            if domain not in str(link):
                 news.append(new)
         company.news = news[:3]
-
-        mini_company = MiniMeetingCompany.from_company_dto(company)
+        logger.debug(f"Company news: {company}")
+        mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
     else:
         logger.error("No companies found")
-    logger.info(f"Company: {mini_company}")
+    logger.info(f"Company: {mid_company}")
 
     mini_participants = []
 
@@ -768,7 +765,7 @@ def get_meeting_overview(
 
     return MiniMeetingOverviewResponse(
         meeting=mini_meeting,
-        company=mini_company,
+        company=mid_company,
         participants=mini_participants,
     )
 
