@@ -912,10 +912,16 @@ def fetch_google_meetings(
     if not meetings:
         return JSONResponse(content={"message": "No upcoming events found."})
     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
-    for meeting in meetings:
-        meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-        event = GenieEvent(topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public")
-        event.send()
+    event = GenieEvent(
+        topic=Topic.NEW_MEETINGS_TO_PROCESS,
+        data=json.dumps(meetings),
+        scope="public",
+    )
+    event.send()
+    # for meeting in meetings:
+    #     meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+    #     event = GenieEvent(topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public")
+    #     event.send()
 
     return JSONResponse(content=titleize_values({"events": meetings}))
 

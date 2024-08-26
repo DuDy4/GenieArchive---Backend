@@ -44,12 +44,68 @@ class MeetingManager(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_MEETING],
+            topics=[Topic.NEW_MEETING, Topic.NEW_MEETINGS_TO_PROCESS],
             consumer_group=CONSUMER_GROUP,
         )
         self.meeting_repository = meetings_repository()
 
     async def process_event(self, event):
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        topic = event.properties.get(b"topic").decode("utf-8")
+        logger.info(f"Processing event on topic {topic}")
+        # Should use Topic class
+
+        match topic:
+            case Topic.NEW_MEETINGS_TO_PROCESS:
+                logger.info("Handling new salesforce contact")
+                await self.handle_new_meetings_to_process(event)
+            case Topic.NEW_MEETING:
+                logger.info("Handling new person")
+                await self.handle_new_meeting(event)
+
+            case _:
+                logger.info(f"Unknown topic: {topic}")
+
+    async def handle_new_meetings_to_process(self, event):
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        meetings = event_body if isinstance(event_body, list) else json.loads(event_body)
+        for meeting in meetings:
+            logger.debug(f"Meeting: {meeting}")
+            if isinstance(meeting, str):
+                meeting = json.loads(meeting)
+            meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
+                meeting.get("google_calendar_id")
+            )
+            if self.check_same_meeting(MeetingDTO.from_dict(meeting), meeting_in_database):
+                logger.info("Meeting already in database")
+                continue
+            self.meeting_repository.save_meeting(MeetingDTO.from_dict(meeting))
+            participant_emails = meeting.get("participants_emails")
+            try:
+                self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+            except IndexError:
+                logger.error(f"Could not find self email in {participant_emails}")
+                continue
+            emails_to_process = self.filter_emails(self_email, participant_emails)
+            logger.info(f"Emails to process: {emails_to_process}")
+            for email in emails_to_process:
+                event = GenieEvent(
+                    topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+                    data=json.dumps({"tenant_id": meeting.get("tenant_id"), "email": email}),
+                    scope="public",
+                )
+                event.send()
+                event = GenieEvent(
+                    topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+                    data=json.dumps({"tenant_id": meeting.get("tenant_id"), "email": email}),
+                    scope="private",
+                )
+                event.send()
+
+    async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         logger.debug(f"Meeting: {meeting}")
