@@ -325,7 +325,6 @@ def get_all_profile_for_meeting(
     filtered_participants_emails = MeetingManager.filter_emails(
         host_email=tenant_email, participants_emails=participants_emails
     )
-    logger.debug(f"Filtered participants emails: {filtered_participants_emails}")
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
     filtered_emails = filtered_participants_emails
     logger.info(f"Filtered emails: {filtered_emails}")
@@ -341,6 +340,10 @@ def get_all_profile_for_meeting(
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             profiles.append(profile)
+    persons_without_profiles = [
+        person.to_dict() for person in persons if person.uuid not in [profile.uuid for profile in profiles]
+    ]
+    logger.info(f"Got persons without profiles: {persons_without_profiles}")
     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
     return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
 
