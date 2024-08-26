@@ -1,14 +1,16 @@
 import asyncio
+import json
 import os
 
 
 from common.utils import env_utils
 
-from ..models import Models
+# from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 load_dotenv()
 
@@ -17,7 +19,7 @@ class Langsmith:
     def __init__(self):
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = "https://api.langsmith.com/v1"
-        self.model = ChatOpenAI(model=Models.GPT_4O)
+        self.model = ChatOpenAI(model="gpt-4o")
 
     async def get_profile(self, person_data, company_data=None):
         # Run the two prompts concurrently
@@ -26,9 +28,7 @@ class Langsmith:
         strengths = await self.run_prompt_strength(person_data)
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
-        person_data["strengths"] = (
-            strengths.get("strengths") if strengths.get("strengths") else strengths
-        )
+        person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
         person_data["get_to_know"] = get_to_know
         return person_data
@@ -83,12 +83,8 @@ class Langsmith:
                 "person_background": person_data.get("background")
                 if person_data.get("background")
                 else "not found",
-                "strengths": person_data.get("strengths")
-                if person_data.get("strengths")
-                else "not found",
-                "hobbies": person_data.get("hobbies")
-                if person_data.get("hobbies")
-                else "not found",
+                "strengths": person_data.get("strengths") if person_data.get("strengths") else "not found",
+                "hobbies": person_data.get("hobbies") if person_data.get("hobbies") else "not found",
                 "news": company_data.get("news")
                 if company_data and company_data.get("news")
                 else "not found",
@@ -123,9 +119,7 @@ class Langsmith:
         prompt = hub.pull("linkedin_from_email_and_company")
         try:
             runnable = prompt | self.model
-            response = runnable.invoke(
-                {"email_address": email_address, "company_data": company_data}
-            )
+            response = runnable.invoke({"email_address": email_address, "company_data": company_data})
         except Exception as e:
             response = f"Error: {e}"
         return response
@@ -141,6 +135,54 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
+
+    def run_prompt_get_meeting_goals(self, personal_data, my_company_data, call_info={}):
+        prompt = hub.pull("get_meeting_goals")
+        arguments = {
+            "personal_data": personal_data,
+            "my_company_data": my_company_data,
+            "info": call_info,
+        }
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+        finally:
+            logger.debug(f"Got meeting goals from Langsmith: {response}")
+            while True:
+                if isinstance(response, dict) and response.get("goals"):
+                    response = response.get("goals")
+                if isinstance(response, str):
+                    response = json.loads(response)
+                if isinstance(response, list):
+                    break
+            return response
+
+    def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, case={}):
+        prompt = hub.pull("get_meeting_guidelines")
+        arguments = {
+            "customer_strengths": customer_strengths,
+            "meeting_details": meeting_details,
+            "meeting_goals": meeting_goals,
+            "case": case,
+        }
+
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke(arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+        finally:
+            logger.debug(f"Got meeting guidelines from Langsmith: {response}")
+            while True:
+                if isinstance(response, dict) and response.get("guidelines"):
+                    response = response.get("guidelines") or response.get("data")
+                if isinstance(response, str):
+                    response = json.loads(response)
+                if isinstance(response, list):
+                    break
+            return response
 
     def ask_chatgpt(self, prompt):
         try:
