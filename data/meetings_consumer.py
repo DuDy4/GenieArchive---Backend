@@ -71,19 +71,22 @@ class MeetingManager(GenieConsumer):
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        meetings = event_body if isinstance(event_body, list) else json.loads(event_body)
+        meetings = event_body.get("meetings")
+        tenant_id = event_body.get("tenant_id")
         for meeting in meetings:
             logger.debug(f"Meeting: {meeting}")
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
+            meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
             meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
-                meeting.get("google_calendar_id")
+                meeting.google_calendar_id
             )
-            if self.check_same_meeting(MeetingDTO.from_dict(meeting), meeting_in_database):
-                logger.info("Meeting already in database")
-                continue
-            self.meeting_repository.save_meeting(MeetingDTO.from_dict(meeting))
-            participant_emails = meeting.get("participants_emails")
+            if meeting_in_database:
+                if self.check_same_meeting(MeetingDTO.from_dict(meeting), meeting_in_database):
+                    logger.info("Meeting already in database")
+                    continue
+            self.meeting_repository.save_meeting(meeting)
+            participant_emails = meeting.participants_emails
             try:
                 self_email = [email for email in participant_emails if email.get("self")][0].get("email")
             except IndexError:

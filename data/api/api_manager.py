@@ -903,8 +903,13 @@ def fetch_google_meetings(
             .execute()
         )
     except Exception as e:
-        logger.error(f"Error fetching events from Google Calendar: {e}")
-        raise HTTPException(status_code=500, detail="Error fetching events from Google Calendar")
+        error_message = str(e)
+        if "The credentials do not contain the necessary fields" in error_message:
+            logger.error(f"Missing fields in credentials: {e}")
+            raise HTTPException(status_code=401, detail="Need to re-login to refresh the access-token")
+        else:
+            logger.error(f"Error fetching events from Google Calendar: {e}")
+            raise HTTPException(status_code=500, detail=f"Error fetching events from Google Calendar: {e}")
 
     meetings = events_result.get("items", [])
     logger.info(f"Fetched events: {meetings}")
@@ -912,9 +917,10 @@ def fetch_google_meetings(
     if not meetings:
         return JSONResponse(content={"message": "No upcoming events found."})
     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
+    data_to_send = {"tenant_id": tenant_id, "meetings": meetings}
     event = GenieEvent(
         topic=Topic.NEW_MEETINGS_TO_PROCESS,
-        data=json.dumps(meetings),
+        data=data_to_send,
         scope="public",
     )
     event.send()
@@ -924,6 +930,25 @@ def fetch_google_meetings(
     #     event.send()
 
     return JSONResponse(content=titleize_values({"events": meetings}))
+
+
+@v1_router.get(
+    "/google/import-meetings/{tenant_id}",
+    response_class=JSONResponse,
+    summary="Fetches all Google Calendar meetings for a tenant",
+    include_in_schema=False,
+)
+def import_google_meetings(
+    tenant_id: str,
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> JSONResponse:
+    """
+    Fetches all Google Calendar meetings for a given tenant.
+    """
+    email_address = tenants_repository.get_tenant_email(tenant_id)
+    logger.info(f"Received Google meetings request for tenant: {email_address}")
+    return fetch_google_meetings(email_address, google_creds_repository, tenants_repository)
 
 
 def validate_uuid(uuid_string: str):
