@@ -82,7 +82,7 @@ class MeetingManager(GenieConsumer):
                 meeting.google_calendar_id
             )
             if meeting_in_database:
-                if self.check_same_meeting(MeetingDTO.from_dict(meeting), meeting_in_database):
+                if self.check_same_meeting(meeting, meeting_in_database):
                     logger.info("Meeting already in database")
                     continue
             self.meeting_repository.save_meeting(meeting)
