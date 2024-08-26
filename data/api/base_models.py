@@ -26,6 +26,39 @@ class UserResponse(BaseModel):
     email: str
 
 
+class MiniPersonResponse(BaseModel):
+    uuid: str
+    name: Optional[str] = None
+    email: str
+
+    @staticmethod
+    def from_person_dto(person: PersonDTO):
+        if not person:
+            logger.error("Person is None")
+            return None
+        return MiniPersonResponse(
+            uuid=str(person.uuid),
+            name=titleize_name(str(person.name)),
+            email=person.email,
+        )
+
+    @staticmethod
+    def from_dict(data: Dict):
+        return MiniPersonResponse(
+            uuid=data["uuid"],
+            name=data["name"],
+            email=data.get("email", None),
+            profile_picture=data.get("profile_picture", None),
+        )
+
+    def to_dict(self):
+        return {
+            "uuid": self.uuid,
+            "name": self.name,
+            "email": self.email,
+        }
+
+
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
@@ -70,6 +103,7 @@ class MiniProfileResponse(BaseModel):
 
 class MiniProfilesListResponse(BaseModel):
     profiles: List[MiniProfileResponse]
+    persons: Optional[List[MiniPersonResponse]] = None
 
     @staticmethod
     def from_profiles_list(profiles: List[ProfileDTO]):
