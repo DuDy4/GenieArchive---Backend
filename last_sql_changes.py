@@ -17,6 +17,9 @@ ADD COLUMN social_links JSONB,
 ADD COLUMN annual_revenue VARCHAR,
 ADD COLUMN total_funding VARCHAR,
 ADD COLUMN funding_rounds JSONB;
+
+ALTER TABLE meetings
+ADD COLUMN agenda JSONB;
 """
 
 try:

@@ -1,5 +1,5 @@
 import traceback
-from typing import Optional
+from typing import Optional, List
 import psycopg2
 import json
 import hashlib
@@ -8,7 +8,7 @@ from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem
 
 
 class MeetingsRepository:
@@ -33,7 +33,8 @@ class MeetingsRepository:
             subject VARCHAR,
             location VARCHAR,
             start_time VARCHAR,
-            end_time VARCHAR
+            end_time VARCHAR,
+            agenda JSONB
         );
         """
         try:
@@ -88,6 +89,29 @@ class MeetingsRepository:
             logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
             raise Exception(f"Unexpected error: {e}")
+
+    def save_agenda(self, uuid: str, agenda_list: List[AgendaItem]):
+        if not agenda_list:
+            logger.error(f"Invalid agenda data: {agenda_list}, skip saving agenda")
+            return None
+        agenda_dicts = [
+            agenda.to_dict() if isinstance(agenda, AgendaItem) else agenda for agenda in agenda_list
+        ]
+        update_query = """
+        UPDATE meetings
+        SET agenda = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(agenda_dicts), uuid))
+                self.conn.commit()
+                logger.info(f"Updated agenda in database for meeting uuid {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating agenda, because: {error.pgerror}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
 
     def exists(self, google_calendar_id: str) -> bool:
         exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
@@ -175,7 +199,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
         FROM meetings
         WHERE uuid = %s;
         """
@@ -197,7 +221,7 @@ class MeetingsRepository:
 
     def get_meeting_by_google_calendar_id(self, google_calendar_id: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
         FROM meetings
         WHERE google_calendar_id = %s;
         """
@@ -219,7 +243,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
         FROM meetings
         WHERE tenant_id = %s;
         """
@@ -230,7 +254,6 @@ class MeetingsRepository:
                 meetings = cursor.fetchall()
                 if meetings:
                     logger.info(f"Got {len(meetings)} meetings from database")
-                    # logger.debug(f"Got meetings: {meetings}")
                     return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                 else:
                     logger.error(f"No meetings found for tenant_id: {tenant_id}")
@@ -250,7 +273,7 @@ class MeetingsRepository:
         if not emails:
             return []
         query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
         FROM meetings
         WHERE participants_emails ?| array[%s]
         """

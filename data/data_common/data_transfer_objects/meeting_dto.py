@@ -1,13 +1,68 @@
 import hashlib
 import json
 import re
-
-
+from typing import List, Dict, Any, Optional
 
 from data.data_common.utils.str_utils import get_uuid4
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
+
+
+class Guidelines(BaseModel):
+    timing: str
+    reasoning: str
+    execution: str
+    phrases: List[str]
+
+    @field_validator("timing", "reasoning", "execution", "phrases")
+    def not_empty(cls, value):
+        if not value:
+            raise ValueError("Field cannot be empty")
+        return value
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "timing": self.timing,
+            "reasoning": self.reasoning,
+            "execution": self.execution,
+            "phrases": self.phrases,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "Guidelines":
+        return cls(
+            timing=data.get("timing"),
+            reasoning=data.get("reasoning"),
+            execution=data.get("execution"),
+            phrases=data.get("phrases"),
+        )
+
+
+class AgendaItem(BaseModel):
+    goal: str
+    guidelines: List[Guidelines]
+
+    @field_validator("goal", "guidelines")
+    def not_empty(cls, value):
+        if not value:
+            raise ValueError("Field cannot be empty")
+        return value
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "goal": self.goal,
+            "guidelines": [guideline.to_dict() for guideline in self.guidelines],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "AgendaItem":
+        return cls(
+            goal=data.get("goal"),
+            guidelines=[Guidelines.from_dict(guideline) for guideline in data.get("guidelines")],
+        )
+
 
 class MeetingDTO:
     def __init__(
@@ -22,21 +77,21 @@ class MeetingDTO:
         location,
         start_time,
         end_time,
+        agenda: List[AgendaItem] = None,
     ):
         self.uuid = uuid
         self.google_calendar_id = google_calendar_id
         self.tenant_id = tenant_id
         self.participants_emails = participants_emails
         self.participants_hash = (
-            participants_hash
-            if participants_hash
-            else hash_participants(participants_emails)
+            participants_hash if participants_hash else hash_participants(participants_emails)
         )
         self.link = link
         self.subject = subject
         self.location = location
         self.start_time = start_time
         self.end_time = end_time
+        self.agenda = agenda
 
     def to_dict(self):
         return {
@@ -50,6 +105,7 @@ class MeetingDTO:
             "location": self.location,
             "start_time": self.start_time,
             "end_time": self.end_time,
+            "agenda": [agenda.to_dict() for agenda in self.agenda] if self.agenda else None,
         }
 
     @staticmethod
@@ -68,6 +124,7 @@ class MeetingDTO:
             location=data.get("location", ""),
             start_time=data.get("start_time", ""),
             end_time=data.get("end_time", ""),
+            agenda=[AgendaItem.from_dict(agenda) for agenda in data.get("agenda")],
         )
 
     def to_tuple(self) -> tuple:
@@ -82,6 +139,7 @@ class MeetingDTO:
             self.location,
             self.start_time,
             self.end_time,
+            self.agenda,
         )
 
     @staticmethod
@@ -97,6 +155,7 @@ class MeetingDTO:
             location=row[7],
             start_time=row[8],
             end_time=row[9],
+            agenda=row[10],
         )
 
     def to_json(self):
@@ -106,9 +165,7 @@ class MeetingDTO:
     def from_json(json_str: str):
         data = json.loads(json_str)
         if not data.get("participants_hash"):
-            data["participants_hash"] = hash_participants(
-                data.get("participants_emails", [])
-            )
+            data["participants_hash"] = hash_participants(data.get("participants_emails", []))
         return MeetingDTO.from_dict(data)
 
     @staticmethod
@@ -118,23 +175,21 @@ class MeetingDTO:
             google_calendar_id=event.get("id", ""),
             tenant_id=tenant_id,
             participants_emails=event.get("attendees", []),
-            participants_hash=event.get(
-                "participants_hash", hash_participants(event.get("attendees", []))
-            ),
+            participants_hash=event.get("participants_hash", hash_participants(event.get("attendees", []))),
             link=extract_meeting_links(event),
             subject=event.get("summary", ""),
             location=event.get("location", ""),
-            start_time=event.get("start", "").get("dateTime", "")
-            or event.get("start", "").get("date", ""),
-            end_time=event.get("end", "").get("dateTime", "")
-            or event.get("end", "").get("date", ""),
+            start_time=event.get("start", "").get("dateTime", "") or event.get("start", "").get("date", ""),
+            end_time=event.get("end", "").get("dateTime", "") or event.get("end", "").get("date", ""),
+            agenda=None,
         )
 
     def __str__(self):
         return (
             f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id}, tenant_id={self.tenant_id}, "
             f"participants_emails={self.participants_emails}, link={self.link}, "
-            f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time})"
+            f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time}"
+            f"agenda={self.agenda})"
         )
 
 

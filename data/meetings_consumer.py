@@ -44,7 +44,14 @@ class MeetingManager(GenieConsumer):
         self,
     ):
         super().__init__(
-            topics=[Topic.NEW_MEETING, Topic.NEW_MEETINGS_TO_PROCESS],
+            topics=[
+                Topic.NEW_MEETING,
+                Topic.NEW_MEETINGS_TO_PROCESS,
+                Topic.PDL_UP_TO_DATE_ENRICHED_DATA,
+                Topic.PDL_UPDATED_ENRICHED_DATA,
+                Topic.APOLLO_UPDATED_ENRICHED_DATA,
+                Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
+            ],
             consumer_group=CONSUMER_GROUP,
         )
         self.meeting_repository = meetings_repository()
@@ -62,7 +69,18 @@ class MeetingManager(GenieConsumer):
             case Topic.NEW_MEETING:
                 logger.info("Handling new person")
                 await self.handle_new_meeting(event)
-
+            case Topic.PDL_UP_TO_DATE_ENRICHED_DATA:
+                logger.info("Handling PDL up to date enriched data")
+                await self.handle_new_personal_data(event)
+            case Topic.PDL_UPDATED_ENRICHED_DATA:
+                logger.info("Handling PDL updated enriched data")
+                await self.handle_new_personal_data(event)
+            case Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA:
+                logger.info("Handling Apollo up to date enriched data")
+                await self.handle_new_personal_data(event)
+            case Topic.APOLLO_UPDATED_ENRICHED_DATA:
+                logger.info("Handling Apollo updated enriched data")
+                await self.handle_new_personal_data(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -134,6 +152,17 @@ class MeetingManager(GenieConsumer):
                 scope="private",
             )
             event.send()
+
+    async def handle_new_personal_data(self, event):
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        tenant_id = event_body.get("tenant_id")
+        person = event_body.get("person")
+        if not person:
+            logger.error("No person in event")
+            return
 
     @staticmethod
     def filter_email_objects(participants_emails):
