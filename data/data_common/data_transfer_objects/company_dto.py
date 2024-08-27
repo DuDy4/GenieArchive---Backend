@@ -164,7 +164,7 @@ class CompanyDTO:
         overview: Optional[str],
         challenges: Optional[Union[Dict, List[Dict]]],
         technologies: Optional[Union[Dict, List[Dict], List[str]]],
-        logo: Optional[str] = None,
+        logo: Optional[str] = "",
         employees: Optional[Union[Dict, List[Dict]]] = None,
         social_links: Optional[List[SocialMediaLinks]] = None,
         annual_revenue: Optional[str] = None,
