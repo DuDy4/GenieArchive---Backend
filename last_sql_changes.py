@@ -8,18 +8,7 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
-ALTER TABLE companies
-ADD COLUMN address VARCHAR,
-ADD COLUMN logo VARCHAR,
-ADD COLUMN founded_year INT,
-ADD COLUMN industry VARCHAR,
-ADD COLUMN social_links JSONB,
-ADD COLUMN annual_revenue VARCHAR,
-ADD COLUMN total_funding VARCHAR,
-ADD COLUMN funding_rounds JSONB;
 
-ALTER TABLE meetings
-ADD COLUMN agenda JSONB;
 """
 
 try:

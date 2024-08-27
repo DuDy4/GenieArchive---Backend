@@ -702,10 +702,10 @@ def get_meeting_overview(
 
     meeting = meetings_repository.get_meeting_data(meeting_uuid)
     if not meeting:
-        return JSONResponse(content={"error": "Meeting not found"})
+        return JSONResponse(content={"error": "Meeting not found"}, status_code=404)
 
     if meeting.tenant_id != tenant_id:
-        return JSONResponse(content={"error": "Tenant mismatch"})
+        return JSONResponse(content={"error": "Tenant mismatch"}, status_code=400)
 
     meeting_dict = meeting.to_dict()
     meeting_to_send = {
