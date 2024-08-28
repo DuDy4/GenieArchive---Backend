@@ -6,8 +6,14 @@ from typing import List
 
 from common.utils import env_utils
 from data.api.base_models import ParticipantEmail
-from data.data_common.dependencies.dependencies import meetings_repository
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.dependencies.dependencies import (
+    meetings_repository,
+    personal_data_repository,
+    companies_repository,
+)
 from data.data_common.repositories.meetings_repository import MeetingsRepository
+from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
@@ -51,10 +57,15 @@ class MeetingManager(GenieConsumer):
                 Topic.PDL_UPDATED_ENRICHED_DATA,
                 Topic.APOLLO_UPDATED_ENRICHED_DATA,
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
+                Topic.COMPANY_NEWS_UPDATED,
+                Topic.COMPANY_NEWS_UP_TO_DATE,
             ],
             consumer_group=CONSUMER_GROUP,
         )
         self.meeting_repository = meetings_repository()
+        self.personal_data_repository = personal_data_repository()
+        self.companies_repository = companies_repository()
+        self.langsmith = Langsmith()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -81,6 +92,12 @@ class MeetingManager(GenieConsumer):
             case Topic.APOLLO_UPDATED_ENRICHED_DATA:
                 logger.info("Handling Apollo updated enriched data")
                 await self.handle_new_personal_data(event)
+            case Topic.COMPANY_NEWS_UPDATED:
+                logger.info("Handling company news updated")
+                await self.handle_new_company_data(event)
+            case Topic.COMPANY_NEWS_UP_TO_DATE:
+                logger.info("Handling company news up to date")
+                await self.handle_new_company_data(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -92,7 +109,7 @@ class MeetingManager(GenieConsumer):
         meetings = event_body.get("meetings")
         tenant_id = event_body.get("tenant_id")
         for meeting in meetings:
-            logger.debug(f"Meeting: {meeting}")
+            logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
@@ -110,18 +127,18 @@ class MeetingManager(GenieConsumer):
             except IndexError:
                 logger.error(f"Could not find self email in {participant_emails}")
                 continue
-            emails_to_process = self.filter_emails(self_email, participant_emails)
+            emails_to_process = self.filter_emails(self_email, participant_emails) + [self_email]
             logger.info(f"Emails to process: {emails_to_process}")
             for email in emails_to_process:
                 event = GenieEvent(
                     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                    data=json.dumps({"tenant_id": meeting.get("tenant_id"), "email": email}),
+                    data=json.dumps({"tenant_id": meeting.tenant_id, "email": email}),
                     scope="public",
                 )
                 event.send()
                 event = GenieEvent(
                     topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                    data=json.dumps({"tenant_id": meeting.get("tenant_id"), "email": email}),
+                    data=json.dumps({"tenant_id": meeting.tenant_id, "email": email}),
                     scope="private",
                 )
                 event.send()
@@ -159,10 +176,51 @@ class MeetingManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         tenant_id = event_body.get("tenant_id")
+        logger.debug(f"Tenant ID: {tenant_id}")
         person = event_body.get("person")
         if not person:
             logger.error("No person in event")
             return
+        person = json.loads(person) if isinstance(person, str) else person
+        logger.debug(f"Person: {person}, type: {type(person)}")
+        person = PersonDTO.from_dict(person)
+        logger.debug(f"Person: {person}")
+
+        meetings = self.meeting_repository.get_meetings_without_agenda_by_email(person.email)
+        if not meetings:
+            logger.error(f"No meetings found for {person.email}")
+            return
+        for meeting in meetings:
+            self_email_list = [email for email in meeting.participants_emails if email.get("self")]
+            self_email = self_email_list[0].get("email") if self_email_list else None
+            if not self_email:
+                logger.error(f"No self email found in {meeting.participants_emails}")
+                continue
+            self_company = self.companies_repository.get_company_from_domain(self_email.split("@")[1])
+            if not self_company:
+                logger.error(f"No company found for {self_email}")
+                continue
+
+            personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
+            if not personal_data:
+                personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+            if not personal_data:
+                logger.error(
+                    f"CRITICAL ERROR - no personal data were found after an event that announced they were updated"
+                )
+                continue
+
+            meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
+                personal_data=personal_data, my_company_data=self_company
+            )
+            if not meetings_goals:
+                logger.error(f"No meeting goals found for {person.email}")
+                continue
+            logger.info(f"Meetings goals: {meetings_goals}")
+            self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+
+    async def handle_new_company_data(self, event):
+        pass
 
     @staticmethod
     def filter_email_objects(participants_emails):

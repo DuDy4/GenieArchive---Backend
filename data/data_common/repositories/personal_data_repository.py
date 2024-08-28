@@ -213,8 +213,8 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.print_exc()
             return None
-        
-    def should_do_personl_data_lookup(self, uuid: str) -> bool:
+
+    def should_do_personal_data_lookup(self, uuid: str) -> bool:
         """
         Check if a there's a potential for personal data update.
         The reasons for additional data lookup are:
@@ -228,8 +228,8 @@ class PersonalDataRepository:
         """
         self.create_table_if_not_exists()
         select_query = """
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN pdl_status = 'TRIED_BUT_FAILED'
                     AND pdl_last_updated > NOW() - INTERVAL '30 days'
                     AND apollo_status = 'TRIED_BUT_FAILED'
@@ -238,10 +238,10 @@ class PersonalDataRepository:
                     THEN true
                     ELSE false
                 END AS update_failed_recently
-            FROM 
+            FROM
                 personaldata
-            WHERE 
-                uuid = %s; 
+            WHERE
+                uuid = %s;
 
         """
         try:

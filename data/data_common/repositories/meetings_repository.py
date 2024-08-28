@@ -34,6 +34,7 @@ class MeetingsRepository:
             location VARCHAR,
             start_time VARCHAR,
             end_time VARCHAR,
+            goals JSONB,
             agenda JSONB
         );
         """
@@ -112,6 +113,27 @@ class MeetingsRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False
+
+    def save_meeting_goals(self, uuid: str, goals: List[str]):
+        if not goals:
+            logger.error(f"Invalid goals data: {goals}, skip saving goals")
+            return None
+        goals_json = json.dumps(goals)
+        update_query = """
+        UPDATE meetings
+        SET goals = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (goals_json, uuid))
+                self.conn.commit()
+                logger.info(f"Updated goals in database for meeting uuid {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating goals, because: {error.pgerror}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return
 
     def exists(self, google_calendar_id: str) -> bool:
         exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
@@ -293,16 +315,68 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
+    def get_meetings_without_agenda_by_email(self, email: str) -> list[MeetingDTO]:
+        """
+        Get a list of meetings that have a specific email as a participant and have no agenda (NULL or empty list).
+
+        :param email: The email to search for in participants_emails.
+        :return: List of meetings with the given email as a participant and no agenda.
+        """
+        query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
+        FROM meetings
+        WHERE participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]');
+        """
+        email_json = json.dumps([{"email": email}])
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (email_json,))
+                meetings = cursor.fetchall()
+                logger.info(f"Retrieved meetings for email: {email} with no agenda")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching meetings by email with no agenda: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
+    def get_meeting_goals(self, uuid: str) -> Optional[List[str]]:
+        select_query = "SELECT goals FROM meetings WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Got meeting goals {row[0]} from database")
+                    return row[0]
+                else:
+                    logger.error(f"Could not find meeting goals for {uuid}")
+        except Exception as error:
+            logger.error("Error fetching goals by uuid:", error)
+            traceback.print_exception(error)
+        return None
+
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s, start_time = %s, end_time = %s
         WHERE google_calendar_id = %s;
         """
-        meeting_data = meeting.to_tuple()
-        meeting_data = meeting_data[:3] + (json.dumps(meeting_data[3]),) + meeting_data[4:]
-
-        meeting_data = meeting_data[2:] + (meeting_data[1],)  # move uuid to the end
+        meeting_data = (
+            meeting.tenant_id,
+            json.dumps(meeting.participants_emails),
+            hash_participants(meeting.participants_emails),
+            meeting.link,
+            meeting.subject,
+            meeting.location,
+            meeting.start_time,
+            meeting.end_time,
+            meeting.google_calendar_id,
+        )
+        logger.debug(f"About to update meeting data: {meeting_data}")
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, meeting_data)
