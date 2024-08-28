@@ -11,6 +11,7 @@ from data.data_common.dependencies.dependencies import (
     meetings_repository,
     personal_data_repository,
     companies_repository,
+    tenants_repository,
 )
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from ai.langsmith.langsmith_loader import Langsmith
@@ -65,6 +66,7 @@ class MeetingManager(GenieConsumer):
         self.meeting_repository = meetings_repository()
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
+        self.tenant_repository = tenants_repository()
         self.langsmith = Langsmith()
 
     async def process_event(self, event):
@@ -186,7 +188,7 @@ class MeetingManager(GenieConsumer):
         person = PersonDTO.from_dict(person)
         logger.debug(f"Person: {person}")
 
-        meetings = self.meeting_repository.get_meetings_without_agenda_by_email(person.email)
+        meetings = self.meeting_repository.get_meetings_without_goals_by_email(person.email)
         if not meetings:
             logger.error(f"No meetings found for {person.email}")
             return
@@ -194,11 +196,14 @@ class MeetingManager(GenieConsumer):
             self_email_list = [email for email in meeting.participants_emails if email.get("self")]
             self_email = self_email_list[0].get("email") if self_email_list else None
             if not self_email:
-                logger.error(f"No self email found in {meeting.participants_emails}")
-                continue
+                logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
+                self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+                if not self_email:
+                    logger.error(f"CRITICAL ERROR: No self email found for tenant: {meeting.tenant_id}")
+                    continue
             self_company = self.companies_repository.get_company_from_domain(self_email.split("@")[1])
             if not self_company:
-                logger.error(f"No company found for {self_email}")
+                logger.error(f"No company found for {self_email}. Waiting for company data...")
                 continue
 
             personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
@@ -218,9 +223,70 @@ class MeetingManager(GenieConsumer):
                 continue
             logger.info(f"Meetings goals: {meetings_goals}")
             self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+            event = GenieEvent(
+                topic=Topic.NEW_MEETING_GOALS,
+                data={"meeting_uuid": meeting.uuid},
+                scope="public",
+            )
+            event.send()
+        logger.info(f"Finished processing meetings goals for new personal data: {person.email}")
+        return {"status": "success"}
 
     async def handle_new_company_data(self, event):
-        pass
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        company_uuid = event_body.get("company_uuid")
+        if not company_uuid:
+            logger.error("No company uuid in event")
+            return
+        company = self.companies_repository.get_company(company_uuid)
+
+        meetings_list = self.meeting_repository.get_meetings_without_goals_by_company_domain(company.domain)
+        if not meetings_list:
+            logger.error(f"No meetings found for {company.domain}")
+            return
+        logger.debug(f"Meetings without agenda for {company.domain}: {meetings_list}")
+        for meeting in meetings_list:
+            participant_emails = meeting.participants_emails
+            self_email_list = [email for email in participant_emails if email.get("self")]
+            self_email = self_email_list[0].get("email") if self_email_list else None
+            if not self_email:
+                logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
+                self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+            self_domain = self_email.split("@")[1] if self_email else None
+            if self_domain != company.domain:
+                logger.info(
+                    f"Self email domain {self_domain} does not match company domain {company.domain}."
+                    f" Skipping this meeting..."
+                )
+                continue
+            filtered_emails = self.filter_emails(self_email, participant_emails)
+            logger.info(f"Filtered emails: {filtered_emails}")
+            for email in filtered_emails:
+                personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(email)
+                if not personal_data:
+                    personal_data = self.personal_data_repository.get_apollo_personal_data_by_email(email)
+                if not personal_data:
+                    logger.error(f"No personal data found for {email}")
+                    continue
+                logger.debug(f"Got personal data for {email}: {str(personal_data)[:300]}")
+                meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
+                    personal_data=personal_data, my_company_data=company
+                )
+                logger.info(f"Meetings goals: {meetings_goals}")
+                self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+                logger.info(f"Meeting goals saved for {meeting.uuid}")
+                event = GenieEvent(
+                    topic=Topic.NEW_MEETING_GOALS,
+                    data=json.dumps({"meeting_uuid": meeting.uuid}),
+                    scope="public",
+                )
+                event.send()
+                break  # Only process one email per meeting - need to implement couple attendees in the future
+        logger.info(f"Finished processing meetings for new company data: {company.domain}")
+        return {"status": "success"}
 
     @staticmethod
     def filter_email_objects(participants_emails):

@@ -2,6 +2,9 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    NEW_MEETING_GOALS = (
+        "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
+    )
     NEW_MEETINGS_TO_PROCESS = (
         "new-meetings-to-process"  # api_manager calls to MeetingManager to process new meetings
     )

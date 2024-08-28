@@ -332,7 +332,7 @@ class MeetingsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(query, (email_json,))
                 meetings = cursor.fetchall()
-                logger.info(f"Retrieved meetings for email: {email} with no agenda")
+                logger.info(f"Retrieved {len(meetings)} meetings for email: {email} with no agenda")
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
             logger.error(f"Error fetching meetings by email with no agenda: {error.pgerror}")
@@ -366,7 +366,9 @@ class MeetingsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(query, (email_pattern,))
                 meetings = cursor.fetchall()
-                logger.info(f"Retrieved meetings with emails from domain: {domain} and no agenda")
+                logger.info(
+                    f"Retrieved {len(meetings)} meetings with emails from domain: {domain} and no agenda"
+                )
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
             logger.error(f"Error fetching meetings by domain with no agenda: {error.pgerror}")
