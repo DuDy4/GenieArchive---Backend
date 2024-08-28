@@ -315,7 +315,7 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
-    def get_meetings_without_agenda_by_email(self, email: str) -> list[MeetingDTO]:
+    def get_meetings_without_goals_by_email(self, email: str) -> list[MeetingDTO]:
         """
         Get a list of meetings that have a specific email as a participant and have no agenda (NULL or empty list).
 
@@ -325,7 +325,7 @@ class MeetingsRepository:
         query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
         FROM meetings
-        WHERE participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]');
+        WHERE participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]');
         """
         email_json = json.dumps([{"email": email}])
         try:
@@ -336,6 +336,40 @@ class MeetingsRepository:
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except psycopg2.Error as error:
             logger.error(f"Error fetching meetings by email with no agenda: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
+    def get_meetings_without_goals_by_company_domain(self, domain: str) -> list[MeetingDTO]:
+        """
+        Get a list of meetings that have any participant's email with a specific domain and have no agenda (NULL or empty list).
+
+        :param domain: The domain to search for in participants_emails.
+        :return: List of meetings with a participant's email from the given domain and no agenda.
+        """
+        query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
+        FROM meetings
+        WHERE
+            EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(participants_emails) AS participants
+                WHERE participants->>'email' ILIKE %s
+            )
+            AND (goals IS NULL OR goals = '[]');
+        """
+        email_pattern = f"%@{domain}"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (email_pattern,))
+                meetings = cursor.fetchall()
+                logger.info(f"Retrieved meetings with emails from domain: {domain} and no agenda")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching meetings by domain with no agenda: {error.pgerror}")
             traceback.print_exc()
             return []
         except Exception as e:
