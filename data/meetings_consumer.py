@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import traceback
 from typing import List
 
 
@@ -12,10 +13,11 @@ from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     companies_repository,
     tenants_repository,
+    profiles_repository,
 )
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from ai.langsmith.langsmith_loader import Langsmith
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -60,6 +62,8 @@ class MeetingManager(GenieConsumer):
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
                 Topic.COMPANY_NEWS_UPDATED,
                 Topic.COMPANY_NEWS_UP_TO_DATE,
+                Topic.NEW_PROCESSED_PROFILE,
+                Topic.NEW_MEETING_GOALS,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -67,6 +71,7 @@ class MeetingManager(GenieConsumer):
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.tenant_repository = tenants_repository()
+        self.profiles_repository = profiles_repository()
         self.langsmith = Langsmith()
 
     async def process_event(self, event):
@@ -84,22 +89,28 @@ class MeetingManager(GenieConsumer):
                 await self.handle_new_meeting(event)
             case Topic.PDL_UP_TO_DATE_ENRICHED_DATA:
                 logger.info("Handling PDL up to date enriched data")
-                await self.handle_new_personal_data(event)
+                await self.create_goals_from_new_personal_data(event)
             case Topic.PDL_UPDATED_ENRICHED_DATA:
                 logger.info("Handling PDL updated enriched data")
-                await self.handle_new_personal_data(event)
+                await self.create_goals_from_new_personal_data(event)
             case Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA:
                 logger.info("Handling Apollo up to date enriched data")
-                await self.handle_new_personal_data(event)
+                await self.create_goals_from_new_personal_data(event)
             case Topic.APOLLO_UPDATED_ENRICHED_DATA:
                 logger.info("Handling Apollo updated enriched data")
-                await self.handle_new_personal_data(event)
+                await self.create_goals_from_new_personal_data(event)
             case Topic.COMPANY_NEWS_UPDATED:
                 logger.info("Handling company news updated")
-                await self.handle_new_company_data(event)
+                await self.create_goals_from_new_company_data(event)
             case Topic.COMPANY_NEWS_UP_TO_DATE:
                 logger.info("Handling company news up to date")
-                await self.handle_new_company_data(event)
+                await self.create_goals_from_new_company_data(event)
+            case Topic.NEW_PROCESSED_PROFILE:
+                logger.info("Handling new processed profile")
+                await self.create_agenda_from_profile(event)
+            case Topic.NEW_MEETING_GOALS:
+                logger.info("Handling new meeting goals")
+                await self.create_agenda_from_goals(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -172,7 +183,7 @@ class MeetingManager(GenieConsumer):
             )
             event.send()
 
-    async def handle_new_personal_data(self, event):
+    async def create_goals_from_new_personal_data(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
@@ -232,7 +243,7 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Finished processing meetings goals for new personal data: {person.email}")
         return {"status": "success"}
 
-    async def handle_new_company_data(self, event):
+    async def create_goals_from_new_company_data(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
@@ -287,6 +298,117 @@ class MeetingManager(GenieConsumer):
                 break  # Only process one email per meeting - need to implement couple attendees in the future
         logger.info(f"Finished processing meetings for new company data: {company.domain}")
         return {"status": "success"}
+
+    async def create_agenda_from_profile(self, event):
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person = event_body.get("person")
+        profile = event_body.get("profile")
+        if not person:
+            logger.error("No person in event")
+            return
+        if not profile:
+            logger.error("No profile in event")
+            return
+        strengths = profile.get("strengths")
+        if not strengths:
+            logger.error("No strengths in profile")
+            return
+
+        meetings_list = self.meeting_repository.get_meetings_without_agenda_by_email(person.email)
+        logger.info(f"Meetings without agenda for {person.email}: {len(meetings_list)}")
+        for meeting in meetings_list:
+            if meeting.agenda:
+                logger.error(f"Should not have got here: Meeting {meeting.uuid} already has an agenda")
+                continue
+            meeting_goals = self.meeting_repository.get_meeting_goals(meeting.uuid)
+            if not meeting_goals:
+                logger.error(f"No meeting goals found for {meeting.uuid}")
+                continue
+            logger.debug(f"Meeting goals: {meeting_goals}")
+            meeting_details = meeting.to_dict()
+            agendas = self.langsmith.run_prompt_get_meeting_guidelines(
+                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
+            )
+            logger.info(f"Meeting agenda: {agendas}")
+            try:
+                agendas = [AgendaItem.from_dict(agenda) for agenda in agendas]
+            except AttributeError as e:
+                logger.error(f"Error converting agenda to AgendaItem: {e}")
+                continue
+            meeting.agenda = agendas
+            self.meeting_repository.save_meeting(meeting)
+            event = GenieEvent(
+                topic=Topic.UPDATED_AGENDA_FOR_MEETING,
+                data=json.dumps(meeting.to_dict()),
+                scope="public",
+            )
+            event.send()
+        logger.info(f"Finished processing meetings for new profile: {person.email}")
+        return {"status": "success"}
+
+    async def create_agenda_from_goals(self, event):
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        meeting_uuid = event_body.get("meeting_uuid")
+        if not meeting_uuid:
+            logger.error("No meeting uuid in event")
+            return
+        meeting = self.meeting_repository.get_meeting_data(meeting_uuid)
+        if not meeting:
+            logger.error(f"No meeting found for {meeting_uuid}")
+            return
+        if meeting.agenda:
+            logger.error(f"Meeting {meeting.uuid} already has an agenda")
+            return
+        meeting_goals = self.meeting_repository.get_meeting_goals(meeting.uuid)
+        if not meeting_goals:
+            logger.error(f"No meeting goals found for {meeting.uuid}")
+            return
+        participant_emails = meeting.participants_emails
+        self_email_list = [email for email in participant_emails if email.get("self")]
+        self_email = self_email_list[0].get("email") if self_email_list else None
+        if not self_email:
+            logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
+            self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+        filtered_emails = self.filter_emails(self_email, participant_emails)
+        logger.info(f"Filtered emails: {filtered_emails}")
+        for email in filtered_emails:
+            profile = self.profiles_repository.get_profile_data_by_email(email)
+            if not profile:
+                logger.error(f"No profile found for {email}")
+                continue
+            strengths = profile.strengths
+            if not strengths:
+                logger.error(f"No strengths found in profile for {email}")
+                continue
+            meeting_details = meeting.to_dict()
+            logger.info("About to run ask langsmith for guidelines")
+            agendas = self.langsmith.run_prompt_get_meeting_guidelines(
+                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
+            )
+            logger.info(f"Meeting agenda: {agendas}")
+
+            try:
+                agendas = [AgendaItem.from_dict(agenda) for agenda in agendas]
+            except AttributeError as e:
+                logger.error(f"Error converting agenda to AgendaItem: {e}")
+                traceback.print_exc()
+                continue
+            meeting.agenda = agendas
+            self.meeting_repository.save_meeting(meeting)
+            event = GenieEvent(
+                topic=Topic.UPDATED_AGENDA_FOR_MEETING,
+                data=json.dumps(meeting.to_dict()),
+                scope="public",
+            )
+            event.send()
+            break
+        logger.info(f"Finished processing meeting goals for {meeting.uuid}")
 
     @staticmethod
     def filter_email_objects(participants_emails):

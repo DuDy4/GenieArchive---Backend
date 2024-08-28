@@ -42,7 +42,7 @@ class Guidelines(BaseModel):
 
 class AgendaItem(BaseModel):
     goal: str
-    guidelines: List[Guidelines]
+    guidelines: Guidelines
 
     @field_validator("goal", "guidelines")
     def not_empty(cls, value):
@@ -53,14 +53,14 @@ class AgendaItem(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "goal": self.goal,
-            "guidelines": [guideline.to_dict() for guideline in self.guidelines],
+            "guidelines": self.guidelines.to_dict(),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "AgendaItem":
         return cls(
             goal=data.get("goal"),
-            guidelines=[Guidelines.from_dict(guideline) for guideline in data.get("guidelines")],
+            guidelines=Guidelines.from_dict(data.get("guidelines")),
         )
 
 

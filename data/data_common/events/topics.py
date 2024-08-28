@@ -30,6 +30,9 @@ class Topic:
         "pdl-got-updated-enriched-data"  # People data labs succeeded in enriching data
     )
     APOLLO_UPDATED_ENRICHED_DATA = "apollo-updated-enriched-data"  # Apollo succeeded in enriching data
+
+    UPDATED_AGENDA_FOR_MEETING = "updated-agenda-for-meeting"  # MeetingManager updated meeting agenda
+
     NEW_PERSONAL_DATA = (
         "new-personal-data-to-process"  # PersonManager calls for Langsmith to process enriched data
     )

@@ -154,9 +154,15 @@ class MeetingsRepository:
 
     def exists_without_changes(self, meeting: MeetingDTO) -> bool:
         participants_hash = hash_participants(meeting.participants_emails)
+        agenda = meeting.agenda
+        if agenda:
+            agenda = [
+                agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
+                for agenda_item in agenda
+            ]
         exists_query = """
         SELECT 1 FROM meetings
-        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s;
+        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -170,6 +176,7 @@ class MeetingsRepository:
                         participants_hash,
                         meeting.start_time,
                         meeting.link,
+                        json.dumps(agenda),
                     ),
                 )
                 result = cursor.fetchone() is not None
@@ -379,6 +386,32 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
+    def get_meetings_without_agenda_by_email(self, email):
+        """
+        Get a list of meetings that have a specific email as a participant and have no agenda (NULL or empty list).
+        """
+
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda
+        FROM meetings
+        WHERE participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]');
+        """
+        email_json = json.dumps([{"email": email}])
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email_json,))
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings without agenda for email: {email}")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching meetings without agenda by email: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def get_meeting_goals(self, uuid: str) -> Optional[List[str]]:
         select_query = "SELECT goals FROM meetings WHERE uuid = %s;"
         try:
@@ -398,9 +431,18 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s, start_time = %s, end_time = %s
+        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
+        start_time = %s, end_time = %s, agenda = %s
         WHERE google_calendar_id = %s;
         """
+
+        agenda = meeting.agenda
+        if agenda:
+            agenda = [
+                agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
+                for agenda_item in agenda
+            ]
+
         meeting_data = (
             meeting.tenant_id,
             json.dumps(meeting.participants_emails),
@@ -410,6 +452,14 @@ class MeetingsRepository:
             meeting.location,
             meeting.start_time,
             meeting.end_time,
+            json.dumps(
+                [
+                    agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
+                    for agenda_item in agenda
+                ]
+            )
+            if meeting.agenda
+            else None,
             meeting.google_calendar_id,
         )
         logger.debug(f"About to update meeting data: {meeting_data}")
