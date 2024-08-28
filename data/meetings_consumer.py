@@ -317,8 +317,8 @@ class MeetingManager(GenieConsumer):
             logger.error("No strengths in profile")
             return
 
-        meetings_list = self.meeting_repository.get_meetings_without_agenda_by_email(person.email)
-        logger.info(f"Meetings without agenda for {person.email}: {len(meetings_list)}")
+        meetings_list = self.meeting_repository.get_meetings_without_agenda_by_email(person.get("email"))
+        logger.info(f"Meetings without agenda for {person.get('email')}: {len(meetings_list)}")
         for meeting in meetings_list:
             if meeting.agenda:
                 logger.error(f"Should not have got here: Meeting {meeting.uuid} already has an agenda")
@@ -329,6 +329,7 @@ class MeetingManager(GenieConsumer):
                 continue
             logger.debug(f"Meeting goals: {meeting_goals}")
             meeting_details = meeting.to_dict()
+            logger.info("About to run ask langsmith for guidelines")
             agendas = self.langsmith.run_prompt_get_meeting_guidelines(
                 customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
             )
@@ -346,7 +347,7 @@ class MeetingManager(GenieConsumer):
                 scope="public",
             )
             event.send()
-        logger.info(f"Finished processing meetings for new profile: {person.email}")
+        logger.info(f"Finished processing meetings for new profile: {person.get('email')}")
         return {"status": "success"}
 
     async def create_agenda_from_goals(self, event):
