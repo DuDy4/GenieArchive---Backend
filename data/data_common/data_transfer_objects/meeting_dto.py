@@ -105,7 +105,12 @@ class MeetingDTO:
             "location": self.location,
             "start_time": self.start_time,
             "end_time": self.end_time,
-            "agenda": [agenda.to_dict() for agenda in self.agenda] if self.agenda else None,
+            "agenda": [
+                agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
+                for agenda_item in self.agenda
+            ]
+            if self.agenda
+            else None,
         }
 
     @staticmethod
