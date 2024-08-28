@@ -309,7 +309,7 @@ class MeetingCompany(BaseModel):
 class MidMeetingCompany(BaseModel):
     name: str
     description: Optional[str] | None
-    logo: str
+    logo: Optional[str] | None
     overview: Optional[str] | None
     size: Optional[str] | None
     industry: Optional[str] | None
