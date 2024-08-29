@@ -68,7 +68,7 @@ class FundingEvent(BaseModel):
             investors=to_custom_title_case(
                 data.get("investors").split(", ") if data.get("investors") else []
             ),
-            amount=data.get("amount") + " " + data.get("currency"),
+            amount=(data.get("amount") + " " + data.get("currency")) if data.get("amount") else "Unknown",
         )
 
 
