@@ -160,6 +160,31 @@ class CompaniesRepository:
             logger.error(f"Unexpected error: {e}")
             return None
 
+    def get_all_companies(self):
+        select_query = """
+        SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+        FROM companies;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                companies = cursor.fetchall()
+                if companies:
+                    logger.debug(f"Got {len(companies)} companies: {companies}")
+                    companies = [CompanyDTO.from_tuple(company) for company in companies]
+                    logger.debug(f"Companies: {companies}")
+                    return companies
+                logger.info(f"No companies found")
+                return []
+        except psycopg2.Error as error:
+            logger.error(f"Error getting companies: {error}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def save_news(self, uuid, news: Union[List[NewsData], List[dict]]):
         self.create_table_if_not_exists()
         self.validate_news(news)
@@ -307,47 +332,48 @@ class CompaniesRepository:
             raise Exception(f"Error inserting company, because: {error.pgerror}")
 
     def _update(self, company_dto: CompanyDTO):
-        update_query = """
+        if not company_dto:
+            logger.error(f"Invalid company data: {company_dto}")
+            return None
+
+        fields = []
+        values = []
+
+        company_dict = company_dto.to_dict()
+
+        # Iterate over all attributes of the CompanyDTO
+        for key, value in company_dict.items():
+            # Skip UUID since it's used in the WHERE clause
+            if key == "uuid":
+                continue
+
+            # If the value is not None, add it to the fields and values
+            if value:
+                if isinstance(value, list) or isinstance(value, dict):
+                    value = json.dumps(value)  # Convert lists and dicts to JSON strings
+                fields.append(f"{key} = %s")
+                values.append(value)
+
+        # Add the last_updated timestamp
+        fields.append("last_updated = CURRENT_TIMESTAMP")
+
+        # Add the UUID for the WHERE clause
+        logger.debug(f"Company UUID: {company_dto.uuid}")
+        values.append(company_dto.uuid)
+
+        # Construct the SQL update query dynamically
+        update_query = f"""
         UPDATE companies
-        SET name = %s, domain = %s, address = %s, country = %s, logo = %s, founded_year = %s, size = %s, industry = %s,
-        description = %s, overview = %s, challenges = %s, technologies = %s, employees = %s, social_links = %s,
-        annual_revenue = %s, total_funding = %s, funding_rounds = %s, last_updated = CURRENT_TIMESTAMP
+        SET {', '.join(fields)}
         WHERE uuid = %s
         """
 
-        company_values = (
-            company_dto.name,
-            company_dto.domain,
-            company_dto.address,
-            company_dto.country,
-            company_dto.logo,
-            company_dto.founded_year,
-            company_dto.size,
-            company_dto.industry,
-            company_dto.description,
-            company_dto.overview,
-            json.dumps(company_dto.challenges),
-            json.dumps(company_dto.technologies),
-            json.dumps(company_dto.employees),
-            json.dumps(
-                [link.to_dict() for link in company_dto.social_links if not isinstance(link, dict)]
-                if company_dto.social_links
-                else None
-            ),
-            company_dto.annual_revenue,
-            company_dto.total_funding,
-            json.dumps(
-                [funding_round.to_dict() for funding_round in company_dto.funding_rounds]
-                if company_dto.funding_rounds
-                else None
-            ),
-            company_dto.uuid,
-        )
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, company_values)
+                cursor.execute(update_query, tuple(values))
                 self.conn.commit()
                 logger.info(f"Updated company in database")
+            return True
         except psycopg2.Error as error:
             raise Exception(f"Error updating company, because: {error.pgerror}")
         except Exception as e:
