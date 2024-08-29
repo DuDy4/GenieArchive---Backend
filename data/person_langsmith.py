@@ -13,7 +13,7 @@ from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
-from data.data_common.dependencies.dependencies import companies_repository
+from data.data_common.dependencies.dependencies import companies_repository, profiles_repository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -33,6 +33,7 @@ class LangsmithConsumer(GenieConsumer):
         )
         self.langsmith = Langsmith()
         self.company_repository = companies_repository()
+        self.profiles_repository = profiles_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -54,6 +55,10 @@ class LangsmithConsumer(GenieConsumer):
         person_data = {"personal_data": personal_data}
         person = event_body.get("person")
         email_address = person.get("email")
+        profile = self.profiles_repository.get_profile_data_by_email(email_address)
+        if profile:
+            logger.info(f"Profile already exists: {profile}")
+            return {"status": "success"}
         logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
         company_data = None
         company_dict = {}

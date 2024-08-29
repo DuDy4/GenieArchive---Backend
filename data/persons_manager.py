@@ -454,6 +454,7 @@ class PersonManager(GenieConsumer):
             company_data = self.companies_repository.get_company_from_domain(email_domain)
             if company_data:
                 person.company = company_data.name
+                logger.debug(f"Changed company name {person.company} for person: {person.email}")
 
         self.persons_repository.save_person(person)
 
@@ -578,12 +579,20 @@ class PersonManager(GenieConsumer):
         profile_exists = self.profiles_repository.exists(person.uuid)
         if not profile_exists:
             logger.warning("Profile does not exist in database")
+            event = GenieEvent(
+                Topic.NEW_PERSONAL_DATA,
+                data={"person": person.to_dict(), "personal_data": fetched_personal_data},
+                scope="public",
+            )
+            event.send()
             # Need to implement a call to langsmith, but ensure there is no one in process
             logger.warning(
                 "Need to implement a call to langsmith,"
                 " but need to think about a way to do it only if there is no langsmith in progress"
             )
-            self.profiles_repository.save_new_profile_from_person(person)
+            # self.profiles_repository.save_new_profile_from_person(person)
+            return {"status": "success"}
+
         try:
             profile = self.profiles_repository.get_profile_data(person.uuid)
             if not profile.picture_url:

@@ -213,7 +213,9 @@ class CompanyDTO:
             else None,
             "annual_revenue": self.annual_revenue,
             "total_funding": self.total_funding,
-            "funding_rounds": [round.to_dict() for round in self.funding_rounds]
+            "funding_rounds": [
+                (round.to_dict() if not isinstance(round, dict) else round) for round in self.funding_rounds
+            ]
             if self.funding_rounds
             else None,
             "news": [news_item.to_dict() for news_item in self.news if not isinstance(news_item, dict)]

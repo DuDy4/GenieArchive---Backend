@@ -8,6 +8,8 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
+    ALTER TABLE meetings
+    ADD COLUMN IF NOT EXISTS goals JSONB
 """
 
 try:
