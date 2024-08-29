@@ -66,20 +66,29 @@ class CompanyConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         company_uuid = event_body.get("company_uuid")
-        if company_uuid:
-            company_dto = self.companies_repository.get_company(company_uuid)
-            if not company_dto:
-                logger.error(f"Company not found for uuid: {company_uuid}")
-                return
-            news_last_update = self.companies_repository.get_news_last_updated(company_uuid)
-            if (
-                news_last_update
-                and (datetime.now() - news_last_update).total_seconds() < COMPANY_LAST_UPDATE_INTERVAL_SECONDS
-            ):
-                logger.info(f"Company news for {company_dto.name} is up to date")
-                return {"status": "success"}
-            logger.info(f"Fetching new for company {company_dto.name}")
-            self.fetched_news(company_dto.uuid, company_dto.name)
+        if not company_uuid:
+            logger.error(f"Company uuid not found in event: {event_body}")
+            return
+        company_dto = self.companies_repository.get_company(company_uuid)
+        logger.info(f"Company: {company_dto}")
+        if not company_dto:
+            logger.error(f"Company not found for uuid: {company_uuid}")
+            return
+        news_last_update = self.companies_repository.get_news_last_updated(company_uuid)
+        if (
+            news_last_update
+            and (datetime.now() - news_last_update).total_seconds() < COMPANY_LAST_UPDATE_INTERVAL_SECONDS
+        ):
+            logger.info(f"Company news for {company_dto.name} is up to date")
+            return {"status": "success"}
+        logger.info(f"Fetching new for company {company_dto.name}")
+        self.fetched_news(company_dto.uuid, company_dto.name)
+        event = GenieEvent(
+            topic=Topic.COMPANY_NEWS_UPDATED,
+            data={"company_uuid": company_dto.uuid},
+            scope="public",
+        )
+        event.send()
 
         return {"status": "success"}
 
