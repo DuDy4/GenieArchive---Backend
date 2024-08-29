@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.data_common.dependencies.dependencies import companies_repository
 
 
 def data_test_new_company_news():
@@ -18,10 +19,10 @@ def data_test_new_company_news():
     print("News updated test passed")
 
 
-def data_test_company_up_to_date():
+def data_test_company_up_to_date(company_uuid):
     event = GenieEvent(
         topic=Topic.COMPANY_NEWS_UP_TO_DATE,
-        data='{"company_uuid": "7497c8ae-eb08-4777-83f1-9f9fdb5904fc"}',
+        data={"company_uuid": company_uuid},
         scope="public",
     )
     assert event
