@@ -3,7 +3,6 @@ import json
 import os
 import time
 import traceback
-import datetime
 import requests
 import urllib.parse
 import uuid
@@ -28,6 +27,8 @@ from google.auth import credentials
 
 
 from data.api.base_models import *
+import datetime
+
 from data.data_common.repositories.hobbies_repository import HobbiesRepository
 from data.data_common.repositories.personal_data_repository import (
     PersonalDataRepository,
@@ -283,11 +284,6 @@ async def get_all_meetings_by_profile_name(
         logger.error("Tenant ID not provided")
         return JSONResponse(content={"error": "Tenant ID not provided"})
 
-    # persons_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
-    # logger.info(f"Got persons_uuid: {persons_uuid}")
-    # persons_emails = persons_repository.get_emails_list(persons_uuid, name)
-    # logger.info(f"Got persons_emails: {persons_emails}")
-    # meetings = meetings_repository.get_meetings_by_participants_emails(persons_emails)
     meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
     dict_meetings = [meeting.to_dict() for meeting in meetings]
     # sort by meeting.start_time
@@ -706,14 +702,7 @@ def get_meeting_overview(
 
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"}, status_code=400)
-
-    meeting_dict = meeting.to_dict()
-    meeting_to_send = {
-        "subject": meeting.subject,
-        "video_link": meeting.link,
-        "guidelines": meeting_dict.get("guidelines") if meeting_dict.get("guidelines") else None,
-    }
-    mini_meeting = MiniMeeting.from_dict(meeting_to_send)
+    mini_meeting = MiniMeeting.from_meeting_dto(meeting)
     logger.info(f"Mini meeting: {mini_meeting}")
 
     participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
@@ -766,11 +755,15 @@ def get_meeting_overview(
 
     logger.info(f"Meeting participants: {mini_participants}")
 
-    return MiniMeetingOverviewResponse(
+    mini_overview = MiniMeetingOverviewResponse(
         meeting=mini_meeting,
         company=mid_company,
         participants=mini_participants,
     )
+
+    logger.info(f"Mini overview: {mini_overview}")
+
+    return mini_overview
 
 
 @v1_router.get(
@@ -881,6 +874,8 @@ def fetch_google_meetings(
     logger.debug(f"Google credentials before refresh: {google_credentials}")
 
     access_token = google_credentials.token
+
+    print(datetime.__file__)
 
     credentials = Credentials(token=access_token)
     service = build("calendar", "v3", credentials=credentials)

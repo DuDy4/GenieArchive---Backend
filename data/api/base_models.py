@@ -1,5 +1,9 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Union
+
+from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Connection,
@@ -195,6 +199,7 @@ class CompanyResponse(BaseModel):
     overview: Optional[str]
     challenges: Optional[List[Challenge]]
     technologies: Optional[List[str]]
+    social_links: Optional[List[SocialMediaLinks]]
     news: Optional[List[NewsData]]
 
     @classmethod
@@ -208,6 +213,7 @@ class CompanyResponse(BaseModel):
             overview=company.overview,
             challenges=company.challenges,
             technologies=company.technologies,
+            social_links=company.social_links,
             news=company.news if company.news else None,
         )
 
@@ -320,6 +326,7 @@ class MidMeetingCompany(BaseModel):
     funding_rounds: Optional[List[FundingEvent]] | None
     technologies: List[str]
     challenges: List[Challenge]
+    social_links: Optional[List[SocialMediaLinks]] | None
     news: List[NewsData]
 
     @classmethod
@@ -338,6 +345,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=data.get("funding_rounds", ""),
             technologies=data.get("technologies", []),
             challenges=data.get("challenges", []),
+            social_links=data.get("social_links", []),
             news=data.get("news", []),
         )
 
@@ -356,6 +364,7 @@ class MidMeetingCompany(BaseModel):
             "funding_rounds": self.funding_rounds,
             "technologies": self.technologies,
             "challenges": self.challenges,
+            "social_links": self.social,
             "news": self.news,
         }
 
@@ -375,6 +384,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=company.funding_rounds,
             technologies=company.technologies,
             challenges=company.challenges,
+            social_links=company.social_links,
             news=company.news,
         )
 
@@ -451,22 +461,36 @@ class GuideLines(BaseModel):
 class MiniMeeting(BaseModel):
     subject: str
     video_link: str
-    guidelines: Optional[GuideLines]
+    duration: str
+    agenda: Optional[List[AgendaItem]] | None
 
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
             subject=data.get("subject", ""),
             video_link=data.get("video_link", ""),
-            guidelines=data.get("guidelines", ""),
+            duration=data.get("duration", ""),
+            agenda=[AgendaItem.from_dict(agenda) for agenda in data.get("agenda", [])],
         )
 
     def to_dict(self):
         return {
             "subject": self.subject,
             "video_link": self.video_link,
-            "guidelines": self.guidelines,
+            "duration": self.duration,
+            "agenda": [agenda.to_dict() for agenda in self.agenda],
         }
+
+    @classmethod
+    def from_meeting_dto(cls, meeting: MeetingDTO):
+        return cls(
+            subject=meeting.subject,
+            video_link=meeting.link,
+            duration=str(
+                datetime.fromisoformat(meeting.end_time) - datetime.fromisoformat(meeting.start_time)
+            ),
+            agenda=meeting.agenda,
+        )
 
 
 class MiniMeetingOverviewResponse(BaseModel):
