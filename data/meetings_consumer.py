@@ -82,7 +82,7 @@ class MeetingManager(GenieConsumer):
 
         match topic:
             case Topic.NEW_MEETINGS_TO_PROCESS:
-                logger.info("Handling new salesforce contact")
+                logger.info("Handling new meetings to process")
                 await self.handle_new_meetings_to_process(event)
             case Topic.NEW_MEETING:
                 logger.info("Handling new person")
