@@ -96,7 +96,7 @@ class ApolloConsumer(GenieConsumer):
             event.send()
             return {"status": "ok"}
 
-        apollo_personal_data = self.apollo_client.enrich_person([person.email])
+        apollo_personal_data = self.apollo_client.enrich_person(person)
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
@@ -107,7 +107,7 @@ class ApolloConsumer(GenieConsumer):
                 logger.error(f"Unexpected error: person is None")
                 person = person_in_db
             event = GenieEvent(
-                topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
+                topic=Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
                 data={"person": person.to_dict(), "email": person.email},
                 scope="public",
             )
@@ -165,11 +165,11 @@ class ApolloConsumer(GenieConsumer):
             logger.info(f"Person already has linkedin: {person.linkedin}")
             return {"status": "ok"}
 
-        apollo_personal_data = self.apollo_client.enrich_person([email])
+        apollo_personal_data = self.apollo_client.enrich_person(person)
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
             event = GenieEvent(
-                topic=Topic.FAILED_TO_GET_LINKEDIN_URL,
+                topic=Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 data={"person": person.to_dict(), "email": person.email},
                 scope="public",
             )
@@ -202,7 +202,7 @@ class ApolloConsumer(GenieConsumer):
         person.position = apollo_data.get("title")
         person.linkedin = apollo_data.get("linkedin_url")
         return person
-    
+
     @staticmethod
     def fix_experience_from_apollo_data(apollo_data):
         experience = apollo_data.get("employment_history")
@@ -247,7 +247,6 @@ class ApolloConsumer(GenieConsumer):
                 traceback.print_exc()
                 continue
         return to_custom_title_case(sorted_experience)
-    
 
 
 if __name__ == "__main__":

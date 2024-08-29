@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 logger = GenieLogger()
 import os
@@ -26,23 +27,26 @@ class ApolloClient:
             "X-Api-Key": self.api_key,
         }
 
-    def enrich_person(self, emails):
+    def enrich_person(self, person: PersonDTO):
         """
         Enrich person information by sending emails to the Apollo API.
 
-        :param emails: A list of email addresses to enrich.
+        :param email: The email of the person to fetch data for.
         :return: The API response as a dictionary.
         """
         url = f"{self.base_url}/people/bulk_match"
-        details = [{"email": email} for email in emails]
+
+        details = {"email": person.email}
+        if person.linkedin:
+            details["linkedin_url"] = person.linkedin
         data = {
             "reveal_personal_emails": True,
             "reveal_phone_number": False,
-            "webhook_url": "https://your_webhook_site",
-            "details": details,
+            "details": [details],
         }
 
         try:
+            logger.debug(f"Sending request to Apollo: {data}")
             response = requests.post(url, headers=self.headers, json=data)
             response.raise_for_status()  # Raise an error for bad responses
             result = response.json()
@@ -53,7 +57,7 @@ class ApolloClient:
                 logger.error(f"Failed to get Apollo personal data: {result}")
             if result.get("matches"):
                 matches = result.get("matches")
-                logger.info(f"Got {len(matches)} matches")
+                logger.info(f"Got {len(matches)} matches: {str(matches)[:100]}")
                 if isinstance(matches, list):
                     return matches[0]
                 logger.warning("Matches came back in other form than a list")

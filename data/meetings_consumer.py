@@ -122,7 +122,7 @@ class MeetingManager(GenieConsumer):
         meetings = event_body.get("meetings")
         tenant_id = event_body.get("tenant_id")
         for meeting in meetings:
-            logger.debug(f"Meeting: {meeting}, type: {type(meeting)}")
+            logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
@@ -159,7 +159,7 @@ class MeetingManager(GenieConsumer):
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
-        logger.debug(f"Meeting: {meeting}")
+        logger.debug(f"Meeting: {str(meeting)[:300]}")
         meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
             meeting.google_calendar_id
         )
@@ -467,7 +467,9 @@ class MeetingManager(GenieConsumer):
         return final_list
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
-        logger.debug(f"About to check if meetings are the same: {meeting}, {meeting_in_database}")
+        logger.debug(
+            f"About to check if meetings are the same: {str(meeting)[:300]}, db:{str(meeting_in_database)[:300]}"
+        )
         if not meeting_in_database:
             return False
         if meeting.start_time != meeting_in_database.start_time:

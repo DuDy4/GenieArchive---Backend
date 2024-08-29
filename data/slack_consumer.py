@@ -33,6 +33,8 @@ class SlackConsumer(GenieConsumer):
             topics=[
                 Topic.FAILED_TO_GET_LINKEDIN_URL,
                 Topic.FAILED_TO_GET_PERSONAL_DATA,
+                Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
+                Topic.APOLLO_FAILED_TO_ENRICH_EMAIL
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -50,6 +52,12 @@ class SlackConsumer(GenieConsumer):
             case Topic.FAILED_TO_GET_PERSONAL_DATA:
                 logger.info("Handling failed attempt to enrich data")
                 await self.handle_failed_to_get_personal_data(event)
+            case Topic.APOLLO_FAILED_TO_ENRICH_PERSON:
+                logger.info("Handling failed attempt to enrich person")
+                await self.handle_failed_to_get_linkedin_url(event)
+            case Topic.APOLLO_FAILED_TO_ENRICH_EMAIL:
+                logger.info("Handling failed attempt to enrich email")
+                await self.handle_failed_to_get_linkedin_url(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 

@@ -321,6 +321,16 @@ class PDLConsumer(GenieConsumer):
 
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
+            person = PersonDTO(
+                uuid=uuid,
+                name="",
+                email=email,
+                linkedin="",
+                company="",
+                position="",
+                timezone="",
+            )
+            self.personal_data_repository.save_pdl_personal_data(person, personal_data)
             linkedin_url = ""
             social_profiles = personal_data.get("profiles", {})
             for social_profile in social_profiles:
