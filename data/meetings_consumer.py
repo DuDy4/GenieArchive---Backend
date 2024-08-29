@@ -253,6 +253,9 @@ class MeetingManager(GenieConsumer):
             logger.error("No company uuid in event")
             return
         company = self.companies_repository.get_company(company_uuid)
+        if not company:
+            logger.error(f"No company found for {company_uuid}")
+            return
 
         meetings_list = self.meeting_repository.get_meetings_without_goals_by_company_domain(company.domain)
         if not meetings_list:
@@ -410,7 +413,6 @@ class MeetingManager(GenieConsumer):
             event.send()
             break
         logger.info(f"Finished processing meeting goals for {meeting.uuid}")
-
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
         logger.debug(
