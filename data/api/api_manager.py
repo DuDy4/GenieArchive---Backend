@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from common.genie_logger import GenieLogger
 
-from common.utils import env_utils
+from common.utils import env_utils, email_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, titleize_name
 
@@ -64,7 +64,6 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
-from data.meetings_consumer import MeetingManager
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -318,7 +317,7 @@ def get_all_profile_for_meeting(
     logger.info(f"Tenant email: {tenant_email}")
     participants_emails = meeting.participants_emails
     logger.debug(f"Participants emails: {participants_emails}")
-    filtered_participants_emails = MeetingManager.filter_emails(
+    filtered_participants_emails = email_utils.filter_emails(
         host_email=tenant_email, participants_emails=participants_emails
     )
     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
@@ -645,7 +644,7 @@ def get_meeting_info(
     host_email_list = [email.email_address for email in participants if email.self]
     host_email = host_email_list[0] if host_email_list else None
     logger.debug(f"Host email: {host_email}")
-    filtered_participants_emails = MeetingManager.filter_emails(host_email, participants)
+    filtered_participants_emails = email_utils.filter_emails(host_email, participants)
     logger.info(f"Filtered participants: {filtered_participants_emails}")
 
     domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
@@ -709,7 +708,7 @@ def get_meeting_overview(
     host_email_list = [email.email_address for email in participants if email.self]
     host_email = host_email_list[0] if host_email_list else None
     logger.debug(f"Host email: {host_email}")
-    filtered_participants_emails = MeetingManager.filter_emails(host_email, participants)
+    filtered_participants_emails = email_utils.filter_emails(host_email, participants)
     logger.info(f"Filtered participants: {filtered_participants_emails}")
 
     domain_emails = [email.split("@")[1] for email in filtered_participants_emails]

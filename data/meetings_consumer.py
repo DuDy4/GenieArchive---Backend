@@ -5,7 +5,7 @@ import traceback
 from typing import List
 
 
-from common.utils import env_utils
+from common.utils import env_utils, email_utils
 from data.api.base_models import ParticipantEmail
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.dependencies.dependencies import (
@@ -140,7 +140,7 @@ class MeetingManager(GenieConsumer):
             except IndexError:
                 logger.error(f"Could not find self email in {participant_emails}")
                 continue
-            emails_to_process = self.filter_emails(self_email, participant_emails) + [self_email]
+            emails_to_process = email_utils.filter_emails(self_email, participant_emails) + [self_email]
             logger.info(f"Emails to process: {emails_to_process}")
             for email in emails_to_process:
                 event = GenieEvent(
@@ -167,7 +167,7 @@ class MeetingManager(GenieConsumer):
             logger.info("Meeting already in database")
             return
         self.meeting_repository.save_meeting(meeting)
-        emails_to_process = MeetingManager.filter_email_objects(meeting.participants_emails)
+        emails_to_process = email_utils.filter_email_objects(meeting.participants_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
             event = GenieEvent(
@@ -273,7 +273,7 @@ class MeetingManager(GenieConsumer):
                     f" Skipping this meeting..."
                 )
                 continue
-            filtered_emails = self.filter_emails(self_email, participant_emails)
+            filtered_emails = email_utils.filter_emails(self_email, participant_emails)
             logger.info(f"Filtered emails: {filtered_emails}")
             for email in filtered_emails:
                 personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(email)
@@ -376,7 +376,7 @@ class MeetingManager(GenieConsumer):
         if not self_email:
             logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
             self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
-        filtered_emails = self.filter_emails(self_email, participant_emails)
+        filtered_emails = email_utils.filter_emails(self_email, participant_emails)
         logger.info(f"Filtered emails: {filtered_emails}")
         for email in filtered_emails:
             profile = self.profiles_repository.get_profile_data_by_email(email)
@@ -411,60 +411,6 @@ class MeetingManager(GenieConsumer):
             break
         logger.info(f"Finished processing meeting goals for {meeting.uuid}")
 
-    @staticmethod
-    def filter_email_objects(participants_emails):
-        """
-        Filter emails of:
-        1. is the organizer.
-        2. has the same domain as the organizer.
-        3. has a public domain.
-        """
-        final_list = []
-
-        host_email_list = [email.get("email") for email in participants_emails if email.get("self")]
-        host_email = host_email_list[0] if host_email_list else None
-        if not host_email:
-            return final_list
-        host_domain = host_email.split("@")[1]
-        logger.info(f"Host email: {host_email}")
-        for email in participants_emails:
-            email_domain = email.get("email").split("@")[1]
-            if email_domain == host_domain:
-                continue
-            elif email_domain in PUBLIC_DOMAIN:
-                continue
-            else:
-                final_list.append(email)
-        logger.info(f"Final list: {final_list}")
-        return final_list
-
-    @staticmethod
-    def filter_emails(host_email: str, participants_emails: List[ParticipantEmail]):
-        """
-        Filter emails of:
-        1. is the organizer.
-        2. has the same domain as the organizer.
-        3. has a public domain.
-        """
-        final_list = []
-        host_domain = host_email.split("@")[1]
-        logger.info(f"Host email: {host_email}")
-        for email_object in participants_emails:
-            if isinstance(email_object, ParticipantEmail):
-                email = email_object.email_address
-            elif isinstance(email_object, dict):
-                email = email_object.get("email")
-            else:
-                email = email_object
-            email_domain = email.split("@")[1]
-            if email_domain == host_domain:
-                continue
-            elif email_domain in PUBLIC_DOMAIN:
-                continue
-            else:
-                final_list.append(email)
-        logger.info(f"Final list: {final_list}")
-        return final_list
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
         logger.debug(
