@@ -94,19 +94,6 @@ def test_google_token(token: str):
     return tokens
 
 
-@v1_router.get("/user-info", response_model=UserResponse)
-def get_user(request: Request):
-    """
-    Returns a tetant object - MOCK.
-    """
-    tenant = {
-        "tenantId": "TestOwner",
-        "name": "Dan Shevel",
-        "email": "dan.shevel@genie.ai",
-    }
-    return JSONResponse(content=tenant)
-
-
 @v1_router.post("/successful-login")
 async def post_successful_login(
     request: Request,
@@ -114,7 +101,7 @@ async def post_successful_login(
     tenants_repository: TenantsRepository = Depends(tenants_repository),
 ):
     """
-    Returns a tetant ID - MOCK.
+    Returns a tetant ID.
     """
     logger.info("Received JWT data")
     auth_data = await request.json()
@@ -870,11 +857,16 @@ def fetch_google_meetings(
         token_uri=GOOGLE_TOKEN_URI,
     )
 
+    if not all(
+        key in google_credentials
+        for key in ["access_token", "refresh_token", "client_id", "client_secret", "token_uri"]
+    ):
+        logger.error("Google credentials do not contain all necessary fields")
+    return JSONResponse(content={"error": "Incomplete Google credentials"})
+
     logger.debug(f"Google credentials before refresh: {google_credentials}")
 
     access_token = google_credentials.token
-
-    print(datetime.__file__)
 
     credentials = Credentials(token=access_token)
     service = build("calendar", "v3", credentials=credentials)
@@ -922,6 +914,7 @@ def fetch_google_meetings(
     #     meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
     #     event = GenieEvent(topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public")
     #     event.send()
+    logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
     return JSONResponse(content=titleize_values({"events": meetings}))
 
