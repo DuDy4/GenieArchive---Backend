@@ -665,7 +665,7 @@ def get_meeting_info(
 
 @v1_router.get(
     "/{tenant_id}/meeting-overview/{meeting_uuid}",
-    response_model=MiniMeetingOverviewResponse,
+    response_model=MiniMeetingOverviewResponse,  # Use only the Pydantic model here
 )
 def get_meeting_overview(
     tenant_id: str,
@@ -673,7 +673,7 @@ def get_meeting_overview(
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> MiniMeetingOverviewResponse:
+) -> Union[MiniMeetingOverviewResponse, JSONResponse]:
     """
     Get the meeting information.
 
@@ -688,7 +688,11 @@ def get_meeting_overview(
 
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"}, status_code=400)
-    mini_meeting = MiniMeeting.from_meeting_dto(meeting)
+    try:
+        mini_meeting = MiniMeeting.from_meeting_dto(meeting)
+    except Exception as e:
+        logger.error(f"Error creating mini meeting: {e}")
+        return JSONResponse(content={"error": "Could not process meeting"}, status_code=500)
     logger.info(f"Mini meeting: {mini_meeting}")
 
     participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
@@ -709,12 +713,19 @@ def get_meeting_overview(
         logger.info(f"Company: {company}")
         companies.append(company)
 
-    logger.info(f"Companies: {companies}")
-    mid_company = {}
-    if companies:
-        company = companies[0]
-        news = []
-        domain = company.domain
+    if not companies:
+        logger.error("No companies found")
+        return JSONResponse(
+            content={
+                "error": "No companies found in this meeting. Might be that we are still process the data."
+            },
+            status_code=404,
+        )
+
+    company = companies[0]
+    news = []
+    domain = company.domain
+    try:
         for new in company.news:
             link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
             if isinstance(new, dict):
@@ -725,9 +736,11 @@ def get_meeting_overview(
                 news.append(new)
         company.news = news[:3]
         logger.debug(f"Company news: {company}")
-        mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
-    else:
-        logger.error("No companies found")
+    except Exception as e:
+        logger.error(f"Error processing company news: {e}")
+        company.news = []
+    mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
+
     logger.info(f"Company: {mid_company}")
 
     mini_participants = []
@@ -739,14 +752,21 @@ def get_meeting_overview(
             logger.info(f"Profile: {profile_response}")
             mini_participants.append(profile_response)
 
+    if not mini_participants:
+        logger.error("No participants found")
+        return JSONResponse(content={"error": "No participants found in this meeting."}, status_code=404)
+
     logger.info(f"Meeting participants: {mini_participants}")
 
-    mini_overview = MiniMeetingOverviewResponse(
-        meeting=mini_meeting,
-        company=mid_company,
-        participants=mini_participants,
-    )
-
+    try:
+        mini_overview = MiniMeetingOverviewResponse(
+            meeting=mini_meeting,
+            company=mid_company,
+            participants=mini_participants,
+        )
+    except Exception as e:
+        logger.error(f"Error creating mini overview: {e}")
+        return JSONResponse(content={"error": "Error creating mini overview"}, status_code=500)
     logger.info(f"Mini overview: {mini_overview}")
 
     return mini_overview
@@ -857,12 +877,16 @@ def fetch_google_meetings(
         token_uri=GOOGLE_TOKEN_URI,
     )
 
-    if not all(
-        key in google_credentials
-        for key in ["access_token", "refresh_token", "client_id", "client_secret", "token_uri"]
+    # Check if the Credentials object has all necessary fields
+    if not (
+        google_credentials.token
+        and google_credentials.refresh_token
+        and google_credentials.client_id
+        and google_credentials.client_secret
+        and google_credentials.token_uri
     ):
         logger.error("Google credentials do not contain all necessary fields")
-    return JSONResponse(content={"error": "Incomplete Google credentials"})
+        return JSONResponse(content={"error": "Incomplete Google credentials"})
 
     logger.debug(f"Google credentials before refresh: {google_credentials}")
 
