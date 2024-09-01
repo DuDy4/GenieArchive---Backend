@@ -869,34 +869,41 @@ def fetch_google_meetings(
         logger.error("Google credentials not found for the tenant")
         return JSONResponse(content={"error": "Google credentials not found"})
 
-    google_credentials = Credentials(
+    # Ensure all necessary fields are present in the dictionary
+    google_credentials["token_uri"] = GOOGLE_TOKEN_URI
+    google_credentials["client_id"] = GOOGLE_CLIENT_ID
+    google_credentials["client_secret"] = GOOGLE_CLIENT_SECRET
+
+    missing_fields = []
+    required_fields = ["access_token", "refresh_token", "client_id", "client_secret", "token_uri"]
+    for field in required_fields:
+        if field not in google_credentials or not google_credentials[field]:
+            missing_fields.append(field)
+
+    if missing_fields:
+        logger.error(f"Google credentials do not contain all necessary fields: {missing_fields}")
+        return JSONResponse(
+            content={"error": f"Incomplete Google credentials: missing {', '.join(missing_fields)}"}
+        )
+    else:
+        logger.debug(f"All required fields found in Google credentials")
+
+    # Construct the Credentials object
+    credentials = Credentials(
         token=google_credentials["access_token"],
         refresh_token=google_credentials["refresh_token"],
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-        token_uri=GOOGLE_TOKEN_URI,
+        client_id=google_credentials["client_id"],
+        client_secret=google_credentials["client_secret"],
+        token_uri=google_credentials["token_uri"],
     )
 
-    # Check if the Credentials object has all necessary fields
-    if not (
-        google_credentials.token
-        and google_credentials.refresh_token
-        and google_credentials.client_id
-        and google_credentials.client_secret
-        and google_credentials.token_uri
-    ):
-        logger.error("Google credentials do not contain all necessary fields")
-        return JSONResponse(content={"error": "Incomplete Google credentials"})
+    # Log credentials before using them
+    logger.debug(f"Google credentials before refresh: {credentials}")
 
-    logger.debug(f"Google credentials before refresh: {google_credentials}")
-
-    access_token = google_credentials.token
-
-    credentials = Credentials(token=access_token)
+    # Build the service using the credentials
     service = build("calendar", "v3", credentials=credentials)
 
     now = datetime.datetime.utcnow().isoformat() + "Z"
-    # 'Z' indicates UTC time
     now_minus_10_hours = (datetime.datetime.utcnow() - datetime.timedelta(hours=10)).isoformat() + "Z"
     logger.info(f"[EMAIL={user_email}] Fetching meetings starting from: {now_minus_10_hours}")
 
@@ -914,9 +921,12 @@ def fetch_google_meetings(
         )
     except Exception as e:
         error_message = str(e)
-        if "The credentials do not contain the necessary fields" in error_message:
-            logger.error(f"Missing fields in credentials: {e}")
-            raise HTTPException(status_code=401, detail="Need to re-login to refresh the access-token")
+        if "invalid_grant" in error_message:
+            logger.error(f"Invalid grant error: {e}. The user may need to re-authenticate.")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid grant: Refresh token is no longer valid. Please re-authenticate.",
+            )
         else:
             logger.error(f"Error fetching events from Google Calendar: {e}")
             raise HTTPException(status_code=500, detail=f"Error fetching events from Google Calendar: {e}")
@@ -934,10 +944,6 @@ def fetch_google_meetings(
         scope="public",
     )
     event.send()
-    # for meeting in meetings:
-    #     meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-    #     event = GenieEvent(topic=Topic.NEW_MEETING, data=meeting.to_json(), scope="public")
-    #     event.send()
     logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
     return JSONResponse(content=titleize_values({"events": meetings}))
