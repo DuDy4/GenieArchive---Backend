@@ -40,8 +40,8 @@ class ApolloClient:
         if person.linkedin:
             details["linkedin_url"] = person.linkedin
         data = {
-            "reveal_personal_emails": True,
-            "reveal_phone_number": False,
+            "reveal_personal_emails": "true",
+            "reveal_phone_number": "false",
             "details": [details],
         }
 
@@ -54,7 +54,7 @@ class ApolloClient:
             if result_status == "success":
                 logger.info(f"Got response from Apollo: {result_status}")
             else:
-                logger.error(f"Failed to get Apollo personal data: {result}")
+                logger.error(f"Failed to get Apollo personal data ({data}): {result}")
             if result.get("matches"):
                 matches = result.get("matches")
                 logger.info(f"Got {len(matches)} matches: {str(matches)[:100]}")
@@ -86,7 +86,7 @@ class ApolloClient:
             logger.info(f"Got company data for domain {domain}: {result}")
             return result
         except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
+            logger.error(f"HTTP error occurred for domain({domain}): {http_err}")
         except Exception as err:
             logger.error(f"Other error occurred: {err}")
         return None
