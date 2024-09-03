@@ -188,20 +188,19 @@ async def get_user_account(
         logger.debug(f"Received signup request: {request}")
         data = await request.json()
         logger.debug(f"Received signup data: {data}")
+
         uuid = tenants_repository.exists(data.get("tenantId"), data.get("name"))
 
         if uuid:
             logger.info(f"User already exists in database")
-            return {
-                "message": "User already exists in database",
-            }
+            return {"message": "User already exists in database"}
+
+        tenant_email = data.get("email")
+
+        old_tenant_id = tenants_repository.get_tenant_id_by_email(data.get("email"))
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
 
-        # salesforce_creds = tenants_repository.get_salesforce_credentials(
-        #     data.get("tenantId")
-        # )
-        # logger.debug(f"Salesforce creds: {salesforce_creds}")
         return {
             "message": f"User account created successfully with uuid: {uuid}",
         }
