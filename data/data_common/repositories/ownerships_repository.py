@@ -34,7 +34,7 @@ class OwnershipsRepository:
             logger.error(f"Error getting all ownerships: {error.pgerror}")
             traceback.print_exc()
             return []
-        
+
     def get_tenants_for_person(self, uuid):
         self.create_table_if_not_exists()
         select_query = """
@@ -143,5 +143,20 @@ class OwnershipsRepository:
                 return True
         except psycopg2.Error as error:
             logger.error(f"Error deleting ownership: {error.pgerror}")
+            traceback.print_exc()
+            return False
+
+    def update_tenant_id(self, old_tenant_id, new_tenant_id):
+        update_query = """
+        UPDATE ownerships SET tenant_id = %s WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                logger.info(f"Updated tenant_id in ownerships table")
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating tenant_id in ownerships table: {error.pgerror}")
             traceback.print_exc()
             return False
