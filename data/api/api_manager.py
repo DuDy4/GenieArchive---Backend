@@ -765,7 +765,8 @@ def get_meeting_overview(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
-        companies.append(company)
+        if company:
+            companies.append(company)
 
     if not companies:
         logger.error("No companies found")
