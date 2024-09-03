@@ -768,17 +768,16 @@ def get_meeting_overview(
         if company:
             companies.append(company)
 
-    # if companies:
-    # logger.error("No companies found")
-    # return JSONResponse(
-    #     content={
-    #         "error": "No companies found in this meeting. Might be that we are still process the data."
-    #     },
-    #     status_code=404,
-    # )
+    if not companies:
+        logger.error("No companies found")
+        return JSONResponse(
+            content={
+                "error": "No companies found in this meeting. Might be that we are still process the data."
+            },
+            status_code=404,
+        )
 
     company = companies[0] if companies else None
-    mid_company = None
     logger.info(f"Company: {company}")
     if company:
         news = []
