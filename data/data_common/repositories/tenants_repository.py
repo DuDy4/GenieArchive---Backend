@@ -239,3 +239,16 @@ class TenantsRepository:
             logger.error("Error getting tenant email:", error)
             logger.error(traceback.format_exc())
             return None
+
+    def update_tenant_id(self, old_tenant_id, new_tenant_id):
+        update_query = """
+        UPDATE tenants SET tenant_id = %s WHERE tenant_id = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                logger.info(f"Updated tenant id from {old_tenant_id} to {new_tenant_id}")
+        except Exception as error:
+            logger.error("Error updating tenant id:", error)
+            logger.error(traceback.format_exc())
