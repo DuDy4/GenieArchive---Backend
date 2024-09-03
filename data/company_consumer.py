@@ -81,7 +81,7 @@ class CompanyConsumer(GenieConsumer):
         ):
             logger.info(f"Company news for {company_dto.name} is up to date")
             return {"status": "success"}
-        logger.info(f"Fetching new for company {company_dto.name}")
+        logger.info(f"Fetching news for company {company_dto.name}")
         self.fetched_news(company_dto.uuid, company_dto.name)
         event = GenieEvent(
             topic=Topic.COMPANY_NEWS_UPDATED,
@@ -138,7 +138,7 @@ class CompanyConsumer(GenieConsumer):
             )
             event.send()
             return {"status": "success"}
-        logger.info(f"Fetching new for company {company.name}")
+        logger.info(f"Fetching news for company {company.name}")
         self.fetched_news(company.uuid, company.name)
         event = GenieEvent(
             topic=Topic.COMPANY_NEWS_UPDATED,
@@ -152,22 +152,17 @@ class CompanyConsumer(GenieConsumer):
         company_data = await self.apollo_client.enrich_company(email_domain)
         if company_data:
             company = CompanyDTO.from_apollo_object(company_data.get("organization") or company_data)
+            company = validate_company_data(company, email_domain)
             logger.info(f"Company data fetched from Apollo: {str(company)[:300]}")
             self.companies_repository.save_company_without_news(company)
             return company
         logger.warning(f"Apollo couldn't find company data for domain: {email_domain}")
         company_data = await self.hunter_client.get_domain_info(email_domain)
-        if not company_data:
-            logger.warning(f"Hunter couldn't find company data for domain: {email_domain}")
-            return None
         company = CompanyDTO.from_hunter_object(company_data["data"])
+        company = validate_company_data(company, email_domain)
         logger.info(f"Company data fetched from Hunter: {str(company)[:300]}")
         self.companies_repository.save_company_without_news(company)
         return company
-
-        # Should not reach here
-        logger.error(f"Should not have reached here. Failed to fetch company data for domain: {email_domain}")
-        return None
 
     def fetched_news(self, company_uuid, company_name):
         news_list = self.tavily_client.get_news(company_name)
@@ -177,6 +172,15 @@ class CompanyConsumer(GenieConsumer):
             logger.info(f"Company news for {company_name} updated")
         else:
             logger.info(f"No news found for company {company_name}")
+
+    def validate_company_data(self, company_dto: CompanyDTO, email_domain: str):
+        if company_data.domain != email_domain:
+            logger.error(f"Domain mismatch: {company_data.domain} != {email_domain}")
+            company_dto.domain = email_domain
+        if company_data.size == "0" or company_data.size == 0:
+            logger.error(f"Invalid company size: {company_data.size}")
+            company_dto.size = None
+        return company_dto
 
 
 if __name__ == "__main__":
