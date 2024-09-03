@@ -305,6 +305,7 @@ class PersonManager(GenieConsumer):
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person.email}")
+            self.check_profile_data_from_person(person)
             return {"status": "success"}
         event = GenieEvent(
             Topic.APOLLO_NEW_PERSON_TO_ENRICH,
