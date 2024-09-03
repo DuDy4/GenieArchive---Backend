@@ -140,7 +140,7 @@ class MeetingManager(GenieConsumer):
             except IndexError:
                 logger.error(f"Could not find self email in {participant_emails}")
                 continue
-            emails_to_process = email_utils.filter_emails(self_email, participant_emails) + [self_email]
+            emails_to_process = email_utils.filter_emails(self_email, participant_emails)
             logger.info(f"Emails to process: {emails_to_process}")
             for email in emails_to_process:
                 event = GenieEvent(
@@ -152,9 +152,19 @@ class MeetingManager(GenieConsumer):
                 event = GenieEvent(
                     topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                     data=json.dumps({"tenant_id": meeting.tenant_id, "email": email}),
-                    scope="private",
+                    scope="public",
                 )
                 event.send()
+
+            # start processing the company of self email
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+                data=json.dumps({"tenant_id": meeting.tenant_id, "email": self_email}),
+                scope="public",
+            )
+            event.send()
+
+            return {"status": "success"}
 
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
