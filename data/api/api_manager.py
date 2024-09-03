@@ -188,16 +188,12 @@ async def get_user_account(
         logger.debug(f"Received signup request: {request}")
         data = await request.json()
         logger.debug(f"Received signup data: {data}")
-        tenants_repository.create_table_if_not_exists()
         uuid = tenants_repository.exists(data.get("tenantId"), data.get("name"))
 
         if uuid:
             logger.info(f"User already exists in database")
-            salesforce_creds = tenants_repository.get_salesforce_credentials(data.get("tenantId"))
-            logger.debug(f"Salesforce creds: {salesforce_creds}")
             return {
                 "message": "User already exists in database",
-                "salesforce_creds": salesforce_creds,
             }
         uuid = tenants_repository.insert(data)
         logger.debug(f"User account created successfully with uuid: {uuid}")
@@ -278,8 +274,8 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
-def get_all_profile_for_meeting(
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse)
+def get_all_profile_and_persons_for_meeting(
     tenant_id: str,
     meeting_id: str,
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
@@ -287,7 +283,7 @@ def get_all_profile_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> List[MiniProfileResponse]:
+) -> MiniProfilesListResponse:
     """
     Get all profile IDs and names for a specific meeting.
 
@@ -322,12 +318,18 @@ def get_all_profile_for_meeting(
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             profiles.append(profile)
+    logger.debug(f"Got profiles: {len(profiles)}")
     persons_without_profiles = [
-        person.to_dict() for person in persons if person.uuid not in [profile.uuid for profile in profiles]
+        person.to_dict()
+        for person in persons
+        if str(person.uuid) not in [str(profile.uuid) for profile in profiles]
     ]
     logger.info(f"Got persons without profiles: {persons_without_profiles}")
     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
+    mini_profiles_list = [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
+    mini_persons_list = [MiniPersonResponse.from_dict(person) for person in persons_without_profiles]
+    return MiniProfilesListResponse(profiles=mini_profiles_list, persons=mini_persons_list)
+    # return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
@@ -974,3 +976,21 @@ def validate_uuid(uuid_string: str):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     return str(val)
+
+
+def changed_old_tenant_to_new_tenant(
+    new_tenant: str,
+    old_tenant: str,
+    ownerships_repository: OwnershipsRepository,
+    meetings_repository: MeetingsRepository,
+    tenants_repository: TenantsRepository,
+):
+    ownerships_repository.update_tenant_id(new_tenant, old_tenant)
+    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant}")
+    meetings = meetings_repository.get_all_meetings_by_tenant_id(old_tenant)
+    for meeting in meetings:
+        meetings.tenant_id = new_tenant
+        meetings_repository.save_meeting(meetings)
+    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant} for all meetings")
+    tenants_repository.update_tenant_id(new_tenant, old_tenant)
+    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant}")
