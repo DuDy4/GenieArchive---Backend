@@ -381,7 +381,7 @@ def get_all_profile_for_meeting(
     ]
     logger.info(f"Got persons without profiles: {persons_without_profiles}")
     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
+    return [MiniProfileResponse.from_profile_dto(profiles[i]) for i in range(len(profiles))]
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
@@ -778,23 +778,26 @@ def get_meeting_overview(
         )
 
     company = companies[0]
-    news = []
-    domain = company.domain
-    try:
-        for new in company.news:
-            link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
-            if isinstance(new, dict):
-                new["link"] = link
-            elif isinstance(new, NewsData):
-                new.link = link
-            if domain not in str(link):
-                news.append(new)
-        company.news = news[:3]
-        logger.debug(f"Company news: {company}")
-    except Exception as e:
-        logger.error(f"Error processing company news: {e}")
-        company.news = []
-    mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
+    mid_company = None
+    logger.info(f"Company: {company}")
+    if company:
+        news = []
+        domain = company.domain
+        try:
+            for new in company.news:
+                link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
+                if isinstance(new, dict):
+                    new["link"] = link
+                elif isinstance(new, NewsData):
+                    new.link = link
+                if domain not in str(link):
+                    news.append(new)
+            company.news = news[:3]
+            logger.debug(f"Company news: {company}")
+        except Exception as e:
+            logger.error(f"Error processing company news: {e}")
+            company.news = []
+        mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
     logger.info(f"Company: {mid_company}")
 
@@ -803,7 +806,7 @@ def get_meeting_overview(
     for participant in filtered_participants_emails:
         profile = profiles_repository.get_profile_data_by_email(participant)
         if profile:
-            profile_response = MiniProfileResponse.from_profile_dto_and_email(profile, participant)
+            profile_response = MiniProfileResponse.from_profile_dto_and_email(profile)
             logger.info(f"Profile: {profile_response}")
             mini_participants.append(profile_response)
 
