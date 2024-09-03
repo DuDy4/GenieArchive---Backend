@@ -108,16 +108,20 @@ class MiniPersonResponse(BaseModel):
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
+    email: Optional[str]
     profile_picture: Optional[str]
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO):
+    def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
         if not profile:
             logger.error("Profile is None")
             return None
+        if not person:
+            return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
+            email=person.email if person.uuid == str(profile.uuid) else None,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -129,15 +133,8 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
+            email=email,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
-        )
-
-    @staticmethod
-    def from_dict(data: Dict):
-        return MiniProfileResponse(
-            uuid=data["uuid"],
-            name=data["name"],
-            profile_picture=str(data.get("profile_picture", None)),
         )
 
 
@@ -554,14 +551,14 @@ class MiniMeetingOverviewResponse(BaseModel):
 
 class MeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
-    company: MeetingCompany
+    company: Optional[MeetingCompany] = None
     participants: List[MiniProfileResponse]
 
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
             meeting=MiniMeeting.from_dict(data.get("meeting", {})),
-            company=MeetingCompany.from_dict(data.get("company", {})),
+            company=MeetingCompany.from_dict(data.get("company", {})) if data.get("company") else None,
             participants=[
                 MiniProfileResponse.from_dict(participant) for participant in data.get("participants", [])
             ],

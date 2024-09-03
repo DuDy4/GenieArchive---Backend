@@ -381,7 +381,7 @@ def get_all_profile_for_meeting(
     ]
     logger.info(f"Got persons without profiles: {persons_without_profiles}")
     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    return [MiniProfileResponse.from_profile_dto(profiles[i]) for i in range(len(profiles))]
+    return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
@@ -768,16 +768,16 @@ def get_meeting_overview(
         if company:
             companies.append(company)
 
-    if not companies:
-        logger.error("No companies found")
-        return JSONResponse(
-            content={
-                "error": "No companies found in this meeting. Might be that we are still process the data."
-            },
-            status_code=404,
-        )
+    # if companies:
+    # logger.error("No companies found")
+    # return JSONResponse(
+    #     content={
+    #         "error": "No companies found in this meeting. Might be that we are still process the data."
+    #     },
+    #     status_code=404,
+    # )
 
-    company = companies[0]
+    company = companies[0] if companies else None
     mid_company = None
     logger.info(f"Company: {company}")
     if company:
@@ -806,7 +806,7 @@ def get_meeting_overview(
     for participant in filtered_participants_emails:
         profile = profiles_repository.get_profile_data_by_email(participant)
         if profile:
-            profile_response = MiniProfileResponse.from_profile_dto_and_email(profile)
+            profile_response = MiniProfileResponse.from_profile_dto(profile)
             logger.info(f"Profile: {profile_response}")
             mini_participants.append(profile_response)
 
@@ -828,82 +828,6 @@ def get_meeting_overview(
     logger.info(f"Mini overview: {mini_overview}")
 
     return mini_overview
-
-
-@v1_router.get(
-    "/{tenant_id}/meeting-overview-mock/{meeting_uuid}",
-    response_model=MeetingOverviewResponse,
-)
-def get_meeting_overview_mock(
-    tenant_id: str,
-    meeting_uuid: str,
-    meetings_repository: MeetingsRepository = Depends(meetings_repository),
-    companies_repository: CompaniesRepository = Depends(companies_repository),
-    profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> MeetingOverviewResponse:
-    """
-    Get the meeting information.
-
-    - **tenant_id**: Tenant ID
-    - **meeting_id**: Meeting ID
-    """
-    meeting_dict = {
-        "meeting": {
-            "subject": "Quarterly Business Review",
-            "video_link": "https://example.com/video",
-            "guidelines": {
-                "total_duration": "60m",
-                "guidelines": [
-                    {"text": "Review the financial report", "duration": "15m"},
-                    {"text": "Prepare questions for the Q&A session", "duration": "30m"},
-                ],
-            },
-        },
-        "company": {
-            "name": "Tech Innovators Inc.",
-            "overview": "A leading company in tech innovation.",
-            "size": "500-1000",
-            "industry": "Technology",
-            "country": "USA",
-            "annual_revenue": "100M-500M",
-            "total_funding": "50M",
-            "last_raised_at": "2023-06-15",
-            "main_costumers": "Fortune 500 companies",
-            "main_competitors": "Tech Giants Ltd.",
-            "technologies": ["Artificial Intelligence", "Machine Learning", "Cloud Computing"],
-            "challenges": [
-                {
-                    "challenge_name": "Scalability",
-                    "reasoning": "The company is expanding rapidly.",
-                    "score": 8,
-                }
-            ],
-            "news": [
-                {
-                    "date": "2024-08-20",
-                    "link": "https://example.com/news-article",
-                    "media": "TechNews",
-                    "title": "Tech Innovators Inc. announces new AI platform",
-                    "summary": "The company has launched a new AI platform that will revolutionize the industry.",
-                }
-            ],
-        },
-        "participants": [
-            {
-                "uuid": "123e4567-e89b-12d3-a456-426614174000",
-                "name": "John Doe",
-                "email": "john.doe@example.com",
-                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
-            },
-            {
-                "uuid": "987e6543-e21b-12d3-a456-426614174001",
-                "name": "Jane Smith",
-                "email": "jane.smith@example.com",
-                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
-            },
-        ],
-    }
-    return MeetingOverviewResponse.from_dict(meeting_dict)
 
 
 @v1_router.get(
