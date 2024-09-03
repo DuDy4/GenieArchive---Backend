@@ -63,23 +63,61 @@ class MiniPersonResponse(BaseModel):
         }
 
 
+# class MiniProfileResponse(BaseModel):
+#     uuid: str
+#     name: str
+#     email: Optional[str]
+#     profile_picture: Optional[str]
+#
+#     @staticmethod
+#     def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
+#         if not profile:
+#             logger.error("Profile is None")
+#             return None
+#         if not person:
+#             return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
+#         return MiniProfileResponse(
+#             uuid=str(profile.uuid),
+#             name=titleize_name(str(profile.name)),
+#             email=person.email if person.uuid == str(profile.uuid) else None,
+#             profile_picture=str(profile.picture_url) if profile.picture_url else None,
+#         )
+#
+#     @staticmethod
+#     def from_profile_dto_and_email(profile: ProfileDTO, email: str):
+#         if not profile:
+#             logger.error("Profile is None")
+#             return None
+#         return MiniProfileResponse(
+#             uuid=str(profile.uuid),
+#             name=titleize_name(str(profile.name)),
+#             email=email,
+#             profile_picture=str(profile.picture_url) if profile.picture_url else None,
+#         )
+#
+#     @staticmethod
+#     def from_dict(data: Dict):
+#         return MiniProfileResponse(
+#             uuid=data["uuid"],
+#             name=data["name"],
+#             email=data.get("email", None),
+#             profile_picture=data.get("profile_picture", None),
+#         )
+
+
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
-    email: Optional[str]
     profile_picture: Optional[str]
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
+    def from_profile_dto(profile: ProfileDTO):
         if not profile:
             logger.error("Profile is None")
             return None
-        if not person:
-            return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            email=person.email if person.uuid == str(profile.uuid) else None,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -91,7 +129,6 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            email=email,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -100,8 +137,7 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=data["uuid"],
             name=data["name"],
-            email=data.get("email", None),
-            profile_picture=data.get("profile_picture", None),
+            profile_picture=str(data.get("profile_picture", None)),
         )
 
 
