@@ -32,8 +32,8 @@ class UserResponse(BaseModel):
 
 class MiniPersonResponse(BaseModel):
     uuid: str
-    name: Optional[str] = None
     email: str
+    name: Optional[str] = None
 
     @staticmethod
     def from_person_dto(person: PersonDTO):
@@ -52,7 +52,6 @@ class MiniPersonResponse(BaseModel):
             uuid=data["uuid"],
             name=data["name"],
             email=data.get("email", None),
-            profile_picture=data.get("profile_picture", None),
         )
 
     def to_dict(self):
@@ -66,20 +65,16 @@ class MiniPersonResponse(BaseModel):
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
-    email: Optional[str]
     profile_picture: Optional[str]
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
+    def from_profile_dto(profile: ProfileDTO):
         if not profile:
             logger.error("Profile is None")
             return None
-        if not person:
-            return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            email=person.email if person.uuid == str(profile.uuid) else None,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -91,7 +86,6 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            email=email,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -100,20 +94,13 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=data["uuid"],
             name=data["name"],
-            email=data.get("email", None),
-            profile_picture=data.get("profile_picture", None),
+            profile_picture=str(data.get("profile_picture", None)),
         )
 
 
 class MiniProfilesListResponse(BaseModel):
     profiles: List[MiniProfileResponse]
     persons: Optional[List[MiniPersonResponse]] = None
-
-    @staticmethod
-    def from_profiles_list(profiles: List[ProfileDTO]):
-        return MiniProfilesListResponse(
-            profiles=[MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
-        )
 
 
 class StrengthsListResponse(BaseModel):

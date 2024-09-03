@@ -10,6 +10,7 @@ data/test/specific_persons_test
 data/test/data_test_meetings.py
 data/test/data_test_new_processed_profile.py
 data/test/data_test_company_consumer.py
+data/test/data_test_domain_to_process.py
 
 .idea/
 
