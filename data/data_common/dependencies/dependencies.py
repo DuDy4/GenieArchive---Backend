@@ -1,4 +1,3 @@
-from data.data_common.repositories.contacts_repository import ContactsRepository
 from data.data_common.repositories.interactions_repository import InteractionsRepository
 
 from ..utils.postgres_connector import get_db_connection
@@ -6,13 +5,13 @@ from ..repositories.personal_data_repository import PersonalDataRepository
 from ..repositories.persons_repository import PersonsRepository
 from ..repositories.profiles_repository import ProfilesRepository
 from ..repositories.tenants_repository import TenantsRepository
-from ..salesforce.salesforce_event_handler import SalesforceEventHandler
 from ..repositories.meetings_repository import MeetingsRepository
 from ..repositories.google_creds_repository import GoogleCredsRepository
 from ..repositories.ownerships_repository import OwnershipsRepository
 from ..repositories.hobbies_repository import HobbiesRepository
 from ..repositories.companies_repository import CompaniesRepository
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -21,16 +20,6 @@ def tenants_repository() -> TenantsRepository:
     try:
         with conn:
             return TenantsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-
-
-def contacts_repository() -> ContactsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        with conn:
-            return ContactsRepository(conn=conn)
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None
@@ -124,9 +113,3 @@ def hobbies_repository() -> HobbiesRepository:
     except Exception as e:
         logger.error(f"Error establishing database connection: {e}")
         return None
-
-
-def salesforce_event_handler() -> SalesforceEventHandler:
-    return SalesforceEventHandler(
-        contacts_repository=contacts_repository(),
-    )

@@ -42,7 +42,6 @@ from data.data_common.repositories.companies_repository import CompaniesReposito
 
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
-    contacts_repository,
     tenants_repository,
     meetings_repository,
     google_creds_repository,
