@@ -16,6 +16,21 @@ class OwnershipsRepository:
         if self.conn:
             self.conn.close()
 
+    def update_tenant_id(self, new_tenant_id, old_tenant_id):
+        update_query = """
+        UPDATE ownerships SET tenant_id = %s WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                logger.info(f"Updated tenant_id from {old_tenant_id} to {new_tenant_id}")
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating tenant_id: {error.pgerror}")
+            traceback.print_exc()
+            return False
+
     def get_all_persons_for_tenant(self, tenant_id):
         self.create_table_if_not_exists()
         select_query = """

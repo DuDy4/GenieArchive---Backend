@@ -15,7 +15,7 @@ from common.utils import env_utils
 from data.api.api_manager import v1_router
 from common.genie_logger import GenieLogger
 logger = GenieLogger()
-configure_azure_monitor()
+# configure_azure_monitor()
 
 load_dotenv()
 

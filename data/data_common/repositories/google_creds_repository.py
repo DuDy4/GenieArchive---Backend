@@ -26,7 +26,8 @@ class GoogleCredsRepository:
             uuid VARCHAR UNIQUE NOT NULL,
             email VARCHAR,
             refresh_token TEXT,
-            access_token TEXT
+            access_token TEXT,
+            last_update TIMESTAMP
         );
         """
         try:
@@ -39,8 +40,8 @@ class GoogleCredsRepository:
 
     def insert(self, creds: dict):
         insert_query = """
-        INSERT INTO google_creds (uuid, email, refresh_token, access_token)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO google_creds (uuid, email, refresh_token, access_token, last_update)
+        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
         if self.exists(creds.get("email")):
             logger.info(
