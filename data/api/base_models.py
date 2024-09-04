@@ -15,6 +15,7 @@ from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,
     NewsData,
     SocialMediaLinks,
+    SocialMediaLinksList,
     FundingEvent,
 )
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
@@ -209,7 +210,7 @@ class AttendeeInfo(BaseModel):
     name: str
     company: str
     position: str
-    social_media_links: List[SocialMediaLinks]
+    social_media_links: Optional[SocialMediaLinksList] = SocialMediaLinksList([])
 
 
 class ProfileResponse(BaseModel):
@@ -235,7 +236,7 @@ class CompanyResponse(BaseModel):
     overview: Optional[str]
     challenges: Optional[List[Challenge]]
     technologies: Optional[List[str]]
-    social_links: Optional[List[SocialMediaLinks]]
+    social_links: Optional[SocialMediaLinksList]
     news: Optional[List[NewsData]]
 
     @classmethod
@@ -249,7 +250,7 @@ class CompanyResponse(BaseModel):
             overview=company.overview,
             challenges=company.challenges,
             technologies=company.technologies,
-            social_links=company.social_links,
+            social_links=SocialMediaLinksList.from_list(company.social_links),
             news=company.news if company.news else None,
         )
 
@@ -362,7 +363,7 @@ class MidMeetingCompany(BaseModel):
     funding_rounds: Optional[List[FundingEvent]] | None
     technologies: List[str]
     challenges: List[Challenge]
-    social_links: Optional[List[SocialMediaLinks]] | None
+    social_links: Optional[SocialMediaLinksList] | None
     news: List[NewsData]
 
     @classmethod
@@ -381,7 +382,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=data.get("funding_rounds", ""),
             technologies=data.get("technologies", []),
             challenges=data.get("challenges", []),
-            social_links=data.get("social_links", []),
+            social_links=SocialMediaLinksList.from_list(data.get("social_links", [])),
             news=data.get("news", []),
         )
 
@@ -400,7 +401,7 @@ class MidMeetingCompany(BaseModel):
             "funding_rounds": self.funding_rounds,
             "technologies": self.technologies,
             "challenges": self.challenges,
-            "social_links": self.social,
+            "social_links": self.social_links,
             "news": self.news,
         }
 
@@ -420,7 +421,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=company.funding_rounds,
             technologies=company.technologies,
             challenges=company.challenges,
-            social_links=company.social_links,
+            social_links=SocialMediaLinksList.from_list(company.social_links),
             news=company.news,
         )
 

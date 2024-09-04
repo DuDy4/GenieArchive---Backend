@@ -435,7 +435,7 @@ def get_profile_attendee_info(
         "name": name,
         "company": company,
         "position": position,
-        "social_media_links": links or [],
+        "social_media_links": SocialMediaLinksList.from_list(links) or [],
     }
     logger.info(f"Attendee info: {profile}")
     return AttendeeInfo(**profile)

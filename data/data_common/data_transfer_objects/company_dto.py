@@ -96,6 +96,29 @@ class SocialMediaLinks(BaseModel):
         )
 
 
+class SocialMediaLinksList(BaseModel):
+    links: List[SocialMediaLinks] = []
+
+    def __init__(self, links: List[SocialMediaLinks], **kwargs):
+        unique_links = {}
+        for link in links:
+            if link.platform.lower() not in unique_links:
+                unique_links[link.platform.lower()] = link
+        super().__init__(links=list(unique_links.values()), **kwargs)
+
+    def append(self, link: SocialMediaLinks):
+        if link.platform.lower() not in {l.platform.lower() for l in self.links}:
+            self.links.append(link)
+
+    def to_list(self) -> List[Dict[str, Any]]:
+        return [link.to_dict() for link in self.links]
+
+    @classmethod
+    def from_list(cls, data: List[Dict[str, Any]] | List[SocialMediaLinks]) -> "SocialMediaLinksList":
+        links = [SocialMediaLinks.from_dict(item) if isinstance(item, dict) else item for item in data]
+        return cls(links=links)
+
+
 class NewsData(BaseModel):
     date: Optional[date]
     link: HttpUrl
