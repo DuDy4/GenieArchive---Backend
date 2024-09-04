@@ -7,7 +7,6 @@ import requests
 import urllib.parse
 import uuid
 
-
 from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from common.genie_logger import GenieLogger
@@ -26,7 +25,6 @@ from fastapi.security import OAuth2PasswordBearer
 from google.oauth2 import id_token
 from google.auth import credentials
 
-
 from data.api.base_models import *
 import datetime
 
@@ -42,11 +40,9 @@ from data.data_common.repositories.ownerships_repository import OwnershipsReposi
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 from data.data_common.repositories.companies_repository import CompaniesRepository
 
-
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     contacts_repository,
-    salesforce_event_handler,
     tenants_repository,
     meetings_repository,
     google_creds_repository,
@@ -67,7 +63,6 @@ from data.data_common.utils.str_utils import get_uuid4
 
 from data.api_services.auth0 import handle_auth0_user_signup
 
-
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
 logger.info(f"Self url: {SELF_URL}")
@@ -79,7 +74,6 @@ GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 DEFAULT_INTERNAL_API_KEY = "g3n13admin"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 
 v1_router = APIRouter(prefix="/v1")
 
@@ -165,7 +159,11 @@ async def post_social_auth_data(
 
 
 @v1_router.post("/users/login-event")
-async def login_event(request: Request):
+async def login_event(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
+):
     """
     Handle user signup process.
     """
@@ -174,18 +172,27 @@ async def login_event(request: Request):
         logger.info(f"Received user info: {user_info}")
         user_name = user_info.get("name")
         user_id = user_info.get("user_id")
-        user_email = user_info.get("email")
+        user_email = user_info.get("user_email")
         user_access_token = user_info.get("google_access_token")
         user_refresh_token = user_info.get("google_refresh_token")
-        tenant_id = user_info.get("tenantId")
-        tenant_name = user_info.get("tenantName")
+        tenant_id = user_info.get("tenant_id")
+        tenant_name = user_info.get("tenant_name")
 
-        if tenants_repository.tenant_id_exists(tenant_id):
+        if tenants_repository.exists(tenant_id):
+            logger.debug(f"Tenant ID {tenant_id} already exists in database")
             google_creds_repository.update_google_creds(user_email, user_access_token, user_refresh_token)
+            logger.debug(f"Updated google creds for user: {user_email}. About to fetch google meetings")
             fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
         elif tenants_repository.email_exists(user_email):
-            TenantService.changed_old_tenant_to_new_tenant(tenant_id, user_name, user_email)
-
+            logger.debug(f"Another tenant ID exists for this email: {user_email}. About to update tenant ID")
+            old_tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
+            TenantService.changed_old_tenant_to_new_tenant(
+                new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id
+            )
+            google_creds_repository.update_google_creds(user_email, user_access_token, user_refresh_token)
+        else:
+            # Signup new user
+            logger.debug(f"About to signup new user: {user_email}")
         return JSONResponse(content={"message": "User signup successful"}, status_code=200)
     except Exception as e:
         logger.error(f"Error during user signup: {str(e)}")
@@ -805,82 +812,6 @@ def get_meeting_overview(
 
 
 @v1_router.get(
-    "/{tenant_id}/meeting-overview-mock/{meeting_uuid}",
-    response_model=MeetingOverviewResponse,
-)
-def get_meeting_overview_mock(
-    tenant_id: str,
-    meeting_uuid: str,
-    meetings_repository: MeetingsRepository = Depends(meetings_repository),
-    companies_repository: CompaniesRepository = Depends(companies_repository),
-    profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> MeetingOverviewResponse:
-    """
-    Get the meeting information.
-
-    - **tenant_id**: Tenant ID
-    - **meeting_id**: Meeting ID
-    """
-    meeting_dict = {
-        "meeting": {
-            "subject": "Quarterly Business Review",
-            "video_link": "https://example.com/video",
-            "guidelines": {
-                "total_duration": "60m",
-                "guidelines": [
-                    {"text": "Review the financial report", "duration": "15m"},
-                    {"text": "Prepare questions for the Q&A session", "duration": "30m"},
-                ],
-            },
-        },
-        "company": {
-            "name": "Tech Innovators Inc.",
-            "overview": "A leading company in tech innovation.",
-            "size": "500-1000",
-            "industry": "Technology",
-            "country": "USA",
-            "annual_revenue": "100M-500M",
-            "total_funding": "50M",
-            "last_raised_at": "2023-06-15",
-            "main_costumers": "Fortune 500 companies",
-            "main_competitors": "Tech Giants Ltd.",
-            "technologies": ["Artificial Intelligence", "Machine Learning", "Cloud Computing"],
-            "challenges": [
-                {
-                    "challenge_name": "Scalability",
-                    "reasoning": "The company is expanding rapidly.",
-                    "score": 8,
-                }
-            ],
-            "news": [
-                {
-                    "date": "2024-08-20",
-                    "link": "https://example.com/news-article",
-                    "media": "TechNews",
-                    "title": "Tech Innovators Inc. announces new AI platform",
-                    "summary": "The company has launched a new AI platform that will revolutionize the industry.",
-                }
-            ],
-        },
-        "participants": [
-            {
-                "uuid": "123e4567-e89b-12d3-a456-426614174000",
-                "name": "John Doe",
-                "email": "john.doe@example.com",
-                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
-            },
-            {
-                "uuid": "987e6543-e21b-12d3-a456-426614174001",
-                "name": "Jane Smith",
-                "email": "jane.smith@example.com",
-                "profile_picture": "https://img.icons8.com/ios-filled/50/user-male-circle.png",
-            },
-        ],
-    }
-    return MeetingOverviewResponse.from_dict(meeting_dict)
-
-
-@v1_router.get(
     "/google/meetings/{user_email}",
     response_class=JSONResponse,
     summary="Fetches all Google Calendar meetings for a tenant",
@@ -1006,21 +937,3 @@ def validate_uuid(uuid_string: str):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     return str(val)
-
-
-def changed_old_tenant_to_new_tenant(
-    new_tenant: str,
-    old_tenant: str,
-    ownerships_repository: OwnershipsRepository,
-    meetings_repository: MeetingsRepository,
-    tenants_repository: TenantsRepository,
-):
-    ownerships_repository.update_tenant_id(new_tenant, old_tenant)
-    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant}")
-    meetings = meetings_repository.get_all_meetings_by_tenant_id(old_tenant)
-    for meeting in meetings:
-        meetings.tenant_id = new_tenant
-        meetings_repository.save_meeting(meetings)
-    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant} for all meetings")
-    tenants_repository.update_tenant_id(new_tenant, old_tenant)
-    logger.info(f"Updated tenant_id from {old_tenant} to {new_tenant}")

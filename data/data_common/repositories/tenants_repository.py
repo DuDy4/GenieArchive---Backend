@@ -28,9 +28,6 @@ class TenantsRepository:
             tenant_id VARCHAR,
             user_name VARCHAR,
             email VARCHAR,
-            salesforce_client_url VARCHAR,
-            salesforce_refresh_token VARCHAR,
-            salesforce_access_token VARCHAR,
             user_id VARCHAR
         );
         """
@@ -44,11 +41,11 @@ class TenantsRepository:
 
     def insert(self, tenant: dict):
         insert_query = """
-        INSERT INTO tenants (uuid, tenant_id, user_name, email, salesforce_client_url, salesforce_refresh_token, salesforce_access_token, user_id)
+        INSERT INTO tenants (uuid, tenant_id, user_name, email, user_id)
 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s)
         """
-        if self.exists(tenant.get("tenantId"), tenant.get("name")):
+        if self.exists(tenant.get("tenantId")):
             logger.info("User already exists in database")
             return
 
@@ -63,9 +60,6 @@ class TenantsRepository:
                         tenant.get("tenantId"),
                         tenant.get("name"),
                         tenant.get("email"),
-                        tenant.get("salesforce_client_url"),
-                        tenant.get("salesforce_refresh_token"),
-                        tenant.get("salesforce_access_token"),
                         tenant.get("user_id"),
                     ),
                 )
@@ -75,17 +69,13 @@ class TenantsRepository:
             logger.error("Error inserting tenant:", error)
             logger.error(traceback.format_exc())
 
-    def exists(self, tenant_id: str, secondary_identifier: str):
+    def exists(self, tenant_id: str):
         exists_query = """
         SELECT uuid FROM tenants WHERE tenant_id = %s
         """
-        if "https://" in secondary_identifier:
-            exists_query += " And salesforce_client_url = %s"
-        else:
-            exists_query += " And user_name = %s"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (tenant_id, secondary_identifier))
+                cursor.execute(exists_query, (tenant_id,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except Exception as error:
@@ -98,20 +88,7 @@ class TenantsRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (email))
-                result = cursor.fetchone()
-                return result[0] if result else None
-        except Exception as error:
-            logger.error("Error checking if tenant exists:", error)
-            logger.error(traceback.format_exc())
-
-    def tenant_id_exists(self, tenant_id: str):
-        exists_query = """
-        SELECT uuid FROM tenants WHERE tenant_id = %s
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (tenant_id))
+                cursor.execute(exists_query, (email,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except Exception as error:
@@ -152,13 +129,18 @@ class TenantsRepository:
             logger.error(traceback.format_exc())
             return None
 
-    def update_tenant_id(self, old_tenant_id, new_tenant_id):
-        update_query = """
-        UPDATE tenants SET tenant_id = %s WHERE tenant_id = %s
-        """
+    def update_tenant_id(self, old_tenant_id, new_tenant_id, user_id: Optional[str] = None):
+        logger.debug(
+            f"About to update tenant id from {old_tenant_id} to {new_tenant_id} and user_id: {user_id}"
+        )
+        update_query = "UPDATE tenants SET tenant_id = %s"
+        if user_id:
+            update_query += ", user_id = %s"
+        update_query += " WHERE tenant_id = %s"
+        arguments = (new_tenant_id, user_id, old_tenant_id) if user_id else (new_tenant_id, old_tenant_id)
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                cursor.execute(update_query, arguments)
                 self.conn.commit()
                 logger.info(f"Updated tenant id from {old_tenant_id} to {new_tenant_id}")
         except Exception as error:

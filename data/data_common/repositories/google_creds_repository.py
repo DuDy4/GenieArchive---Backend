@@ -81,7 +81,8 @@ class GoogleCredsRepository:
 
     def get_creds(self, email: str) -> Union[dict, None]:
         query = """
-        SELECT * FROM google_creds WHERE email = %s;
+        SELECT uuid, email, refresh_token, access_token, last_update
+        FROM google_creds WHERE email = %s;
         """
         logger.debug(f"About to get creds for email: {email}")
         with self.conn.cursor() as cursor:
@@ -90,10 +91,11 @@ class GoogleCredsRepository:
             if not creds:
                 return None
             creds_dict = {
-                "uuid": creds[1],
-                "email": creds[2],
-                "refresh_token": creds[3],
-                "access_token": creds[4],
+                "uuid": creds[0],
+                "email": creds[1],
+                "refresh_token": creds[2],
+                "access_token": creds[3],
+                "last_update": creds[4],
             }
             return creds_dict if creds else None
 
@@ -103,7 +105,7 @@ class GoogleCredsRepository:
 
     def update_creds(self, creds):
         update_query = """
-        UPDATE google_creds SET refresh_token = %s, access_token = %s
+        UPDATE google_creds SET refresh_token = %s, access_token = %s, last_update = CURRENT_TIMESTAMP
         WHERE email = %s
         """
         try:
@@ -127,3 +129,23 @@ class GoogleCredsRepository:
             # self.conn.rollback()
             logger.error(f"Unexpected error: {e}")
             # traceback.print_exc()
+
+    def update_google_creds(self, user_email, user_access_token, user_refresh_token):
+        update_query = """
+        UPDATE google_creds SET access_token = %s, refresh_token = %s, last_update = CURRENT_TIMESTAMP
+        WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    update_query,
+                    (user_access_token, user_refresh_token, user_email),
+                )
+                self.conn.commit()
+                logger.info("Updated credentials in database")
+                return
+        except psycopg2.Error as error:
+            logger.error(f"Error updating credentials, because: {error.pgerror}")
+            traceback.print_exc()
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")

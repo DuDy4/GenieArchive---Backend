@@ -8,7 +8,11 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
+ALTER table google_creds
+ADD COLUMN last_update TIMESTAMP
 
+ALTER table tenants
+ADD COLUMN user_id VARCHAR
 """
 
 try:
