@@ -842,6 +842,22 @@ def fetch_google_meetings(
         logger.error("Google credentials not found for the tenant")
         return JSONResponse(content={"error": "Google credentials not found"})
 
+    last_fetch_meetings = google_credentials.get("last_fetch_meetings")
+    if last_fetch_meetings:
+        # If last_fetch_meetings is already a datetime object, no need to parse it
+        if isinstance(last_fetch_meetings, datetime.datetime):
+            time_diff = datetime.datetime.now() - last_fetch_meetings
+        else:
+            # Otherwise, convert it from a string (if needed)
+            last_fetch_meetings = datetime.datetime.strptime(last_fetch_meetings, "%Y-%m-%d %H:%M:%S.%f")
+            time_diff = datetime.datetime.now() - last_fetch_meetings
+
+        if time_diff.total_seconds() < 60:
+            logger.info("Meetings already fetched in the last minute. Skipping.")
+            return JSONResponse(content={"message": "Meetings already fetched in the last hour. Skipping..."})
+    else:
+        logger.warning("Missing last_fetch_meetings. Skipping check.")
+
     # Ensure all necessary fields are present in the dictionary
     google_credentials["token_uri"] = GOOGLE_TOKEN_URI
     google_credentials["client_id"] = GOOGLE_CLIENT_ID
@@ -917,6 +933,7 @@ def fetch_google_meetings(
         scope="public",
     )
     event.send()
+    google_creds_repository.update_last_fetch_meetings(user_email)
     logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
     return JSONResponse(content=titleize_values({"events": meetings}))

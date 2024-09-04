@@ -27,7 +27,8 @@ class GoogleCredsRepository:
             email VARCHAR,
             refresh_token TEXT,
             access_token TEXT,
-            last_update TIMESTAMP
+            last_update TIMESTAMP,
+            last_fetch_meetings TIMESTAMP
         );
         """
         try:
@@ -81,7 +82,7 @@ class GoogleCredsRepository:
 
     def get_creds(self, email: str) -> Union[dict, None]:
         query = """
-        SELECT uuid, email, refresh_token, access_token, last_update
+        SELECT uuid, email, refresh_token, access_token, last_fetch_meetings
         FROM google_creds WHERE email = %s;
         """
         logger.debug(f"About to get creds for email: {email}")
@@ -95,7 +96,7 @@ class GoogleCredsRepository:
                 "email": creds[1],
                 "refresh_token": creds[2],
                 "access_token": creds[3],
-                "last_update": creds[4],
+                "last_fetch_meetings": creds[4],
             }
             return creds_dict if creds else None
 
@@ -161,3 +162,20 @@ class GoogleCredsRepository:
             )
         else:
             self.update_google_creds(user_email, user_access_token, user_refresh_token)
+
+    def update_last_fetch_meetings(self, email: str):
+        update_query = """
+        UPDATE google_creds SET last_fetch_meetings = CURRENT_TIMESTAMP
+        WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (email,))
+                self.conn.commit()
+                logger.info("Updated last fetch meetings in database")
+                return
+        except psycopg2.Error as error:
+            logger.error(f"Error updating last fetch meetings, because: {error.pgerror}")
+            traceback.print_exc()
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
