@@ -18,7 +18,9 @@ class TenantService:
     meetings_repository: MeetingsRepository = meetings_repository()
 
     @staticmethod
-    def changed_old_tenant_to_new_tenant(new_tenant_id: str, old_tenant_id: str, user_id: str) -> bool:
+    def changed_old_tenant_to_new_tenant(
+        new_tenant_id: str, old_tenant_id: str, user_id: str, user_name: str
+    ) -> bool:
 
         if not TenantService.ownerships_repository.update_tenant_id(new_tenant_id, old_tenant_id):
             return False
@@ -27,7 +29,7 @@ class TenantService:
             return False
         logger.info(f"MEETINGS - Updated tenant_id from {old_tenant_id} to {new_tenant_id}")
         if not TenantService.tenants_repository.update_tenant_id(
-            old_tenant_id=old_tenant_id, new_tenant_id=new_tenant_id, user_id=user_id
+            old_tenant_id=old_tenant_id, new_tenant_id=new_tenant_id, user_id=user_id, user_name=user_name
         ):
             return False
         logger.info(f"TENANTS - Updated tenant_id from {old_tenant_id} to {new_tenant_id}")

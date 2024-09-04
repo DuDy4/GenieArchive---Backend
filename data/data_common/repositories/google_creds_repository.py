@@ -149,3 +149,15 @@ class GoogleCredsRepository:
             traceback.print_exc()
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+
+    def save_creds(self, user_email, user_access_token, user_refresh_token):
+        if not self.exists(user_email):
+            self.insert(
+                {
+                    "email": user_email,
+                    "accessToken": user_access_token,
+                    "refreshToken": user_refresh_token,
+                }
+            )
+        else:
+            self.update_google_creds(user_email, user_access_token, user_refresh_token)

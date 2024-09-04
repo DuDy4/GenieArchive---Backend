@@ -180,19 +180,30 @@ async def login_event(
 
         if tenants_repository.exists(tenant_id):
             logger.debug(f"Tenant ID {tenant_id} already exists in database")
-            google_creds_repository.update_google_creds(user_email, user_access_token, user_refresh_token)
+            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
             logger.debug(f"Updated google creds for user: {user_email}. About to fetch google meetings")
             fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
         elif tenants_repository.email_exists(user_email):
             logger.debug(f"Another tenant ID exists for this email: {user_email}. About to update tenant ID")
             old_tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
             TenantService.changed_old_tenant_to_new_tenant(
-                new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id
+                new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id, user_name=user_name
             )
-            google_creds_repository.update_google_creds(user_email, user_access_token, user_refresh_token)
+            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
         else:
             # Signup new user
             logger.debug(f"About to signup new user: {user_email}")
+            tenants_repository.insert(
+                {
+                    "uuid": get_uuid4(),
+                    "tenantId": tenant_id,
+                    "name": tenant_name,
+                    "email": user_email,
+                    "user_id": user_id,
+                }
+            )
+            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
+
         return JSONResponse(content={"message": "User signup successful"}, status_code=200)
     except Exception as e:
         logger.error(f"Error during user signup: {str(e)}")

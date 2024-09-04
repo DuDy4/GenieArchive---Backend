@@ -129,15 +129,24 @@ class TenantsRepository:
             logger.error(traceback.format_exc())
             return None
 
-    def update_tenant_id(self, old_tenant_id, new_tenant_id, user_id: Optional[str] = None):
+    def update_tenant_id(
+        self, old_tenant_id, new_tenant_id, user_id: Optional[str] = None, user_name: Optional[str] = None
+    ):
         logger.debug(
             f"About to update tenant id from {old_tenant_id} to {new_tenant_id} and user_id: {user_id}"
         )
         update_query = "UPDATE tenants SET tenant_id = %s"
         if user_id:
             update_query += ", user_id = %s"
+        if user_name:
+            update_query += ", user_name = %s"
         update_query += " WHERE tenant_id = %s"
-        arguments = (new_tenant_id, user_id, old_tenant_id) if user_id else (new_tenant_id, old_tenant_id)
+        arguments = (new_tenant_id,)
+        if user_id:
+            arguments += (user_id,)
+        if user_name:
+            arguments += (user_name,)
+        arguments += (old_tenant_id,)
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, arguments)
