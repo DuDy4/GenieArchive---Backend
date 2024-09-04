@@ -117,11 +117,12 @@ class MiniProfileResponse(BaseModel):
             logger.error("Profile is None")
             return None
         if not person:
+            logger.error("Person is None")
             return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            email=person.email if person.uuid == str(profile.uuid) else None,
+            email=person.email if str(person.uuid) == str(profile.uuid) else None,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 

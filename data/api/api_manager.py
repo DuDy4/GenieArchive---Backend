@@ -62,6 +62,7 @@ from data.apollo_consumer import ApolloConsumer
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 
@@ -805,9 +806,13 @@ def get_meeting_overview(
     for participant in filtered_participants_emails:
         profile = profiles_repository.get_profile_data_by_email(participant)
         if profile:
-            profile_response = MiniProfileResponse.from_profile_dto(profile)
+            person = PersonDTO.from_dict({"email": participant})
+            person.uuid = profile.uuid
+            logger.info(f"Person: {person}")
+            profile_response = MiniProfileResponse.from_profile_dto(profile, person)
             logger.info(f"Profile: {profile_response}")
-            mini_participants.append(profile_response)
+            if profile_response:
+                mini_participants.append(profile_response)
 
     if not mini_participants:
         logger.error("No participants found")
