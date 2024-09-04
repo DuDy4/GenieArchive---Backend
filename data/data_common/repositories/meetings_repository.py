@@ -192,6 +192,22 @@ class MeetingsRepository:
             traceback.print_exc()
             return False
 
+
+    def update_tenant_id(self, new_tenant_id, old_tenant_id):
+        update_query = """
+        UPDATE meetings SET tenant_id = %s WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                logger.info(f"Updated tenant_id from {old_tenant_id} to {new_tenant_id}")
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating tenant_id: {error.pgerror}")
+            traceback.print_exc()
+            return False
+
     def exists_tenant(self, tenant_id: str) -> bool:
         logger.info(f"About to check if tenant_id exists: {tenant_id}")
         exists_query = "SELECT uuid FROM meetings WHERE tenant_id = %s;"

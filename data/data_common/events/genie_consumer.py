@@ -11,8 +11,9 @@ from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
+
 load_dotenv()
-configure_azure_monitor()
+# configure_azure_monitor()
 logger = GenieLogger()
 
 from common.utils import env_utils
@@ -27,7 +28,9 @@ class GenieConsumer:
         eventhub_name = env_utils.get("EVENTHUB_NAME", "")
         storage_connection_str = env_utils.get("AZURE_STORAGE_CONNECTION_STRING", "")
         blob_container_name = env_utils.get("BLOB_CONTAINER_NAME", "")
-        checkpoint_store = BlobCheckpointStore.from_connection_string(storage_connection_str, blob_container_name)
+        checkpoint_store = BlobCheckpointStore.from_connection_string(
+            storage_connection_str, blob_container_name
+        )
         self.consumer = EventHubConsumerClient.from_connection_string(
             conn_str=connection_str,
             consumer_group=consumer_group,
@@ -53,7 +56,8 @@ class GenieConsumer:
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
             else:
-                logger.info(f"Skipping topic [{topic.decode("utf-8")}]. Consumer group: {self.consumer_group}")
+                topic = topic.decode("utf-8") if topic else None
+                logger.info(f"Skipping topic [{topic}]. Consumer group: {self.consumer_group}")
         except Exception as e:
             logger.error(f"Exception occurred: {e}")
             logger.error("Detailed traceback information:")

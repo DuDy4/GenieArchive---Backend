@@ -148,3 +148,4 @@ cython_debug/
 #.idea/
 /azure_vm_key.pem
 /data/test/data_test_company.py
+/data/test/migrations_scripts_testing/tenant_migration_script.py

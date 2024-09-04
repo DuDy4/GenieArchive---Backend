@@ -30,7 +30,8 @@ class TenantsRepository:
             email VARCHAR,
             salesforce_client_url VARCHAR,
             salesforce_refresh_token VARCHAR,
-            salesforce_access_token VARCHAR
+            salesforce_access_token VARCHAR,
+            user_id VARCHAR
         );
         """
         try:
@@ -43,8 +44,9 @@ class TenantsRepository:
 
     def insert(self, tenant: dict):
         insert_query = """
-        INSERT INTO tenants (uuid, tenant_id, user_name, email)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO tenants (uuid, tenant_id, user_name, email, salesforce_client_url, salesforce_refresh_token, salesforce_access_token, user_id)
+
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         if self.exists(tenant.get("tenantId"), tenant.get("name")):
             logger.info("User already exists in database")
@@ -61,6 +63,10 @@ class TenantsRepository:
                         tenant.get("tenantId"),
                         tenant.get("name"),
                         tenant.get("email"),
+                        tenant.get("salesforce_client_url"),
+                        tenant.get("salesforce_refresh_token"),
+                        tenant.get("salesforce_access_token"),
+                        tenant.get("user_id"),
                     ),
                 )
                 self.conn.commit()
@@ -80,6 +86,32 @@ class TenantsRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(exists_query, (tenant_id, secondary_identifier))
+                result = cursor.fetchone()
+                return result[0] if result else None
+        except Exception as error:
+            logger.error("Error checking if tenant exists:", error)
+            logger.error(traceback.format_exc())
+
+    def email_exists(self, email: str):
+        exists_query = """
+        SELECT uuid FROM tenants WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(exists_query, (email))
+                result = cursor.fetchone()
+                return result[0] if result else None
+        except Exception as error:
+            logger.error("Error checking if tenant exists:", error)
+            logger.error(traceback.format_exc())
+
+    def tenant_id_exists(self, tenant_id: str):
+        exists_query = """
+        SELECT uuid FROM tenants WHERE tenant_id = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(exists_query, (tenant_id))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except Exception as error:

@@ -15,6 +15,7 @@ from common.genie_logger import GenieLogger
 from common.utils import env_utils, email_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, titleize_name
+from data.internal_services.tenant_service import TenantService
 
 from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
 from google.oauth2.credentials import Credentials
@@ -64,6 +65,8 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.utils.str_utils import get_uuid4
 
+from data.api_services.auth0 import handle_auth0_user_signup
+
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -111,7 +114,7 @@ async def post_successful_login(
     user_tenant_id = auth_claims.get("tenantId")
     user_name = auth_claims.get("userId")
     logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
-    tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email}
+    tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email, "user_id": user_name}
     tenants_repository.insert(tenant_data)
     fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
     response = {
@@ -159,6 +162,34 @@ async def post_social_auth_data(
     else:
         logger.error("Tenant ID not found. Skipping credentials insertion")
     return JSONResponse(content={"verdict": "allow"})
+
+
+@v1_router.post("/users/login-event")
+async def login_event(request: Request):
+    """
+    Handle user signup process.
+    """
+    try:
+        user_info = await request.json()
+        logger.info(f"Received user info: {user_info}")
+        user_name = user_info.get("name")
+        user_id = user_info.get("user_id")
+        user_email = user_info.get("email")
+        user_access_token = user_info.get("google_access_token")
+        user_refresh_token = user_info.get("google_refresh_token")
+        tenant_id = user_info.get("tenantId")
+        tenant_name = user_info.get("tenantName")
+
+        if tenants_repository.tenant_id_exists(tenant_id):
+            google_creds_repository.update_google_creds(user_email, user_access_token, user_refresh_token)
+            fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
+        elif tenants_repository.email_exists(user_email):
+            TenantService.changed_old_tenant_to_new_tenant(tenant_id, user_name, user_email)
+
+        return JSONResponse(content={"message": "User signup successful"}, status_code=200)
+    except Exception as e:
+        logger.error(f"Error during user signup: {str(e)}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @v1_router.post(
