@@ -108,8 +108,8 @@ class MiniPersonResponse(BaseModel):
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
-    email: Optional[str]
-    profile_picture: Optional[str]
+    email: Optional[str] = None
+    profile_picture: Optional[str] = None
 
     @staticmethod
     def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
