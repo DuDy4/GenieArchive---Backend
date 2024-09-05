@@ -472,6 +472,12 @@ def get_profile_attendee_info(
     company = profile.company
     position = profile.position
     links = personal_data_repository.get_social_media_links(uuid)
+    # Filter out links where url is None or empty
+    links = [
+        {k: v for k, v in link.items() if k != "id" and k != "username" and v}
+        for link in links
+        if link.get("url")
+    ]
     logger.info(f"Got links: {links}, type: {type(links)}")
     if links and len(links) > 0:
         for link in links:
