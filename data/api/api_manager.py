@@ -483,7 +483,7 @@ def get_profile_attendee_info(
         "name": name,
         "company": company,
         "position": position,
-        "social_media_links": SocialMediaLinksList.from_list(links).to_list() or [],
+        "social_media_links": SocialMediaLinksList.from_list(links).to_list() if links else [],
     }
     logger.info(f"Attendee info: {profile}")
     return AttendeeInfo(**profile)
@@ -595,7 +595,11 @@ def get_profile_good_to_know(
         }
         formatted_good_to_know = "".join([(f"\n{key}: {value}\n") for key, value in good_to_know.items()])
         logger.info(f"Good to know: {formatted_good_to_know}")
-        return GoodToKnowResponse(**good_to_know)
+        return GoodToKnowResponse(
+            news=news if news else [],
+            hobbies=hobbies if hobbies else [],
+            connections=connections if connections else [],
+        )
     return JSONResponse(content={"error": "Could not find profile"})
 
 
@@ -1007,7 +1011,9 @@ def fetch_google_meetings(
     google_creds_repository.update_last_fetch_meetings(user_email)
     logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
-    return JSONResponse(content=titleize_values({"events": meetings}))
+    return JSONResponse(
+        {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
+    )
 
 
 @v1_router.get(
