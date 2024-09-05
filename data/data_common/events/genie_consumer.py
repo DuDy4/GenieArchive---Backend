@@ -13,7 +13,7 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
 
 load_dotenv()
-# configure_azure_monitor()
+configure_azure_monitor()
 logger = GenieLogger()
 
 from common.utils import env_utils
