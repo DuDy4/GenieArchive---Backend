@@ -5,7 +5,8 @@ import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 
-# from azure.monitor.opentelemetry import configure_azure_monitor
+from azure.monitor.opentelemetry import configure_azure_monitor
+configure_azure_monitor()  
 from opentelemetry import trace
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,7 +18,7 @@ from data.api.api_manager import v1_router
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
-# configure_azure_monitor()
+         
 
 load_dotenv()
 
