@@ -63,7 +63,7 @@ jobs:
 
       - name: Build and push data services
         run: |
-          services=("hunter_domain_consumer" "meetings_consumer" "pdl_consumer" "person_langsmith" "persons_manager" "slack_consumer" "apollo_consumer" "company_consumer")
+          services=("meetings_consumer" "pdl_consumer" "person_langsmith" "persons_manager" "slack_consumer" "apollo_consumer" "company_consumer")
           for service in "${services[@]}"
           do
             if docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.tag }} .; then
