@@ -137,7 +137,7 @@ class Hobby(BaseModel):
 
 
 class GoodToKnowResponse(BaseModel):
-    news: List[NewsData]
+    news: Optional[List[NewsData]] = []
     hobbies: List[Hobby]
     connections: List[Connection]
 
