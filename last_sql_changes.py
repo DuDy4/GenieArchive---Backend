@@ -8,12 +8,6 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
-ALTER table google_creds
-ADD COLUMN last_update TIMESTAMP
-ADD COLUMN last_fetch_meetings TIMESTAMP
-
-ALTER table tenants
-ADD COLUMN user_id VARCHAR
 """
 
 try:
