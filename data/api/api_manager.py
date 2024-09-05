@@ -58,6 +58,7 @@ from data.apollo_consumer import ApolloConsumer
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.api_services.auth0 import handle_auth0_user_signup
@@ -321,8 +322,66 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse)
-def get_all_profile_and_persons_for_meeting(
+# @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse)
+# def get_all_profile_and_persons_for_meeting(
+#     tenant_id: str,
+#     meeting_id: str,
+#     meetings_repository: MeetingsRepository = Depends(meetings_repository),
+#     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+#     persons_repository: PersonsRepository = Depends(persons_repository),
+#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+#     tenants_repository: TenantsRepository = Depends(tenants_repository),
+# ) -> MiniProfilesListResponse:
+#     """
+#     Get all profile IDs and names for a specific meeting.
+#
+#     - **tenant_id**: Tenant ID - the right one is 'abcde'
+#     - **meeting_id**: Meeting ID
+#     """
+#     logger.info(f"Received profiles request for meeting: {meeting_id}")
+#     meeting = meetings_repository.get_meeting_data(meeting_id)
+#     if not meeting:
+#         return JSONResponse(content={"error": "Meeting not found"})
+#     if meeting.tenant_id != tenant_id:
+#         return JSONResponse(content={"error": "Tenant mismatch"})
+#     tenant_email = tenants_repository.get_tenant_email(tenant_id)
+#     logger.info(f"Tenant email: {tenant_email}")
+#     participants_emails = meeting.participants_emails
+#     logger.debug(f"Participants emails: {participants_emails}")
+#     filtered_participants_emails = email_utils.filter_emails(
+#         host_email=tenant_email, participants_emails=participants_emails
+#     )
+#     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
+#     filtered_emails = filtered_participants_emails
+#     logger.info(f"Filtered emails: {filtered_emails}")
+#     persons = []
+#     for email in filtered_emails:
+#         person = persons_repository.find_person_by_email(email)
+#         if person:
+#             persons.append(person)
+#     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
+#     profiles = []
+#     for person in persons:
+#         profile = profiles_repository.get_profile_data(person.uuid)
+#         logger.info(f"Got profile: {str(profile)[:300]}")
+#         if profile:
+#             profiles.append(profile)
+#     logger.debug(f"Got profiles: {len(profiles)}")
+#     persons_without_profiles = [
+#         person.to_dict()
+#         for person in persons
+#         if str(person.uuid) not in [str(profile.uuid) for profile in profiles]
+#     ]
+#     logger.info(f"Got persons without profiles: {persons_without_profiles}")
+#     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
+#     mini_profiles_list = [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
+#     mini_persons_list = [MiniPersonResponse.from_dict(person) for person in persons_without_profiles]
+#     return MiniProfilesListResponse(profiles=mini_profiles_list, persons=mini_persons_list)
+# return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
+
+
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
+def get_all_profile_for_meeting(
     tenant_id: str,
     meeting_id: str,
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
@@ -330,7 +389,7 @@ def get_all_profile_and_persons_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> MiniProfilesListResponse:
+) -> List[MiniProfileResponse]:
     """
     Get all profile IDs and names for a specific meeting.
 
@@ -365,18 +424,12 @@ def get_all_profile_and_persons_for_meeting(
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             profiles.append(profile)
-    logger.debug(f"Got profiles: {len(profiles)}")
     persons_without_profiles = [
-        person.to_dict()
-        for person in persons
-        if str(person.uuid) not in [str(profile.uuid) for profile in profiles]
+        person.to_dict() for person in persons if person.uuid not in [profile.uuid for profile in profiles]
     ]
     logger.info(f"Got persons without profiles: {persons_without_profiles}")
     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    mini_profiles_list = [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
-    mini_persons_list = [MiniPersonResponse.from_dict(person) for person in persons_without_profiles]
-    return MiniProfilesListResponse(profiles=mini_profiles_list, persons=mini_persons_list)
-    # return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
+    return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
@@ -429,7 +482,7 @@ def get_profile_attendee_info(
         "name": name,
         "company": company,
         "position": position,
-        "social_media_links": links or [],
+        "social_media_links": SocialMediaLinksList.from_list(links).to_list() or [],
     }
     logger.info(f"Attendee info: {profile}")
     return AttendeeInfo(**profile)
@@ -760,7 +813,8 @@ def get_meeting_overview(
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
         logger.info(f"Company: {company}")
-        companies.append(company)
+        if company:
+            companies.append(company)
 
     if not companies:
         logger.error("No companies found")
@@ -771,24 +825,26 @@ def get_meeting_overview(
             status_code=404,
         )
 
-    company = companies[0]
-    news = []
-    domain = company.domain
-    try:
-        for new in company.news:
-            link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
-            if isinstance(new, dict):
-                new["link"] = link
-            elif isinstance(new, NewsData):
-                new.link = link
-            if domain not in str(link):
-                news.append(new)
-        company.news = news[:3]
-        logger.debug(f"Company news: {company}")
-    except Exception as e:
-        logger.error(f"Error processing company news: {e}")
-        company.news = []
-    mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
+    company = companies[0] if companies else None
+    logger.info(f"Company: {company}")
+    if company:
+        news = []
+        domain = company.domain
+        try:
+            for new in company.news:
+                link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
+                if isinstance(new, dict):
+                    new["link"] = link
+                elif isinstance(new, NewsData):
+                    new.link = link
+                if domain not in str(link):
+                    news.append(new)
+            company.news = news[:3]
+            logger.debug(f"Company news: {company}")
+        except Exception as e:
+            logger.error(f"Error processing company news: {e}")
+            company.news = []
+        mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
     logger.info(f"Company: {mid_company}")
 
@@ -797,9 +853,13 @@ def get_meeting_overview(
     for participant in filtered_participants_emails:
         profile = profiles_repository.get_profile_data_by_email(participant)
         if profile:
-            profile_response = MiniProfileResponse.from_profile_dto_and_email(profile, participant)
+            person = PersonDTO.from_dict({"email": participant})
+            person.uuid = profile.uuid
+            logger.info(f"Person: {person}")
+            profile_response = MiniProfileResponse.from_profile_dto(profile, person)
             logger.info(f"Profile: {profile_response}")
-            mini_participants.append(profile_response)
+            if profile_response:
+                mini_participants.append(profile_response)
 
     if not mini_participants:
         logger.error("No participants found")

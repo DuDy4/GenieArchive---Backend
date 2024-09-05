@@ -152,7 +152,7 @@ class CompanyConsumer(GenieConsumer):
         company_data = await self.apollo_client.enrich_company(email_domain)
         if company_data:
             company = CompanyDTO.from_apollo_object(company_data.get("organization") or company_data)
-            company = validate_company_data(company, email_domain)
+            company = self.validate_company_data(company, email_domain)
             logger.info(f"Company data fetched from Apollo: {str(company)[:300]}")
             self.companies_repository.save_company_without_news(company)
             return company
@@ -174,11 +174,11 @@ class CompanyConsumer(GenieConsumer):
             logger.info(f"No news found for company {company_name}")
 
     def validate_company_data(self, company_dto: CompanyDTO, email_domain: str):
-        if company_data.domain != email_domain:
-            logger.error(f"Domain mismatch: {company_data.domain} != {email_domain}")
+        if company_dto.domain != email_domain:
+            logger.error(f"Domain mismatch: {company_dto.domain} != {email_domain}")
             company_dto.domain = email_domain
-        if company_data.size == "0" or company_data.size == 0:
-            logger.error(f"Invalid company size: {company_data.size}")
+        if company_dto.size == "0" or company_dto.size == 0:
+            logger.error(f"Invalid company size: {company_dto.size}")
             company_dto.size = None
         return company_dto
 

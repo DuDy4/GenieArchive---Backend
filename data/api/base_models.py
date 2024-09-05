@@ -15,6 +15,7 @@ from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,
     NewsData,
     SocialMediaLinks,
+    SocialMediaLinksList,
     FundingEvent,
 )
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
@@ -52,6 +53,7 @@ class MiniPersonResponse(BaseModel):
             uuid=data["uuid"],
             name=data["name"],
             email=data.get("email", None),
+            profile_picture=data.get("profile_picture", None),
         )
 
     def to_dict(self):
@@ -65,17 +67,24 @@ class MiniPersonResponse(BaseModel):
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
-    profile_picture: Optional[str]
+    email: Optional[str] = None
+    profile_picture: Optional[str] = None
 
     @staticmethod
-    def from_profile_dto(profile: ProfileDTO):
+    def from_profile_dto(profile: ProfileDTO, person: Optional[PersonDTO] = None):
         if not profile:
             logger.error("Profile is None")
             return None
+        if not person:
+            logger.error("Person is None")
+            return MiniProfileResponse(uuid=str(profile.uuid), name=titleize_name(str(profile.name)))
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
-            profile_picture=str(profile.picture_url) if profile.picture_url else None,
+            email=person.email if str(person.uuid) == str(profile.uuid) else None,
+            profile_picture=str(profile.picture_url)
+            if profile.picture_url
+            else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png",
         )
 
     @staticmethod
@@ -86,6 +95,7 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=str(profile.uuid),
             name=titleize_name(str(profile.name)),
+            email=email,
             profile_picture=str(profile.picture_url) if profile.picture_url else None,
         )
 
@@ -94,13 +104,20 @@ class MiniProfileResponse(BaseModel):
         return MiniProfileResponse(
             uuid=data["uuid"],
             name=data["name"],
-            profile_picture=str(data.get("profile_picture", None)),
+            email=data.get("email", None),
+            profile_picture=data.get("profile_picture", None),
         )
 
 
 class MiniProfilesListResponse(BaseModel):
     profiles: List[MiniProfileResponse]
     persons: Optional[List[MiniPersonResponse]] = None
+
+    @staticmethod
+    def from_profiles_list(profiles: List[ProfileDTO]):
+        return MiniProfilesListResponse(
+            profiles=[MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
+        )
 
 
 class StrengthsListResponse(BaseModel):
@@ -160,7 +177,7 @@ class AttendeeInfo(BaseModel):
     name: str
     company: str
     position: str
-    social_media_links: List[SocialMediaLinks]
+    social_media_links: Optional[List[SocialMediaLinks]] = list(SocialMediaLinksList([]))
 
 
 class ProfileResponse(BaseModel):
@@ -200,7 +217,7 @@ class CompanyResponse(BaseModel):
             overview=company.overview,
             challenges=company.challenges,
             technologies=company.technologies,
-            social_links=company.social_links,
+            social_links=SocialMediaLinksList.from_list(company.social_links).to_list(),
             news=company.news if company.news else None,
         )
 
@@ -332,7 +349,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=data.get("funding_rounds", ""),
             technologies=data.get("technologies", []),
             challenges=data.get("challenges", []),
-            social_links=data.get("social_links", []),
+            social_links=SocialMediaLinksList.from_list(data.get("social_links", [])).to_list(),
             news=data.get("news", []),
         )
 
@@ -351,7 +368,7 @@ class MidMeetingCompany(BaseModel):
             "funding_rounds": self.funding_rounds,
             "technologies": self.technologies,
             "challenges": self.challenges,
-            "social_links": self.social,
+            "social_links": self.social_links,
             "news": self.news,
         }
 
@@ -371,7 +388,7 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=company.funding_rounds,
             technologies=company.technologies,
             challenges=company.challenges,
-            social_links=company.social_links,
+            social_links=SocialMediaLinksList.from_list(company.social_links).to_list(),
             news=company.news,
         )
 
