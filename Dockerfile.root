@@ -6,7 +6,6 @@ WORKDIR /app
 # Copy necessary files and folders
 COPY start_api.py .
 COPY common ./common
-COPY app ./app
 COPY requirements.txt .
 COPY data ./data
 
