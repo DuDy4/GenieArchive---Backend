@@ -4,7 +4,11 @@ import traceback
 import uvicorn
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
+# This must be the order of imports for the logger to work properly: 1. load_dotenv() 2. GenieLogger() 3. configure_azure_monitor()
+load_dotenv()
+from common.genie_logger import GenieLogger
 
+logger = GenieLogger()
 from azure.monitor.opentelemetry import configure_azure_monitor
 configure_azure_monitor()  
 from opentelemetry import trace
@@ -15,12 +19,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
 
 from data.api.api_manager import v1_router
-from common.genie_logger import GenieLogger
 
-logger = GenieLogger()
          
 
-load_dotenv()
+
 
 GENIE_CONTEXT_HEADER = "genie-context"
 

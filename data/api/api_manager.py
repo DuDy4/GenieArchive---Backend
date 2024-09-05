@@ -168,6 +168,7 @@ async def login_event(
     Handle user signup process.
     """
     try:
+        logger.info("Fetching user info")
         user_info = await request.json()
         logger.info(f"Received user info: {user_info}")
         user_name = user_info.get("name")
