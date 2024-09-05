@@ -23,8 +23,4 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
-    - name: Run build
-      run: |
-        # Your build steps go here
-        python setup.py install
 
