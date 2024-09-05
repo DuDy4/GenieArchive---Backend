@@ -775,6 +775,7 @@ def get_meeting_overview(
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
 ) -> Union[MiniMeetingOverviewResponse, JSONResponse]:
     """
     Get the meeting information.
@@ -860,6 +861,15 @@ def get_meeting_overview(
             logger.info(f"Profile: {profile_response}")
             if profile_response:
                 mini_participants.append(profile_response)
+        # else:
+        #     person = persons_repository.find_person_by_email(participant)
+        #     if person:
+        #         person_response = MiniPersonResponse.from_dict(person.to_dict())
+        #     else:
+        #         person = PersonDTO.from_dict({"email": participant})
+        #         person_response = MiniPersonResponse.from_dict(person.to_dict())
+        #     logger.debug(f"Person: {person_response}")
+        #     mini_participants.append(person_response)
 
     if not mini_participants:
         logger.error("No participants found")

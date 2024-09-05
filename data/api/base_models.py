@@ -388,7 +388,9 @@ class MidMeetingCompany(BaseModel):
             funding_rounds=company.funding_rounds,
             technologies=company.technologies,
             challenges=company.challenges,
-            social_links=SocialMediaLinksList.from_list(company.social_links).to_list(),
+            social_links=SocialMediaLinksList.from_list(company.social_links).to_list()
+            if company.social_links
+            else None,
             news=company.news,
         )
 
@@ -524,13 +526,3 @@ class MeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
     company: MeetingCompany
     participants: List[MiniProfileResponse]
-
-    @classmethod
-    def from_dict(cls, data: Dict):
-        return cls(
-            meeting=MiniMeeting.from_dict(data.get("meeting", {})),
-            company=MeetingCompany.from_dict(data.get("company", {})),
-            participants=[
-                MiniProfileResponse.from_dict(participant) for participant in data.get("participants", [])
-            ],
-        )
