@@ -177,7 +177,7 @@ class AttendeeInfo(BaseModel):
     name: str
     company: str
     position: str
-    social_media_links: Optional[List[SocialMediaLinks]] = list(SocialMediaLinksList([]))
+    social_media_links: Optional[List[SocialMediaLinks]] = []
 
 
 class ProfileResponse(BaseModel):

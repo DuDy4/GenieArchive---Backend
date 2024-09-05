@@ -115,7 +115,21 @@ class SocialMediaLinksList(BaseModel):
 
     @classmethod
     def from_list(cls, data: List[Dict[str, Any]] | List[SocialMediaLinks]) -> "SocialMediaLinksList":
-        links = [SocialMediaLinks.from_dict(item) if isinstance(item, dict) else item for item in data]
+        links = []
+        for item in data:
+            # Check if item is a dict and if the URL is non-empty
+            if isinstance(item, dict):
+                if item.get("url") and isinstance(item.get("url"), str) and item["url"].strip():
+                    link = SocialMediaLinks.from_dict(item)
+                    links.append(link)
+            elif isinstance(item, SocialMediaLinks):
+                # If the item is already a SocialMediaLinks object, check its URL
+                if item.url and isinstance(item.url, str) and item.url.strip():
+                    links.append(item)
+            else:
+                logger.error(f"Invalid item as social media link: {item}, type: {type(item)}")
+
+        # Only valid links are passed to the constructor
         return cls(links=links)
 
 
