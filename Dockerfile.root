@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy necessary files and folders
 COPY start_api.py .
 COPY common ./common
-COPY pyproject.toml.txt .
+COPY pyproject.toml .
 COPY uv.lock .
 COPY data ./data
 
