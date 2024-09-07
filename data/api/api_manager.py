@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI, Request, HTTPException, Query
 from fastapi.routing import APIRouter
 from common.genie_logger import GenieLogger
 
-from common.utils import env_utils, email_utils
+from common.utils import env_utils, email_utils, job_utils
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, titleize_name
 from data.internal_services.tenant_service import TenantService
@@ -51,9 +51,6 @@ from data.data_common.dependencies.dependencies import (
     hobbies_repository,
     companies_repository,
 )
-
-from data.pdl_consumer import PDLClient
-from data.apollo_consumer import ApolloConsumer
 
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
@@ -634,10 +631,10 @@ def get_work_experience(
 
     if personal_data:
         experience = personal_data["experience"]
-        fixed_experience = PDLClient.fix_and_sort_experience(experience)
+        fixed_experience = job_utils.fix_and_sort_experience_from_pdl(experience)
     else:
         personal_data = personal_data_repository.get_apollo_personal_data(uuid)
-        fixed_experience = ApolloConsumer.fix_experience_from_apollo_data(personal_data)
+        fixed_experience = job_utils.fix_experience_from_apollo_data(personal_data)
     if fixed_experience:
         short_fixed_experience = fixed_experience[:10]
         return JSONResponse(content=(to_custom_title_case(short_fixed_experience)))

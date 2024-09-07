@@ -10,7 +10,7 @@ from peopledatalabs import PDLPY
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from common.utils import env_utils
+from common.utils import env_utils, job_utils
 from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 from data.data_common.dependencies.dependencies import (
     personal_data_repository,
@@ -297,7 +297,7 @@ class PDLConsumer(GenieConsumer):
                 logger.info(f"Fetched Personal data from PDL: {personal_data}")
                 experience: list = personal_data.get("experience")
                 if experience:
-                    personal_data["experience"] = self.pdl_client.fix_and_sort_experience(experience)
+                    personal_data["experience"] = job_utils.fix_and_sort_experience_from_pdl(experience)
             personal_data = self.merge_personal_data(personal_data_in_repo, personal_data)
             if personal_data:
                 if personal_data != personal_data_in_repo:
@@ -317,7 +317,7 @@ class PDLConsumer(GenieConsumer):
         if personal_data:
             experience: list = personal_data.get("experience")
             if experience:
-                personal_data["experience"] = self.pdl_client.fix_and_sort_experience(experience)
+                personal_data["experience"] = job_utils.fix_and_sort_experience_from_pdl(experience)
 
         logger.info(f"Personal data: {personal_data}")
         if personal_data:
@@ -680,41 +680,6 @@ class PDLClient:
         logger.info(f"Sending event to {Topic.PDL_UPDATED_ENRICHED_DATA}")
         return {"status": "success"}
 
-    @staticmethod
-    def fix_and_sort_experience(experience):
-        try:
-            for exp in experience:
-                exp["end_date"] = exp.get("end_date") or "9999-12-31"  # Treat ongoing as future date
-                exp["start_date"] = exp.get("start_date") or "0000-01-01"
-
-                # Sort experience
-            sorted_experience = sorted(
-                experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-            )
-        except:
-            logger.error(f"Error fixing and sorting experience: {experience}")
-            sorted_experience = experience
-        for exp in sorted_experience:
-            try:
-                if exp.get("end_date") == "9999-12-31":
-                    exp["end_date"] = None
-                if exp.get("start_date") == "0000-01-01":
-                    exp["start_date"] = None
-                title = exp.get("title")
-                if title and isinstance(title, dict):
-                    name = title.get("name")
-                    titleize_name = to_custom_title_case(name)
-                    exp["title"]["name"] = titleize_name
-                company = exp.get("company")
-                if company and isinstance(company, dict):
-                    name = company.get("name")
-                    titleize_name = to_custom_title_case(name)
-                    exp["company"]["name"] = titleize_name
-            except Exception as e:
-                logger.error(f"Error: {e}")
-                traceback.print_exc()
-                continue
-        return to_custom_title_case(sorted_experience)
 
     def is_up_to_date(self, existing_uuid):
         last_updated_timestamp = self.personal_data_repository.get_pdl_last_updated(existing_uuid)
