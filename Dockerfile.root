@@ -7,7 +7,7 @@ WORKDIR /app
 COPY start_api.py .
 COPY common ./common
 COPY pyproject.toml.txt .
-COPY uv.lock
+COPY uv.lock .
 COPY data ./data
 
 RUN apt-get update && \
