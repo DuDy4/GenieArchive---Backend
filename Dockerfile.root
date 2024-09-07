@@ -6,7 +6,8 @@ WORKDIR /app
 # Copy necessary files and folders
 COPY start_api.py .
 COPY common ./common
-COPY requirements.txt .
+COPY pyproject.toml.txt .
+COPY uv.lock
 COPY data ./data
 
 RUN apt-get update && \
