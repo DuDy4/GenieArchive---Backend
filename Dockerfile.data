@@ -9,7 +9,7 @@ COPY data ./data
 COPY common ./common
 COPY ai ./ai
 COPY start_consumers.py . 
-COPY pyproject.toml.txt .
+COPY pyproject.toml .
 COPY uv.lock .
 RUN apt-get update && \
     apt-get install -y git libpq-dev gcc build-essential && \
