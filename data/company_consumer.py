@@ -125,6 +125,12 @@ class CompanyConsumer(GenieConsumer):
             company.overview = overview
             company.challenges = challenges
             self.companies_repository.save_company_without_news(company)
+        # event = GenieEvent(
+        #     topic=Topic.NEW_COMPANY_DATA,
+        #     data={"company_uuid": company.uuid},
+        #     scope="public",
+        # )
+        # event.send()
         news_last_update = self.companies_repository.get_news_last_updated(company.uuid)
         if (
             news_last_update
@@ -159,7 +165,7 @@ class CompanyConsumer(GenieConsumer):
         logger.warning(f"Apollo couldn't find company data for domain: {email_domain}")
         company_data = await self.hunter_client.get_domain_info(email_domain)
         company = CompanyDTO.from_hunter_object(company_data["data"])
-        company = validate_company_data(company, email_domain)
+        company = self.validate_company_data(company, email_domain)
         logger.info(f"Company data fetched from Hunter: {str(company)[:300]}")
         self.companies_repository.save_company_without_news(company)
         return company
