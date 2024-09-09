@@ -147,8 +147,12 @@ class MeetingDTO:
             if data.get("agenda")
             else None,
             classification=MeetingClassification.from_str(
-                data.get("classification", "private")
-            ),  # Parse enum from string
+                data.get("classification")
+                if data.get("classification")
+                else evaluate_meeting_classification(
+                    data.get("participants_emails", []) or MeetingClassification.EXTERNAL
+                )
+            ),
         )
 
     def to_tuple(self) -> tuple:
@@ -183,7 +187,7 @@ class MeetingDTO:
             agenda=[AgendaItem.from_dict(agenda) for agenda in row[10]] if row[10] else None,
             classification=MeetingClassification(row[11])
             if row[11]
-            else MeetingClassification.PRIVATE,  # Convert string back to enum
+            else evaluate_meeting_classification(row[3]),
         )
 
     def to_json(self):
@@ -199,14 +203,6 @@ class MeetingDTO:
     @staticmethod
     def from_google_calendar_event(event, tenant_id):
         participants = event.get("attendees", [])
-        filtered_participants = filter_email_objects(participants)
-        classification = MeetingClassification.EXTERNAL
-        if len(participants) <= 1:
-            classification = MeetingClassification.PRIVATE
-        elif len(filtered_participants) >= 1:
-            classification = MeetingClassification.EXTERNAL
-        else:
-            classification = MeetingClassification.INTERNAL
         return MeetingDTO(
             uuid=event.get("uuid", get_uuid4()),
             google_calendar_id=event.get("id", ""),
@@ -219,7 +215,7 @@ class MeetingDTO:
             start_time=event.get("start", "").get("dateTime", "") or event.get("start", "").get("date", ""),
             end_time=event.get("end", "").get("dateTime", "") or event.get("end", "").get("date", ""),
             agenda=None,
-            classification=classification,
+            classification=evaluate_meeting_classification(participants),
         )
 
     def __str__(self):
@@ -227,8 +223,19 @@ class MeetingDTO:
             f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id}, tenant_id={self.tenant_id}, "
             f"participants_emails={self.participants_emails}, link={self.link}, "
             f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time}"
-            f"agenda={self.agenda})"
+            f"agenda={self.agenda}), classification={self.classification}"
         )
+
+
+def evaluate_meeting_classification(participants_emails: List[str]) -> MeetingClassification:
+    if len(participants_emails) <= 1:
+        logger.info(f"Classifying meeting as PRIVATE with participants {participants_emails}")
+        return MeetingClassification.PRIVATE
+    if len(filter_email_objects(participants_emails)) >= 1:
+        logger.info(f"Classifying meeting as EXTERNAL with participants {participants_emails}")
+        return MeetingClassification.EXTERNAL
+    logger.info(f"Classifying meeting as INTERNAL with participants {participants_emails}")
+    return MeetingClassification.INTERNAL
 
 
 def hash_participants(participants_emails: list[str]) -> str:

@@ -157,7 +157,8 @@ class MeetingsRepository:
             ]
         exists_query = """
         SELECT 1 FROM meetings
-        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s;
+        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
+        AND classification = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -172,6 +173,7 @@ class MeetingsRepository:
                         meeting.start_time,
                         meeting.link,
                         json.dumps(agenda),
+                        meeting.classification.value,
                     ),
                 )
                 result = cursor.fetchone() is not None
@@ -455,6 +457,23 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
+    def get_all_meetings_without_classification(self):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification IS NULL;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings without classification from database")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching meetings without classification:", error)
+            traceback.print_exception(error)
+            return []
+
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
@@ -476,7 +495,7 @@ class MeetingsRepository:
             meeting.start_time,
             meeting.end_time,
             json.dumps(agenda_dicts),
-            meeting.classification.value,  # Enum value for DB
+            meeting.classification.value,
             meeting.google_calendar_id,
         )
         logger.debug(f"About to update meeting data: {meeting_data}")
