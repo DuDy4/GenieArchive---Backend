@@ -55,7 +55,7 @@ def process_meeting_from_scratch(meeting: MeetingDTO):
 
 
 def process_agenda_to_all_meetings():
-    all_meetings = meetings_repository.get_all_meetings_without_agenda()
+    all_meetings = meetings_repository.get_all_external_meetings_without_agenda()
     all_meetings = all_meetings[:10]
     for meeting in all_meetings:
         logger.debug(f"Processing meeting {meeting.uuid}, with agenda: {meeting.agenda}")
