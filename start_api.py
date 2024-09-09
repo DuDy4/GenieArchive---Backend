@@ -1,18 +1,34 @@
 import os
 import traceback
-
+import signal
+import sys
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
-# This must be the order of imports for the logger to work properly: 1. load_dotenv() 2. GenieLogger() 3. configure_azure_monitor()
-load_dotenv()
-from common.genie_logger import GenieLogger
 
-logger = GenieLogger()
-from azure.monitor.opentelemetry import configure_azure_monitor
-configure_azure_monitor()  
+# Import OpenTelemetry for logging
 from opentelemetry import trace
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs import LoggingHandler
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
+from common.genie_logger import GenieLogger
+# Load environment variables and initialize logger
+load_dotenv()
+logger = GenieLogger()
+# Set up Azure Monitor logging exporter
+exporter = AzureMonitorLogExporter()
+
+# Set up Logger Provider
+logger_provider = LoggerProvider(resource=Resource.create({"service.name": "genie-api"}))
+logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+
+# Set up logging handler (if you want to use it with Python logging)
+
+handler = LoggingHandler(logger_provider=logger_provider)
+
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
@@ -44,7 +60,7 @@ async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     try:
-        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
+        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
         logger.info(f"API JWT payload: {payload}")
         return payload
     except JWTError:
@@ -67,14 +83,16 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
             genie_context = request.headers[GENIE_CONTEXT_HEADER]
         if not genie_context:
             logger.bind_context()
+            logger.info("No Genie context found.")
         else:
-            logger.info(f"Found Genie context")
+            logger.info(f"Found Genie context: {genie_context}")
         if request.url and request.url.path:
             logger.set_endpoint(request.url.path)
+            logger.info(f"Request to {request.url.path}")
         response = await call_next(request)
         return response
 
-
+# Initialize FastAPI app and middleware
 app = FastAPI(
     title="Profile Management API",
     description="This is the official Genie AI API",
@@ -82,6 +100,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "https://localhost:5173", "https://alpha.genieai.ai"],
@@ -89,32 +108,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
 
+app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
 app.add_middleware(GenieContextMiddleware)
-app.add_middleware(JWTValidationMiddleware)
+# app.add_middleware(JWTValidationMiddleware)
 
 
 
 @app.exception_handler(Exception)
 async def exception_handler(request: Request, exc: Exception):
-    logger.error(f"Request failed {exc}")
+    logger.error(f"Request failed: {exc}")
     traceback_str = "".join(traceback.format_tb(exc.__traceback__))
     logger.error(f"Traceback: {traceback_str}")
     return PlainTextResponse(str(exc), status_code=500)
-
 
 @app.get("/", response_class=RedirectResponse)
 def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
     return RedirectResponse(url=base_url + "/docs")
 
-
 app.include_router(v1_router)
 
 PORT = int(env_utils.get("PERSON_PORT", 8000))
 use_https = env_utils.get("USE_HTTPS", "false").lower() == "true"
+
+# Function to handle signal and flush logs
+def handle_shutdown_signal(signal, frame):
+    print("Shutdown signal received, flushing logs...")
+    try:
+        logger_provider.force_flush(timeout_millis=10000)
+    except Exception as e:
+        print(f"Error during log flush: {e}")
+    finally:
+        sys.exit(0)
+
+# Register the shutdown signal handler for KeyboardInterrupt (Ctrl+C)
+signal.signal(signal.SIGINT, handle_shutdown_signal)
+signal.signal(signal.SIGTERM, handle_shutdown_signal)  # Optional for other termination signals
+
 logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}")
+
 if __name__ == "__main__":
     uvicorn.run(
         app,

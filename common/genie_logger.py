@@ -1,13 +1,10 @@
 import logging
 logger = logging.getLogger("genie_logger")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 # Suppress azure logs by setting their log level to WARNING
 logging.getLogger("azure.core").setLevel(logging.WARNING)
 logging.getLogger("azure.monitor").setLevel(logging.WARNING)
-logging.getLogger("azure").setLevel(logging.WARNING)
-logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
-logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
-
+logging.getLogger('opentelemetry.attributes').setLevel(logging.ERROR)
 #log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
 log_format = "{asctime} [{levelname}] - {name}.{funcName} - {filename}:{lineno}: {message}"
 logging.basicConfig(
@@ -22,6 +19,7 @@ from contextvars import ContextVar
 context_id = ContextVar("context_id", default=None)
 topic = ContextVar("topic", default=None)
 endpoint = ContextVar("endpoint", default=None)
+email = ContextVar("email", default=None)
 
 class GenieLogger:
     def __init__(self):
@@ -38,6 +36,9 @@ class GenieLogger:
     
     def get_endpoint(self):
         return endpoint.get()
+    
+    def get_email(self):
+        return email.get()
 
     def generate_short_context_id(self):
         full_uuid = str(uuid.uuid4())
@@ -52,6 +53,8 @@ class GenieLogger:
             extra_object["topic"] = self.get_topic()
         if self.get_endpoint():
             extra_object["endpoint"] = self.get_endpoint()
+        if self.get_email():
+            extra_object["email"] = self.get_email()
         return extra_object
     
     def set_topic(self, topic_name):
@@ -61,6 +64,10 @@ class GenieLogger:
     def set_endpoint(self, endpoint_name):
         if endpoint_name:
             endpoint.set(endpoint_name)
+
+    def set_email(self, email_address):
+        if email_address:
+            email.set(email_address)
 
     def bind_context(self, ctx_id=None):
         if ctx_id is None:
