@@ -12,7 +12,7 @@ COPY .python-version .
 COPY data ./data
 
 RUN apt-get update && \
-    apt-get install -y git build-essential && \
+    apt-get install -y git libpq-dev gcc build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install uv
