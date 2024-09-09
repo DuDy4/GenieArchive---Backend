@@ -58,6 +58,8 @@ def filter_emails(host_email: str, participants_emails: List):
     3. has a public domain.
     """
     final_list = []
+    if not host_email:
+        return final_list
     host_domain = host_email.split("@")[1]
     logger.info(f"Host email: {host_email}")
     for email_object in participants_emails:
