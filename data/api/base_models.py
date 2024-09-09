@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Union
 
-from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO
+from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO, MeetingClassification
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Connection,
@@ -469,6 +469,7 @@ class MiniMeeting(BaseModel):
     video_link: str
     duration: str
     agenda: Optional[List[AgendaItem]] | None
+    classification: MeetingClassification
 
     @classmethod
     def from_dict(cls, data: Dict):
@@ -477,6 +478,7 @@ class MiniMeeting(BaseModel):
             video_link=data.get("video_link", ""),
             duration=data.get("duration", ""),
             agenda=[AgendaItem.from_dict(agenda) for agenda in data.get("agenda", [])],
+            classification=data.get("classification", MeetingClassification.EXTERNAL),
         )
 
     def to_dict(self):
@@ -485,6 +487,7 @@ class MiniMeeting(BaseModel):
             "video_link": self.video_link,
             "duration": self.duration,
             "agenda": [agenda.to_dict() for agenda in self.agenda],
+            "classification": self.classification,
         }
 
     @classmethod
@@ -496,6 +499,9 @@ class MiniMeeting(BaseModel):
                 datetime.fromisoformat(meeting.end_time) - datetime.fromisoformat(meeting.start_time)
             ),
             agenda=meeting.agenda,
+            classification=meeting.classification
+            if meeting.classification
+            else MeetingClassification.EXTERNAL,
         )
 
 
