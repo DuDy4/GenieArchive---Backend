@@ -3,6 +3,8 @@ import traceback
 import signal
 import sys
 import uvicorn
+import requests
+import jwt
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
@@ -34,13 +36,58 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
-from jose import JWTError, jwt
+# from jose import JWTError, jwt
 from data.api.api_manager import v1_router
 
 GENIE_CONTEXT_HEADER = "genie-context"
 ALLOWED_ROUTES = ["/users/login-event"]
+AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN")
+API_IDENTIFIER = AUTH0_DOMAIN + "/api/v2/"  # https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/
+ALGORITHMS = ["RS256"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def get_auth0_public_key():
+    jwks_url = f"{AUTH0_DOMAIN}/.well-known/jwks.json"
+    jwks_response = requests.get(jwks_url)
+    jwks = jwks_response.json()
+    return jwks
+
+
+def decode_auth0_token(token):
+    jwks = get_auth0_public_key()
+
+    # Get the header to determine which key to use
+    unverified_header = jwt.get_unverified_header(token)
+    
+    rsa_key = {}
+    for key in jwks["keys"]:
+        if key["kid"] == unverified_header["kid"]:
+            rsa_key = {
+                "kty": key["kty"],
+                "kid": key["kid"],
+                "use": key["use"],
+                "n": key["n"],
+                "e": key["e"]
+            }
+    
+    if rsa_key:
+        try:
+            payload = jwt.decode(
+                token,
+                rsa_key,
+                algorithms=ALGORITHMS,
+                audience=API_IDENTIFIER,
+                issuer=f"{AUTH0_DOMAIN}"
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            return "Token has expired"
+        except jwt.JWTClaimsError:
+            return "Incorrect claims, please check the audience and issuer"
+        except Exception as e:
+            return f"Unable to parse token: {str(e)}"
+    return "Unable to find appropriate key"
 
 # Optional JWT validation function
 async def jwt_optional(token: str = Depends(oauth2_scheme)):
@@ -48,10 +95,11 @@ async def jwt_optional(token: str = Depends(oauth2_scheme)):
         return None
     
     try:
-        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
+        # payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
+        payload = decode_auth0_token(token)
         logger.info(f"Optional API JWT payload: {payload}")
         return payload
-    except JWTError:
+    except Exception as e:
         logger.error(f"Optional API JWT error: {traceback.format_exc()}")
         return None
 
@@ -60,10 +108,11 @@ async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     try:
-        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
+        #payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
+        payload = decode_auth0_token(token)
         logger.info(f"API JWT payload: {payload}")
         return payload
-    except JWTError:
+    except Exception as e:
         logger.error(f"API JWT error: {traceback.format_exc()}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
