@@ -2,7 +2,8 @@ import os
 import traceback
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 # This must be the order of imports for the logger to work properly: 1. load_dotenv() 2. GenieLogger() 3. configure_azure_monitor()
 load_dotenv()
@@ -17,10 +18,47 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
-
+from jose import JWTError, jwt
 from data.api.api_manager import v1_router
 
 GENIE_CONTEXT_HEADER = "genie-context"
+ALLOWED_ROUTES = ["/users/login-event"]
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Optional JWT validation function
+async def jwt_optional(token: str = Depends(oauth2_scheme)):
+    if not token:
+        return None
+    
+    try:
+        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
+        logger.info(f"Optional API JWT payload: {payload}")
+        return payload
+    except JWTError:
+        logger.error(f"Optional API JWT error: {traceback.format_exc()}")
+        return None
+
+async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
+        logger.info(f"API JWT payload: {payload}")
+        return payload
+    except JWTError:
+        logger.error(f"API JWT error: {traceback.format_exc()}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+class JWTValidationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path not in ALLOWED_ROUTES:
+            token = request.headers.get("Authorization")
+            await jwt_mandatory(token)
+        
+        response = await call_next(request)
+        return response
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -54,6 +92,8 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
 
 app.add_middleware(GenieContextMiddleware)
+app.add_middleware(JWTValidationMiddleware)
+
 
 
 @app.exception_handler(Exception)
