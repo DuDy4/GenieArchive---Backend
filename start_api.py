@@ -20,12 +20,7 @@ from common.utils import env_utils
 
 from data.api.api_manager import v1_router
 
-         
-
-
-
 GENIE_CONTEXT_HEADER = "genie-context"
-
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -44,7 +39,7 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(
     title="Profile Management API",
-    description="This is an API for managing users, contacts and profiles.",
+    description="This is the official Genie AI API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
