@@ -8,6 +8,7 @@ COPY start_api.py .
 COPY common ./common
 COPY pyproject.toml .
 COPY uv.lock .
+COPY .python-version .
 COPY data ./data
 
 RUN apt-get update && \
@@ -16,5 +17,5 @@ RUN apt-get update && \
 
 RUN pip install uv
 RUN uv sync
-
+ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
 CMD ["python", "start_api.py"]
