@@ -43,8 +43,10 @@ from data.api.api_manager import v1_router
 
 GENIE_CONTEXT_HEADER = "genie-context"
 ALLOWED_ROUTES = ["/users/login-event"]
-AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN", "")
-API_IDENTIFIER = AUTH0_DOMAIN + "/api/v2/"  # https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/
+AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN", "https://dev-ef3pwnhntlcnkc81.us.auth0.com")
+API_IDENTIFIER = (
+    (AUTH0_DOMAIN + "/api/v2/") if AUTH0_DOMAIN else "https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/"
+)
 ALGORITHMS = ["RS256"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
