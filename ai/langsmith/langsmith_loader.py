@@ -143,6 +143,7 @@ class Langsmith:
             "my_company_data": my_company_data,
             "info": call_info,
         }
+        response = None
         try:
             runnable = prompt | self.model
             response = runnable.invoke(arguments)
@@ -157,6 +158,9 @@ class Langsmith:
                     response = json.loads(response)
                 if isinstance(response, list):
                     break
+                if not response:
+                    logger.error("Meeting goals response returned None")
+                    response = []
             return response
 
     def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, case={}):
