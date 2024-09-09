@@ -17,6 +17,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
 from common.genie_logger import GenieLogger
+
 # Load environment variables and initialize logger
 load_dotenv()
 logger = GenieLogger()
@@ -36,16 +37,18 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
+
 # from jose import JWTError, jwt
 from data.api.api_manager import v1_router
 
 GENIE_CONTEXT_HEADER = "genie-context"
 ALLOWED_ROUTES = ["/users/login-event"]
-AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN")
+AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN", "")
 API_IDENTIFIER = AUTH0_DOMAIN + "/api/v2/"  # https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/
 ALGORITHMS = ["RS256"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 def get_auth0_public_key():
     jwks_url = f"{AUTH0_DOMAIN}/.well-known/jwks.json"
@@ -59,26 +62,16 @@ def decode_auth0_token(token):
 
     # Get the header to determine which key to use
     unverified_header = jwt.get_unverified_header(token)
-    
+
     rsa_key = {}
     for key in jwks["keys"]:
         if key["kid"] == unverified_header["kid"]:
-            rsa_key = {
-                "kty": key["kty"],
-                "kid": key["kid"],
-                "use": key["use"],
-                "n": key["n"],
-                "e": key["e"]
-            }
-    
+            rsa_key = {"kty": key["kty"], "kid": key["kid"], "use": key["use"], "n": key["n"], "e": key["e"]}
+
     if rsa_key:
         try:
             payload = jwt.decode(
-                token,
-                rsa_key,
-                algorithms=ALGORITHMS,
-                audience=API_IDENTIFIER,
-                issuer=f"{AUTH0_DOMAIN}"
+                token, rsa_key, algorithms=ALGORITHMS, audience=API_IDENTIFIER, issuer=f"{AUTH0_DOMAIN}"
             )
             return payload
         except jwt.ExpiredSignatureError:
@@ -89,11 +82,12 @@ def decode_auth0_token(token):
             return f"Unable to parse token: {str(e)}"
     return "Unable to find appropriate key"
 
+
 # Optional JWT validation function
 async def jwt_optional(token: str = Depends(oauth2_scheme)):
     if not token:
         return None
-    
+
     try:
         # payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
         payload = decode_auth0_token(token)
@@ -103,12 +97,13 @@ async def jwt_optional(token: str = Depends(oauth2_scheme)):
         logger.error(f"Optional API JWT error: {traceback.format_exc()}")
         return None
 
+
 async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     try:
-        #payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
+        # payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
         payload = decode_auth0_token(token)
         logger.info(f"API JWT payload: {payload}")
         return payload
@@ -116,14 +111,16 @@ async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
         logger.error(f"API JWT error: {traceback.format_exc()}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
 class JWTValidationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path not in ALLOWED_ROUTES:
             token = request.headers.get("Authorization")
             await jwt_mandatory(token)
-        
+
         response = await call_next(request)
         return response
+
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -140,6 +137,7 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
             logger.info(f"Request to {request.url.path}")
         response = await call_next(request)
         return response
+
 
 # Initialize FastAPI app and middleware
 app = FastAPI(
@@ -163,7 +161,6 @@ app.add_middleware(GenieContextMiddleware)
 # app.add_middleware(JWTValidationMiddleware)
 
 
-
 @app.exception_handler(Exception)
 async def exception_handler(request: Request, exc: Exception):
     logger.error(f"Request failed: {exc}")
@@ -171,10 +168,12 @@ async def exception_handler(request: Request, exc: Exception):
     logger.error(f"Traceback: {traceback_str}")
     return PlainTextResponse(str(exc), status_code=500)
 
+
 @app.get("/", response_class=RedirectResponse)
 def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
     return RedirectResponse(url=base_url + "/docs")
+
 
 app.include_router(v1_router)
 
@@ -190,6 +189,7 @@ def handle_shutdown_signal(signal, frame):
         print(f"Error during log flush: {e}")
     finally:
         sys.exit(0)
+
 
 # Register the shutdown signal handler for KeyboardInterrupt (Ctrl+C)
 signal.signal(signal.SIGINT, handle_shutdown_signal)
