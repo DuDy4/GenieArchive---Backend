@@ -12,8 +12,9 @@ COPY start_consumers.py .
 COPY pyproject.toml .
 COPY uv.lock .
 RUN apt-get update && \
-    apt-get install -y git libpq-dev gcc build-essential && \
+    apt-get install -y git build-essential && \
     rm -rf /var/lib/apt/lists/*
 RUN pip install uv
 RUN uv sync
+ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
 CMD ["sh", "-c", "python /app/${SERVICE_NAME}.py"]

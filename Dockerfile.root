@@ -12,10 +12,10 @@ COPY .python-version .
 COPY data ./data
 
 RUN apt-get update && \
-    apt-get install -y git libpq-dev gcc build-essential && \
+    apt-get install -y git build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install uv
 RUN uv sync
-
+ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
 CMD ["python", "start_api.py"]
