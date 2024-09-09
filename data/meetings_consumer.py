@@ -115,12 +115,22 @@ class MeetingManager(GenieConsumer):
                 logger.info(f"Unknown topic: {topic}")
 
     async def handle_new_meetings_to_process(self, event):
+        """
+        This function processes a list of meetings and saves them to the database.
+        It is important to first save all meetings to database, and then process them - so they will be shown in the UI.
+        It then sends 3 events:
+        1. To process the company of the user.
+        2. To process the company of the user's contacts.
+        3. To process the emails of the user's contacts.
+        """
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         meetings = event_body.get("meetings")
         tenant_id = event_body.get("tenant_id")
+        self_email = self.tenant_repository.get_tenant_email(tenant_id)
+        emails_to_send_events = []
         for meeting in meetings:
             logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
             if isinstance(meeting, str):
@@ -142,28 +152,28 @@ class MeetingManager(GenieConsumer):
                 continue
             emails_to_process = email_utils.filter_emails(self_email, participant_emails)
             logger.info(f"Emails to process: {emails_to_process}")
-            for email in emails_to_process:
-                event = GenieEvent(
-                    topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                    data=json.dumps({"tenant_id": meeting.tenant_id, "email": email}),
-                    scope="public",
-                )
-                event.send()
-                event = GenieEvent(
-                    topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                    data=json.dumps({"tenant_id": meeting.tenant_id, "email": email}),
-                    scope="public",
-                )
-                event.send()
-
-            # start processing the company of self email
+            emails_to_send_events.extend([email for email in emails_to_process] + [self_email])
+        emails_to_send_events = list(set(emails_to_send_events))
+        logger.info(f"Emails to send events: {emails_to_send_events}")
+        event = GenieEvent(
+            topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+            data={"tenant_id": tenant_id, "email": self_email},
+            scope="public",
+        )
+        event.send()
+        for email in emails_to_send_events:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data=json.dumps({"tenant_id": meeting.tenant_id, "email": self_email}),
+                data={"tenant_id": tenant_id, "email": email},
                 scope="public",
             )
             event.send()
-
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+                data={"tenant_id": tenant_id, "email": email},
+                scope="public",
+            )
+            event.send()
             return {"status": "success"}
 
     async def handle_new_meeting(self, event):
@@ -177,21 +187,34 @@ class MeetingManager(GenieConsumer):
             logger.info("Meeting already in database")
             return
         self.meeting_repository.save_meeting(meeting)
-        emails_to_process = email_utils.filter_email_objects(meeting.participants_emails)
+        participant_emails = meeting.participants_emails
+        try:
+            self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+        except IndexError:
+            logger.error(f"Could not find self email in {participant_emails}")
+            return
+        emails_to_process = email_utils.filter_emails(self_email, participant_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data=json.dumps({"tenant_id": meeting.tenant_id, "email": email.get("email")}),
+                data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
                 scope="public",
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data=json.dumps({"tenant_id": meeting.tenant_id, "email": email.get("email")}),
-                scope="private",
+                data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
+                scope="public",
             )
             event.send()
+        event = GenieEvent(
+            topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+            data={"tenant_id": meeting.tenant_id, "email": self_email},
+            scope="public",
+        )
+        event.send()
+        return {"status": "success"}
 
     async def create_goals_from_new_personal_data(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -271,8 +294,11 @@ class MeetingManager(GenieConsumer):
         if not meetings_list:
             logger.error(f"No meetings found for {company.domain}")
             return
-        logger.debug(f"Meetings without agenda for {company.domain}: {meetings_list}")
+        logger.debug(f"Meetings without goals for {company.domain}: {meetings_list}")
         for meeting in meetings_list:
+            if self.meeting_repository.get_meeting_goals(meeting.uuid):
+                logger.error(f"Meeting {meeting.uuid} already has goals")
+                continue
             participant_emails = meeting.participants_emails
             self_email_list = [email for email in participant_emails if email.get("self")]
             self_email = self_email_list[0].get("email") if self_email_list else None

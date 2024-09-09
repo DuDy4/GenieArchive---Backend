@@ -59,6 +59,10 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.api_services.auth0 import handle_auth0_user_signup
+from data.api_services.meeting_manager import (
+    process_agenda_to_all_meetings,
+    process_classification_to_all_meetings,
+)
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -712,6 +716,40 @@ def sync_email(
     return JSONResponse(content={"message": "Profile email sync initiated for " + person.email})
 
 
+@v1_router.get("/internal/sync-meetings-agenda")
+def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing all meetings agendas")
+    process_agenda_to_all_meetings(meetings_number)
+    return JSONResponse(content={"message": "Meetings agenda processing initiated"})
+
+
+@v1_router.get("/internal/sync-meeting-classification")
+def process_meetings_classification(api_key: str) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing all meetings classification")
+    process_classification_to_all_meetings()
+    return JSONResponse(content={"message": "Meetings classification processing initiated"})
+
+
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
     response_model=MeetingResponse,
@@ -821,7 +859,7 @@ def get_meeting_overview(
 
     for domain in domain_emails:
         company = companies_repository.get_company_from_domain(domain)
-        logger.info(f"Company: {company}")
+        logger.info(f"Company: {str(company)[:300]}")
         if company:
             companies.append(company)
 
@@ -835,7 +873,7 @@ def get_meeting_overview(
         )
 
     company = companies[0] if companies else None
-    logger.info(f"Company: {company}")
+    logger.info(f"Company: {str(company)[:300]}")
     if company:
         news = []
         domain = company.domain
@@ -849,13 +887,13 @@ def get_meeting_overview(
                 if domain not in str(link):
                     news.append(new)
             company.news = news[:3]
-            logger.debug(f"Company news: {company}")
+            logger.debug(f"Company news: {str(company.news)[:300]}")
         except Exception as e:
             logger.error(f"Error processing company news: {e}")
             company.news = []
         mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
-    logger.info(f"Company: {mid_company}")
+    logger.info(f"Company: {str(mid_company)[:300]}")
 
     mini_participants = []
 
@@ -894,7 +932,7 @@ def get_meeting_overview(
     except Exception as e:
         logger.error(f"Error creating mini overview: {e}")
         return JSONResponse(content={"error": "Error creating mini overview"}, status_code=500)
-    logger.info(f"Mini overview: {mini_overview}")
+    logger.info(f"Mini overview: {str(mini_overview)[:300]}")
 
     return mini_overview
 
@@ -930,7 +968,7 @@ def fetch_google_meetings(
             last_fetch_meetings = datetime.datetime.strptime(last_fetch_meetings, "%Y-%m-%d %H:%M:%S.%f")
             time_diff = datetime.datetime.now() - last_fetch_meetings
 
-        if time_diff.total_seconds() < 60:
+        if time_diff.total_seconds() < 30:
             logger.info("Meetings already fetched in the last minute. Skipping.")
             return JSONResponse(content={"message": "Meetings already fetched in the last hour. Skipping..."})
     else:
