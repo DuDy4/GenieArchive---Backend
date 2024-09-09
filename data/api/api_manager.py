@@ -59,7 +59,10 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.api_services.auth0 import handle_auth0_user_signup
-from data.api_services.meeting_manager import process_agenda_to_all_meetings
+from data.api_services.meeting_manager import (
+    process_agenda_to_all_meetings,
+    process_classification_to_all_meetings,
+)
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -728,6 +731,23 @@ def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONRes
     logger.info(f"Processing all meetings agendas")
     process_agenda_to_all_meetings(meetings_number)
     return JSONResponse(content={"message": "Meetings agenda processing initiated"})
+
+
+@v1_router.get("/internal/sync-meeting-classification")
+def process_meetings_classification(api_key: str) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing all meetings classification")
+    process_classification_to_all_meetings()
+    return JSONResponse(content={"message": "Meetings classification processing initiated"})
 
 
 @v1_router.get(
