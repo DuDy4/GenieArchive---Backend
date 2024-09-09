@@ -17,7 +17,7 @@ from data.data_common.dependencies.dependencies import (
 )
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from ai.langsmith.langsmith_loader import Langsmith
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem, MeetingClassification
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -136,6 +136,7 @@ class MeetingManager(GenieConsumer):
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+
             meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
                 meeting.google_calendar_id
             )
@@ -144,6 +145,9 @@ class MeetingManager(GenieConsumer):
                     logger.info("Meeting already in database")
                     continue
             self.meeting_repository.save_meeting(meeting)
+            if meeting.classification.value != MeetingClassification.EXTERNAL:
+                logger.info(f"Meeting is {meeting.classification.value}. skipping")
+                continue
             participant_emails = meeting.participants_emails
             try:
                 self_email = [email for email in participant_emails if email.get("self")][0].get("email")
