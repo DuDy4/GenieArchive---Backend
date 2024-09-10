@@ -4,9 +4,11 @@ import signal
 import sys
 import uvicorn
 import requests
-import jwt
+import base64
+import json
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.routing import APIRoute
 from dotenv import load_dotenv
 
 # Import OpenTelemetry for logging
@@ -16,114 +18,75 @@ from opentelemetry.sdk._logs import LoggingHandler
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
+from azure.monitor.opentelemetry import configure_azure_monitor
 from common.genie_logger import GenieLogger
+from common.utils import jwt_utils
 # Load environment variables and initialize logger
 load_dotenv()
 logger = GenieLogger()
 # Set up Azure Monitor logging exporter
-exporter = AzureMonitorLogExporter()
 
-# Set up Logger Provider
-logger_provider = LoggerProvider(resource=Resource.create({"service.name": "genie-api"}))
-logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+# exporter = AzureMonitorLogExporter()
+configure_azure_monitor()
+# # Set up Logger Provider
+# logger_provider = LoggerProvider(resource=Resource.create({"service.name": "genie-api"}))
+# logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
 
-# Set up logging handler (if you want to use it with Python logging)
+# # Set up logging handler (if you want to use it with Python logging)
 
-handler = LoggingHandler(logger_provider=logger_provider)
+# handler = LoggingHandler(logger_provider=logger_provider)
 
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
-# from jose import JWTError, jwt
 from data.api.api_manager import v1_router
 
 GENIE_CONTEXT_HEADER = "genie-context"
+GENIE_EMAIL_STATE = "user_email"
 ALLOWED_ROUTES = ["/users/login-event"]
-AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN")
-API_IDENTIFIER = AUTH0_DOMAIN + "/api/v2/"  # https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/
-ALGORITHMS = ["RS256"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def get_auth0_public_key():
-    jwks_url = f"{AUTH0_DOMAIN}/.well-known/jwks.json"
-    jwks_response = requests.get(jwks_url)
-    jwks = jwks_response.json()
-    return jwks
-
-
-def decode_auth0_token(token):
-    jwks = get_auth0_public_key()
-
-    # Get the header to determine which key to use
-    unverified_header = jwt.get_unverified_header(token)
-    
-    rsa_key = {}
-    for key in jwks["keys"]:
-        if key["kid"] == unverified_header["kid"]:
-            rsa_key = {
-                "kty": key["kty"],
-                "kid": key["kid"],
-                "use": key["use"],
-                "n": key["n"],
-                "e": key["e"]
-            }
-    
-    if rsa_key:
-        try:
-            payload = jwt.decode(
-                token,
-                rsa_key,
-                algorithms=ALGORITHMS,
-                audience=API_IDENTIFIER,
-                issuer=f"{AUTH0_DOMAIN}"
-            )
-            return payload
-        except jwt.ExpiredSignatureError:
-            return "Token has expired"
-        except jwt.JWTClaimsError:
-            return "Incorrect claims, please check the audience and issuer"
-        except Exception as e:
-            return f"Unable to parse token: {str(e)}"
-    return "Unable to find appropriate key"
-
 # Optional JWT validation function
-async def jwt_optional(token: str = Depends(oauth2_scheme)):
+async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = True):
     if not token:
+        if mandatory:
+            raise HTTPException(status_code=401, detail="Not authenticated")
         return None
     
     try:
-        # payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["HS256"])
-        payload = decode_auth0_token(token)
-        logger.info(f"Optional API JWT payload: {payload}")
-        return payload
-    except Exception as e:
-        logger.error(f"Optional API JWT error: {traceback.format_exc()}")
-        return None
-
-async def jwt_mandatory(token: str = Depends(oauth2_scheme)):
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    try:
-        #payload = jwt.decode(token, env_utils.get("JWT_SECRET_KEY"), algorithms=["RS256"])
-        payload = decode_auth0_token(token)
-        logger.info(f"API JWT payload: {payload}")
+        payload = jwt_utils.decode_jwt_token(token)
+        logger.info(f"{'Mandatory' if mandatory else 'Optional'} API JWT payload: {payload}")
+        logger.info(f"User email: {jwt_utils.get_user_email(payload)}")
         return payload
     except Exception as e:
         logger.error(f"API JWT error: {traceback.format_exc()}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        if mandatory:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        logger.info("Optional JWT token not valid, but continuing")
+        return None
 
 class JWTValidationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path not in ALLOWED_ROUTES:
             token = request.headers.get("Authorization")
-            await jwt_mandatory(token)
+            payload = await jwt_validation(token, mandatory=False)
+            if payload:
+                request.state.user_email = jwt_utils.get_user_email(payload)
+                request.state.tenant_id = jwt_utils.get_tenant_id(payload)
         
         response = await call_next(request)
         return response
+    
+async def genie_metrics(request: Request):
+    if request.scope['endpoint']:
+        function_name = request.scope['endpoint'].__name__
+        logger.set_function(function_name)
+    logger.info("START HANDLING API")
+    return
+
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -138,7 +101,12 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
         if request.url and request.url.path:
             logger.set_endpoint(request.url.path)
             logger.info(f"Request to {request.url.path}")
+        if request.state and request.state.user_email:
+            logger.set_email(request.state.user_email)
+        if request.state and request.state.tenant_id:
+            logger.set_tenant_id(request.state.tenant_id)
         response = await call_next(request)
+        logger.info(f"FINISH HANDLING API")
         return response
 
 # Initialize FastAPI app and middleware
@@ -160,8 +128,7 @@ app.add_middleware(
 
 app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
 app.add_middleware(GenieContextMiddleware)
-# app.add_middleware(JWTValidationMiddleware)
-
+app.add_middleware(JWTValidationMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -176,16 +143,17 @@ def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
     return RedirectResponse(url=base_url + "/docs")
 
-app.include_router(v1_router)
+app.include_router(v1_router, dependencies=[Depends(genie_metrics)])
 
 PORT = int(env_utils.get("PERSON_PORT", 8000))
 use_https = env_utils.get("USE_HTTPS", "false").lower() == "true"
 
-# Function to handle signal and flush logs
+
 def handle_shutdown_signal(signal, frame):
     print("Shutdown signal received, flushing logs...")
     try:
-        logger_provider.force_flush(timeout_millis=10000)
+        # logger_provider.force_flush(timeout_millis=10000)
+        logger.info("Flushed logs")
     except Exception as e:
         print(f"Error during log flush: {e}")
     finally:
@@ -193,7 +161,7 @@ def handle_shutdown_signal(signal, frame):
 
 # Register the shutdown signal handler for KeyboardInterrupt (Ctrl+C)
 signal.signal(signal.SIGINT, handle_shutdown_signal)
-signal.signal(signal.SIGTERM, handle_shutdown_signal)  # Optional for other termination signals
+signal.signal(signal.SIGTERM, handle_shutdown_signal)  
 
 logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}")
 
