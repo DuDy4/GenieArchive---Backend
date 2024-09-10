@@ -11,12 +11,14 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 load_dotenv()
 
+DEV_MODE = env_utils.get("DEV_MODE", "")
+
 # Retrieve the environment variables
-db_user = env_utils.get("DB_USER")
-host = env_utils.get("DB_HOST")
-database = env_utils.get("DB_NAME")
-password = env_utils.get("DB_PASSWORD")
-port = int(env_utils.get("DB_PORT"))
+db_user = env_utils.get(DEV_MODE + "DB_USER")
+host = env_utils.get(DEV_MODE + "DB_HOST")
+database = env_utils.get(DEV_MODE + "DB_NAME")
+password = env_utils.get(DEV_MODE + "DB_PASSWORD")
+port = int(env_utils.get(DEV_MODE + "DB_PORT"))
 
 
 def create_database_if_not_exists():
