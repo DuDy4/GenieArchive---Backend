@@ -375,7 +375,7 @@ class MidMeetingCompany(BaseModel):
     @classmethod
     def from_company_dto(cls, company: CompanyDTO):
         return cls(
-            name=company.name,
+            name=company.name if company.name else "",
             description=company.description,
             logo=company.logo,
             overview=company.overview,

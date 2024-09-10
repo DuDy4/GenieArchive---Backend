@@ -344,7 +344,7 @@ class MeetingsRepository:
         query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]');
+        WHERE (participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = 'external';
         """
         email_json = json.dumps([{"email": email}])
         try:
@@ -373,12 +373,12 @@ class MeetingsRepository:
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE
-            EXISTS (
+            (EXISTS (
                 SELECT 1
                 FROM jsonb_array_elements(participants_emails) AS participants
                 WHERE participants->>'email' ILIKE %s
             )
-            AND (goals IS NULL OR goals = '[]');
+            AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = 'external';
         """
         email_pattern = f"%@{domain}"
         try:
@@ -406,7 +406,7 @@ class MeetingsRepository:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]');
+        WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' or agenda = 'null')) AND classification = 'external';
         """
         email_json = json.dumps([{"email": email}])
         try:
@@ -440,17 +440,20 @@ class MeetingsRepository:
             traceback.print_exception(error)
         return None
 
-    def get_all_meetings_without_agenda(self):
+    def get_all_external_meetings_without_agenda(self):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location,
+         start_time, end_time, agenda, classification
         FROM meetings
-        WHERE agenda IS NULL OR agenda = '[]';
+        WHERE (agenda IS NULL OR agenda = '[]' or agenda = 'null') AND classification = 'external'
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query)
                 meetings = cursor.fetchall()
-                logger.info(f"Got {len(meetings)} meetings without agenda from database")
+                logger.info(f"Got {len(meetings)} external meetings without agenda from database")
+                for meeting in meetings:
+                    logger.debug(f"Meeting: {meeting}")
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
         except Exception as error:
             logger.error("Error fetching meetings without agenda:", error)

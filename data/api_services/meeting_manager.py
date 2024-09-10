@@ -51,7 +51,7 @@ def process_meeting_from_scratch(meeting: MeetingDTO):
 
 
 def process_agenda_to_all_meetings(number_of_meetings=10):
-    all_meetings = meetings_repository.get_all_meetings_without_agenda()
+    all_meetings = meetings_repository.get_all_external_meetings_without_agenda()
     all_meetings = all_meetings[:number_of_meetings]
     logger.info(f"Processing {len(all_meetings)} meetings")
     for meeting in all_meetings:

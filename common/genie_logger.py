@@ -1,18 +1,22 @@
 import logging
+
 logger = logging.getLogger("genie_logger")
 logger.setLevel(logging.INFO)
 # Suppress azure logs by setting their log level to WARNING
 logging.getLogger("azure.core").setLevel(logging.WARNING)
 logging.getLogger("azure.monitor").setLevel(logging.WARNING)
-logging.getLogger('opentelemetry.attributes').setLevel(logging.ERROR)
-#log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
+logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
+logging.getLogger("asyncio.default_exception_handler").setLevel(logging.ERROR)
+logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+# log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"
 log_format = "{asctime} [{levelname}] - {name}.{funcName} - {filename}:{lineno}: {message}"
-logging.basicConfig(
-    level=logging.INFO,
-    format=log_format,
-    style="{"
-)
-#logger.propagate = False
+logging.basicConfig(level=logging.INFO, format=log_format, style="{")
+# logger.propagate = False
 import uuid
 from contextvars import ContextVar
 
@@ -29,16 +33,16 @@ class GenieLogger:
 
     def get_logger(self):
         return self.logger
-    
+
     def get_ctx_id(self):
         return context_id.get()
-    
+
     def get_topic(self):
         return topic.get()
-    
+
     def get_endpoint(self):
         return endpoint.get()
-    
+
     def get_email(self):
         return email.get()
     
@@ -50,9 +54,11 @@ class GenieLogger:
 
     def generate_short_context_id(self):
         full_uuid = str(uuid.uuid4())
-        short_uuid = full_uuid.replace("-", "")[:12]  # Currently using the first 12 characters of the UUID for readability of the logs
+        short_uuid = full_uuid.replace("-", "")[
+            :12
+        ]  # Currently using the first 12 characters of the UUID for readability of the logs
         return short_uuid
-    
+
     def get_extra(self):
         extra_object = {}
         if self.get_ctx_id():
@@ -68,7 +74,7 @@ class GenieLogger:
         if self.get_tenant_id():
             extra_object["tenant_id"] = self.get_tenant_id()
         return extra_object
-    
+
     def set_topic(self, topic_name):
         if topic_name:
             topic.set(topic_name)
@@ -91,7 +97,7 @@ class GenieLogger:
 
     def bind_context(self, ctx_id=None):
         if ctx_id is None:
-            ctx_id = self.generate_short_context_id() 
+            ctx_id = self.generate_short_context_id()
         context_id.set(ctx_id)
         return ctx_id
 
@@ -100,8 +106,8 @@ class GenieLogger:
         if ctx_id:
             message = f"[CTX={ctx_id}] {message}"
         if args:
-            message = message % args if '%' in message else f"{message} {' '.join(map(str, args))}"
-        
+            message = message % args if "%" in message else f"{message} {' '.join(map(str, args))}"
+
         self.logger.log(level, message, stacklevel=3, extra=self.get_extra(), **kwargs)
 
     def info(self, message, *args, **kwargs):

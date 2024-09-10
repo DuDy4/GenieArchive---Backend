@@ -446,7 +446,7 @@ class PersonManager(GenieConsumer):
         profile = event_body.get("profile")
         if isinstance(profile, str):
             profile = json.loads(profile)
-        logger.debug(f"Person: {person_dict},\n Profile: {str(profile)}")
+        logger.info(f"Person: {person_dict},\n Profile: {str(profile)}")
 
         person = PersonDTO.from_dict(person_dict)
         if not person.company:
@@ -480,10 +480,13 @@ class PersonManager(GenieConsumer):
             logger.warning("Strengths is a dict again...")
             profile["strengths"] = profile.get("strengths")
 
+        logger.info(f"Person: {person}, Profile: {profile}")
+        if not person.name:
+            logger.error("Got person with no name")
         profile_person = ProfileDTO.from_dict(
             {
                 "uuid": uuid,
-                "name": person_dict.get("name"),
+                "name": person_dict.get("name", "") if person_dict.get("name") else "",
                 "company": person_dict.get("company"),
                 "position": person_dict.get("position")
                 if person_dict.get("position")

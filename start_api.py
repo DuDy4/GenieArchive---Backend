@@ -46,8 +46,14 @@ from data.api.api_manager import v1_router
 GENIE_CONTEXT_HEADER = "genie-context"
 GENIE_EMAIL_STATE = "user_email"
 ALLOWED_ROUTES = ["/users/login-event"]
+AUTH0_DOMAIN = env_utils.get("AUTH0_DOMAIN", "https://dev-ef3pwnhntlcnkc81.us.auth0.com")
+API_IDENTIFIER = (
+    (AUTH0_DOMAIN + "/api/v2/") if AUTH0_DOMAIN else "https://dev-ef3pwnhntlcnkc81.us.auth0.com/api/v2/"
+)
+ALGORITHMS = ["RS256"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 # Optional JWT validation function
 async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = True):
@@ -55,11 +61,10 @@ async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = 
         if mandatory:
             raise HTTPException(status_code=401, detail="Not authenticated")
         return None
-    
+
     try:
         payload = jwt_utils.decode_jwt_token(token)
         logger.info(f"{'Mandatory' if mandatory else 'Optional'} API JWT payload: {payload}")
-        logger.info(f"User email: {jwt_utils.get_user_email(payload)}")
         return payload
     except Exception as e:
         logger.error(f"API JWT error: {traceback.format_exc()}")
@@ -67,6 +72,7 @@ async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = 
             raise HTTPException(status_code=401, detail="Invalid token")
         logger.info("Optional JWT token not valid, but continuing")
         return None
+
 
 class JWTValidationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -86,6 +92,7 @@ async def genie_metrics(request: Request):
         logger.set_function(function_name)
     logger.info("START HANDLING API")
     return
+
 
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
@@ -108,6 +115,7 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         logger.info(f"FINISH HANDLING API")
         return response
+
 
 # Initialize FastAPI app and middleware
 app = FastAPI(
@@ -138,6 +146,7 @@ async def exception_handler(request: Request, exc: Exception):
     logger.error(f"Traceback: {traceback_str}")
     return PlainTextResponse(str(exc), status_code=500)
 
+
 @app.get("/", response_class=RedirectResponse)
 def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
@@ -158,6 +167,7 @@ def handle_shutdown_signal(signal, frame):
         print(f"Error during log flush: {e}")
     finally:
         sys.exit(0)
+
 
 # Register the shutdown signal handler for KeyboardInterrupt (Ctrl+C)
 signal.signal(signal.SIGINT, handle_shutdown_signal)
