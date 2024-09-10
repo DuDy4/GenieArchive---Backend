@@ -56,22 +56,6 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith")
         return response
 
-    # async def run_prompt_news(self, person_data):
-    #     prompt = hub.pull("get_news")
-    #     try:
-    #         runnable = prompt | self.model
-    #         response = runnable.invoke(person_data)
-    #         if response.get("news"):
-    #             response = response.get("news")
-    #             if response and isinstance(response, list) and len(response) == 0:
-    #                 response = runnable.invoke(person_data)
-    #                 if response.get("news"):
-    #                     response = response.get("news")
-    #     except Exception as e:
-    #         response = f"Error: {e}"
-    #     logger.debug(f"Got news from Langsmith: {response}")
-    #     return response
-
     async def run_prompt_get_to_know(self, person_data, company_data=None):
         prompt = hub.pull("dos-and-donts")
         try:
