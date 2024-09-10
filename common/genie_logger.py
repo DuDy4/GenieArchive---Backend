@@ -24,7 +24,8 @@ context_id = ContextVar("context_id", default=None)
 topic = ContextVar("topic", default=None)
 endpoint = ContextVar("endpoint", default=None)
 email = ContextVar("email", default=None)
-
+function = ContextVar("function_name", default=None)
+tenant_id = ContextVar("tenant_id", default=None)
 
 class GenieLogger:
     def __init__(self):
@@ -44,6 +45,12 @@ class GenieLogger:
 
     def get_email(self):
         return email.get()
+    
+    def get_function(self):
+        return function.get()
+    
+    def get_tenant_id(self):
+        return tenant_id.get()
 
     def generate_short_context_id(self):
         full_uuid = str(uuid.uuid4())
@@ -62,6 +69,10 @@ class GenieLogger:
             extra_object["endpoint"] = self.get_endpoint()
         if self.get_email():
             extra_object["email"] = self.get_email()
+        if self.get_function():
+            extra_object["function"] = self.get_function()
+        if self.get_tenant_id():
+            extra_object["tenant_id"] = self.get_tenant_id()
         return extra_object
 
     def set_topic(self, topic_name):
@@ -76,6 +87,14 @@ class GenieLogger:
         if email_address:
             email.set(email_address)
 
+    def set_function(self, function_name):
+        if function_name:
+            function.set(function_name)
+
+    def set_tenant_id(self, tenant_id_value):
+        if tenant_id_value:
+            tenant_id.set(tenant_id_value)
+
     def bind_context(self, ctx_id=None):
         if ctx_id is None:
             ctx_id = self.generate_short_context_id()
@@ -86,8 +105,6 @@ class GenieLogger:
         ctx_id = context_id.get()
         if ctx_id:
             message = f"[CTX={ctx_id}] {message}"
-        # self.logger.log(level, message, *args, **kwargs, stacklevel=3, extra=self.get_extra())
-        # self.logger.log(level, message, *args, stacklevel=3, extra=self.get_extra(), **kwargs)
         if args:
             message = message % args if "%" in message else f"{message} {' '.join(map(str, args))}"
 
