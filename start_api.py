@@ -108,9 +108,9 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
         if request.url and request.url.path:
             logger.set_endpoint(request.url.path)
             logger.info(f"Request to {request.url.path}")
-        if request.state and request.state.user_email:
+        if request.state and hasattr(request.state, 'user_email'):
             logger.set_email(request.state.user_email)
-        if request.state and request.state.tenant_id:
+        if request.state and hasattr(request.state, 'tenant_id'):
             logger.set_tenant_id(request.state.tenant_id)
         response = await call_next(request)
         logger.info(f"FINISH HANDLING API")
