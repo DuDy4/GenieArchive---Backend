@@ -86,5 +86,3 @@ def process_classification_to_all_meetings():
         logger.info(f"Updated meeting {meeting.uuid} with classification {classification}")
 
 
-# process_agenda_to_all_meetings()
-logger.info("success")
