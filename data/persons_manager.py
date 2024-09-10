@@ -466,7 +466,7 @@ class PersonManager(GenieConsumer):
         picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
         profile["picture_url"] = picture_url
         logger.debug(f"Picture url: {picture_url}")
-        if not picture_url:
+        if not picture_url and social_media_links:
             picture_urls = get_picture_from_social_links_list(social_media_links)
             logger.debug(f"Picture urls: {picture_urls}")
 
