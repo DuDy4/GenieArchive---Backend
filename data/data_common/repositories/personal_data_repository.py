@@ -866,3 +866,83 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving status: {e}", e)
             traceback.format_exc()
             return None
+
+    def get_all_personal_data_with_missing_attributes(self):
+        """
+        Retrieve personal data with missing attributes that have valid corresponding data in the persons table.
+
+        :return: Personal data with missing attributes.
+        """
+        select_query = """
+        SELECT pd.uuid
+        FROM personalData pd
+        INNER JOIN persons p ON pd.uuid = p.uuid
+        WHERE (pd.name IS NULL OR pd.name = '') AND p.name IS NOT NULL AND p.name != ''
+          OR (pd.linkedin_url IS NULL OR pd.linkedin_url = '') AND p.linkedin IS NOT NULL AND p.linkedin != ''
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                personal_data = cursor.fetchall()
+                logger.info(f"Got personal data: {len(personal_data)}")
+                if personal_data:
+                    return personal_data
+                else:
+                    logger.warning("No personal data found")
+                    return []
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_duplicates_by_email(self):
+        """
+        Retrieve personal data with missing attributes that have valid corresponding data in the persons table.
+
+        :return: Personal data with missing attributes.
+        """
+        select_query = """
+        SELECT a.uuid, a.name, a.email, a.linkedin_url
+        FROM personalData AS a INNER JOIN personalData AS b
+        ON a.email = b.email
+        where a.id != b.id
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                personal_data = cursor.fetchall()
+                logger.info(f"Got personal data: {len(personal_data)}")
+                if personal_data:
+                    return personal_data
+                else:
+                    logger.warning("No personal data found")
+                    return []
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def delete(self, uuid):
+        """
+        Delete a personalData from the database.
+
+        :param uuid: Unique identifier for the personalData.
+        """
+        delete_query = """
+        DELETE FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (uuid,))
+                self.conn.commit()
+                logger.info("Deleted personalData")
+        except psycopg2.Error as e:
+            logger.error("Error deleting personalData:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        except Exception as e:
+            logger.error("Error deleting personalData:", e)
+            traceback.print_exc()
+            # self.conn.rollback()
+        return
