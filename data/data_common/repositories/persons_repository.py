@@ -351,11 +351,16 @@ class PersonsRepository:
             cursor.execute(query, (uuid,))
             return cursor.fetchone()[0]
 
-    def get_all_persons_without_linkedin_url(self):
+    def get_all_persons_with_missing_attribute(self):
         query = """
-        SELECT uuid, name, company, email, linkedin, position, timezone
-        FROM persons
-        WHERE TRIM(linkedin) IS NULL OR TRIM(linkedin) = '';
+        SELECT p.uuid, p.name, p.company, p.email, p.linkedin, p.position, p.timezone
+        FROM persons p
+        INNER JOIN personaldata pd ON p.uuid = pd.uuid
+        WHERE ((TRIM(p.linkedin) IS NULL OR TRIM(p.linkedin) = '')
+               OR (TRIM(p.name) IS NULL OR TRIM(p.name) = '')
+               OR (TRIM(p.company) IS NULL OR TRIM(p.company) = '')
+               OR (TRIM(p.position) IS NULL OR TRIM(p.position) = ''))
+          AND (pd.pdl_status = 'FETCHED' OR pd.apollo_status = 'FETCHED');
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query)
