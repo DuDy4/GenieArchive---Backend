@@ -350,3 +350,13 @@ class PersonsRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(query, (uuid,))
             return cursor.fetchone()[0]
+
+    def get_all_persons_without_linkedin_url(self):
+        query = """
+        SELECT uuid, name, company, email, linkedin, position, timezone
+        FROM persons
+        WHERE TRIM(linkedin) IS NULL OR TRIM(linkedin) = '';
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            return [PersonDTO.from_tuple(row) for row in cursor.fetchall()]

@@ -751,7 +751,8 @@ class PersonalDataRepository:
         Retrieve the personal data row as a dict with column names as keys.
         """
         select_query = """
-        SELECT uuid, name, email, linkedin_url, pdl_personal_data, pdl_status, pdl_last_updated
+        SELECT uuid, name, email, linkedin_url, pdl_personal_data, pdl_status, pdl_last_updated, apollo_personal_data,
+        apollo_status, apollo_last_updated
         FROM personalData
         WHERE uuid = %s
         """
@@ -768,6 +769,9 @@ class PersonalDataRepository:
                         "personal_data": personal_data[4],
                         "status": personal_data[5],
                         "last_updated": personal_data[6],
+                        "apollo_personal_data": personal_data[7],
+                        "apollo_status": personal_data[8],
+                        "apollo_last_updated": personal_data[9],
                     }
                     return personal_data_dict
                 else:
