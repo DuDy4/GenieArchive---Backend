@@ -1,11 +1,8 @@
 from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.pdl_consumer import PDLConsumer
-from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+
 from data.data_common.dependencies.dependencies import (
-    get_db_connection,
     persons_repository,
     personal_data_repository,
     companies_repository,
