@@ -28,12 +28,12 @@ personal_data_repository = personal_data_repository()
 companies_repository = companies_repository()
 
 
-def get_all_persons_without_linkedin_url():
+def get_all_persons_with_missing_attributes():
     all_persons = persons_repository.get_all_persons_with_missing_attribute()
     return all_persons
 
 
-def update_persons_with_linkedin_url(persons: list[PersonDTO]):
+def update_persons_with_missing_attributes(persons: list[PersonDTO]):
     new_persons = []
     for person in persons:
         new_person = create_person_from_pdl_personal_data(person)
@@ -50,7 +50,7 @@ def update_persons_with_linkedin_url(persons: list[PersonDTO]):
     return new_persons
 
 
-persons = get_all_persons_without_linkedin_url()
-logger.info(f"Persons without LinkedIn URL: {persons}")
-persons = update_persons_with_linkedin_url(persons)
+persons = get_all_persons_with_missing_attributes()
+logger.info(f"Persons without LinkedIn URL: {len(persons)}")
+persons = update_persons_with_missing_attributes(persons)
 logger.info(f"Persons without LinkedIn URL: {persons}")
