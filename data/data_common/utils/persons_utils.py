@@ -130,7 +130,9 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
     if personal_experience and isinstance(personal_experience, list):
         personal_experience = personal_experience[0]
     if not position:
-        position = personal_experience.get("title")
+        if personal_experience and isinstance(personal_experience, list):
+            workplace = personal_experience[0]
+            position = workplace.get("title")
     if not company:
         company = personal_experience.get("organization_name")
     person_name = personal_data.get("name", "") or personal_data.get("first_name") + " " + personal_data.get(
