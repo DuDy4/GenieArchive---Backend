@@ -399,7 +399,7 @@ class ProfilesRepository:
                 rows = cursor.fetchall()
                 if rows:
                     logger.info(f"Got {len(rows)} profiles from database")
-                    return [UUID(row[0]) for row in rows]
+                    return [row[0] for row in rows]
                 else:
                     logger.info(f"Could not find profiles without picture")
                     return []

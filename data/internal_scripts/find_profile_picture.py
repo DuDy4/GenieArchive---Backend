@@ -1,6 +1,5 @@
 import sys
 import os
-import traceback
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -8,13 +7,7 @@ from data.importers.profile_pictures import get_profile_picture
 
 from common.genie_logger import GenieLogger
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.pdl_consumer import PDLConsumer
-from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.repositories.personal_data_repository import PersonalDataRepository
-from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.dependencies.dependencies import (
-    get_db_connection,
     persons_repository,
     personal_data_repository,
     profiles_repository,
@@ -29,7 +22,7 @@ profiles_repository = profiles_repository()
 
 def get_all_persons_with_linkedin_url_or_social_media_links():
     profiles_uuid = profiles_repository.get_all_profiles_without_profile_picture()
-    profiles_uuid = profiles_uuid[:1]
+    profiles_uuid = profiles_uuid[:10]
     for profile_uuid in profiles_uuid:
         profile_uuid = str(profile_uuid)
         social_media_links = personal_data_repository.get_social_media_links(profile_uuid)
