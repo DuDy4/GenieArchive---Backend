@@ -13,12 +13,12 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.api_services.apollo import ApolloClient
 
-
 from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 
 from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 from data.data_common.dependencies.dependencies import persons_repository, personal_data_repository
+from data.data_common.utils.persons_utils import create_person_from_apollo_personal_data
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
@@ -65,27 +65,28 @@ class ApolloConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         person = event_body.get("person")
         logger.info(f"Person: {person}")
+        if isinstance(person, str):
+            person = json.loads(person)
         person = PersonDTO(**person)
         logger.info(f"Person DTO: {person}")
-        if person.linkedin:
-            logger.info(f"Person already has linkedin: {person.linkedin}")
-            return {"status": "ok"}
+        # if person.linkedin:
+        #     logger.info(f"Person already has LinkedIn: {person.LinkedIn}")
+        #     return {"status": "ok"}
         person_in_db = self.persons_repository.get_person_by_email(person.email)
         if person_in_db:
-            if person_in_db.linkedin:
-                logger.info(f"Person in database already has linkedin_url: {person_in_db.linkedin}")
-                personal_data = self.personal_data_repository.get_personal_uuid_by_email(person.email)
-                if personal_data:
-                    logger.info(f"Personal data already exists for email: {person.email}")
-                    return {"status": "ok"}
-                # return {"status": "ok"}
+            # if person_in_db.linkedin:
+            #     logger.info(f"Person in database already has linkedin_url: {person_in_db.LinkedIn}")
+            personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(person.email)
+            if personal_data:
+                logger.info(f"Personal data already exists for email: {person.email}")
+                return {"status": "ok"}
         apollo_personal_data_from_db = self.personal_data_repository.get_apollo_personal_data_by_email(
             person.email
         )
         if apollo_personal_data_from_db:
             logger.warning(f"Already have personal data from apollo for email: {person.email}")
             logger.debug(f"Personal data: {str(apollo_personal_data_from_db)[:300]}")
-            person = self.create_person_from_apollo_data(person, apollo_personal_data_from_db)
+            person = create_person_from_apollo_personal_data(person)
             self.persons_repository.save_person(person)
             # logger.error(f"To avoid loops, stopping here")
             event = GenieEvent(
@@ -96,6 +97,7 @@ class ApolloConsumer(GenieConsumer):
             event.send()
             return {"status": "ok"}
 
+        # If we do not have any personal data on this person, fetch it from Apollo
         apollo_personal_data = self.apollo_client.enrich_person(person)
         logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
@@ -113,31 +115,10 @@ class ApolloConsumer(GenieConsumer):
             )
             event.send()
             return {"error": "Failed to get personal data"}
-        self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
-        if not person.name:
-            person.name = apollo_personal_data.get("name")
-        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
-        person = self.create_person_from_apollo_data(person, apollo_personal_data)
-        logger.info(f"Person after creating from apollo data: {person}")
-        self.persons_repository.save_person(person)
 
-        linkedin_url = apollo_personal_data.get("linkedin_url")
-
-        # Should not happen, but just in case
-        if not linkedin_url:
-            logger.error(f"Failed to get linkedin url for person: {person}")
-        else:
-            logger.info(f"Got linkedin url: {linkedin_url}")
-            person.linkedin = linkedin_url
-            self.persons_repository.save_person(person)
-        event = GenieEvent(
-            topic=Topic.APOLLO_UPDATED_ENRICHED_DATA,
-            data={"person": person.to_dict()},
-            scope="public",
-        )
-        event.send()
-        logger.info(f"Sent new person event: {person}")
-        return {"status": "ok"}
+        # If we successfully fetched personal data from Apollo, save it
+        self.handle_successful_data_fetch(person, apollo_personal_data)
+        # The method return success status
 
     async def handle_new_email_address_to_enrich(self, event):
         event_body_str = event.body_as_str()
@@ -161,13 +142,16 @@ class ApolloConsumer(GenieConsumer):
                 linkedin="",
                 timezone="",
             )
-        if person.linkedin:
-            logger.info(f"Person already has linkedin: {person.linkedin}")
-            return {"status": "ok"}
+        # if person.linkedin:
+        #     logger.info(f"Person already has linkedin: {person.linkedin}")
+        #     return {"status": "ok"}
 
         apollo_personal_data = self.apollo_client.enrich_person(person)
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
+            self.personal_data_repository.save_apollo_personal_data(
+                person=person, personal_data=None, status=self.personal_data_repository.TRIED_BUT_FAILED
+            )
             event = GenieEvent(
                 topic=Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 data={"person": person.to_dict(), "email": person.email},
@@ -175,33 +159,27 @@ class ApolloConsumer(GenieConsumer):
             )
             event.send()
             return {"error": "Failed to get personal data"}
+
+        # If we successfully fetched personal data from Apollo, save it
+        self.handle_successful_data_fetch(person, apollo_personal_data)
+        # The method return success status
+
+    def handle_successful_data_fetch(self, person: PersonDTO, apollo_personal_data: dict):
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
-        if not person.name:
-            person.name = apollo_personal_data.get("name")
-        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
-        linkedin_url = apollo_personal_data.get("linkedin_url")
-        person = self.create_person_from_apollo_data(person, apollo_personal_data)
-        person.linkedin = linkedin_url
-        if not person.linkedin:
-            logger.warning(f"Got personal data from Apollo, but no linkedin url: {person}")
+        person = create_person_from_apollo_personal_data(person)
+        logger.info(f"Person after creating from apollo data: {person}")
         self.persons_repository.save_person(person)
+        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
+        self.personal_data_repository.update_linkedin_url(person.uuid, person.linkedin)
+
         event = GenieEvent(
-            topic=Topic.NEW_PERSON,
+            topic=Topic.APOLLO_UPDATED_ENRICHED_DATA,
             data={"person": person.to_dict()},
             scope="public",
         )
         event.send()
         logger.info(f"Sent new person event: {person}")
-        return {"status": "ok"}
-
-    def create_person_from_apollo_data(self, person, apollo_data):
-        person.name = apollo_data.get("name")
-        company_organization = apollo_data.get("organization")
-        company_name = company_organization.get("name") if company_organization else None
-        person.company = company_name
-        person.position = apollo_data.get("title")
-        person.linkedin = apollo_data.get("linkedin_url")
-        return person
+        return {"status": "success"}
 
 
 if __name__ == "__main__":

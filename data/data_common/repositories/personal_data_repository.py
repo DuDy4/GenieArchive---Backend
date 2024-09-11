@@ -612,7 +612,7 @@ class PersonalDataRepository:
         return
 
     def save_apollo_personal_data(
-        self, person: PersonDTO, personal_data: dict | str, status: str = "FETCHED"
+        self, person: PersonDTO, personal_data: dict | str | None, status: str = "FETCHED"
     ):
         """
         Save personal data to the database.
