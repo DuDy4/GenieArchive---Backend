@@ -98,6 +98,9 @@ class CompanyConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email_address = event_body.get("email")
+        if not email_address:
+            logger.error(f"Email address not found in event: {event_body}")
+            return
         email_domain = email_address.split("@")[-1]
         company = self.companies_repository.get_company_from_domain(email_domain)
         if not company:

@@ -4,7 +4,6 @@ import os
 import sys
 import traceback
 
-import data.data_common.repositories.persons_repository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

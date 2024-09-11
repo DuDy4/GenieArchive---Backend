@@ -1,8 +1,11 @@
 import asyncio
 import json
 import os
+import sys
 import traceback
 from typing import List
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 from common.utils import env_utils, email_utils
@@ -145,7 +148,7 @@ class MeetingManager(GenieConsumer):
                     logger.info("Meeting already in database")
                     continue
             self.meeting_repository.save_meeting(meeting)
-            if meeting.classification.value != MeetingClassification.EXTERNAL:
+            if meeting.classification.value != MeetingClassification.EXTERNAL.value:
                 logger.info(f"Meeting is {meeting.classification.value}. skipping")
                 continue
             participant_emails = meeting.participants_emails
@@ -156,8 +159,7 @@ class MeetingManager(GenieConsumer):
                 continue
             emails_to_process = email_utils.filter_emails(self_email, participant_emails)
             logger.info(f"Emails to process: {emails_to_process}")
-            emails_to_send_events.extend([email for email in emails_to_process] + [self_email])
-        emails_to_send_events = list(set(emails_to_send_events))
+            emails_to_send_events = list(set(emails_to_send_events + emails_to_process))
         logger.info(f"Emails to send events: {emails_to_send_events}")
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
@@ -178,7 +180,7 @@ class MeetingManager(GenieConsumer):
                 scope="public",
             )
             event.send()
-            return {"status": "success"}
+        return {"status": "success"}
 
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
