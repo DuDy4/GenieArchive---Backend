@@ -1,11 +1,13 @@
-from typing import Optional
+from typing import Optional, List
 import json
 import psycopg2
 import traceback
 
+from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 from common.genie_logger import GenieLogger
+from data.data_common.utils.str_utils import to_custom_title_case
 
 logger = GenieLogger()
 
@@ -782,15 +784,15 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def get_social_media_links(self, uuid: str):
+    def get_social_media_links(self, uuid: str) -> List[SocialMediaLinks]:
         """
-        Retrieve social media links for a profile.
+        Retrieve social media links for a profile and return them as a list of SocialMediaLinks models.
 
         :param uuid: Unique identifier for the profile.
-        :return: Social media links if profile exists, None otherwise.
+        :return: List of SocialMediaLinks if profile exists, empty list otherwise.
         """
         select_query = """
-        SELECT pdl_personal_data -> 'profiles'
+        SELECT pdl_personal_data -> 'profiles', apollo_personal_data
         FROM personalData
         WHERE uuid = %s
         """
@@ -800,20 +802,51 @@ class PersonalDataRepository:
                 result = cursor.fetchone()
                 logger.info(f"Got result: {result}")
                 if result:
-                    profiles_data = result[0]
-                    if profiles_data:
-                        # Assuming profiles_data is a JSONB object and you want to extract specific data.
-                        return profiles_data
-                    else:
-                        logger.warning("No personal data found")
-                        return None
+                    pdl_social_link = result[0]
+                    apollo_data = result[1]
+
+                    social_media_list = []
+
+                    if pdl_social_link:
+                        for profile in pdl_social_link:
+                            url = profile.get("url")
+                            network = profile.get("network")
+                            if url and network:
+                                social_media_list.append(
+                                    SocialMediaLinks.from_dict({"url": url, "platform": network})
+                                )
+
+                    if apollo_data:
+                        apollo_links = {
+                            "linkedin_url": apollo_data.get("linkedin_url"),
+                            "twitter_url": apollo_data.get("twitter_url"),
+                            "facebook_url": apollo_data.get("facebook_url"),
+                            "github_url": apollo_data.get("github_url"),
+                        }
+
+                        platform_mapping = {
+                            "linkedin_url": "LinkedIn",
+                            "twitter_url": "Twitter",
+                            "facebook_url": "Facebook",
+                            "github_url": "GitHub",
+                        }
+
+                        for key, url in apollo_links.items():
+                            if url and not any(s.url == url for s in social_media_list):
+                                social_media_list.append(
+                                    SocialMediaLinks.from_dict(
+                                        {"url": url, "platform": platform_mapping[key]}
+                                    )
+                                )
+
+                    return social_media_list
                 else:
                     logger.warning("Personal data was not found")
-                    return None
+                    return []
         except Exception as e:
             logger.error(f"Error retrieving social media links: {e}", e)
             traceback.format_exc()
-            return None
+            return []
 
     def get_pdl_status(self, existing_uuid):
         """
