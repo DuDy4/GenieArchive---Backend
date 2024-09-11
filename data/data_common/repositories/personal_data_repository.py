@@ -798,7 +798,7 @@ class PersonalDataRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (str(uuid),))
                 result = cursor.fetchone()
                 logger.info(f"Got result: {result}")
                 if result:
@@ -830,7 +830,6 @@ class PersonalDataRepository:
                             "facebook_url": "Facebook",
                             "github_url": "GitHub",
                         }
-
                         for key, url in apollo_links.items():
                             if url and not any(s.url == url for s in social_media_list):
                                 social_media_list.append(

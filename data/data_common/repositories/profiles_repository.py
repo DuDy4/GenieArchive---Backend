@@ -372,6 +372,42 @@ class ProfilesRepository:
             traceback.print_exc()
             return None
 
+    def update_profile_picture(self, uuid: str, picture_url: str):
+        update_query = """
+        UPDATE profiles
+        SET picture_url = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (picture_url, uuid))
+                self.conn.commit()
+                logger.info(f"Updated picture for {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating picture, because: {error.pgerror}")
+
+    def get_all_profiles_without_profile_picture(self) -> list:
+        select_query = """
+        SELECT uuid
+        FROM profiles
+        WHERE picture_url IS NULL OR picture_url = ''
+         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} profiles from database")
+                    return [UUID(row[0]) for row in rows]
+                else:
+                    logger.info(f"Could not find profiles without picture")
+                    return []
+        except Exception as error:
+            logger.error(f"Error fetching profiles without picture: {error}")
+            traceback.print_exc()
+            return []
+
     def update_hobbies_by_email(self, email: str, hobbies: list[str]):
         update_query = """
         UPDATE profiles

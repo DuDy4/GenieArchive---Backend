@@ -35,6 +35,8 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
 )
 
+from data.importers.profile_pictures import get_profile_picture
+
 from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
 
@@ -465,18 +467,9 @@ class PersonManager(GenieConsumer):
         # This is a test to get profile picture from social media links
         social_media_links = self.personal_data_repository.get_social_media_links(uuid)
         picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
-        profile["picture_url"] = picture_url
-        logger.debug(f"Picture url: {picture_url}")
-        if not picture_url and social_media_links:
-            pass
-        #     picture_urls = get_picture_from_social_links_list(social_media_links)
-        #     logger.debug(f"Picture urls: {picture_urls}")
-        #
-        #     if picture_urls:
-        #         profile["picture_url"] = picture_urls[0]
-
-        if not profile.get("picture_url"):
-            profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+        profile["picture_url"] = (
+            picture_url if picture_url else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+        )
 
         if profile.get("strengths") and isinstance(profile["strengths"], dict):
             logger.warning("Strengths is a dict again...")
@@ -485,7 +478,7 @@ class PersonManager(GenieConsumer):
         logger.info(f"Person: {person}, Profile: {profile}")
         if not person.name:
             logger.error("Got person with no name")
-        profile_person = ProfileDTO.from_dict(
+        profile_dto = ProfileDTO.from_dict(
             {
                 "uuid": uuid,
                 "name": person.name if person.name else "",
@@ -500,11 +493,19 @@ class PersonManager(GenieConsumer):
             }
         )
         profile_details = "\n".join(
-            [f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_person.__dict__.items()]
+            [f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_dto.__dict__.items()]
         )
         logger.debug(f"Profile person: {profile_details}")
-        self.profiles_repository.save_profile(profile_person)
-        json_profile = profile_person.to_json()
+        self.profiles_repository.save_profile(profile_dto)
+        logger.info(f"About to fetch profile picture for {person.email}")
+        if (
+            not profile_dto.picture_url
+            or profile_dto.picture_url == "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+        ):
+            profile_dto.picture_url = get_profile_picture(person, social_media_links)
+            self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)
+        logger.info(f"Profile picture url: {profile_dto.picture_url}")
+        json_profile = profile_dto.to_json()
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         logger.info("Saved new processed data to profiles_repository")

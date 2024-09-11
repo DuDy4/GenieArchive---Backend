@@ -127,7 +127,7 @@ class PersonsRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (str(uuid),))
                 person = cursor.fetchone()
                 if person:
                     logger.info(f"Got person with uuid {uuid}")
