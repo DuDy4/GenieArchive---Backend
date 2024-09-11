@@ -57,7 +57,6 @@ def create_person_from_pdl_personal_data(person: PersonDTO):
     if not personal_data:
         logger.error(f"Personal data not found for {person.uuid}")
         return None
-    logger.info(f"Personal data: {personal_data}")
     personal_experience = personal_data.get("experience")
     position = ""
     company = get_company_name_from_domain(person.email)
@@ -111,7 +110,6 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
     if not personal_data:
         logger.error(f"Personal data not found for {person.uuid}")
         return None
-    logger.info(f"Personal data: {personal_data}")
     personal_experience = personal_data.get("employment_history")
     position = personal_data.get("title", "")
     company = get_company_name_from_domain(person.email)

@@ -317,7 +317,9 @@ class PersonsRepository:
                 logger.info("Updated person in database")
                 return True
         except psycopg2.Error as error:
-            raise Exception(f"Error updating person, because: {error.pgerror}")
+            raise Exception(
+                f"Error updating person, because: {error.pgerror if hasattr(error, 'pgerror') else error}"
+            )
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False

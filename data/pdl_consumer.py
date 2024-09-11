@@ -320,7 +320,7 @@ class PDLConsumer(GenieConsumer):
             if experience:
                 personal_data["experience"] = job_utils.fix_and_sort_experience_from_pdl(experience)
 
-        logger.info(f"Personal data: {personal_data}")
+        logger.info(f"Personal data: {str(personal_data)[:300]}")
         if personal_data:
             person = PersonDTO(
                 uuid=uuid,
@@ -334,7 +334,7 @@ class PDLConsumer(GenieConsumer):
             self.personal_data_repository.save_pdl_personal_data(person, personal_data)
             if not uuid:
                 uuid = get_uuid4()
-            person = create_person_from_pdl_personal_data(uuid)
+            person = create_person_from_pdl_personal_data(person)
             logger.info(f"Created person from personal data: {person}")
             self.personal_data_repository.save_pdl_personal_data(person=person, personal_data=personal_data)
 

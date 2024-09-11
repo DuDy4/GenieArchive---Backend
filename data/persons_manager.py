@@ -15,6 +15,10 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.utils.persons_utils import (
+    create_person_from_pdl_personal_data,
+    create_person_from_apollo_personal_data,
+)
 from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
@@ -237,7 +241,10 @@ class PersonManager(GenieConsumer):
         if not personal_data:
             logger.error("No personal data received in event")
             return {"error": "No personal data received in event"}
-        person = self.verify_person_with_pdl_data(person)
+        person = create_person_from_pdl_personal_data(person)
+        self.persons_repository.save_person(person)
+        self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
+        self.personal_data_repository.update_linkedin_url(person.uuid, person.linkedin)
 
         if tenant_id:
             has_ownership = self.ownerships_repository.check_ownership(tenant_id, person.uuid)
@@ -272,7 +279,7 @@ class PersonManager(GenieConsumer):
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person.email}")
-            person = self.verify_person_with_apollo_data(person)
+            person = create_person_from_apollo_personal_data(person)
             self.persons_repository.save_person(person)
             return {"status": "success"}
         event = GenieEvent(
@@ -364,7 +371,7 @@ class PersonManager(GenieConsumer):
         if isinstance(person_dict, str):
             person_dict = json.loads(person_dict)
         person: PersonDTO = PersonDTO.from_dict(person_dict)
-        person = self.verify_person_with_apollo_data(person)
+        person = create_person_from_apollo_personal_data(person)
 
         pdl_last_updated = self.personal_data_repository.get_pdl_last_updated(person.uuid)
         apollo_last_updated = self.personal_data_repository.get_apollo_last_updated(person.uuid)
@@ -394,7 +401,7 @@ class PersonManager(GenieConsumer):
                     logger.error(f"Failed to get personal data for person: {person}")
                     return {"error": "Failed to get personal data"}
                 logger.debug(f"Person before verification: {person}")
-                person = self.verify_person_with_apollo_data(person)
+                person = create_person_from_apollo_personal_data(person)
                 logger.debug(f"Person after verification: {person}")
                 self.persons_repository.save_person(person)
                 event = GenieEvent(
@@ -414,7 +421,7 @@ class PersonManager(GenieConsumer):
                     logger.error(f"Failed to get personal data for person: {person}")
                     return {"error": "Failed to get personal data"}
                 logger.debug(f"Person before verification: {person}")
-                person = self.verify_person_with_apollo_data(person)
+                person = create_person_from_apollo_personal_data(person)
                 logger.debug(f"Person after verification: {person}")
                 self.persons_repository.save_person(person)
                 event = GenieEvent(
@@ -449,13 +456,7 @@ class PersonManager(GenieConsumer):
         logger.info(f"Person: {person_dict},\n Profile: {str(profile)}")
 
         person = PersonDTO.from_dict(person_dict)
-        if not person.company:
-            logger.info("Person has no company, setting it from profile")
-            email_domain = person.email.split("@")[1]
-            company_data = self.companies_repository.get_company_from_domain(email_domain)
-            if company_data:
-                person.company = company_data.name
-                logger.debug(f"Changed company name {person.company} for person: {person.email}")
+        # person = self.validate_person(person)
 
         self.persons_repository.save_person(person)
 
@@ -467,11 +468,12 @@ class PersonManager(GenieConsumer):
         profile["picture_url"] = picture_url
         logger.debug(f"Picture url: {picture_url}")
         if not picture_url and social_media_links:
-            picture_urls = get_picture_from_social_links_list(social_media_links)
-            logger.debug(f"Picture urls: {picture_urls}")
-
-            if picture_urls:
-                profile["picture_url"] = picture_urls[0]
+            pass
+        #     picture_urls = get_picture_from_social_links_list(social_media_links)
+        #     logger.debug(f"Picture urls: {picture_urls}")
+        #
+        #     if picture_urls:
+        #         profile["picture_url"] = picture_urls[0]
 
         if not profile.get("picture_url"):
             profile["picture_url"] = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
@@ -486,11 +488,9 @@ class PersonManager(GenieConsumer):
         profile_person = ProfileDTO.from_dict(
             {
                 "uuid": uuid,
-                "name": person_dict.get("name", "") if person_dict.get("name") else "",
-                "company": person_dict.get("company"),
-                "position": person_dict.get("position")
-                if person_dict.get("position")
-                else profile.get("job_title", ""),
+                "name": person.name if person.name else "",
+                "company": person.company if person.company else "",
+                "position": person.position if person.position else profile.get("job_title", ""),
                 "strengths": profile.get("strengths", []),
                 "hobbies": profile.get("hobbies", []),
                 "connections": profile.get("connections", []),
@@ -525,7 +525,7 @@ class PersonManager(GenieConsumer):
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person.email}")
-            person = self.verify_person_with_apollo_data(person)
+            person = create_person_from_apollo_personal_data(person)
             self.persons_repository.save_person(person)
             return await self.check_profile_data_from_person(person)
         apollo_status = self.personal_data_repository.get_apollo_status(person.uuid)
@@ -574,10 +574,10 @@ class PersonManager(GenieConsumer):
         fetched_personal_data = None
         if pdl_personal_data:
             fetched_personal_data = pdl_personal_data
-            person = self.verify_person_with_pdl_data(person)
+            person = create_person_from_pdl_personal_data(person)
         elif apollo_personal_data:
             fetched_personal_data = apollo_personal_data
-            person = self.verify_person_with_apollo_data(person)
+            person = create_person_from_apollo_personal_data(person)
         logger.debug(f"Person after verification: {person}")
         self.persons_repository.save_person(person)
         profile_exists = self.profiles_repository.exists(person.uuid)
@@ -610,8 +610,11 @@ class PersonManager(GenieConsumer):
                 GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public").send()
             return {"status": "success"}
         except ValidationError as e:
-            person = self.verify_person_with_apollo_data(person)
-            logger.error(f"Profile data is invalid: {e}")
+            person = create_person_from_apollo_personal_data(person)
+            if not person:
+                logger.error(f"Failed to create person from apollo personal data: {person}")
+                return {"error": "Failed to create person from apollo personal data"}
+            self.persons_repository.save_person(person)
             profile.name = person.name
             profile.company = person.company
             profile.position = person.position
@@ -620,73 +623,35 @@ class PersonManager(GenieConsumer):
             self.profiles_repository.save_profile(profile)
             return {"status": "success"}
 
-    def verify_person_with_pdl_data(self, person: PersonDTO):
-        person_in_database = self.persons_repository.find_person_by_email(person.email)
-        personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
-        if person.name != person_in_database.name:
-            person.name = personal_data.get("full_name", "")
-        if person.position != person_in_database.position:
-            person.position = personal_data.get("job_title", "")
-        if person.company != person_in_database.company:
-            email_domain = person.email.split("@")[1]
+    def validate_person(self, person: PersonDTO) -> PersonDTO:
+        """
+        This function validates the person data:
+        1. If the person has no name, position or LinkedIn, it will update it from personal data
+        2. It checks the email domain and validate that the company name is correct. If not, it will update it.
+
+        """
+        if not person.name or not person.position or not person.linkedin:
+            pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
+            if pdl_personal_data:
+                person = create_person_from_pdl_personal_data(person)
+                logger.info(f"Updated person with pdl data: {person}")
+
+            else:
+                apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
+                if apollo_personal_data:
+                    person = create_person_from_apollo_personal_data(person)
+                    logger.info(f"Updated person with apollo data: {person}")
+
+        # Validate the company name match the domain
+        email_domain = (
+            person.email.split("@")[1] if isinstance(person.email, str) and "@" in person.email else None
+        )
+        if email_domain:
             company = self.companies_repository.get_company_from_domain(email_domain)
-            person.company = company.name if company else person.company
+            if company:
+                person.company = company.name
+
         return person
-
-    def verify_person_with_apollo_data(self, person: PersonDTO):
-        person_in_database = self.persons_repository.find_person_by_email(person.email)
-        personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
-        if person.name != person_in_database.name:
-            person.name = personal_data.get("name", "")
-        if person.position != person_in_database.position:
-            person.position = personal_data.get("title", "")
-        if person.linkedin != person_in_database.linkedin or not person.linkedin:
-            person.linkedin = personal_data.get("linkedin_url", "")
-        if person.company != person_in_database.company:
-            email_domain = person.email.split("@")[1]
-            company = self.companies_repository.get_company_from_domain(email_domain)
-            person.company = company.name if company else person.company
-        return person
-
-
-def get_profile_picture(url, platform):
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    # Ensure the URL has the scheme
-    parsed_url = urlparse(url)
-    if not parsed_url.scheme:
-        if parsed_url.netloc:
-            url = urlunparse(("https", parsed_url.netloc, parsed_url.path, "", "", ""))
-        else:
-            url = urlunparse(("https", parsed_url.path, "", "", "", ""))
-
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.content, "html.parser")
-        match platform.lower():
-            case "linkedin":
-                profile_picture = soup.find("img", {"class": "profile-photo"})
-            case "facebook":
-                profile_picture = soup.find("img", {"class": "profilePic"})
-            case "twitter":
-                profile_picture = soup.find("img", {"class": "ProfileAvatar-image"})
-            case _:
-                return None
-        if profile_picture:
-            return profile_picture["src"]
-
-    return None
-
-
-def get_picture_from_social_links_list(links: list[dict]):
-    for entry in links:
-        url = entry.get("url")
-        network = entry.get("network")
-        if url and network:
-            picture_url = get_profile_picture(url, network)
-            if picture_url:
-                return picture_url
-    return None
 
 
 if __name__ == "__main__":

@@ -5,9 +5,9 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from common.utils import env_utils
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from common.utils import env_utils
 
 from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.events.genie_event import GenieEvent
