@@ -50,8 +50,8 @@ class MiniPersonResponse(BaseModel):
     @staticmethod
     def from_dict(data: Dict):
         return MiniPersonResponse(
-            uuid=data["uuid"],
-            name=data["name"],
+            uuid=data.get("uuid", ""),
+            name=data.get("name", ""),
             email=data.get("email", None),
             profile_picture=data.get("profile_picture", None),
         )
@@ -532,3 +532,12 @@ class MeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
     company: MeetingCompany
     participants: List[MiniProfileResponse]
+
+
+class InternalMeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
+    participants: List[MiniPersonResponse]
+
+
+class PrivateMeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
