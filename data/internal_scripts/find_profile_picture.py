@@ -32,6 +32,9 @@ def get_all_persons_with_linkedin_url_or_social_media_links():
         profile_picture = get_profile_picture(person, social_media_links)
         logger.info(f"Profile picture for {person.uuid}: {profile_picture}")
         if profile_picture:
+            if "https://static.licdn.com" in str(profile_picture):
+                logger.info(f"Got static url for {person.uuid}. Skipping")
+                continue
             profiles_repository.update_profile_picture(profile_uuid, profile_picture)
     logger.info(f"Found {len(profiles_uuid)} profiles without profile picture")
 
