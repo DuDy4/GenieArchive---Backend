@@ -87,7 +87,7 @@ class MeetingDTO:
         uuid: str,
         google_calendar_id: str,
         tenant_id: str,
-        participants_emails: List[str],
+        participants_emails: List[dict],
         participants_hash: Optional[str],
         link: str,
         subject: str,
