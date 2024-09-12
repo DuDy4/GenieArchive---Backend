@@ -802,7 +802,9 @@ def get_meeting_info(
 
 @v1_router.get(
     "/{tenant_id}/meeting-overview/{meeting_uuid}",
-    response_model=MiniMeetingOverviewResponse,  # Use only the Pydantic model here
+    response_model=Union[
+        MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
+    ],  # Use only the Pydantic model here
 )
 def get_meeting_overview(
     tenant_id: str,
@@ -811,7 +813,9 @@ def get_meeting_overview(
     companies_repository: CompaniesRepository = Depends(companies_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
-) -> Union[MiniMeetingOverviewResponse, JSONResponse]:
+) -> Union[
+    MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse, JSONResponse
+]:
     """
     Get the meeting information.
 
@@ -823,6 +827,37 @@ def get_meeting_overview(
     meeting = meetings_repository.get_meeting_data(meeting_uuid)
     if not meeting:
         return JSONResponse(content={"error": "Meeting not found"}, status_code=404)
+
+    if meeting.classification.value == MeetingClassification.PRIVATE.value:
+        private_meeting = MiniMeeting.from_meeting_dto(meeting)
+        logger.info(f"Private meeting: {private_meeting}")
+        return PrivateMeetingOverviewResponse(meeting=private_meeting)
+
+    if meeting.classification.value == MeetingClassification.INTERNAL.value:
+        mini_meeting = MiniMeeting.from_meeting_dto(meeting)
+        logger.info(f"Mini meeting: {mini_meeting}")
+        participants_emails = meeting.participants_emails
+        participants = []
+        for email_object in participants_emails:
+            email = email_object.get("email")
+            if not email:
+                logger.warning(f"Email not found in: {email_object}")
+                continue
+            person = persons_repository.find_person_by_email(email)
+            if person:
+                mini_person = MiniPersonResponse.from_dict(person.to_dict())
+                logger.debug(f"Person: {mini_person}")
+                participants.append(mini_person)
+            else:
+                mini_person = MiniPersonResponse.from_dict({"uuid": get_uuid4(), "email": email})
+                logger.debug(f"Person: {mini_person}")
+                participants.append(mini_person)
+        internal_meeting_overview = InternalMeetingOverviewResponse(
+            meeting=mini_meeting,
+            participants=participants,
+        )
+        logger.info(f"Internal meeting overview: {internal_meeting_overview}")
+        return internal_meeting_overview
 
     if meeting.tenant_id != tenant_id:
         return JSONResponse(content={"error": "Tenant mismatch"}, status_code=400)
@@ -1044,6 +1079,24 @@ def fetch_google_meetings(
     return JSONResponse(
         {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
     )
+
+
+@v1_router.get(
+    "/profile_pictures",
+    response_class=JSONResponse,
+    summary="send a list of all profile pictures",
+    include_in_schema=False,
+)
+def get_profile_pictures(
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+) -> JSONResponse:
+    """
+    Get all profile pictures.
+    """
+    logger.info(f"Received get profile pictures request")
+    names_and_pictures = profiles_repository.get_all_profiles_pictures()
+    return JSONResponse(content=names_and_pictures)
 
 
 @v1_router.get(
