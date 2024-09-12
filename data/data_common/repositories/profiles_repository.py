@@ -391,7 +391,8 @@ class ProfilesRepository:
         SELECT uuid
         FROM profiles
         WHERE picture_url IS NULL OR picture_url = ''
-         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png';
+         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png'
+         OR picture_url ILIKE 'https://static.licdn.com%';
         """
         try:
             with self.conn.cursor() as cursor:
@@ -517,3 +518,25 @@ class ProfilesRepository:
                 logger.info(f"Updated profile with uuid: {profile.uuid}")
         except psycopg2.Error as error:
             raise Exception(f"Error updating profile, because: {error.pgerror}")
+
+    def get_all_profiles_pictures(self):
+        select_query = """
+        SELECT name, picture_url
+        FROM profiles
+        WHERE not(picture_url IS NULL OR picture_url = ''
+         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png');
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} profile pictures from database")
+                    return [{"name": row[0], "picture_url": row[1]} for row in rows]
+                else:
+                    logger.info(f"Could not find profile pictures")
+                    return []
+        except Exception as error:
+            logger.error(f"Error fetching profile pictures: {error}")
+            traceback.print_exc()
+            return []
