@@ -1,29 +1,19 @@
-import asyncio
 import json
-import os
-import time
 import traceback
 import requests
-import urllib.parse
 import uuid
 
-from fastapi import Depends, FastAPI, Request, HTTPException, Query
+from fastapi import Depends, FastAPI, Request, Query
 from fastapi.routing import APIRouter
-from common.genie_logger import GenieLogger
 
 from common.utils import env_utils, email_utils, job_utils
-from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
-from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, titleize_name
 from data.internal_services.tenant_service import TenantService
 
-from starlette.responses import PlainTextResponse, RedirectResponse, JSONResponse
+from starlette.responses import JSONResponse
 from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
-from google.oauth2 import id_token
-from google.auth import credentials
 
 from data.api.base_models import *
 import datetime
@@ -73,6 +63,9 @@ GOOGLE_CLIENT_SECRET = env_utils.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = f"{SELF_URL}/v1/google-callback"
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 DEFAULT_INTERNAL_API_KEY = "g3n13admin"
+ZENDESK_URL = env_utils.get("ZENDESK_URL")
+ZENDESK_USERNAME = env_utils.get("ZENDESK_USERNAME")
+ZENDESK_API_TOKEN = env_utils.get("ZENDESK_API_TOKEN")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -260,6 +253,39 @@ async def get_user_account(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@v1_router.post("/create-ticket")
+async def create_ticket(ticket_data: TicketData):
+    auth = (f"{ZENDESK_USERNAME}/token", ZENDESK_API_TOKEN)
+    zendesk_api_url = f"{ZENDESK_URL}/api/v2/tickets.json"
+
+    ticket_payload = {
+        "ticket": {
+            "subject": ticket_data.subject,
+            "comment": {
+                "body": ticket_data.description,
+            },
+            "requester": {
+                "name": ticket_data.name,
+                "email": ticket_data.email,
+            },
+            "priority": ticket_data.priority,
+        }
+    }
+
+    try:
+        # Make the request to the Zendesk API
+        response = requests.post(zendesk_api_url, json=ticket_payload, auth=auth)
+
+        # Check if the request was successful
+        if response.status_code == 201:
+            return response.json()
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Error creating Zendesk ticket: {str(e)}")
+
+
 @v1_router.get(
     "/{tenant_id}/profiles",
     response_model=List[ProfileDTO],
@@ -383,7 +409,7 @@ async def get_all_meetings_by_profile_name(
 
 
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
-def get_all_profile_for_meeting(
+def get_all_profiles_for_meeting(
     tenant_id: str,
     meeting_id: str,
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
@@ -391,7 +417,7 @@ def get_all_profile_for_meeting(
     persons_repository: PersonsRepository = Depends(persons_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     tenants_repository: TenantsRepository = Depends(tenants_repository),
-) -> List[MiniProfileResponse]:
+) -> Union[List[MiniProfileResponse], JSONResponse]:
     """
     Get all profile IDs and names for a specific meeting.
 

@@ -31,6 +31,14 @@ class UserResponse(BaseModel):
     email: str
 
 
+class TicketData(BaseModel):
+    subject: str
+    description: str
+    name: str
+    email: str
+    priority: str
+
+
 class MiniPersonResponse(BaseModel):
     uuid: str
     email: str
