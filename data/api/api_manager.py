@@ -261,9 +261,7 @@ async def create_ticket(ticket_data: TicketData):
     ticket_payload = {
         "ticket": {
             "subject": ticket_data.subject,
-            "comment": {
-                "body": ticket_data.description,
-            },
+            "description": ticket_data.description,
             "requester": {
                 "name": ticket_data.name,
                 "email": ticket_data.email,
