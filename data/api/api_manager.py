@@ -85,6 +85,24 @@ def test_google_token(token: str):
     return tokens
 
 
+@v1_router.get("/verify-admin/{user_email}")
+def verify_admin(
+    user_email, tenants_repository: TenantsRepository = Depends(tenants_repository)
+) -> JSONResponse:
+    """
+    Verifies if the user is an admin.
+    """
+    logger.info(f"Verifying if user is admin: {user_email}")
+    admin_email = env_utils.get("ADMIN_EMAIL")
+    if admin_email and admin_email in user_email:
+        logger.info(f"User is admin: {user_email}")
+        all_tenants = tenants_repository.get_all_tenants_ids()
+        logger.info(f"Got all tenants: {all_tenants}")
+        return JSONResponse(content={"admin": True, "tenants": all_tenants})
+    logger.info(f"User is not admin: {user_email}")
+    return JSONResponse(content={"admin": False})
+
+
 @v1_router.post("/successful-login")
 async def post_successful_login(
     request: Request,

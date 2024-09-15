@@ -155,3 +155,17 @@ class TenantsRepository:
         except Exception as error:
             logger.error("Error updating tenant id:", error)
             logger.error(traceback.format_exc())
+
+    def get_all_tenants_ids(self):
+        select_query = """
+        SELECT tenant_id FROM tenants;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                result = cursor.fetchall()
+                return [row[0] for row in result]
+        except Exception as error:
+            logger.error("Error getting all tenants ids:", error)
+            logger.error(traceback.format_exc())
+            return []
