@@ -303,7 +303,7 @@ class MeetingManager(GenieConsumer):
         logger.debug(f"Meetings without goals for {company.domain}: {meetings_list}")
         for meeting in meetings_list:
             if self.meeting_repository.get_meeting_goals(meeting.uuid):
-                logger.error(f"Meeting {meeting.uuid} already has goals")
+                logger.info(f"Meeting {meeting.uuid} already has goals")
                 continue
             participant_emails = meeting.participants_emails
             self_email_list = [email for email in participant_emails if email.get("self")]
@@ -454,7 +454,7 @@ class MeetingManager(GenieConsumer):
             )
             event.send()
             break
-        logger.info(f"Finished processing meeting goals for {meeting.uuid}")
+        logger.info(f"Finished processing meeting agenda for {meeting.uuid}")
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
         logger.debug(
