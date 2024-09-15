@@ -6,7 +6,7 @@ import uuid
 from fastapi import Depends, FastAPI, Request, Query
 from fastapi.routing import APIRouter
 
-from common.utils import env_utils, email_utils, job_utils
+from common.utils import env_utils, email_utils, job_utils, jwt_utils
 from data.internal_services.tenant_service import TenantService
 
 from starlette.responses import JSONResponse
@@ -324,10 +324,12 @@ async def get_all_profiles(
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
 async def get_all_meetings_by_profile_name(
+    request: Request,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     # name: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
 ) -> MeetingsListResponse:
     """
@@ -340,6 +342,14 @@ async def get_all_meetings_by_profile_name(
 
     """
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    if impersonate_tenant_id and request.state.user_email and email_utils.is_genie_admin(request.state.user_email):
+        impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
+        if impersonated_email:
+            logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
+            tenant_id = impersonate_tenant_id
+        else:
+            logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
+        
 
     if not tenant_id:
         logger.error("Tenant ID not provided")
@@ -353,68 +363,12 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-# @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse)
-# def get_all_profile_and_persons_for_meeting(
-#     tenant_id: str,
-#     meeting_id: str,
-#     meetings_repository: MeetingsRepository = Depends(meetings_repository),
-#     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-#     persons_repository: PersonsRepository = Depends(persons_repository),
-#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-#     tenants_repository: TenantsRepository = Depends(tenants_repository),
-# ) -> MiniProfilesListResponse:
-#     """
-#     Get all profile IDs and names for a specific meeting.
-#
-#     - **tenant_id**: Tenant ID - the right one is 'abcde'
-#     - **meeting_id**: Meeting ID
-#     """
-#     logger.info(f"Received profiles request for meeting: {meeting_id}")
-#     meeting = meetings_repository.get_meeting_data(meeting_id)
-#     if not meeting:
-#         return JSONResponse(content={"error": "Meeting not found"})
-#     if meeting.tenant_id != tenant_id:
-#         return JSONResponse(content={"error": "Tenant mismatch"})
-#     tenant_email = tenants_repository.get_tenant_email(tenant_id)
-#     logger.info(f"Tenant email: {tenant_email}")
-#     participants_emails = meeting.participants_emails
-#     logger.debug(f"Participants emails: {participants_emails}")
-#     filtered_participants_emails = email_utils.filter_emails(
-#         host_email=tenant_email, participants_emails=participants_emails
-#     )
-#     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-#     filtered_emails = filtered_participants_emails
-#     logger.info(f"Filtered emails: {filtered_emails}")
-#     persons = []
-#     for email in filtered_emails:
-#         person = persons_repository.find_person_by_email(email)
-#         if person:
-#             persons.append(person)
-#     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
-#     profiles = []
-#     for person in persons:
-#         profile = profiles_repository.get_profile_data(person.uuid)
-#         logger.info(f"Got profile: {str(profile)[:300]}")
-#         if profile:
-#             profiles.append(profile)
-#     logger.debug(f"Got profiles: {len(profiles)}")
-#     persons_without_profiles = [
-#         person.to_dict()
-#         for person in persons
-#         if str(person.uuid) not in [str(profile.uuid) for profile in profiles]
-#     ]
-#     logger.info(f"Got persons without profiles: {persons_without_profiles}")
-#     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-#     mini_profiles_list = [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
-#     mini_persons_list = [MiniPersonResponse.from_dict(person) for person in persons_without_profiles]
-#     return MiniProfilesListResponse(profiles=mini_profiles_list, persons=mini_persons_list)
-# return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
-
-
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
 def get_all_profiles_for_meeting(
+    request: Request,
     tenant_id: str,
     meeting_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
@@ -428,6 +382,8 @@ def get_all_profiles_for_meeting(
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Received profiles request for meeting: {meeting_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_imperonsate(impersonate_tenant_id, request, tenants_repository)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     meeting = meetings_repository.get_meeting_data(meeting_id)
     if not meeting:
         return JSONResponse(content={"error": "Meeting not found"})
@@ -1153,3 +1109,14 @@ def validate_uuid(uuid_string: str):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     return str(val)
+
+
+def get_tenant_id_to_imperonsate(impersonate_tenant_id: str, request: Request, tenants_repository: TenantsRepository):
+    if impersonate_tenant_id and request.state and hasattr(request.state, 'user_email') and email_utils.is_genie_admin(request.state.user_email):
+        impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
+        if impersonated_email:
+            logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
+            return impersonate_tenant_id
+        else:
+            logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
+    return None
