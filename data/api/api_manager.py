@@ -257,6 +257,7 @@ async def get_user_account(
 async def create_ticket(ticket_data: TicketData):
     auth = (f"{ZENDESK_USERNAME}/token", ZENDESK_API_TOKEN)
     zendesk_api_url = f"{ZENDESK_URL}/api/v2/tickets.json"
+    logger.info(f"Creating ticket with data: {ticket_data}")
 
     ticket_payload = {
         "ticket": {
@@ -267,6 +268,10 @@ async def create_ticket(ticket_data: TicketData):
                 "email": ticket_data.email,
             },
             "priority": ticket_data.priority,
+            "custom_fields": [
+                {"id": 21371588554386, "value": ticket_data.name},
+                {"id": 21371622513810, "value": ticket_data.email},
+            ],
         }
     }
 
