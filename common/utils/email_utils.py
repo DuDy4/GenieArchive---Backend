@@ -78,3 +78,6 @@ def filter_emails(host_email: str, participants_emails: List):
             final_list.append(email)
     logger.info(f"Final list: {final_list}")
     return final_list
+
+def is_genie_admin(email: str):
+    return email and email.lower().endswith("@genieai.ai")
