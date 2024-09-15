@@ -1103,6 +1103,25 @@ def import_google_meetings(
     return fetch_google_meetings(email_address, google_creds_repository, tenants_repository)
 
 
+@v1_router.get(
+    "/admin/tenants",
+    response_class=JSONResponse,
+    summary="Fetches all tenants for an admin",
+    include_in_schema=False,
+)
+def fetch_all_tenants(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> JSONResponse:
+    """
+    Fetches all tenants for an admin
+    """
+    if request.state and hasattr(request.state, 'user_email') and email_utils.is_genie_admin(request.state.user_email):
+        return tenants_repository.get_all_tenants()
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden endpoint") 
+
+
 def validate_uuid(uuid_string: str):
     try:
         val = uuid.UUID(uuid_string, version=4)

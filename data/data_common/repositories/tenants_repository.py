@@ -1,6 +1,7 @@
 import traceback
 import uuid
 from typing import Optional, Union, List
+from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
 
 import psycopg2
 from common.utils.str_utils import get_uuid4
@@ -113,6 +114,29 @@ class TenantsRepository:
         except psycopg2.Error as error:
             logger.error("Error getting tenant id:", error)
             logger.error(f"Specific error message: {error.pgerror}")
+
+
+    def get_all_tenants(self) -> list[TenantDTO]:
+        select_query = """
+        SELECT uuid, tenant_id, user_name, email, user_id
+        FROM tenants
+        WHERE tenant_id <> '';
+        """
+        try:
+            self.create_table_if_not_exists()
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, ())
+                tenants = cursor.fetchall()
+                if tenants:
+                    logger.info(f"Got {len(tenants)} meetings from database")
+                    return [TenantDTO.from_tuple(tenant) for tenant in tenants]
+                else:
+                    logger.error(f"No tenants found")
+                    return []
+        except Exception as error:
+            logger.error("Error fetching tenants data:", error)
+            traceback.print_exception(error)
+            return []
 
     def get_tenant_email(self, tenant_id):
         select_query = """
