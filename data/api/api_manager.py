@@ -360,14 +360,17 @@ async def get_all_meetings_by_profile_name(
 
     """
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
-    if impersonate_tenant_id and request.state.user_email and email_utils.is_genie_admin(request.state.user_email):
+    if (
+        impersonate_tenant_id
+        and request.state.user_email
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
         impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
         if impersonated_email:
             logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
             tenant_id = impersonate_tenant_id
         else:
             logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
-        
 
     if not tenant_id:
         logger.error("Tenant ID not provided")
@@ -400,8 +403,11 @@ def get_all_profiles_for_meeting(
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Received profiles request for meeting: {meeting_id}")
-    allowed_impersonate_tenant_id = get_tenant_id_to_imperonsate(impersonate_tenant_id, request, tenants_repository)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting profile for tenant ID: {tenant_id}")
     meeting = meetings_repository.get_meeting_data(meeting_id)
     if not meeting:
         return JSONResponse(content={"error": "Meeting not found"})
@@ -804,7 +810,7 @@ def get_meeting_info(
 
 
 @v1_router.get(
-    "/{tenant_id}/meeting-overview/{meeting_uuid}",
+    "/{tenant_id}/{meeting_uuid}/meeting-overview",
     response_model=Union[
         MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
     ],  # Use only the Pydantic model here
@@ -1129,12 +1135,23 @@ def validate_uuid(uuid_string: str):
     return str(val)
 
 
-def get_tenant_id_to_imperonsate(impersonate_tenant_id: str, request: Request, tenants_repository: TenantsRepository):
-    if impersonate_tenant_id and request.state and hasattr(request.state, 'user_email') and email_utils.is_genie_admin(request.state.user_email):
+def get_tenant_id_to_impersonate(
+    impersonate_tenant_id: str, request: Request, tenants_repository: TenantsRepository
+):
+    logger.info(f"Checking if user is impersonating tenant")
+    logger.info(f"Request state: {request.state}")
+    if (
+        impersonate_tenant_id
+        and request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        logger.info(f"User is impersonating tenant")
         impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
         if impersonated_email:
             logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
             return impersonate_tenant_id
         else:
             logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
+    logger.info(f"User is not impersonating tenant")
     return None
