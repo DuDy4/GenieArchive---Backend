@@ -62,7 +62,6 @@ class MiniPersonResponse(BaseModel):
             uuid=data.get("uuid", ""),
             name=data.get("name", ""),
             email=data.get("email", None),
-            profile_picture=data.get("profile_picture", None),
         )
 
     def to_dict(self):
@@ -118,14 +117,15 @@ class MiniProfileResponse(BaseModel):
         )
 
 
-class MiniProfilesListResponse(BaseModel):
+class MiniProfilesAndPersonsListResponse(BaseModel):
     profiles: List[MiniProfileResponse]
     persons: Optional[List[MiniPersonResponse]] = None
 
     @staticmethod
-    def from_profiles_list(profiles: List[ProfileDTO]):
-        return MiniProfilesListResponse(
-            profiles=[MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
+    def from_profiles_list(profiles: List[ProfileDTO], persons: Optional[List[PersonDTO]] = None):
+        return MiniProfilesAndPersonsListResponse(
+            profiles=[MiniProfileResponse.from_profile_dto(profile) for profile in profiles],
+            persons=[MiniPersonResponse.from_person_dto(person) for person in persons] if persons else None,
         )
 
 
@@ -514,7 +514,7 @@ class MiniMeeting(BaseModel):
         )
 
 
-class MiniMeetingOverviewResponse(BaseModel):
+class MiniMeetingOverviewResponseOld(BaseModel):
     meeting: MiniMeeting
     company: MidMeetingCompany
     participants: List[MiniProfileResponse]
@@ -537,10 +537,32 @@ class MiniMeetingOverviewResponse(BaseModel):
         }
 
 
-class MeetingOverviewResponse(BaseModel):
+class MiniMeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
+    company: MidMeetingCompany
+    participants: MiniProfilesAndPersonsListResponse
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            meeting=MiniMeeting.from_dict(data.get("meeting", {})),
+            company=MidMeetingCompany.from_dict(data.get("company", {})),
+            participants=MiniProfilesAndPersonsListResponse.from_profiles_list(
+                data.get("participants", []), data.get("persons", [])
+            ),
+        )
+
+
+class MeetingOverviewResponseOld(BaseModel):
     meeting: MiniMeeting
     company: MeetingCompany
     participants: List[MiniProfileResponse]
+
+
+class MeetingOverviewResponse(BaseModel):
+    meeting: MiniMeeting
+    company: MeetingCompany
+    participants: MiniProfilesAndPersonsListResponse
 
 
 class InternalMeetingOverviewResponse(BaseModel):
