@@ -1,47 +1,30 @@
-import os
 import traceback
 import signal
 import sys
 import uvicorn
-import requests
-import base64
-import json
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
-from fastapi.routing import APIRoute
 from dotenv import load_dotenv
 
-# Import OpenTelemetry for logging
-from opentelemetry import trace
-from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs import LoggingHandler
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
-from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from azure.monitor.opentelemetry import configure_azure_monitor
 from common.genie_logger import GenieLogger
 from common.utils import jwt_utils
 # Load environment variables and initialize logger
 load_dotenv()
 logger = GenieLogger()
-# Set up Azure Monitor logging exporter
-
-# exporter = AzureMonitorLogExporter()
+logger.info("Logger initialized")
 configure_azure_monitor()
-# # Set up Logger Provider
-# logger_provider = LoggerProvider(resource=Resource.create({"service.name": "genie-api"}))
-# logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
 
-# # Set up logging handler (if you want to use it with Python logging)
-
-# handler = LoggingHandler(logger_provider=logger_provider)
 
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
+logger.info("Importing API")
 from data.api.api_manager import v1_router
+logger.info("Finished Importing API")
 
 GENIE_CONTEXT_HEADER = "genie-context"
 GENIE_EMAIL_STATE = "user_email"
@@ -157,6 +140,10 @@ def handle_shutdown_signal(signal, frame):
     print("Shutdown signal received, flushing logs...")
     try:
         # logger_provider.force_flush(timeout_millis=10000)
+        for handler in logger.get_logger().handlers:
+            if isinstance(handler, BatchLogRecordProcessor):
+                logger.info("Force flush handler")
+                handler.force_flush(timeout_millis=5000)
         logger.info("Flushed logs")
     except Exception as e:
         print(f"Error during log flush: {e}")
