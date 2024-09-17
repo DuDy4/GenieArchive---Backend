@@ -17,6 +17,11 @@ from fastapi import HTTPException, Depends
 from data.api.base_models import *
 import datetime
 
+from data.api.api_services_classes.meetings_api_services import MeetingsApiService
+from data.api.api_services_classes.tenants_api_services import TenantsApiService
+from data.api.api_services_classes.profiles_api_services import ProfilesApiService
+from data.api.api_services_classes.admin_api_services import AdminApiService
+
 from data.data_common.repositories.hobbies_repository import HobbiesRepository
 from data.data_common.repositories.personal_data_repository import (
     PersonalDataRepository,
@@ -67,45 +72,23 @@ ZENDESK_API_TOKEN = env_utils.get("ZENDESK_API_TOKEN")
 
 v1_router = APIRouter(prefix="/v1")
 
-
-@v1_router.get("/test-google-token")
-def test_google_token(token: str):
-    token_response = requests.get(GOOGLE_TOKEN_URI, params={"id_token": token})
-
-    if token_response.status_code != 200:
-        logger.error(f"Token request failed: {token_response.raise_for_status()}")
-        raise HTTPException(status_code=400, detail="Failed to fetch token")
-
-    tokens = token_response.json()
-    logger.debug(f"Tokens: {tokens}")
-    return tokens
+meetings_api_service = MeetingsApiService()
+tenants_api_service = TenantsApiService()
+profiles_api_service = ProfilesApiService()
+admin_api_service = AdminApiService()
 
 
 @v1_router.post("/successful-login")
 async def post_successful_login(
     request: Request,
-    google_creds_repository: GoogleCredsRepository = Depends(google_creds_repository),
-    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ):
     """
-    Returns a tetant ID.
+    Returns a tenant ID.
     """
     logger.info("Received JWT data")
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")
-    auth_claims = auth_data["data"]["claims"]
-    user_email = auth_claims.get("email")
-    user_tenant_id = auth_claims.get("tenantId")
-    user_name = auth_claims.get("userId")
-    logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
-    tenant_data = {"tenantId": user_tenant_id, "name": user_name, "email": user_email, "user_id": user_name}
-    tenants_repository.insert(tenant_data)
-    fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
-    response = {
-        "claims": {
-            "tenantId": user_tenant_id,
-        },
-    }
+    response = tenants_api_service.post_successful_login(auth_data)
     return {"verdict": "allow", "response": response}
 
 
@@ -161,43 +144,17 @@ async def login_event(
         logger.info("Fetching user info")
         user_info = await request.json()
         logger.info(f"Received user info: {user_info}")
-        user_name = user_info.get("name")
-        user_id = user_info.get("user_id")
-        user_email = user_info.get("user_email")
-        user_access_token = user_info.get("google_access_token")
-        user_refresh_token = user_info.get("google_refresh_token")
-        tenant_id = user_info.get("tenant_id")
-        tenant_name = user_info.get("tenant_name")
 
-        if tenants_repository.exists(tenant_id):
-            logger.debug(f"Tenant ID {tenant_id} already exists in database")
-            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
-            logger.debug(f"Updated google creds for user: {user_email}. About to fetch google meetings")
-            fetch_google_meetings(user_email, google_creds_repository, tenants_repository)
-        elif tenants_repository.email_exists(user_email):
-            logger.debug(f"Another tenant ID exists for this email: {user_email}. About to update tenant ID")
-            old_tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
-            TenantService.changed_old_tenant_to_new_tenant(
-                new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id, user_name=user_name
-            )
-            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
-        else:
-            # Signup new user
-            logger.debug(f"About to signup new user: {user_email}")
-            tenants_repository.insert(
-                {
-                    "uuid": get_uuid4(),
-                    "tenantId": tenant_id,
-                    "name": tenant_name,
-                    "email": user_email,
-                    "user_id": user_id,
-                }
-            )
-            google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
+        # Call the service method
+        response = tenants_api_service.login_event(user_info)
+        return JSONResponse(content=response, status_code=200)
 
-        return JSONResponse(content={"message": "User signup successful"}, status_code=200)
+    except HTTPException as e:
+        # FastAPI will handle the response based on the exception
+        raise e
+
     except Exception as e:
-        logger.error(f"Error during user signup: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
@@ -285,33 +242,34 @@ async def create_ticket(ticket_data: TicketData):
         raise HTTPException(status_code=500, detail=f"Error creating Zendesk ticket: {str(e)}")
 
 
-@v1_router.get(
-    "/{tenant_id}/profiles",
-    response_model=List[ProfileDTO],
-    include_in_schema=False,
-    summary="Gets all profiles for a given tenant",
-)
-async def get_all_profiles(
-    request: Request,
-    tenant_id: str,
-    search: str = Query(None, description="Partial text to search profile names"),
-    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    profiles_repository: ProfilesRepository = Depends(profiles_repository),
-) -> List[ProfileDTO]:
-    """
-    Gets all profiles for a given tenant.
-    """
-    logger.info(f"Received get profiles request, with search: '{search}'")
-
-    profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
-    logger.info(f"Got profiles_uuid: {profiles_uuid}")
-
-    profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
-    logger.info(f"Got profiles: {len(profiles_list)}")
-    profiles_response_list = [ProfileResponse(profile=profile) for profile in profiles_list]
-
-    logger.debug(f"Profiles: {[profile.profile.name for profile in profiles_response_list]}")
-    return profiles_list
+# @v1_router.get(
+#     "/{tenant_id}/profiles",
+#     response_model=List[ProfileDTO],
+#     include_in_schema=False,
+#     summary="Gets all profiles for a given tenant",
+# )
+# async def get_all_profiles(
+#     request: Request,
+#     tenant_id: str,
+#     search: str = Query(None, description="Partial text to search profile names"),
+#     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+# ) -> List[ProfileDTO]:
+#     """
+#     Gets all profiles for a given tenant.
+#     """
+#     logger.info(f"Received get profiles request, with search: '{search}'")
+#
+#     profiles_uuid = ownerships_repository.get_all_persons_for_tenant(tenant_id)
+#     logger.info(f"Got profiles_uuid: {profiles_uuid}")
+#
+#     profiles_list = profiles_repository.get_profiles_from_list(profiles_uuid, search)
+#     logger.info(f"Got profiles: {len(profiles_list)}")
+#     profiles_response_list = [ProfileResponse(profile=profile) for profile in profiles_list]
+#
+#     logger.debug(f"Profiles: {[profile.profile.name for profile in profiles_response_list]}")
+#     return profiles_list
+#
 
 
 @v1_router.get(
@@ -319,15 +277,15 @@ async def get_all_profiles(
     response_model=MeetingsListResponse,
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
-async def get_all_meetings_by_profile_name(
+async def get_all_meetings(
     request: Request,
     tenant_id: str,
     impersonate_tenant_id: Optional[str] = Query(None),
     # name: str = Query(None, description="Partial text to search profile names"),
-    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    tenants_repository: TenantsRepository = Depends(tenants_repository),
-    meetings_repository: MeetingsRepository = Depends(meetings_repository),
-) -> MeetingsListResponse:
+    # ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    # tenants_repository: TenantsRepository = Depends(tenants_repository),
+    # meetings_repository: MeetingsRepository = Depends(meetings_repository),
+) -> MeetingsListResponse | JSONResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
 
@@ -338,22 +296,11 @@ async def get_all_meetings_by_profile_name(
 
     """
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
-    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
-        impersonate_tenant_id, request, tenants_repository
-    )
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     logger.info(f"Getting profile for tenant ID: {tenant_id}")
-
-    if not tenant_id:
-        logger.error("Tenant ID not provided")
-        return JSONResponse(content={"error": "Tenant ID not provided"})
-
-    meetings = meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
-    dict_meetings = [meeting.to_dict() for meeting in meetings]
-    # sort by meeting.start_time
-    dict_meetings.sort(key=lambda x: x["start_time"])
-    logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
-    return JSONResponse(content=dict_meetings)
+    response = meetings_api_service.get_all_meetings(tenant_id)
+    return JSONResponse(content=response)
 
 
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
@@ -1208,7 +1155,9 @@ def validate_uuid(uuid_string: str):
 
 
 def get_tenant_id_to_impersonate(
-    impersonate_tenant_id: str, request: Request, tenants_repository: TenantsRepository
+    impersonate_tenant_id: str,
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ):
     logger.info(f"Checking if user is impersonating tenant")
     logger.info(f"Request state: {request.state}")
