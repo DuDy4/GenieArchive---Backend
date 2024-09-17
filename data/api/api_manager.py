@@ -748,6 +748,28 @@ def get_meeting_info(
 
     return MeetingResponse.from_dict(meeting_dict)
 
+@v1_router.get(
+    "/{tenant_id}/meeting-overview/{meeting_uuid}",
+    response_model=Union[
+        MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
+    ],  # Use only the Pydantic model here
+)
+def get_meeting_overview_old(
+    request: Request,
+    tenant_id: str,
+    meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> Union[
+    MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse, JSONResponse
+]:
+    return get_meeting_overview(request, tenant_id, meeting_uuid, impersonate_tenant_id, meetings_repository,
+                                companies_repository, profiles_repository, persons_repository, tenants_repository)
+
 
 @v1_router.get(
     "/{tenant_id}/{meeting_uuid}/meeting-overview",
