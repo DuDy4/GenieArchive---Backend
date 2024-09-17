@@ -3,7 +3,7 @@ import traceback
 import requests
 import uuid
 
-from fastapi import Depends, FastAPI, Request, Query
+from fastapi import Depends, Request, Query
 from fastapi.routing import APIRouter
 
 from common.utils import env_utils, email_utils, job_utils, jwt_utils
@@ -12,8 +12,7 @@ from data.internal_services.tenant_service import TenantService
 from starlette.responses import JSONResponse
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import HTTPException, Depends
 
 from data.api.base_models import *
 import datetime
@@ -44,12 +43,10 @@ from data.data_common.dependencies.dependencies import (
 
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
 from data.data_common.utils.str_utils import get_uuid4
 
-from data.api_services.auth0 import handle_auth0_user_signup
 from data.api_services.meeting_manager import (
     process_agenda_to_all_meetings,
     process_classification_to_all_meetings,
@@ -68,10 +65,7 @@ ZENDESK_URL = env_utils.get("ZENDESK_URL")
 ZENDESK_USERNAME = env_utils.get("ZENDESK_USERNAME")
 ZENDESK_API_TOKEN = env_utils.get("ZENDESK_API_TOKEN")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 v1_router = APIRouter(prefix="/v1")
-
 
 @v1_router.get("/test-google-token")
 def test_google_token(token: str):
@@ -84,25 +78,6 @@ def test_google_token(token: str):
     tokens = token_response.json()
     logger.debug(f"Tokens: {tokens}")
     return tokens
-
-
-#
-# @v1_router.get("/verify-admin/{user_email}")
-# def verify_admin(
-#     user_email, tenants_repository: TenantsRepository = Depends(tenants_repository)
-# ) -> JSONResponse:
-#     """
-#     Verifies if the user is an admin.
-#     """
-#     logger.info(f"Verifying if user is admin: {user_email}")
-#     admin_email = env_utils.get("ADMIN_EMAIL")
-#     if admin_email and admin_email in user_email:
-#         logger.info(f"User is admin: {user_email}")
-#         all_tenants = tenants_repository.get_all_tenants_ids()
-#         logger.info(f"Got all tenants: {all_tenants}")
-#         return JSONResponse(content={"admin": True, "tenants": all_tenants})
-#     logger.info(f"User is not admin: {user_email}")
-#     return JSONResponse(content={"admin": False})
 
 
 @v1_router.post("/successful-login")
