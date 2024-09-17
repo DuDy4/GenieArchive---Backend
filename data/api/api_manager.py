@@ -6,7 +6,7 @@ import uuid
 from fastapi import Depends, FastAPI, Request, Query
 from fastapi.routing import APIRouter
 
-from common.utils import env_utils, email_utils, job_utils
+from common.utils import env_utils, email_utils, job_utils, jwt_utils
 from data.internal_services.tenant_service import TenantService
 
 from starlette.responses import JSONResponse
@@ -46,6 +46,7 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
 from data.data_common.utils.str_utils import get_uuid4
 
 from data.api_services.auth0 import handle_auth0_user_signup
@@ -83,6 +84,25 @@ def test_google_token(token: str):
     tokens = token_response.json()
     logger.debug(f"Tokens: {tokens}")
     return tokens
+
+
+#
+# @v1_router.get("/verify-admin/{user_email}")
+# def verify_admin(
+#     user_email, tenants_repository: TenantsRepository = Depends(tenants_repository)
+# ) -> JSONResponse:
+#     """
+#     Verifies if the user is an admin.
+#     """
+#     logger.info(f"Verifying if user is admin: {user_email}")
+#     admin_email = env_utils.get("ADMIN_EMAIL")
+#     if admin_email and admin_email in user_email:
+#         logger.info(f"User is admin: {user_email}")
+#         all_tenants = tenants_repository.get_all_tenants_ids()
+#         logger.info(f"Got all tenants: {all_tenants}")
+#         return JSONResponse(content={"admin": True, "tenants": all_tenants})
+#     logger.info(f"User is not admin: {user_email}")
+#     return JSONResponse(content={"admin": False})
 
 
 @v1_router.post("/successful-login")
@@ -324,10 +344,12 @@ async def get_all_profiles(
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
 async def get_all_meetings_by_profile_name(
+    request: Request,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     # name: str = Query(None, description="Partial text to search profile names"),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
 ) -> MeetingsListResponse:
     """
@@ -340,6 +362,11 @@ async def get_all_meetings_by_profile_name(
 
     """
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting profile for tenant ID: {tenant_id}")
 
     if not tenant_id:
         logger.error("Tenant ID not provided")
@@ -353,68 +380,12 @@ async def get_all_meetings_by_profile_name(
     return JSONResponse(content=dict_meetings)
 
 
-# @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesListResponse)
-# def get_all_profile_and_persons_for_meeting(
-#     tenant_id: str,
-#     meeting_id: str,
-#     meetings_repository: MeetingsRepository = Depends(meetings_repository),
-#     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-#     persons_repository: PersonsRepository = Depends(persons_repository),
-#     profiles_repository: ProfilesRepository = Depends(profiles_repository),
-#     tenants_repository: TenantsRepository = Depends(tenants_repository),
-# ) -> MiniProfilesListResponse:
-#     """
-#     Get all profile IDs and names for a specific meeting.
-#
-#     - **tenant_id**: Tenant ID - the right one is 'abcde'
-#     - **meeting_id**: Meeting ID
-#     """
-#     logger.info(f"Received profiles request for meeting: {meeting_id}")
-#     meeting = meetings_repository.get_meeting_data(meeting_id)
-#     if not meeting:
-#         return JSONResponse(content={"error": "Meeting not found"})
-#     if meeting.tenant_id != tenant_id:
-#         return JSONResponse(content={"error": "Tenant mismatch"})
-#     tenant_email = tenants_repository.get_tenant_email(tenant_id)
-#     logger.info(f"Tenant email: {tenant_email}")
-#     participants_emails = meeting.participants_emails
-#     logger.debug(f"Participants emails: {participants_emails}")
-#     filtered_participants_emails = email_utils.filter_emails(
-#         host_email=tenant_email, participants_emails=participants_emails
-#     )
-#     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-#     filtered_emails = filtered_participants_emails
-#     logger.info(f"Filtered emails: {filtered_emails}")
-#     persons = []
-#     for email in filtered_emails:
-#         person = persons_repository.find_person_by_email(email)
-#         if person:
-#             persons.append(person)
-#     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
-#     profiles = []
-#     for person in persons:
-#         profile = profiles_repository.get_profile_data(person.uuid)
-#         logger.info(f"Got profile: {str(profile)[:300]}")
-#         if profile:
-#             profiles.append(profile)
-#     logger.debug(f"Got profiles: {len(profiles)}")
-#     persons_without_profiles = [
-#         person.to_dict()
-#         for person in persons
-#         if str(person.uuid) not in [str(profile.uuid) for profile in profiles]
-#     ]
-#     logger.info(f"Got persons without profiles: {persons_without_profiles}")
-#     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-#     mini_profiles_list = [MiniProfileResponse.from_profile_dto(profile) for profile in profiles]
-#     mini_persons_list = [MiniPersonResponse.from_dict(person) for person in persons_without_profiles]
-#     return MiniProfilesListResponse(profiles=mini_profiles_list, persons=mini_persons_list)
-# return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
-
-
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
 def get_all_profiles_for_meeting(
+    request: Request,
     tenant_id: str,
     meeting_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
@@ -428,6 +399,11 @@ def get_all_profiles_for_meeting(
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Received profiles request for meeting: {meeting_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting profile for tenant ID: {tenant_id}")
     meeting = meetings_repository.get_meeting_data(meeting_id)
     if not meeting:
         return JSONResponse(content={"error": "Meeting not found"})
@@ -465,11 +441,14 @@ def get_all_profiles_for_meeting(
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
 def get_profile_attendee_info(
+    request: Request,
     uuid: str,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> AttendeeInfo:
     """
     Get the attendee-info of a profile - Mock version.
@@ -488,6 +467,10 @@ def get_profile_attendee_info(
             - **url**: Social media URL
     """
     logger.info(f"Received attendee-info request for profile: {uuid}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -520,10 +503,13 @@ def get_profile_attendee_info(
     summary="Fetches strengths of a profile",
 )
 def get_profile_strengths(
+    request: Request,
     uuid: str,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> StrengthsListResponse:
     """
     Get the strengths of a profile - Mock version.
@@ -538,6 +524,10 @@ def get_profile_strengths(
         - **reason**: Reasons for choosing the strength and the score
     """
     logger.info(f"Received strengths request for profile: {uuid}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -554,10 +544,13 @@ def get_profile_strengths(
     summary="Fetches 'get-to-know' information of a profile",
 )
 def get_profile_get_to_know(
+    request: Request,
     uuid: str,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> GetToKnowResponse:
     """
     Get the 'get-to-know' information of a profile - Mock version.
@@ -566,6 +559,11 @@ def get_profile_get_to_know(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got get-to-know request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
 
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
@@ -582,13 +580,16 @@ def get_profile_get_to_know(
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
 def get_profile_good_to_know(
+    request: Request,
     uuid: str,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
     hobbies_repository: HobbiesRepository = Depends(hobbies_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> GoodToKnowResponse:
     """
     Get the 'good-to-know' information of a profile - Mock version.
@@ -597,6 +598,12 @@ def get_profile_good_to_know(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got good-to-know request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+
     if not ownerships_repository.check_ownership(tenant_id, uuid):
         return JSONResponse(content={"error": "Profile not found under this tenant"})
     profile = profiles_repository.get_profile_data(uuid)
@@ -633,10 +640,14 @@ def get_profile_good_to_know(
     response_model=WorkExperienceResponse,
 )
 def get_work_experience(
+    request: Request,
     uuid: str,
     tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
     ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> WorkExperienceResponse:
     """
     Get the work experience of a profile - *Mock version*.
@@ -645,6 +656,11 @@ def get_work_experience(
     - **uuid**: Profile UUID
     """
     logger.info(f"Got work experience request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
 
     personal_data = personal_data_repository.get_pdl_personal_data(uuid)
 
@@ -664,119 +680,18 @@ def get_work_experience(
     return JSONResponse(content={"error": "Could not find profile"})
 
 
-@v1_router.get("/internal/sync-profile/{person_uuid}")
-def sync_profile(
-    person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)
-) -> JSONResponse:
-    """
-    Sync a profile with the PDL API.
-
-    - **person_uuid**: The UUID of the person to sync.
-    - **api_key**: The internal API key
-    """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
-    if api_key != internal_api_key:
-        logger.error(f"Invalid API key: {api_key}")
-        return JSONResponse(content={"error": "Invalid API key"})
-    validate_uuid(person_uuid)
-    person = persons_repository.get_person(person_uuid)
-    if not person:
-        logger.error(f"Person not found: {person_uuid}")
-        return JSONResponse(content={"error": "Person not found"})
-    logger.info(f"Got person: {person}")
-    if person.linkedin:
-        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person.to_json(), "public")
-        event.send()
-    else:
-        logger.error(f"Person does not have a LinkedIn URL")
-        return JSONResponse(content={"error": "Person does not have a LinkedIn URL"})
-    return JSONResponse(content={"message": "Profile sync initiated for " + person.email})
-
-
-@v1_router.get("/internal/sync-email/{person_uuid}")
-def sync_email(
-    person_uuid: str,
-    api_key: str,
-    persons_repository: PersonsRepository = Depends(persons_repository),
-    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-) -> JSONResponse:
-    """
-    Sync an email from the beginning
-
-    - **person_uuid**: The UUID of the person to sync.
-    - **api_key**: The internal API key
-    """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
-    if api_key != internal_api_key:
-        logger.error(f"Invalid API key: {api_key}")
-        return JSONResponse(content={"error": "Invalid API key"})
-    validate_uuid(person_uuid)
-    person = persons_repository.get_person(person_uuid)
-    if not person:
-        logger.error(f"Person not found: {person_uuid}")
-        return JSONResponse(content={"error": "Person not found"})
-    logger.info(f"Got person: {person}")
-    tenants = ownerships_repository.get_tenants_for_person(person_uuid)
-    if not tenants or len(tenants) == 0:
-        logger.error(f"Person does not have any tenants: {person_uuid}")
-        return JSONResponse(content={"error": "Person does not have any tenants"})
-    event = GenieEvent(
-        topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-        data=json.dumps(
-            {
-                "tenant_id": tenants[0],
-                "email": person.email,
-            }
-        ),
-        scope="public",
-    )
-    event.send()
-    return JSONResponse(content={"message": "Profile email sync initiated for " + person.email})
-
-
-@v1_router.get("/internal/sync-meetings-agenda")
-def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
-    """
-    Sync an email from the beginning
-
-    - **person_uuid**: The UUID of the person to sync.
-    - **api_key**: The internal API key
-    """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
-    if api_key != internal_api_key:
-        logger.error(f"Invalid API key: {api_key}")
-        return JSONResponse(content={"error": "Invalid API key"})
-    logger.info(f"Processing all meetings agendas")
-    process_agenda_to_all_meetings(meetings_number)
-    return JSONResponse(content={"message": "Meetings agenda processing initiated"})
-
-
-@v1_router.get("/internal/sync-meeting-classification")
-def process_meetings_classification(api_key: str) -> JSONResponse:
-    """
-    Sync an email from the beginning
-
-    - **person_uuid**: The UUID of the person to sync.
-    - **api_key**: The internal API key
-    """
-    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
-    if api_key != internal_api_key:
-        logger.error(f"Invalid API key: {api_key}")
-        return JSONResponse(content={"error": "Invalid API key"})
-    logger.info(f"Processing all meetings classification")
-    process_classification_to_all_meetings()
-    return JSONResponse(content={"message": "Meetings classification processing initiated"})
-
-
 @v1_router.get(
     "/{tenant_id}/meeting/{meeting_uuid}",
     response_model=MeetingResponse,
 )
 def get_meeting_info(
+    request: Request,
     tenant_id: str,
     meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> JSONResponse:
     """
     Get the meeting information.
@@ -785,6 +700,11 @@ def get_meeting_info(
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Got meeting info request for meeting: {meeting_uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
 
     meeting = meetings_repository.get_meeting_data(meeting_uuid)
     if not meeting:
@@ -828,20 +748,45 @@ def get_meeting_info(
 
     return MeetingResponse.from_dict(meeting_dict)
 
-
 @v1_router.get(
     "/{tenant_id}/meeting-overview/{meeting_uuid}",
     response_model=Union[
         MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
     ],  # Use only the Pydantic model here
 )
-def get_meeting_overview(
+def get_meeting_overview_old(
+    request: Request,
     tenant_id: str,
     meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     meetings_repository: MeetingsRepository = Depends(meetings_repository),
     companies_repository: CompaniesRepository = Depends(companies_repository),
     profiles_repository: ProfilesRepository = Depends(profiles_repository),
     persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> Union[
+    MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse, JSONResponse
+]:
+    return get_meeting_overview(request, tenant_id, meeting_uuid, impersonate_tenant_id, meetings_repository,
+                                companies_repository, profiles_repository, persons_repository, tenants_repository)
+
+
+@v1_router.get(
+    "/{tenant_id}/{meeting_uuid}/meeting-overview",
+    response_model=Union[
+        MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
+    ],  # Use only the Pydantic model here
+)
+def get_meeting_overview(
+    request: Request,
+    tenant_id: str,
+    meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+    meetings_repository: MeetingsRepository = Depends(meetings_repository),
+    companies_repository: CompaniesRepository = Depends(companies_repository),
+    profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> Union[
     MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse, JSONResponse
 ]:
@@ -852,6 +797,11 @@ def get_meeting_overview(
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Got meeting info request for meeting: {meeting_uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(
+        impersonate_tenant_id, request, tenants_repository
+    )
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
 
     meeting = meetings_repository.get_meeting_data(meeting_uuid)
     if not meeting:
@@ -988,6 +938,110 @@ def get_meeting_overview(
     logger.info(f"Mini overview: {str(mini_overview)[:300]}")
 
     return mini_overview
+
+
+@v1_router.get("/internal/sync-profile/{person_uuid}")
+def sync_profile(
+    person_uuid: str, api_key: str, persons_repository: PersonsRepository = Depends(persons_repository)
+) -> JSONResponse:
+    """
+    Sync a profile with the PDL API.
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    validate_uuid(person_uuid)
+    person = persons_repository.get_person(person_uuid)
+    if not person:
+        logger.error(f"Person not found: {person_uuid}")
+        return JSONResponse(content={"error": "Person not found"})
+    logger.info(f"Got person: {person}")
+    if person.linkedin:
+        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person.to_json(), "public")
+        event.send()
+    else:
+        logger.error(f"Person does not have a LinkedIn URL")
+        return JSONResponse(content={"error": "Person does not have a LinkedIn URL"})
+    return JSONResponse(content={"message": "Profile sync initiated for " + person.email})
+
+
+@v1_router.get("/internal/sync-email/{person_uuid}")
+def sync_email(
+    person_uuid: str,
+    api_key: str,
+    persons_repository: PersonsRepository = Depends(persons_repository),
+    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    validate_uuid(person_uuid)
+    person = persons_repository.get_person(person_uuid)
+    if not person:
+        logger.error(f"Person not found: {person_uuid}")
+        return JSONResponse(content={"error": "Person not found"})
+    logger.info(f"Got person: {person}")
+    tenants = ownerships_repository.get_tenants_for_person(person_uuid)
+    if not tenants or len(tenants) == 0:
+        logger.error(f"Person does not have any tenants: {person_uuid}")
+        return JSONResponse(content={"error": "Person does not have any tenants"})
+    event = GenieEvent(
+        topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+        data=json.dumps(
+            {
+                "tenant_id": tenants[0],
+                "email": person.email,
+            }
+        ),
+        scope="public",
+    )
+    event.send()
+    return JSONResponse(content={"message": "Profile email sync initiated for " + person.email})
+
+
+@v1_router.get("/internal/sync-meetings-agenda")
+def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing all meetings agendas")
+    process_agenda_to_all_meetings(meetings_number)
+    return JSONResponse(content={"message": "Meetings agenda processing initiated"})
+
+
+@v1_router.get("/internal/sync-meeting-classification")
+def process_meetings_classification(api_key: str) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    internal_api_key = env_utils.get("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    if api_key != internal_api_key:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing all meetings classification")
+    process_classification_to_all_meetings()
+    return JSONResponse(content={"message": "Meetings classification processing initiated"})
 
 
 @v1_router.get(
@@ -1147,9 +1201,56 @@ def import_google_meetings(
     return fetch_google_meetings(email_address, google_creds_repository, tenants_repository)
 
 
+@v1_router.get(
+    "/admin/tenants",
+    response_class=JSONResponse,
+    summary="Fetches all tenants for an admin",
+    include_in_schema=False,
+)
+def fetch_all_tenants(
+    request: Request,
+    tenants_repository: TenantsRepository = Depends(tenants_repository),
+) -> JSONResponse:
+    """
+    Fetches all tenants for an admin
+    """
+    if (
+        request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        all_tenants = tenants_repository.get_all_tenants()
+        response = {"admin": True, "tenants": [tenant.to_dict() for tenant in all_tenants]}
+        return JSONResponse(content=response)
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden endpoint")
+
+
 def validate_uuid(uuid_string: str):
     try:
         val = uuid.UUID(uuid_string, version=4)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     return str(val)
+
+
+def get_tenant_id_to_impersonate(
+    impersonate_tenant_id: str, request: Request, tenants_repository: TenantsRepository
+):
+    logger.info(f"Checking if user is impersonating tenant")
+    logger.info(f"Request state: {request.state}")
+    if (
+        impersonate_tenant_id
+        and request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        logger.info(f"User is impersonating tenant")
+        impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
+        if impersonated_email:
+            logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
+            return impersonate_tenant_id
+        else:
+            logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
+    logger.info(f"User is not impersonating tenant")
+    return None
