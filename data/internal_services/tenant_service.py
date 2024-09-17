@@ -2,7 +2,6 @@ from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.repositories.ownerships_repository import OwnershipsRepository
 from data.data_common.repositories.meetings_repository import MeetingsRepository
 from data.data_common.dependencies.dependencies import (
-    get_db_connection,
     tenants_repository,
     meetings_repository,
     ownerships_repository,
