@@ -63,3 +63,29 @@ class ProfilesApiService:
             raise HTTPException(status_code=404, detail="Profile not found")
 
         return profile
+
+    def get_profile_attendee_info(self, tenant_id, uuid):
+        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
+            return {"error": "Profile not found under this tenant"}
+        profile = self.profiles_repository.get_profile_data(uuid)
+        if not profile:
+            return {"error": "Could not find profile"}
+
+        # This will Upper Camel Case and Titleize the values in the profile
+        profile = ProfileDTO.from_dict(profile.to_dict())
+
+        picture = profile.picture_url
+        name = titleize_name(profile.name)
+        company = profile.company
+        position = profile.position
+        links = self.personal_data_repository.get_social_media_links(uuid)
+        logger.info(f"Got links: {links}, type: {type(links)}")
+        profile = {
+            "picture": picture,
+            "name": name,
+            "company": company,
+            "position": position,
+            "social_media_links": SocialMediaLinksList.from_list(links).to_list() if links else [],
+        }
+        logger.info(f"Attendee info: {profile}")
+        return AttendeeInfo(**profile)

@@ -302,15 +302,7 @@ async def get_all_meetings(
 
 @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
 def get_all_profiles_for_meeting(
-    request: Request,
-    tenant_id: str,
-    meeting_id: str,
-    impersonate_tenant_id: Optional[str] = Query(None),
-    # meetings_repository: MeetingsRepository = Depends(meetings_repository),
-    # ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    # persons_repository: PersonsRepository = Depends(persons_repository),
-    # profiles_repository: ProfilesRepository = Depends(profiles_repository),
-    # tenants_repository: TenantsRepository = Depends(tenants_repository),
+    request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
 ) -> Union[List[MiniProfileResponse], JSONResponse]:
     """
     Get all profile IDs and names for a specific meeting.
@@ -333,10 +325,10 @@ def get_profile_attendee_info(
     uuid: str,
     tenant_id: str,
     impersonate_tenant_id: Optional[str] = Query(None),
-    ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
-    profiles_repository: ProfilesRepository = Depends(profiles_repository),
-    personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
-    tenants_repository: TenantsRepository = Depends(tenants_repository),
+    # ownerships_repository: OwnershipsRepository = Depends(ownerships_repository),
+    # profiles_repository: ProfilesRepository = Depends(profiles_repository),
+    # personal_data_repository: PersonalDataRepository = Depends(personal_data_repository),
+    # tenants_repository: TenantsRepository = Depends(tenants_repository),
 ) -> AttendeeInfo:
     """
     Get the attendee-info of a profile - Mock version.
@@ -357,30 +349,9 @@ def get_profile_attendee_info(
     logger.info(f"Received attendee-info request for profile: {uuid}")
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
-    if not ownerships_repository.check_ownership(tenant_id, uuid):
-        return JSONResponse(content={"error": "Profile not found under this tenant"})
-    profile = profiles_repository.get_profile_data(uuid)
-    if not profile:
-        return JSONResponse(content={"error": "Could not find profile"})
-
-    # This will Upper Camel Case and Titleize the values in the profile
-    profile = ProfileDTO.from_dict(profile.to_dict())
-
-    picture = profile.picture_url
-    name = titleize_name(profile.name)
-    company = profile.company
-    position = profile.position
-    links = personal_data_repository.get_social_media_links(uuid)
-    logger.info(f"Got links: {links}, type: {type(links)}")
-    profile = {
-        "picture": picture,
-        "name": name,
-        "company": company,
-        "position": position,
-        "social_media_links": SocialMediaLinksList.from_list(links).to_list() if links else [],
-    }
-    logger.info(f"Attendee info: {profile}")
-    return AttendeeInfo(**profile)
+    response = profiles_api_service.get_profile_attendee_info(tenant_id, uuid)
+    logger.info(f"About to send response: {response}")
+    return response
 
 
 @v1_router.get(
