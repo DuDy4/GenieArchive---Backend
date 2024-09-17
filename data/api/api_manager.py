@@ -1119,6 +1119,7 @@ def fetch_google_meetings(
     logger.info(f"Fetched events: {meetings}")
 
     if not meetings:
+        google_creds_repository.update_last_fetch_meetings(user_email)
         return JSONResponse(content={"message": "No upcoming events found."})
     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
     data_to_send = {"tenant_id": tenant_id, "meetings": meetings}
