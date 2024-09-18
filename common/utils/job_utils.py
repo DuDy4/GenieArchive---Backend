@@ -4,6 +4,7 @@ import traceback
 
 logger = GenieLogger()
 
+
 def fix_and_sort_experience_from_pdl(experience):
     try:
         for exp in experience:
@@ -11,9 +12,7 @@ def fix_and_sort_experience_from_pdl(experience):
             exp["start_date"] = exp.get("start_date") or "0000-01-01"
 
             # Sort experience
-        sorted_experience = sorted(
-            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-        )
+        sorted_experience = sorted(experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True)
     except:
         logger.error(f"Error fixing and sorting experience: {experience}")
         sorted_experience = experience
@@ -50,9 +49,7 @@ def fix_and_sort_experience_from_apollo(apollo_data):
             exp["start_date"] = exp.get("start_date") or "0000-01-01"
 
             # Sort experience
-        sorted_experience = sorted(
-            experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True
-        )
+        sorted_experience = sorted(experience, key=lambda x: (x["end_date"], x["start_date"]), reverse=True)
     except:
         logger.error(f"Error fixing and sorting experience: {experience}")
         sorted_experience = experience
