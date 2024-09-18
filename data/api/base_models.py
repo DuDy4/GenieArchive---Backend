@@ -72,6 +72,44 @@ class MiniPersonResponse(BaseModel):
         }
 
 
+class InternalMiniPersonResponse(BaseModel):
+    uuid: str
+    email: str
+    name: Optional[str] = None
+    profile_picture: Optional[HttpUrl] = None
+
+    def to_dict(self):
+        return {
+            "uuid": self.uuid,
+            "name": self.name,
+            "email": self.email,
+            "profile_picture": self.profile_picture,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict):
+        return InternalMiniPersonResponse(
+            uuid=data.get("uuid", ""),
+            name=data.get("name", ""),
+            email=data.get("email", None),
+            profile_picture=data.get("profile_picture", None),
+        )
+
+    @staticmethod
+    def from_person_dto(person: PersonDTO, profile_picture: Optional[HttpUrl | str] = None):
+        if not person:
+            logger.error("Person is None")
+            return None
+        return InternalMiniPersonResponse(
+            uuid=str(person.uuid),
+            name=titleize_name(str(person.name)),
+            email=person.email,
+            profile_picture=HttpUrl(profile_picture)
+            if profile_picture and isinstance(profile_picture, str)
+            else None,
+        )
+
+
 class MiniProfileResponse(BaseModel):
     uuid: str
     name: str
@@ -567,7 +605,7 @@ class MeetingOverviewResponse(BaseModel):
 
 class InternalMeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
-    participants: List[MiniPersonResponse]
+    participants: List[InternalMiniPersonResponse]
 
 
 class PrivateMeetingOverviewResponse(BaseModel):
