@@ -210,7 +210,7 @@ class CompanyResponse(BaseModel):
     size: Optional[str]
     description: Optional[str]
     overview: Optional[str]
-    challenges: Optional[List[Challenge]]
+    challenges: Optional[List[Challenge]] = []
     technologies: Optional[List[str]]
     social_links: Optional[List[SocialMediaLinks]]
     news: Optional[List[NewsData]]
@@ -337,8 +337,8 @@ class MidMeetingCompany(BaseModel):
     annual_revenue: Optional[str] | None
     total_funding: Optional[str] | None
     funding_rounds: Optional[List[FundingEvent]] | None
-    technologies: List[str]
-    challenges: List[Challenge]
+    technologies: Optional[List[str]] = []
+    challenges: Optional[List[Challenge]] = []
     social_links: Optional[List[SocialMediaLinks]] | None
     news: List[NewsData]
 

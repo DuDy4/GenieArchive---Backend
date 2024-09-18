@@ -140,22 +140,23 @@ class MeetingsApiService:
         company = companies[0] if companies else None
         logger.info(f"Company: {str(company)[:300]}")
         if company:
-            news = []
-            domain = company.domain
-            try:
-                for new in company.news:
-                    link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
-                    if isinstance(new, dict):
-                        new["link"] = link
-                    elif isinstance(new, NewsData):
-                        new.link = link
-                    if domain not in str(link):
-                        news.append(new)
-                company.news = news[:3]
-                logger.debug(f"Company news: {str(company.news)[:300]}")
-            except Exception as e:
-                logger.error(f"Error processing company news: {e}")
-                company.news = []
+            if len(company.news) > 3:
+                news = []
+                domain = company.domain
+                try:
+                    for new in company.news:
+                        link = HttpUrl(new.get("link") if new and isinstance(new, dict) else str(new.link))
+                        if isinstance(new, dict):
+                            new["link"] = link
+                        elif isinstance(new, NewsData):
+                            new.link = link
+                        if domain not in str(link):
+                            news.append(new)
+                    company.news = news[:3]
+                    logger.debug(f"Company news: {str(company.news)[:300]}")
+                except Exception as e:
+                    logger.error(f"Error processing company news: {e}")
+                    company.news = []
             mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
         logger.info(f"Company: {str(mid_company)[:300]}")

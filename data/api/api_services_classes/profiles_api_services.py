@@ -1,3 +1,4 @@
+from common.utils import email_utils
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
 from data.data_common.dependencies.dependencies import (

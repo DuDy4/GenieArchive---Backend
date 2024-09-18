@@ -123,8 +123,9 @@ class TenantsApiService:
             self.google_creds_repository.update_last_fetch_meetings(user_email)
             return {"message": "No upcoming events found."}
         tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
-        data_to_send = {"tenant_id": tenant_id, "meetings": meetings}
-        event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data=data_to_send)
+        event = GenieEvent(
+            topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
+        )
         event.send()
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")
@@ -182,3 +183,9 @@ class TenantsApiService:
         except Exception as e:
             logger.error(f"Error during login event: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+    def import_google_meetings(self, tenant_id):
+        tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
+        if not tenant_email:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return self.fetch_google_meetings(tenant_email)
