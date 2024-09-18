@@ -142,6 +142,7 @@ class MeetingsApiService:
 
         company = companies[0] if companies else None
         logger.info(f"Company: {str(company)[:300]}")
+        mid_company = None
         if company:
             if len(company.news) > 3:
                 news = []
@@ -162,7 +163,7 @@ class MeetingsApiService:
                     company.news = []
             mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
-        logger.info(f"Company: {str(mid_company)[:300]}")
+            logger.info(f"Company: {str(mid_company)[:300]}")
 
         return mid_company
 
