@@ -171,7 +171,6 @@ class MeetingManager(GenieConsumer):
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": tenant_id, "email": self_email},
-            scope="public",
         )
         event.send()
 
@@ -179,13 +178,11 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": tenant_id, "email": email},
-                scope="public",
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": tenant_id, "email": email},
-                scope="public",
             )
             event.send()
 
@@ -214,19 +211,16 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-                scope="public",
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-                scope="public",
             )
             event.send()
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": meeting.tenant_id, "email": self_email},
-            scope="public",
         )
         event.send()
         return {"status": "success"}
@@ -285,7 +279,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.NEW_MEETING_GOALS,
                 data={"meeting_uuid": meeting.uuid},
-                scope="public",
             )
             event.send()
         logger.info(f"Finished processing meetings goals for new personal data: {person.email}")
@@ -346,7 +339,6 @@ class MeetingManager(GenieConsumer):
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
                     data=json.dumps({"meeting_uuid": meeting.uuid}),
-                    scope="public",
                 )
                 event.send()
                 break  # Only process one email per meeting - need to implement couple attendees in the future
@@ -398,7 +390,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),
-                scope="public",
             )
             event.send()
         logger.info(f"Finished processing meetings for new profile: {person.get('email')}")
@@ -459,7 +450,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),
-                scope="public",
             )
             event.send()
             break

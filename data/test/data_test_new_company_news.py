@@ -12,7 +12,6 @@ def data_test_new_company_news():
     event = GenieEvent(
         topic=Topic.COMPANY_NEWS_UPDATED,
         data='{"company_uuid": "68167b0c-557f-45d8-b19b-a37b15ac32a1"}',
-        scope="public",
     )
     assert event
     event.send()
@@ -20,11 +19,7 @@ def data_test_new_company_news():
 
 
 def data_test_company_up_to_date(company_uuid):
-    event = GenieEvent(
-        topic=Topic.COMPANY_NEWS_UP_TO_DATE,
-        data={"company_uuid": company_uuid},
-        scope="public",
-    )
+    event = GenieEvent(topic=Topic.COMPANY_NEWS_UP_TO_DATE, data={"company_uuid": company_uuid})
     assert event
     event.send()
     print("News up to date test passed")

@@ -124,11 +124,7 @@ class TenantsApiService:
             return {"message": "No upcoming events found."}
         tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
         data_to_send = {"tenant_id": tenant_id, "meetings": meetings}
-        event = GenieEvent(
-            topic=Topic.NEW_MEETINGS_TO_PROCESS,
-            data=data_to_send,
-            scope="public",
-        )
+        event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data=data_to_send)
         event.send()
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")

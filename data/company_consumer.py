@@ -83,11 +83,7 @@ class CompanyConsumer(GenieConsumer):
             return {"status": "success"}
         logger.info(f"Fetching news for company {company_dto.name}")
         self.fetched_news(company_dto.uuid, company_dto.name)
-        event = GenieEvent(
-            topic=Topic.COMPANY_NEWS_UPDATED,
-            data={"company_uuid": company_dto.uuid},
-            scope="public",
-        )
+        event = GenieEvent(topic=Topic.COMPANY_NEWS_UPDATED, data={"company_uuid": company_dto.uuid})
         event.send()
 
         return {"status": "success"}
@@ -108,11 +104,7 @@ class CompanyConsumer(GenieConsumer):
             company = await self.fetch_company_data(email_domain)
             if not company:
                 logger.error(f"Company not found for domain: {email_domain}")
-                event = GenieEvent(
-                    topic=Topic.FAILED_TO_GET_COMPANY_DATA,
-                    data={"email": email_address},
-                    scope="public",
-                )
+                event = GenieEvent(topic=Topic.FAILED_TO_GET_COMPANY_DATA, data={"email": email_address})
                 event.send()
                 return
         logger.info(f"Company: {company}")
@@ -128,32 +120,18 @@ class CompanyConsumer(GenieConsumer):
             company.overview = overview
             company.challenges = challenges
             self.companies_repository.save_company_without_news(company)
-        # event = GenieEvent(
-        #     topic=Topic.NEW_COMPANY_DATA,
-        #     data={"company_uuid": company.uuid},
-        #     scope="public",
-        # )
-        # event.send()
         news_last_update = self.companies_repository.get_news_last_updated(company.uuid)
         if (
             news_last_update
             and (datetime.now() - news_last_update).total_seconds() < COMPANY_LAST_UPDATE_INTERVAL_SECONDS
         ):
             logger.info(f"Company news for {company.name} is up to date")
-            event = GenieEvent(
-                topic=Topic.COMPANY_NEWS_UP_TO_DATE,
-                data={"company_uuid": company.uuid},
-                scope="public",
-            )
+            event = GenieEvent(topic=Topic.COMPANY_NEWS_UP_TO_DATE, data={"company_uuid": company.uuid})
             event.send()
             return {"status": "success"}
         logger.info(f"Fetching news for company {company.name}")
         self.fetched_news(company.uuid, company.name)
-        event = GenieEvent(
-            topic=Topic.COMPANY_NEWS_UPDATED,
-            data={"company_uuid": company.uuid},
-            scope="public",
-        )
+        event = GenieEvent(topic=Topic.COMPANY_NEWS_UPDATED, data={"company_uuid": company.uuid})
         event.send()
         return {"status": "success"}
 
