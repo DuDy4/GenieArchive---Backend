@@ -18,6 +18,7 @@ from data.api.base_models import (
     MidMeetingCompany,
     MiniProfileResponse,
     MiniMeetingOverviewResponse,
+    InternalMiniPersonResponse,
 )
 from pydantic import HttpUrl
 from fastapi import HTTPException
@@ -77,12 +78,14 @@ class MeetingsApiService:
                 logger.warning(f"Email not found in: {email_object}")
                 continue
             person = self.persons_repository.find_person_by_email(email)
+            logger.info(f"Person: {person}")
             if person:
-                mini_person = MiniPersonResponse.from_dict(person.to_dict())
+                profile_picture = self.profiles_repository.get_profile_picture(person.uuid)
+                mini_person = InternalMiniPersonResponse.from_person_dto(person, profile_picture)
                 logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
             else:
-                mini_person = MiniPersonResponse.from_dict({"uuid": get_uuid4(), "email": email})
+                mini_person = InternalMiniPersonResponse.from_dict({"uuid": get_uuid4(), "email": email})
                 logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
         internal_meeting_overview = InternalMeetingOverviewResponse(
