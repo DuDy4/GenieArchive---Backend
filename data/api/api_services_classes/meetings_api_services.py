@@ -101,17 +101,27 @@ class MeetingsApiService:
 
         logger.info(f"Mini meeting: {mini_meeting}")
 
-        participants = [ParticipantEmail.from_dict(email) for email in meeting.participants_emails]
-        host_email_list = [email.email_address for email in participants if email.self]
-        host_email = host_email_list[0] if host_email_list else None
-        logger.debug(f"Host email: {host_email}")
-        filtered_participants_emails = email_utils.filter_emails(host_email, participants)
-        logger.info(f"Filtered participants: {filtered_participants_emails}")
+        mini_participants, domain_emails = self.handle_participants_overview(meeting.participants_emails)
 
-        domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
-        domain_emails = list(set(domain_emails))
-        logger.info(f"Domain emails: {domain_emails}")
+        logger.info(f"Meeting participants: {mini_participants}")
 
+        mid_company = self.handle_company_overview(domain_emails)
+
+        try:
+            mini_overview = MiniMeetingOverviewResponse(
+                meeting=mini_meeting,
+                company=mid_company,
+                participants=mini_participants,
+            )
+        except Exception as e:
+            logger.error(f"Error creating mini overview: {e}")
+            raise HTTPException(status_code=500, detail="Error creating mini overview")
+
+        logger.info(f"Mini overview: {str(mini_overview)[:300]}")
+
+        return mini_overview
+
+    def handle_company_overview(self, domain_emails):
         companies = []
 
         for domain in domain_emails:
@@ -150,6 +160,20 @@ class MeetingsApiService:
 
         logger.info(f"Company: {str(mid_company)[:300]}")
 
+        return mid_company
+
+    def handle_participants_overview(self, participants_emails):
+        participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
+        host_email_list = [email.email_address for email in participants if email.self]
+        host_email = host_email_list[0] if host_email_list else None
+        logger.debug(f"Host email: {host_email}")
+        filtered_participants_emails = email_utils.filter_emails(host_email, participants)
+        logger.info(f"Filtered participants: {filtered_participants_emails}")
+
+        domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
+        domain_emails = list(set(domain_emails))
+        logger.info(f"Domain emails: {domain_emails}")
+
         mini_profiles = []
         mini_persons = []
 
@@ -186,19 +210,4 @@ class MeetingsApiService:
             "profiles": mini_profiles,
             "persons": mini_persons,
         }
-
-        logger.info(f"Meeting participants: {mini_participants}")
-
-        try:
-            mini_overview = MiniMeetingOverviewResponse(
-                meeting=mini_meeting,
-                company=mid_company,
-                participants=mini_participants,
-            )
-        except Exception as e:
-            logger.error(f"Error creating mini overview: {e}")
-            raise HTTPException(status_code=500, detail="Error creating mini overview")
-
-        logger.info(f"Mini overview: {str(mini_overview)[:300]}")
-
-        return mini_overview
+        return mini_participants, domain_emails
