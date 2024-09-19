@@ -74,7 +74,6 @@ class LangsmithConsumer(GenieConsumer):
             company_dict.pop("domain")
             company_dict.pop("employees")
             company_dict.pop("logo")
-        logger.info(f"Company data: {company_data}")
 
         response = await self.langsmith.get_profile(person_data, company_dict)
         logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
@@ -84,7 +83,7 @@ class LangsmithConsumer(GenieConsumer):
             "get_to_know": response.get("get_to_know"),
         }
 
-        data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
+        data_to_send = {"person": person, "profile": str(profile_strength_and_get_to_know)[:300]}
 
         logger.info(f"About to send event's data: {data_to_send}")
 
