@@ -494,6 +494,34 @@ class ProfilesRepository:
         except psycopg2.Error as error:
             raise Exception(f"Error updating connections, because: {error.pgerror}")
 
+    def update_strengths(self, uuid, strengths):
+        update_query = """
+        UPDATE profiles
+        SET strengths = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(strengths), uuid))
+                self.conn.commit()
+                logger.info(f"Updated strengths for {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating strengths, because: {error.pgerror}")
+
+    def update_get_to_know(self, uuid, get_to_know):
+        update_query = """
+        UPDATE profiles
+        SET get_to_know = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(get_to_know), uuid))
+                self.conn.commit()
+                logger.info(f"Updated get to know for {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating get to know, because: {error.pgerror}")
+
     def _insert(self, profile: ProfileDTO) -> Union[str, None]:
         insert_query = """
                 INSERT INTO profiles (uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url)
