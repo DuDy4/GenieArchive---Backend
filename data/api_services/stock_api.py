@@ -16,18 +16,20 @@ class StockYieldCalculator:
         one_year_ago = today - timedelta(days=365)
 
         # Download historical data for the stock (one year ago to today)
-        stock_data = yf.download(self.stock_symbol,
-                                 start=one_year_ago.strftime('%Y-%m-%d'),
-                                 end=today.strftime('%Y-%m-%d'),
-                                 auto_adjust=False)
+        stock_data = yf.download(
+            self.stock_symbol,
+            start=one_year_ago.strftime("%Y-%m-%d"),
+            end=today.strftime("%Y-%m-%d"),
+            auto_adjust=False,
+        )
 
         if stock_data.empty:
             return None, None
 
         # Get the stock price closest to a year ago (raw closing price)
-        stock_price_year_ago = stock_data.iloc[0]['Close']
+        stock_price_year_ago = stock_data.iloc[0]["Close"]
         # Get the latest stock price (today's closing price)
-        stock_price_today = stock_data.iloc[-1]['Close']
+        stock_price_today = stock_data.iloc[-1]["Close"]
 
         return stock_price_year_ago, stock_price_today
 
@@ -50,7 +52,7 @@ class StockYieldCalculator:
 
 # Example usage
 if __name__ == "__main__":
-    stock_symbol = 'NVDA'  # Replace with your stock symbol
+    stock_symbol = "NVDA"  # Replace with your stock symbol
     stock_calculator = StockYieldCalculator(stock_symbol)
 
     yield_percentage = stock_calculator.calculate_yield()
