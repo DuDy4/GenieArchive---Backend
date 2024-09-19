@@ -409,6 +409,55 @@ class ProfilesRepository:
             traceback.print_exc()
             return []
 
+    def get_missing_profiles(self) -> list:
+        select_query = """
+        SELECT pd.uuid
+        FROM personalData pd
+        WHERE NOT EXISTS (
+            SELECT 1
+        FROM profiles p
+        WHERE p.uuid = pd.uuid
+        )
+        AND NOT (pd.pdl_status = 'TRIED_BUT_FAILED' AND pd.apollo_status = 'TRIED_BUT_FAILED');
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} missing profiles from database")
+                    return [row[0] for row in rows]
+                else:
+                    logger.info(f"Could not find missing profiles")
+                    return []
+        except Exception as error:
+            logger.error(f"Error fetching missing profiles: {error}")
+            traceback.print_exc()
+            return []
+
+    def insert_profile_without_strengths_and_get_to_know(self, person_data):
+        insert_query = """
+        INSERT INTO profiles (uuid, name, company, position)
+        VALUES (%s, %s, %s, %s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    insert_query,
+                    (
+                        person_data["uuid"],
+                        person_data["name"],
+                        person_data["company"],
+                        person_data["position"],
+                    ),
+                )
+                self.conn.commit()
+                logger.info(f"Inserted profile without strengths and get to know to database")
+        except psycopg2.Error as error:
+            raise Exception(
+                f"Error inserting profile without strengths and get to know, because: {error.pgerror}"
+            )
+
     def update_hobbies_by_email(self, email: str, hobbies: list[str]):
         update_query = """
         UPDATE profiles

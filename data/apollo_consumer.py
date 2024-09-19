@@ -157,6 +157,9 @@ class ApolloConsumer(GenieConsumer):
         # The method return success status
 
     def handle_successful_data_fetch(self, person: PersonDTO, apollo_personal_data: dict):
+        if not person:
+            logger.error(f"Unexpected error: person is None")
+            return {"error": "Person not found"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
         person = create_person_from_apollo_personal_data(person)
         logger.info(f"Person after creating from apollo data: {person}")
