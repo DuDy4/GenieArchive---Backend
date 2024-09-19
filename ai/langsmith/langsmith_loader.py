@@ -80,19 +80,22 @@ class Langsmith:
             # logger.debug(f"Arguments for get-to-know: {arguments}")
             response = runnable.invoke(arguments)
             logger.debug(f"Response from get-to-know: {response}")
-            if (
-                response
-                and isinstance(response, dict)
-                and (
-                    response.get("best_practices") == []
-                    or isinstance(response.get("best_practices"), dict)
-                    or response.get("avoid") == []
-                    or response.get("phrases_to_use") == []
-                )
-            ):
-                logger.warning("Got wrong get-to-know from Langsmith - trying again")
-                response = runnable.invoke(arguments)
-            logger.info("Got get-to-know from Langsmith")
+            for i in range(5):
+                if (
+                    response
+                    and isinstance(response, dict)
+                    and (
+                        response.get("best_practices") == []
+                        or isinstance(response.get("best_practices"), dict)
+                        or response.get("avoid") == []
+                        or response.get("phrases_to_use") == []
+                    )
+                ):
+                    logger.warning("Got wrong get-to-know from Langsmith - trying again")
+                    response = runnable.invoke(arguments)
+                else:
+                    break
+            logger.info("Got get-to-know from Langsmith: " + str(response))
             # if response and isinstance(response, dict) and response.get("best_practices") == []:
             #     return await self.run_prompt_get_to_know(person_data)
         except Exception as e:
