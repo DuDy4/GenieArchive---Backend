@@ -4,13 +4,15 @@ from loguru import logger
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
 class LinkedInProfileFetcher:
     def __init__(self, api_key):
         self.api_key = api_key
         self.base_url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-profile-posts"
         self.headers = {
             "x-rapidapi-key": self.api_key,
-            "x-rapidapi-host": "fresh-linkedin-profile-data.p.rapidapi.com"
+            "x-rapidapi-host": "fresh-linkedin-profile-data.p.rapidapi.com",
         }
 
     def fetch_latest_posts(self, linkedin_url, num_posts=3):  # Default value of 3 posts
@@ -22,7 +24,7 @@ class LinkedInProfileFetcher:
             response.raise_for_status()
             data = response.json()
             # Extract the latest `num_posts` posts
-            latest_posts = data['data'][:num_posts]
+            latest_posts = data["data"][:num_posts]
             logger.success(f"Successfully fetched {len(latest_posts)} posts from {linkedin_url}")
             return latest_posts
         except requests.exceptions.HTTPError as http_err:
@@ -47,5 +49,3 @@ if __name__ == "__main__":
         latest_posts = fetcher.fetch_latest_posts(linkedin_url)  # Defaults to 3 posts
         for post in latest_posts:
             logger.info(post)
-
-
