@@ -479,6 +479,8 @@ class MeetingManager(GenieConsumer):
         if meeting.participants_hash != meeting_in_database.participants_hash:
             return False
         # logger.debug(f"Meeting participants hashes are the same")
+        if meeting.tenant_id != meeting_in_database.tenant_id:
+            return False
         return True
 
 
