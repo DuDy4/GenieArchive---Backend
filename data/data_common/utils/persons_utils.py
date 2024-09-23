@@ -52,6 +52,7 @@ def get_company_name_from_domain(email: str):
 def create_person_from_pdl_personal_data(person: PersonDTO):
     row_dict = personal_data_repository.get_personal_data_row(person.uuid)
     if not row_dict or row_dict.get("pdl_status") == personal_data_repository.TRIED_BUT_FAILED:
+        logger.info(f"Personal data not found for {person.uuid}")
         return None
     personal_data = row_dict.get("pdl_personal_data")
     if not personal_data:
@@ -72,17 +73,10 @@ def create_person_from_pdl_personal_data(person: PersonDTO):
                     break
     linkedin_url = fix_linkedin_url(linkedin_url)
     logger.debug(f"Linkedin URL: {linkedin_url}")
-    if personal_experience and isinstance(personal_experience, list):
-        personal_experience = personal_experience[0]
-
-    if personal_experience and isinstance(personal_experience, dict):
-        title_object = personal_experience.get("title")
-        if title_object and isinstance(title_object, dict):
-            position = title_object.get("name")
-        if not company:
-            company_object = personal_experience.get("company")
-            if company_object and isinstance(company_object, dict):
-                company = company_object.get("name")
+    pdl_company, pdl_position = get_company_and_position_from_pdl_experience(personal_experience)
+    position = pdl_position
+    if not company:
+        company = pdl_company
 
     person_name = row_dict.get("name", "") or personal_data.get("full_name")
     logger.info(
@@ -102,6 +96,21 @@ def create_person_from_pdl_personal_data(person: PersonDTO):
     return person
 
 
+def get_company_and_position_from_apollo_personal_data(personal_data):
+    position = personal_data.get("title", "")
+    company = personal_data.get("organization", "")
+    if company:
+        company = company.get("name")
+    experience_list = personal_data.get("employment_history")
+    if experience_list and isinstance(experience_list, list):
+        last_workplace = experience_list[0]
+        if not position:
+            position = last_workplace.get("title")
+        if not company:
+            company = last_workplace.get("organization_name")
+    return company, position
+
+
 def create_person_from_apollo_personal_data(person: PersonDTO):
     row_dict = personal_data_repository.get_personal_data_row(person.uuid)
     if not row_dict or row_dict.get("apollo_status") == personal_data_repository.TRIED_BUT_FAILED:
@@ -111,28 +120,16 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
         logger.error(f"Personal data not found for {person.uuid}")
         return None
     personal_experience = personal_data.get("employment_history")
-    position = personal_data.get("title", "")
+    apollo_company, position = get_company_and_position_from_apollo_personal_data(personal_data)
     company = get_company_name_from_domain(person.email)
     if not company:
-        company = personal_data.get("organization", "")
-        if company:
-            company = company.get("name")
+        company = apollo_company
     linkedin_url = row_dict.get("linkedin_url")
     if not linkedin_url:
-        linkedin_url = personal_data.get("linkedin_url")
-        if not linkedin_url:
-            logger.error(f"LinkedIn URL not found for {person.uuid}")
-            return None
-    linkedin_url = fix_linkedin_url(linkedin_url)
+        logger.error(f"LinkedIn URL not found for {person.uuid}")
+    else:
+        linkedin_url = fix_linkedin_url(linkedin_url)
     logger.debug(f"Linkedin URL: {linkedin_url}")
-    if personal_experience and isinstance(personal_experience, list):
-        personal_experience = personal_experience[0]
-    if not position:
-        if personal_experience and isinstance(personal_experience, list):
-            workplace = personal_experience[0]
-            position = workplace.get("title")
-    if not company:
-        company = personal_experience.get("organization_name")
     person_name = personal_data.get("name", "") or personal_data.get("first_name") + " " + personal_data.get(
         "last_name"
     )
@@ -151,3 +148,28 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
     )
     logger.info(f"Person: {person}")
     return person
+
+
+def get_company_and_position_from_pdl_experience(personal_experience: dict) -> (str, str):
+    """
+    Get the company name from the experience section of the PDL personal data.
+
+    Args:
+        experience (dict): The experience section of the PDL personal data.
+
+    Returns:
+        str: The company name.
+    """
+    if personal_experience and isinstance(personal_experience, list):
+        personal_experience = personal_experience[0]
+    company = ""
+    position = ""
+
+    if personal_experience and isinstance(personal_experience, dict):
+        title_object = personal_experience.get("title")
+        if title_object and isinstance(title_object, dict):
+            position = title_object.get("name")
+            company_object = personal_experience.get("company")
+            if company_object and isinstance(company_object, dict):
+                company = company_object.get("name")
+    return company, position
