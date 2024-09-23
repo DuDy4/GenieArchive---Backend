@@ -61,7 +61,6 @@ class LangsmithConsumer(GenieConsumer):
         if profile:
             logger.info(f"Profile already exists: {profile}")
             return {"status": "success"}
-        self.profiles_repository.insert_profile_without_strengths_and_get_to_know(person)
         logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
         company_data = None
         company_dict = {}
@@ -83,7 +82,7 @@ class LangsmithConsumer(GenieConsumer):
             "get_to_know": response.get("get_to_know"),
         }
 
-        data_to_send = {"person": person, "profile": str(profile_strength_and_get_to_know)[:300]}
+        data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 
         logger.info(f"About to send event's data: {data_to_send}")
 
