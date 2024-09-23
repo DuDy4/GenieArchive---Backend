@@ -347,7 +347,7 @@ class PersonManager(GenieConsumer):
             event.send()
             return {"error": "Failed to get personal data"}
 
-        def update_profile_picture_url(person):
+        def update_profile_picture_url(person: PersonDTO):
             profile = self.profiles_repository.get_profile_data(person.uuid)
             if not profile:
                 logger.warning(f"Profile does not exist in database for person: {person}")
@@ -569,10 +569,12 @@ class PersonManager(GenieConsumer):
         fetched_personal_data = None
         if pdl_personal_data:
             fetched_personal_data = pdl_personal_data
-            person = create_person_from_pdl_personal_data(person)
+            new_person = create_person_from_pdl_personal_data(person)
+            person = new_person if new_person else person
         elif apollo_personal_data:
             fetched_personal_data = apollo_personal_data
-            person = create_person_from_apollo_personal_data(person)
+            new_person = create_person_from_apollo_personal_data(person)
+            person = new_person if new_person else person
         logger.debug(f"Person after verification: {person}")
         self.persons_repository.save_person(person)
         profile_exists = self.profiles_repository.exists(person.uuid)
