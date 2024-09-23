@@ -86,9 +86,14 @@ class Langsmith:
                     and isinstance(response, dict)
                     and (
                         response.get("best_practices") == []
+                        or not response.get("best_practices")
                         or isinstance(response.get("best_practices"), dict)
                         or response.get("avoid") == []
+                        or not response.get("avoid")
+                        or isinstance(response.get("avoid"), dict)
                         or response.get("phrases_to_use") == []
+                        or not response.get("phrases_to_use")
+                        or isinstance(response.get("phrases_to_use"), dict)
                     )
                 ):
                     logger.warning("Got wrong get-to-know from Langsmith - trying again")
