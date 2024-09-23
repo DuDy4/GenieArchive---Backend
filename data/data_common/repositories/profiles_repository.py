@@ -373,6 +373,9 @@ class ProfilesRepository:
             return None
 
     def update_profile_picture(self, uuid: str, picture_url: str):
+        if "https://static.licdn.com" in picture_url:
+            logger.info(f"Got static url for {uuid}. Skipping")
+            return
         update_query = """
         UPDATE profiles
         SET picture_url = %s
@@ -392,7 +395,7 @@ class ProfilesRepository:
         FROM profiles
         WHERE picture_url IS NULL OR picture_url = ''
          OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png'
-         OR picture_url ILIKE 'https://static.licdn.com%';
+         OR picture_url LIKE 'https://static.licdn.com%';
         """
         try:
             with self.conn.cursor() as cursor:
@@ -432,6 +435,51 @@ class ProfilesRepository:
                     return []
         except Exception as error:
             logger.error(f"Error fetching missing profiles: {error}")
+            traceback.print_exc()
+            return []
+
+    def get_all_profiles_without_company_name(self) -> list:
+        """
+        Get all profiles without company name, and return their ProfileDTO objects.
+        """
+        select_query = """
+        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url
+        FROM profiles
+        WHERE company IS NULL OR company = '';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                logger.info(f"Got {len(rows)} profiles without company name from database")
+                profiles = []
+                for row in rows:
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[8] if row[8] else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                    profile_data = (
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    profiles.append(ProfileDTO.from_tuple(profile_data))
+                return profiles
+        except Exception as error:
+            logger.error(f"Error fetching profiles without company name: {error}")
             traceback.print_exc()
             return []
 
