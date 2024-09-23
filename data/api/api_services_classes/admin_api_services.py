@@ -8,6 +8,7 @@ from data.data_common.dependencies.dependencies import (
     persons_repository,
     ownerships_repository,
     meetings_repository,
+    profiles_repository,
 )
 from common.genie_logger import GenieLogger
 import uuid
@@ -26,6 +27,7 @@ class AdminApiService:
         self.persons_repository = persons_repository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
+        self.profiles_repository = profiles_repository()
 
     def sync_profile(self, person_uuid):
         self.validate_uuid(person_uuid)
@@ -137,3 +139,18 @@ class AdminApiService:
             meeting.classification = classification
             self.meetings_repository.save_meeting(meeting)
             logger.info(f"Updated meeting {meeting.uuid} with classification {classification}")
+
+    def process_missing_profiles_from_existing_personal_data(self):
+        profiles_uuid = self.profiles_repository.get_missing_profiles()
+        logger.info(f"Found {len(profiles_uuid)} profiles without profile")
+        for profile_uuid in profiles_uuid:
+            logger.info(f"Syncing profile for {profile_uuid}")
+            result = self.sync_profile(profile_uuid)
+            if result.get("error"):
+                logger.error(f"Error syncing profile: {result}")
+                email = self.persons_repository.get_person(profile_uuid).email
+                result = self.sync_email(profile_uuid)
+                if result.get("error"):
+                    logger.error(f"Error syncing email: {result}")
+                else:
+                    logger.info(f"Email synced for {email}")
