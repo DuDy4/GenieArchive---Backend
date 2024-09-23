@@ -447,6 +447,25 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
+    def get_all_uuids_without_apollo(self) -> List[str]:
+        """
+        Retrieve all UUIDs without Apollo data.
+        """
+        select_query = """
+        SELECT uuid
+        FROM personalData
+        WHERE apollo_status IS NULL OR apollo_status = 'null'
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                uuids = cursor.fetchall()
+                return [uuid[0] for uuid in uuids]
+        except Exception as e:
+            logger.error(f"Error retrieving UUIDs without Apollo data: {e}", e)
+            traceback.format_exc()
+            return []
+
     def update_pdl_personal_data(self, uuid, personal_data, status="FETCHED", name=None):
         """
         Save personal data to the database.
