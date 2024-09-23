@@ -1,7 +1,8 @@
-from typing import List
 import asyncio
 import requests
+import re
 
+from typing import List
 from pydantic import BaseModel
 from common.genie_logger import GenieLogger
 
@@ -21,6 +22,17 @@ async def fetch_public_domains():
 
 
 PUBLIC_DOMAIN = asyncio.run(fetch_public_domains())
+
+def extract_email_from_url(url: str) -> str:
+    pattern = r'/([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/'
+    match = re.search(pattern, url)
+    
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
 
 
 def filter_email_objects(participants_emails):

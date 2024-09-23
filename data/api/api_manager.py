@@ -8,6 +8,7 @@ from fastapi.routing import APIRouter
 
 from common.utils import env_utils, email_utils, job_utils, jwt_utils
 from data.internal_services.tenant_service import TenantService
+from data.internal_services.files_upload_service import FileUploadService
 
 from starlette.responses import JSONResponse
 from google.oauth2.credentials import Credentials
@@ -45,7 +46,7 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
-from data.data_common.utils.str_utils import get_uuid4
+from data.data_common.utils.str_utils import get_uuid4, upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
 
 from data.api_services.meeting_manager import (
     process_agenda_to_all_meetings,
@@ -80,6 +81,55 @@ def test_google_token(token: str):
     logger.debug(f"Tokens: {tokens}")
     return tokens
 
+
+@v1_router.post("/file-uploaded")
+async def file_uploaded(request: Request, tenants_repository: TenantsRepository = Depends(tenants_repository)):
+    logger.info(f"New file uploaded")
+    uploaded_files = await request.json()
+    if not uploaded_files:
+        logger.error(f"Body not found in azure event")
+        return
+    logger.info(f"Event details: {uploaded_files}")
+    for file in uploaded_files:
+        file_data = file['data']
+        if not file_data:
+            logger.error(f"Data not found in azure event {uploaded_files}")
+            continue
+        logger.info(f"Event data: {file_data}")
+        user_email =  email_utils.extract_email_from_url(file_data['blobUrl'])
+        if not user_email:
+            logger.error(f"User email is not part of the blob")
+            continue
+        tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
+        if not tenant_id:
+            logger.error(f"Teanant ID not found the email: {user_email}")
+            continue
+        logger.set_tenant_id(tenant_id)
+        metadata = {"id": file['id'], "user": user_email, "tenant_id" : tenant_id, "type" : "uploaded_file"} 
+        GenieEvent(Topic.FILE_UPLOADED, {'event_data': file_data, 'metadata' : metadata}, "public").send()
+    
+
+
+@v1_router.post("/generate-upload-url")
+async def get_sas_token(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid""")
+    
+    body = await request.json()
+    if not body or not body['file_name']:
+        raise HTTPException(status_code=401, detail=f"""Missing filename""")
+    file_name = body['file_name']
+    if not upload_file_name_validation(file_name):
+        raise HTTPException(status_code=400, detail=f"File name not supported. Must be: 1. Less than {MAX_FILE_NAME_LENGTH} characters 2. No special characters. 3. Only extensions supported: {ALLOWED_EXTENSIONS}")
+
+    upload_url = FileUploadService.generate_upload_url(tenant_id, file_name)
+    logger.info(f"Succesfullly create update url: {upload_url}")
+    if upload_url:
+        return JSONResponse(content={"upload_url": upload_url})
+    else:
+        raise HTTPException(status_code=500, detail="Failed to generate upload url")
+    
 
 @v1_router.post("/successful-login")
 async def post_successful_login(
@@ -968,6 +1018,7 @@ def sync_email(
     if not tenants or len(tenants) == 0:
         logger.error(f"Person does not have any tenants: {person_uuid}")
         return JSONResponse(content={"error": "Person does not have any tenants"})
+    logger.set_tenant_id(tenants[0])
     event = GenieEvent(
         topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
         data=json.dumps(
@@ -1122,6 +1173,7 @@ def fetch_google_meetings(
         return JSONResponse(content={"message": "No upcoming events found."})
     tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
     data_to_send = {"tenant_id": tenant_id, "meetings": meetings}
+    logger.set_tenant_id(tenant_id)
     event = GenieEvent(
         topic=Topic.NEW_MEETINGS_TO_PROCESS,
         data=data_to_send,
@@ -1225,4 +1277,9 @@ def get_tenant_id_to_impersonate(
         else:
             logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
     logger.info(f"User is not impersonating tenant")
+    return None
+
+def get_request_state_value(request: Request, key: str) -> str:
+    if request and request.state and hasattr(request.state, key):
+        return getattr(request.state, key)
     return None

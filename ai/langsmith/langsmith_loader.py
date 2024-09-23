@@ -10,6 +10,7 @@ from langchain import hub
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+from data.api_services.embeddings import EmbeddingsClient
 
 logger = GenieLogger()
 load_dotenv()
@@ -20,6 +21,7 @@ class Langsmith:
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = "https://api.langsmith.com/v1"
         self.model = ChatOpenAI(model="gpt-4o")
+        self.embeddings_client = EmbeddingsClient()
 
     async def get_profile(self, person_data, company_data=None):
         # Run the two prompts concurrently
@@ -120,12 +122,13 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
-    def run_prompt_get_meeting_goals(self, personal_data, my_company_data, call_info={}):
-        prompt = hub.pull("get_meeting_goals")
+    def run_prompt_get_meeting_goals(self, personal_data, my_company_data, seller_context, call_info={}):
+        prompt = hub.pull("get_meeting_goals_w_context")
         arguments = {
             "personal_data": personal_data,
             "my_company_data": my_company_data,
             "info": call_info,
+            "seller_context" : seller_context
         }
         response = None
         try:
@@ -147,13 +150,14 @@ class Langsmith:
                     response = []
             return response
 
-    def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, case={}):
-        prompt = hub.pull("get_meeting_guidelines")
+    def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, seller_context, case={}):
+        prompt = hub.pull("get_meeting_guidelines_w_context")
         arguments = {
             "customer_strengths": customer_strengths,
             "meeting_details": meeting_details,
             "meeting_goals": meeting_goals,
             "case": case,
+            "seller_context" : seller_context
         }
 
         try:

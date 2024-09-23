@@ -1,0 +1,101 @@
+import os
+import requests
+from dotenv import load_dotenv
+from common.genie_logger import GenieLogger
+from common.utils import env_utils
+from langchain_openai import OpenAIEmbeddings
+from pinecone import Pinecone, ServerlessSpec
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from transformers import AutoTokenizer, AutoModel
+import torch
+from pinecone import Pinecone
+
+# Load the tokenizer and model from Hugging Face
+model_name = "intfloat/multilingual-e5-large"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+
+embeddings_model = OpenAIEmbeddings()
+
+load_dotenv()
+logger = GenieLogger()
+
+
+PINECONE_API_KEY = env_utils.get("PINECONE_API_KEY")
+PINECONE_INDEX = 'users-file-uploads'
+model_name = "intfloat/multilingual-e5-large"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+pc = Pinecone(api_key=PINECONE_API_KEY)
+index = pc.Index(PINECONE_INDEX)
+
+
+class EmbeddingsClient:
+    def __init__(self):
+        self.api_key = env_utils.get("LANGSMITH_API_KEY")
+
+        if not self.api_key:
+            raise ValueError("LangSmith API key is missing. Please set it in the .env file.")
+
+
+    def embed_document(self, doc_text, metadata):
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        chunks = text_splitter.split_text(doc_text)
+
+        embeddings = self.generate_embeddings(chunks)
+        vector_id = metadata["id"] 
+
+        correct_metadata = {
+            "user": metadata.get("user"),
+            "tenant_id": metadata.get("tenant_id"),
+            "type": metadata.get("type")
+        }
+
+        ids = [f"{vector_id}_{i}" for i in range(len(embeddings))] 
+        pinecone_metadata = [{**correct_metadata, 'chunk': chunk} for chunk in chunks]
+
+        index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
+    
+    def generate_embeddings(self, text: str):
+        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+        with torch.no_grad():
+            model_output = model(**inputs)
+        
+        embeddings = model_output.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+        
+        return embeddings
+    
+
+    def search_materials_by_prospect_data(self, user_id, prospect_data):
+        profile_query = f"""
+            What are the best materials to use in order generate to sell to that person. Any information regarding.
+            Any information, regarding my product, my use cases, my competitve landscape,etc..  would be highly beneficial.
+            Here's the prospect data: {prospect_data}
+        """
+        return self.search_by_query_and_user(profile_query, user_id)
+
+    def search_by_query_and_user(self, query_text, user_id, top_k=5):
+        query_embedding = self.generate_embeddings(query_text)
+
+        query_embedding_list = query_embedding.tolist()  # Convert ndarray to list
+
+        results = index.query(
+            vector=query_embedding_list,  
+            top_k=top_k,
+            include_metadata=True,
+            filter={
+                "user": user_id
+            }  
+        )
+
+        chunks_text = []
+        if results:
+            logger.info(f"Returned {len(results['matches'])} embedding vectors for user {user_id}")
+            chunks = results['matches']
+            for chunk in chunks:
+                chunks_text.append(chunk['metadata']['chunk'])
+        else:
+            logger.info(f"No results returned for user {user_id}")
+        return chunks_text
+
+

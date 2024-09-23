@@ -18,7 +18,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
-
+DEFAULT_PROFILE_PICTURE = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
 class ProfilesRepository:
     def __init__(self, conn):
@@ -117,7 +117,7 @@ class ProfilesRepository:
                     company = row[2]
                     position = row[3]
                     summary = row[8] if row[8] else None
-                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else DEFAULT_PROFILE_PICTURE
                     strengths = [Strength.from_dict(item) for item in row[4]]
                     hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                     connections = [Connection.from_dict(item) for item in row[6]]
@@ -387,11 +387,11 @@ class ProfilesRepository:
             raise Exception(f"Error updating picture, because: {error.pgerror}")
 
     def get_all_profiles_without_profile_picture(self) -> list:
-        select_query = """
+        select_query = f"""
         SELECT uuid
         FROM profiles
         WHERE picture_url IS NULL OR picture_url = ''
-         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png'
+         OR picture_url = '{DEFAULT_PROFILE_PICTURE}'
          OR picture_url ILIKE 'https://static.licdn.com%';
         """
         try:
@@ -472,7 +472,7 @@ class ProfilesRepository:
             profile_dict["summary"] if profile_dict["summary"] else "",
             str(profile_dict["picture_url"])
             if profile_dict["picture_url"]
-            else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png",
+            else DEFAULT_PROFILE_PICTURE,
         )
 
         try:
@@ -520,11 +520,11 @@ class ProfilesRepository:
             raise Exception(f"Error updating profile, because: {error.pgerror}")
 
     def get_all_profiles_pictures(self):
-        select_query = """
+        select_query = f"""
         SELECT name, picture_url
         FROM profiles
         WHERE not(picture_url IS NULL OR picture_url = ''
-         OR picture_url = 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png');
+         OR picture_url = '{DEFAULT_PROFILE_PICTURE}');
         """
         try:
             with self.conn.cursor() as cursor:
