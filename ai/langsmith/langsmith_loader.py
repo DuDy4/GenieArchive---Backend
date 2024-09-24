@@ -1,13 +1,14 @@
 import asyncio
 import json
 import os
-
+import random
 
 from common.utils import env_utils
 
 # from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
+from langsmith.utils import LangSmithConnectionError
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 
@@ -26,6 +27,7 @@ class Langsmith:
         logger.info("Running Langsmith prompts")
         logger.debug(f"Person data: {person_data.keys()}")
         strengths = await self.run_prompt_strength(person_data)
+        logger.info(f"Strengths from Langsmith: {strengths}")
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
@@ -46,39 +48,31 @@ class Langsmith:
 
     async def run_prompt_strength(self, person_data):
         prompt = hub.pull("get_strengths")
+        runnable = prompt | self.model
+        arguments = person_data
+
         try:
-            runnable = prompt | self.model
-            response = runnable.invoke(person_data)
-            if response and isinstance(response, list) and len(response) == 0:
-                response = runnable.invoke(person_data)
+            response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
-        logger.debug(f"Got strengths from Langsmith")
+
+        logger.debug(f"Got strengths from Langsmith: {response}")
         return response
 
     async def run_prompt_get_to_know(self, person_data, company_data=None):
         prompt = hub.pull("dos-and-donts")
+        runnable = prompt | self.model
+        arguments = {
+            "personal_data": person_data.get("personal_data", "not found"),
+            "person_background": person_data.get("background", "not found"),
+            "strengths": person_data.get("strengths", "not found"),
+            "hobbies": person_data.get("hobbies", "not found"),
+            "news": company_data.get("news", "not found") if company_data else "not found",
+            "product_data": person_data.get("product_data", "not found"),
+            "company_data": company_data if company_data else "not found",
+        }
         try:
-            runnable = prompt | self.model
-            arguments = {
-                "personal_data": person_data.get("personal_data")
-                if person_data.get("personal_data")
-                else "not found",
-                "person_background": person_data.get("background")
-                if person_data.get("background")
-                else "not found",
-                "strengths": person_data.get("strengths") if person_data.get("strengths") else "not found",
-                "hobbies": person_data.get("hobbies") if person_data.get("hobbies") else "not found",
-                "news": company_data.get("news")
-                if company_data and company_data.get("news")
-                else "not found",
-                "product_data": person_data.get("product_data")
-                if person_data.get("product_data")
-                else "not found",
-                "company_data": company_data if company_data else "not found",
-            }
-            # logger.debug(f"Arguments for get-to-know: {arguments}")
-            response = runnable.invoke(arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
             logger.debug(f"Response from get-to-know: {response}")
             for i in range(5):
                 if (
@@ -104,10 +98,10 @@ class Langsmith:
                 else:
                     break
             logger.info("Got get-to-know from Langsmith: " + str(response))
-            # if response and isinstance(response, dict) and response.get("best_practices") == []:
-            #     return await self.run_prompt_get_to_know(person_data)
         except Exception as e:
             response = f"Error: {e}"
+
+        logger.info(f"Got get-to-know from Langsmith: {response}")
         return response
 
     def run_prompt_linkedin_url(self, email_address, company_data=None):
@@ -141,7 +135,7 @@ class Langsmith:
         response = None
         try:
             runnable = prompt | self.model
-            response = runnable.invoke(arguments)
+            response = self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
@@ -166,13 +160,18 @@ class Langsmith:
             "meeting_goals": meeting_goals,
             "case": case,
         }
-
+        response = None
         try:
             runnable = prompt | self.model
-            response = runnable.invoke(arguments)
+            response = self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
+            if not response:
+                logger.error("Meeting guidelines response returned None")
+                response = self.run_prompt_get_meeting_goals(
+                    customer_strengths, meeting_details, meeting_goals
+                )
             logger.debug(f"Got meeting guidelines from Langsmith: {response}")
             while True:
                 if isinstance(response, dict) and response.get("guidelines"):
@@ -190,3 +189,29 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
+
+    async def _run_prompt_with_retry(self, runnable, arguments, max_retries=5, base_wait=2):
+        for attempt in range(max_retries):
+            try:
+                response = runnable.invoke(arguments)
+                if response:  # If successful, return the response
+                    return response
+            except LangSmithConnectionError as e:  # Handling specific connection error from LangSmith
+                logger.error(f"LangSmithConnectionError encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:  # Only wait if we have retries left
+                    wait_time = base_wait * (2**attempt) + random.uniform(
+                        0, 1
+                    )  # Exponential backoff with jitter
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise e  # Raise exception if retries are exhausted
+            except Exception as e:
+                logger.error(f"General error encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2**attempt) + random.uniform(0, 1)
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise e  # Raise exception if retries are exhausted
+        raise Exception("Max retries exceeded")

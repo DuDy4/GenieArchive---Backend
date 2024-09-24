@@ -393,8 +393,6 @@ class CompaniesRepository:
         WHERE uuid = %s
         """
 
-        logger.info(f"About to update company: {update_query}")
-
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, tuple(values))
