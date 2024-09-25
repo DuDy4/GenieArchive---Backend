@@ -393,7 +393,7 @@ class MeetingManager(GenieConsumer):
             if tenant_id:
                 seller_email = self.tenant_repository.get_tenant_email(tenant_id)
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, profile)
-                seller_context = " || ".join(seller_context)
+                seller_context = " || ".join(seller_context) if seller_context else None
             agendas = self.langsmith.run_prompt_get_meeting_guidelines(
                 customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals, seller_context=seller_context
             )
@@ -420,7 +420,7 @@ class MeetingManager(GenieConsumer):
             event_body = json.loads(event_body)
         meeting_uuid = event_body.get("meeting_uuid")
         seller_context = event_body.get("seller_context")
-        seller_context = " || ".join(seller_context)
+        seller_context = " || ".join(seller_context) if seller_context else None
         if not meeting_uuid:
             logger.error("No meeting uuid in event")
             return
