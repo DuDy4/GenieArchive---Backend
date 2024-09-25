@@ -275,7 +275,7 @@ class MeetingManager(GenieConsumer):
             seller_context = None
             if seller_email:
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
-                seller_context = " || ".join(seller_context)
+                seller_context = " || ".join(seller_context) if seller_context else None
             meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
                 personal_data=personal_data, my_company_data=self_company, seller_context=seller_context
             )
@@ -339,7 +339,7 @@ class MeetingManager(GenieConsumer):
                     logger.error(f"No personal data found for {email}")
                     continue
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(self_email, personal_data)
-                seller_context = " || ".join(seller_context)
+                seller_context = " || ".join(seller_context) if seller_context else None
                 logger.debug(f"Got personal data for {email}: {str(personal_data)[:300]}")
                 meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
                     personal_data=personal_data, my_company_data=company, seller_context=seller_context
