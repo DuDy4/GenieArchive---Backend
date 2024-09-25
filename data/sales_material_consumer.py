@@ -16,7 +16,7 @@ from common.utils.file_utils import  (
 )
 from data.internal_services.files_upload_service import FileUploadService
 
-from data.api_services.embeddings import EmbeddingsClient
+from data.api_services.embeddings import GenieEmbeddingsClient
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 load_dotenv()
@@ -35,7 +35,7 @@ class SalesMaterialConsumer(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.embeddings_client = EmbeddingsClient()
+        self.embeddings_client = GenieEmbeddingsClient()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")

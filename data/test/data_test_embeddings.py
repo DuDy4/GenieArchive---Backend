@@ -4,12 +4,12 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from data.api_services.embeddings import EmbeddingsClient
+from data.api_services.embeddings import GenieEmbeddingsClient
 from data.internal_services.files_upload_service import FileUploadService
 
 
 def test_pinecone_query():
-    embeddings_client = EmbeddingsClient()
+    embeddings_client = GenieEmbeddingsClient()
     user = "asaf@genieai.ai"
     query = "What's are asaf's main strengths?"
     answers = embeddings_client.search_by_query_and_user(query, user)
@@ -54,7 +54,7 @@ def test_doc_embeddings():
             The next day, Bob returned to the Techno-Con, hoping to return the AI kit. But when he explained what had happened, the clerk just smiled and said, “Yeah, they tend to do that. Most people give up after the first vacuum incident.
             Bob walked out of the store, having learned a valuable lesson: just because you can have AI doesn’t mean you should have AI. And maybe, just maybe, Bob would stick to something a little more manageable next time — like learning to brew a decent cup of coffee.
             And thus, Bob’s short-lived career as an “AI whisperer” came to an end. Bitville went back to normal, and Bob? Well, he now had the cleanest house in town — and a newfound appreciation for the simplicity of brooms. '''
-    embeddings_client = EmbeddingsClient()
+    embeddings_client = GenieEmbeddingsClient()
     user = "asaf@genieai.ai"
     embeddings_client.embed_document(text, 
                                     metadata={"id" : "123-321", "user" : user, "tenant_id" : "org_aaa", "type" : "uploaded_file"})

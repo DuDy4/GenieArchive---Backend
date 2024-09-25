@@ -1,36 +1,42 @@
-import os
-import requests
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 from common.utils import env_utils
-from langchain_openai import OpenAIEmbeddings
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from transformers import AutoTokenizer, AutoModel
-import torch
+from azure.ai.inference import EmbeddingsClient
+from azure.core.credentials import AzureKeyCredential
+
 from pinecone import Pinecone
 
-# Load the tokenizer and model from Hugging Face
-model_name = "intfloat/multilingual-e5-large"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
-
-embeddings_model = OpenAIEmbeddings()
 
 load_dotenv()
 logger = GenieLogger()
 
+endpoint = env_utils.get("AZURE_INFERENCE_ENDPOINT")
+credential = env_utils.get("AZURE_INFERENCE_CREDENTIAL")
+
+if not endpoint or not credential:
+    logger.error(f"Endpoint or Credential missing: Endpoint={endpoint}, Credential={credential}")
+    raise ValueError("Azure endpoint or credential is missing.")
+
 
 PINECONE_API_KEY = env_utils.get("PINECONE_API_KEY")
 PINECONE_INDEX = 'users-file-uploads'
+from azure.ai.inference import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
+
+embeddings_model = EmbeddingsClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(credential),
+)
 model_name = "intfloat/multilingual-e5-large"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
+# model = AutoModel.from_pretrained(model_name)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX)
 
 
-class EmbeddingsClient:
+class GenieEmbeddingsClient:
     def __init__(self):
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
 
@@ -50,20 +56,21 @@ class EmbeddingsClient:
             "tenant_id": metadata.get("tenant_id"),
             "type": metadata.get("type")
         }
-
-        ids = [f"{vector_id}_{i}" for i in range(len(embeddings))] 
+        embeddings_data = [embedding['embedding'] for embedding in embeddings]
+        ids = [f"{vector_id}_{i}" for i in range(len(embeddings_data))] 
         pinecone_metadata = [{**correct_metadata, 'chunk': chunk} for chunk in chunks]
 
-        index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
+        index.upsert(vectors=list(zip(ids, embeddings_data, pinecone_metadata)))
     
-    def generate_embeddings(self, text: str):
-        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-        with torch.no_grad():
-            model_output = model(**inputs)
+    def generate_embeddings(self, text: list[str]):
+        # inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+        # with torch.no_grad():
+        #     model_output = model(**inputs)
         
-        embeddings = model_output.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
-        
-        return embeddings
+        # embeddings = model_output.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+        response = embeddings_model.embed(input=text)
+        return response.data
+        # return embeddings
     
 
     def search_materials_by_prospect_data(self, user_id, prospect_data):
@@ -97,5 +104,3 @@ class EmbeddingsClient:
         else:
             logger.info(f"No results returned for user {user_id}")
         return chunks_text
-
-

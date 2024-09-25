@@ -24,7 +24,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, Agend
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.api_services.embeddings import EmbeddingsClient
+from data.api_services.embeddings import GenieEmbeddingsClient
 
 import requests
 from common.genie_logger import GenieLogger
@@ -77,7 +77,7 @@ class MeetingManager(GenieConsumer):
         self.tenant_repository = tenants_repository()
         self.profiles_repository = profiles_repository()
         self.langsmith = Langsmith()
-        self.embeddings_client = EmbeddingsClient()
+        self.embeddings_client = GenieEmbeddingsClient()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
