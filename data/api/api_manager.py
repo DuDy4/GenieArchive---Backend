@@ -17,10 +17,11 @@ from data.api.api_services_classes.meetings_api_services import MeetingsApiServi
 from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
+from data.api.api_services_classes.user_materials_services import UserMaterialServices
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
-from data.data_common.utils.str_utils import get_uuid4, upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
+from data.data_common.utils.str_utils import upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -42,35 +43,17 @@ admin_api_service = AdminApiService()
 
 
 @v1_router.post("/file-uploaded")
-async def file_uploaded(request: Request, tenants_repository: TenantsRepository = Depends(tenants_repository)):
+async def file_uploaded(request: Request):
     logger.info(f"New file uploaded")
     uploaded_files = await request.json()
     if not uploaded_files:
         logger.error(f"Body not found in azure event")
         return
-    logger.info(f"Event details: {uploaded_files}")
-    for file in uploaded_files:
-        file_data = file['data']
-        if not file_data:
-            logger.error(f"Data not found in azure event {uploaded_files}")
-            continue
-        logger.info(f"Event data: {file_data}")
-        user_email =  email_utils.extract_email_from_url(file_data['blobUrl'])
-        if not user_email:
-            logger.error(f"User email is not part of the blob")
-            continue
-        tenant_id = tenants_repository.get_tenant_id_by_email(user_email)
-        if not tenant_id:
-            logger.error(f"Teanant ID not found the email: {user_email}")
-            continue
-        logger.set_tenant_id(tenant_id)
-        metadata = {"id": file['id'], "user": user_email, "tenant_id" : tenant_id, "type" : "uploaded_file"} 
-        GenieEvent(Topic.FILE_UPLOADED, {'event_data': file_data, 'metadata' : metadata}, "public").send()
+    UserMaterialServices.file_uploaded(uploaded_files)
     
 
-
 @v1_router.post("/generate-upload-url")
-async def get_sas_token(request: Request):
+async def get_file_upload_url(request: Request):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
         raise HTTPException(status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid""")
@@ -79,15 +62,8 @@ async def get_sas_token(request: Request):
     if not body or not body['file_name']:
         raise HTTPException(status_code=401, detail=f"""Missing filename""")
     file_name = body['file_name']
-    if not upload_file_name_validation(file_name):
-        raise HTTPException(status_code=400, detail=f"File name not supported. Must be: 1. Less than {MAX_FILE_NAME_LENGTH} characters 2. No special characters. 3. Only extensions supported: {ALLOWED_EXTENSIONS}")
-
-    upload_url = FileUploadService.generate_upload_url(tenant_id, file_name)
-    logger.info(f"Succesfullly create update url: {upload_url}")
-    if upload_url:
-        return JSONResponse(content={"upload_url": upload_url})
-    else:
-        raise HTTPException(status_code=500, detail="Failed to generate upload url")
+    upload_url = UserMaterialServices.generate_upload_url(tenant_id, file_name)
+    return JSONResponse(content={"upload_url": upload_url})
     
 
 @v1_router.post("/successful-login")
