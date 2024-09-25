@@ -36,19 +36,16 @@ def process_meeting_from_scratch(meeting: MeetingDTO):
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
             data={"tenant_id": meeting.tenant_id, "email": email},
-            scope="public",
         )
         event.send()
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": meeting.tenant_id, "email": email},
-            scope="public",
         )
         event.send()
     event = GenieEvent(
         topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
         data={"tenant_id": meeting.tenant_id, "email": self_email},
-        scope="public",
     )
     event.send()
     return {"status": "success"}

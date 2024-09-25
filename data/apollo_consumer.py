@@ -87,12 +87,7 @@ class ApolloConsumer(GenieConsumer):
             logger.debug(f"Personal data: {str(apollo_personal_data_from_db)[:300]}")
             person = create_person_from_apollo_personal_data(person)
             self.persons_repository.save_person(person)
-            # logger.error(f"To avoid loops, stopping here")
-            event = GenieEvent(
-                topic=Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
-                data={"person": person.to_dict()},
-                scope="public",
-            )
+            event = GenieEvent(topic=Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA, data={"person": person.to_dict()})
             event.send()
             return {"status": "ok"}
 
@@ -110,7 +105,6 @@ class ApolloConsumer(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
                 data={"person": person.to_dict(), "email": person.email},
-                scope="public",
             )
             event.send()
             return {"error": "Failed to get personal data"}
@@ -154,7 +148,6 @@ class ApolloConsumer(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 data={"person": person.to_dict(), "email": person.email},
-                scope="public",
             )
             event.send()
             return {"error": "Failed to get personal data"}
@@ -164,6 +157,9 @@ class ApolloConsumer(GenieConsumer):
         # The method return success status
 
     def handle_successful_data_fetch(self, person: PersonDTO, apollo_personal_data: dict):
+        if not person:
+            logger.error(f"Unexpected error: person is None")
+            return {"error": "Person not found"}
         self.personal_data_repository.save_apollo_personal_data(person, apollo_personal_data)
         person = create_person_from_apollo_personal_data(person)
         logger.info(f"Person after creating from apollo data: {person}")
@@ -171,11 +167,7 @@ class ApolloConsumer(GenieConsumer):
         self.personal_data_repository.update_name_in_personal_data(person.uuid, person.name)
         self.personal_data_repository.update_linkedin_url(person.uuid, person.linkedin)
 
-        event = GenieEvent(
-            topic=Topic.APOLLO_UPDATED_ENRICHED_DATA,
-            data={"person": person.to_dict()},
-            scope="public",
-        )
+        event = GenieEvent(topic=Topic.APOLLO_UPDATED_ENRICHED_DATA, data={"person": person.to_dict()})
         event.send()
         logger.info(f"Sent new person event: {person}")
         return {"status": "success"}

@@ -373,6 +373,9 @@ class ProfilesRepository:
             return None
 
     def update_profile_picture(self, uuid: str, picture_url: str):
+        if "https://static.licdn.com" in picture_url:
+            logger.info(f"Got static url for {uuid}. Skipping")
+            return
         update_query = """
         UPDATE profiles
         SET picture_url = %s
@@ -409,6 +412,100 @@ class ProfilesRepository:
             traceback.print_exc()
             return []
 
+    def get_missing_profiles(self) -> list:
+        select_query = """
+        SELECT pd.uuid
+        FROM personalData pd
+        WHERE NOT EXISTS (
+            SELECT 1
+        FROM profiles p
+        WHERE p.uuid = pd.uuid
+        )
+        AND NOT (pd.pdl_status = 'TRIED_BUT_FAILED' AND pd.apollo_status = 'TRIED_BUT_FAILED');
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} missing profiles from database")
+                    return [row[0] for row in rows]
+                else:
+                    logger.info(f"Could not find missing profiles")
+                    return []
+        except Exception as error:
+            logger.error(f"Error fetching missing profiles: {error}")
+            traceback.print_exc()
+            return []
+
+    def get_all_profiles_without_company_name(self) -> list:
+        """
+        Get all profiles without company name, and return their ProfileDTO objects.
+        """
+        select_query = """
+        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url
+        FROM profiles
+        WHERE company IS NULL OR company = '';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                logger.info(f"Got {len(rows)} profiles without company name from database")
+                profiles = []
+                for row in rows:
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[8] if row[8] else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                    profile_data = (
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    profiles.append(ProfileDTO.from_tuple(profile_data))
+                return profiles
+        except Exception as error:
+            logger.error(f"Error fetching profiles without company name: {error}")
+            traceback.print_exc()
+            return []
+
+    def insert_profile_without_strengths_and_get_to_know(self, person_data):
+        insert_query = """
+        INSERT INTO profiles (uuid, name, company, position)
+        VALUES (%s, %s, %s, %s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    insert_query,
+                    (
+                        person_data["uuid"],
+                        person_data["name"],
+                        person_data["company"],
+                        person_data["position"],
+                    ),
+                )
+                self.conn.commit()
+                logger.info(f"Inserted profile without strengths and get to know to database")
+        except psycopg2.Error as error:
+            raise Exception(
+                f"Error inserting profile without strengths and get to know, because: {error.pgerror}"
+            )
+
     def update_hobbies_by_email(self, email: str, hobbies: list[str]):
         update_query = """
         UPDATE profiles
@@ -444,6 +541,34 @@ class ProfilesRepository:
                 logger.info(f"Updated connections for {email}")
         except psycopg2.Error as error:
             raise Exception(f"Error updating connections, because: {error.pgerror}")
+
+    def update_strengths(self, uuid, strengths):
+        update_query = """
+        UPDATE profiles
+        SET strengths = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(strengths), uuid))
+                self.conn.commit()
+                logger.info(f"Updated strengths for {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating strengths, because: {error.pgerror}")
+
+    def update_get_to_know(self, uuid, get_to_know):
+        update_query = """
+        UPDATE profiles
+        SET get_to_know = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(get_to_know), uuid))
+                self.conn.commit()
+                logger.info(f"Updated get to know for {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating get to know, because: {error.pgerror}")
 
     def _insert(self, profile: ProfileDTO) -> Union[str, None]:
         insert_query = """

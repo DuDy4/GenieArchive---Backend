@@ -145,7 +145,7 @@ class ProfileDTO(BaseModel):
     uuid: UUID
     name: str
     company: str
-    position: str
+    position: Optional[str] = None
     summary: Optional[str] = None
     picture_url: Optional[HttpUrl] = None
     get_to_know: Optional[Dict[str, List[Phrase]]] = Field(

@@ -11,7 +11,6 @@ def data_test_new_goals():
     event = GenieEvent(
         topic=Topic.NEW_MEETING_GOALS,
         data='{"meeting_uuid": "f7566f30-a294-4018-9371-5ec03e15c70d"}',
-        scope="public",
     )
     assert event
     event.send()
@@ -22,7 +21,6 @@ def data_test_new_goals2():
     event = GenieEvent(
         topic=Topic.NEW_MEETING_GOALS,
         data='{"meeting_uuid": "52b18895-6ade-4a3b-a8da-18bb39b88329"}',
-        scope="public",
     )
     assert event
     event.send()

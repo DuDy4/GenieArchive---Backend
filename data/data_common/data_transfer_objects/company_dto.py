@@ -321,7 +321,7 @@ class CompanyDTO:
             founded_year=data.get("founded_year", None),
             size=str(data.get("estimated_num_employees", None)),
             industry=titleize_values(data.get("industry", None)),
-            description=titleize_values(data.get("seo_description", None)),
+            description=titleize_values(data.get("seo_description") or data.get("short_description") or ""),
             overview=None,
             challenges=[],
             technologies=technologies,

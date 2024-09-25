@@ -2,9 +2,10 @@ import requests
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+import os
+import time
 
 logger = GenieLogger()
-import os
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,6 +28,38 @@ class ApolloClient:
             "X-Api-Key": self.api_key,
         }
 
+    def _handle_rate_limit(self, response):
+        """
+        Handles the rate-limiting logic by checking the `Retry-After` header.
+        If the header is present, waits for the specified time. If not, uses
+        exponential backoff.
+        """
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 1))  # Fallback to 1 second if not present
+            logger.warning(f"Rate limited. Retrying after {retry_after} seconds...")
+            time.sleep(retry_after)
+            return True
+        return False
+
+    def _send_request_with_retries(self, url, data, max_retries=5):
+        """
+        Sends a POST request with retry logic in case of 429 Too Many Requests.
+        """
+        retries = 0
+        backoff_time = 1  # Start with a 1-second delay
+
+        while retries < max_retries:
+            response = requests.post(url, headers=self.headers, json=data)
+            if response.status_code == 429:
+                if self._handle_rate_limit(response):
+                    retries += 1
+                    backoff_time *= 2  # Exponentially increase backoff time
+                continue
+            else:
+                return response
+        logger.error(f"Max retries reached for URL: {url}")
+        return None
+
     def enrich_person(self, person: PersonDTO):
         """
         Enrich person information by sending emails to the Apollo API.
@@ -47,7 +80,10 @@ class ApolloClient:
 
         try:
             logger.debug(f"Sending request to Apollo: {data}")
-            response = requests.post(url, headers=self.headers, json=data)
+            response = self._send_request_with_retries(url, data)
+            if response is None:
+                return None  # Max retries reached
+
             response.raise_for_status()  # Raise an error for bad responses
             result = response.json()
             result_status = result.get("status")
