@@ -1,8 +1,4 @@
-import json
-import uuid
-
 from common.utils import email_utils
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, evaluate_meeting_classification
 from data.data_common.dependencies.dependencies import (
     tenants_repository,
     google_creds_repository,
@@ -12,10 +8,9 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
 )
 from common.genie_logger import GenieLogger
-from data.data_common.utils.str_utils import upload_file_name_validation
 from data.internal_services.files_upload_service import FileUploadService
 from fastapi import HTTPException
-
+from data.data_common.utils.str_utils import upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
