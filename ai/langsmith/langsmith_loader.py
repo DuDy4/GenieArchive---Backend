@@ -125,7 +125,7 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
-    def run_prompt_get_meeting_goals(self, personal_data, my_company_data, call_info={}):
+    async def run_prompt_get_meeting_goals(self, personal_data, my_company_data, call_info={}):
         prompt = hub.pull("get_meeting_goals")
         arguments = {
             "personal_data": personal_data,
@@ -135,7 +135,7 @@ class Langsmith:
         response = None
         try:
             runnable = prompt | self.model
-            response = self._run_prompt_with_retry(runnable, arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
@@ -152,7 +152,9 @@ class Langsmith:
                     response = []
             return response
 
-    def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, case={}):
+    async def run_prompt_get_meeting_guidelines(
+        self, customer_strengths, meeting_details, meeting_goals, case={}
+    ):
         prompt = hub.pull("get_meeting_guidelines")
         arguments = {
             "customer_strengths": customer_strengths,
@@ -163,14 +165,14 @@ class Langsmith:
         response = None
         try:
             runnable = prompt | self.model
-            response = self._run_prompt_with_retry(runnable, arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
             if not response:
                 logger.error("Meeting guidelines response returned None")
-                response = self.run_prompt_get_meeting_goals(
-                    customer_strengths, meeting_details, meeting_goals
+                response = self.run_prompt_get_meeting_guidelines(
+                    customer_strengths, meeting_details, meeting_goals, case
                 )
             logger.debug(f"Got meeting guidelines from Langsmith: {response}")
             while True:

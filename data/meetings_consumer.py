@@ -267,8 +267,8 @@ class MeetingManager(GenieConsumer):
                     f"CRITICAL ERROR - no personal data were found after an event that announced they were updated"
                 )
                 continue
-
-            meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
+            logger.info(f"About to run ask langsmith for meeting goals for meeting {meeting.uuid}")
+            meetings_goals = await self.langsmith.run_prompt_get_meeting_goals(
                 personal_data=personal_data, my_company_data=self_company
             )
             if not meetings_goals:
@@ -330,7 +330,8 @@ class MeetingManager(GenieConsumer):
                     logger.error(f"No personal data found for {email}")
                     continue
                 logger.debug(f"Got personal data for {email}: {str(personal_data)[:300]}")
-                meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
+                logger.info(f"About to run ask langsmith for meeting goals for meeting {meeting.uuid}")
+                meetings_goals = await self.langsmith.run_prompt_get_meeting_goals(
                     personal_data=personal_data, my_company_data=company
                 )
                 logger.info(f"Meetings goals: {meetings_goals}")
@@ -376,7 +377,7 @@ class MeetingManager(GenieConsumer):
             logger.debug(f"Meeting goals: {meeting_goals}")
             meeting_details = meeting.to_dict()
             logger.info("About to run ask langsmith for guidelines")
-            agendas = self.langsmith.run_prompt_get_meeting_guidelines(
+            agendas = await self.langsmith.run_prompt_get_meeting_guidelines(
                 customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
             )
             logger.info(f"Meeting agenda: {agendas}")
@@ -434,7 +435,7 @@ class MeetingManager(GenieConsumer):
                 continue
             meeting_details = meeting.to_dict()
             logger.info("About to run ask langsmith for guidelines")
-            agendas = self.langsmith.run_prompt_get_meeting_guidelines(
+            agendas = await self.langsmith.run_prompt_get_meeting_guidelines(
                 customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
             )
             logger.info(f"Meeting agenda: {agendas}")
