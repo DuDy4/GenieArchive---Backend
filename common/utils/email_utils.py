@@ -23,16 +23,15 @@ async def fetch_public_domains():
 
 PUBLIC_DOMAIN = asyncio.run(fetch_public_domains())
 
+
 def extract_email_from_url(url: str) -> str:
-    pattern = r'/([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/'
+    pattern = r"/([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/"
     match = re.search(pattern, url)
-    
+
     if match:
         return match.group(1)
     else:
         return None
-
-
 
 
 def filter_email_objects(participants_emails):
@@ -91,5 +90,10 @@ def filter_emails(host_email: str, participants_emails: List):
     logger.info(f"Final list: {final_list}")
     return final_list
 
+
 def is_genie_admin(email: str):
     return email and email.lower().endswith("@genieai.ai")
+
+
+def get_domain(email: str):
+    return email.split("@")[1] if email else None
