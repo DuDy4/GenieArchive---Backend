@@ -9,6 +9,7 @@ from data.slack_consumer import SlackConsumer
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.apollo_consumer import ApolloConsumer
 from data.company_consumer import CompanyConsumer
+from data.sales_material_consumer import SalesMaterialConsumer
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 
@@ -23,6 +24,7 @@ consumers = [
     SlackConsumer(),
     ApolloConsumer(),
     CompanyConsumer(),
+    SalesMaterialConsumer(),
 ]
 
 

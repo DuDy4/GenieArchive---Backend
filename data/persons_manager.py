@@ -36,14 +36,14 @@ from data.data_common.dependencies.dependencies import (
 )
 
 from data.importers.profile_pictures import get_profile_picture
-
+from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE 
 from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
-
 logger = GenieLogger()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 CONSUMER_GROUP = "personmanagerconsumergroup"
+# DEFAULT_PROFILE_PICTURE = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
 
 class PersonManager(GenieConsumer):
@@ -255,7 +255,7 @@ class PersonManager(GenieConsumer):
         if not person or not personal_data:
             logger.error("No person or personal data found")
             return {"error": "No person or personal data found"}
-        data_to_send = {"person": person.to_dict(), "personal_data": personal_data}
+        data_to_send = {"person": person.to_dict(), "personal_data": personal_data, "tenant_id" : tenant_id}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
@@ -463,7 +463,7 @@ class PersonManager(GenieConsumer):
         social_media_links = self.personal_data_repository.get_social_media_links(uuid)
         picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
         profile["picture_url"] = (
-            picture_url if picture_url else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+            picture_url if picture_url else DEFAULT_PROFILE_PICTURE
         )
 
         if profile.get("strengths") and isinstance(profile["strengths"], dict):
@@ -495,7 +495,7 @@ class PersonManager(GenieConsumer):
         logger.info(f"About to fetch profile picture for {person.email}")
         if (
             not profile_dto.picture_url
-            or profile_dto.picture_url == "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+            or profile_dto.picture_url == DEFAULT_PROFILE_PICTURE
         ):
             profile_dto.picture_url = get_profile_picture(person, social_media_links)
             self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)

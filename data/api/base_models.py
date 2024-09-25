@@ -20,7 +20,7 @@ from data.data_common.data_transfer_objects.company_dto import (
 )
 from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
 from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
-
+from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -130,7 +130,7 @@ class MiniProfileResponse(BaseModel):
             email=person.email if str(person.uuid) == str(profile.uuid) else None,
             profile_picture=str(profile.picture_url)
             if profile.picture_url
-            else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png",
+            else DEFAULT_PROFILE_PICTURE
         )
 
     @staticmethod

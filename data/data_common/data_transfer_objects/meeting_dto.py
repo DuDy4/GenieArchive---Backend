@@ -146,13 +146,10 @@ class MeetingDTO:
             agenda=[AgendaItem.from_dict(agenda) for agenda in data.get("agenda")]
             if data.get("agenda")
             else None,
-            classification=MeetingClassification.from_str(
-                data.get("classification")
-                if data.get("classification")
+            classification=MeetingClassification.from_str(data.get("classification")) if data.get("classification") 
                 else evaluate_meeting_classification(
                     data.get("participants_emails", []) or MeetingClassification.EXTERNAL
                 )
-            ),
         )
 
     def to_tuple(self) -> tuple:

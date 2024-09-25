@@ -39,11 +39,8 @@ async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = 
         if mandatory:
             raise HTTPException(status_code=401, detail="Not authenticated")
         return None
-
     try:
-        payload = jwt_utils.decode_jwt_token(token)
-        logger.info(f"{'Mandatory' if mandatory else 'Optional'} API JWT payload: {payload}")
-        return payload
+        return jwt_utils.decode_jwt_token(token)
     except Exception as e:
         logger.error(f"API JWT error: {traceback.format_exc()}")
         if mandatory:

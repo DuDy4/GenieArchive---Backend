@@ -55,6 +55,7 @@ class AdminApiService:
         if not tenants or len(tenants) == 0:
             logger.error(f"Person does not have any tenants: {person_uuid}")
             return {"error": "Person does not have any tenants"}
+        logger.set_tenant_id(tenants[0])
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
             data=json.dumps({"tenant_id": tenants[0], "email": person.email}),

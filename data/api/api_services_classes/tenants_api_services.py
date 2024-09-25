@@ -123,6 +123,7 @@ class TenantsApiService:
             self.google_creds_repository.update_last_fetch_meetings(user_email)
             return {"message": "No upcoming events found."}
         tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
+        logger.set_tenant_id(tenant_id)
         event = GenieEvent(
             topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
         )

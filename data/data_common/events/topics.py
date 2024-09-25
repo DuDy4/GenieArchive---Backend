@@ -81,3 +81,5 @@ class Topic:
     FAILED_TO_GET_PERSONAL_DATA = (
         "failed-to-get-personal-data"  # Both pdl and apollo failed to get personal data
     )
+
+    FILE_UPLOADED = "file-uploaded"

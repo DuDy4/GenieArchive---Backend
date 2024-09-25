@@ -12,7 +12,7 @@ from data.data_common.dependencies.dependencies import (
     get_db_connection,
 )
 
-
+TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
 def test_meetings():
     conn = get_db_connection()
     meetings_repository = MeetingsRepository(conn=conn)
@@ -22,22 +22,32 @@ def test_meetings():
             meetings_repository.insert_meeting(meeting_dto)
         assert meetings_repository.exists(meeting_dto.google_calendar_id)
         print("Meetings test passed")
-    data_to_send = {"tenant_id": "TestOwner", "meetings": meetings}
-    event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data=data_to_send)
+    data_to_send = {
+        "tenant_id": TENANT_ID,
+        "meetings": meetings
+    }
+    event = GenieEvent(
+        topic=Topic.NEW_MEETINGS_TO_PROCESS,
+        data=data_to_send,
+        scope="public",
+    )
     event.send()
 
 
 meetings = [
     {
-        "uuid": "65b5afe8",
-        "google_calendar_id": "d02e29",
-        "tenant_id": "TestOwner",
+        "uuid": "65b5afe83",
+        "google_calendar_id": "d02e293",
+        "tenant_id": TENANT_ID,
         "link": "https://meet.google.com/bla-bla-bla",
         "subject": "Intro Me <> You",
-        "participants_emails": ["asaf@genieai.ai"],
+        "participants_emails": [{"email":"asaf@genieai.ai", "self" : True}, {"email":"steve@apple.com"}],
+        "attendees" : [{"email":"asaf@genieai.ai", "self" : True}, {"email":"steve@apple.com"}],
         "start_time": "2024-07-27T17:00:00+03:00",
+        "start" : {"date" : "2024-09-27T17:00:00+03:00"},
         "end_time": "2024-07-27T17:30:00+03:00",
-        "agenda": [],
+        "end" : {"date" : "2024-09-27T17:45:00+03:00"},
+        "agenda": []
     },
     # {
     #     "uuid": "65b5afe9",

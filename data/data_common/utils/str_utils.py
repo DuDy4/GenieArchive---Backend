@@ -1,5 +1,10 @@
+import re
 import uuid
 from common.genie_logger import logger
+
+ALLOWED_EXTENSIONS = {"pdf", "doc", "docx", "ppt", "pptx"} 
+MAX_FILE_NAME_LENGTH = 64
+ALLOWED_CHARS_PATTERN = r"^[a-zA-Z0-9\-_ ()]"  
 
 SMALL_WORDS = {
     "and",
@@ -159,8 +164,22 @@ def titleize_values(data):
         }
     return titleize_sentence(data)
 
-
-# # Test the functions
-# test_string = "the ceo and cto of the company"
-# print(to_custom_title_case(test_string))  # Output: "The CEO and CTO of the Company"
-# print(titleize_values(test_string))  # Output: "The CEO and cto of the company"
+def upload_file_name_validation(file_name: str) -> bool:
+    if "." not in file_name:
+        return False
+    
+    base_name, extension = file_name.rsplit(".", 1)
+    
+    # Check if the extension is allowed
+    if extension.lower() not in ALLOWED_EXTENSIONS:
+        return False
+    
+    # Check if the base name length is within the allowed limit
+    if len(base_name) > MAX_FILE_NAME_LENGTH:
+        return False
+    
+    # Check if the base name contains only allowed characters
+    if not re.match(ALLOWED_CHARS_PATTERN + r"{" + str(len(base_name)) + r"}$", base_name):
+        return False
+    
+    return True

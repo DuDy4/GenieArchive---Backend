@@ -149,6 +149,20 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-ai-inference"
+version = "1.0.0b4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/e8/e3c85e49d2e379256f23c685699a36206bfff84d1ae26ffb784ef09ac621/azure-ai-inference-1.0.0b4.tar.gz", hash = "sha256:5464404bef337338d4af6eefde3af903400ddb8e5c9e6820f902303542fa0f72", size = 108285 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/a0/66c46c43cce5937072d6480f7836c4429272cf143f78c2b3a984efceff0f/azure_ai_inference-1.0.0b4-py3-none-any.whl", hash = "sha256:e2c949f91845a8cd96cb9a61ffd432b5b0f4ce236b9be8c29d10f38e0a327412", size = 85007 },
+]
+
+[[package]]
 name = "azure-core"
 version = "1.30.1"
 source = { registry = "https://pypi.org/simple" }
@@ -242,6 +256,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/61/b4/599054d8265b14244556decf75d683b124fc333ac12d141357dcbeaab3fe/azure-monitor-opentelemetry-exporter-1.0.0b28.tar.gz", hash = "sha256:42f24e31a405acfb253e9924cf4ce1328e350b2f49de1be1792d99c866b7821b", size = 168543 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ca/e3/20c6402308f528c529740a98f1afe9af973b2f78f5bd1da36e926277cd8e/azure_monitor_opentelemetry_exporter-1.0.0b28-py2.py3-none-any.whl", hash = "sha256:8fb85f8642f278c6d3ee47c00151813cfe05c8dbff5ed8e07992b60be345294d", size = 139766 },
+]
+
+[[package]]
+name = "azure-storage-blob"
+version = "12.23.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/64/eb0fbd7865463d9551bcfd6a92947d235f2128aa0b12b6f0254959aa31eb/azure_storage_blob-12.23.0.tar.gz", hash = "sha256:2fadbceda1d99c4a72dfd32e0122d7bca8b5e8d2563f5c624d634aeaff49c9df", size = 566106 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/02/024b71fc0af7a361cfaecbd96120615ef53787e0b4213285e18eb259d198/azure_storage_blob-12.23.0-py3-none-any.whl", hash = "sha256:8ac4b34624ed075eda1e38f0c6dadb601e1b199e27a09aa63edc429bf4a23329", size = 405594 },
 ]
 
 [[package]]
@@ -573,10 +602,12 @@ dependencies = [
     { name = "apify-client" },
     { name = "apify-shared" },
     { name = "authlib" },
+    { name = "azure-ai-inference" },
     { name = "azure-core" },
     { name = "azure-eventhub" },
     { name = "azure-eventhub-checkpointstoreblob-aio" },
     { name = "azure-monitor-opentelemetry" },
+    { name = "azure-storage-blob" },
     { name = "beautifulsoup4" },
     { name = "fastapi" },
     { name = "fastapi-cli" },
@@ -613,6 +644,8 @@ dependencies = [
     { name = "openai" },
     { name = "pandas" },
     { name = "peopledatalabs" },
+    { name = "pinecone" },
+    { name = "pinecone-client" },
     { name = "pluggy" },
     { name = "pre-commit" },
     { name = "psycopg2" },
@@ -620,10 +653,13 @@ dependencies = [
     { name = "pycparser" },
     { name = "pydantic" },
     { name = "pydantic-core" },
+    { name = "pymupdf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
+    { name = "python-docx" },
     { name = "python-dotenv" },
+    { name = "python-pptx" },
     { name = "requests" },
     { name = "requests-file" },
     { name = "requests-oauthlib" },
@@ -650,10 +686,12 @@ requires-dist = [
     { name = "apify-client", specifier = "==1.7.1" },
     { name = "apify-shared", specifier = "==1.1.2" },
     { name = "authlib", specifier = ">=1.3.2" },
+    { name = "azure-ai-inference", specifier = ">=1.0.0b4" },
     { name = "azure-core", specifier = "==1.30.1" },
     { name = "azure-eventhub", specifier = "==5.12.0" },
     { name = "azure-eventhub-checkpointstoreblob-aio", specifier = "==1.1.4" },
     { name = "azure-monitor-opentelemetry", specifier = "==1.6.1" },
+    { name = "azure-storage-blob", specifier = ">=12.23.0" },
     { name = "beautifulsoup4", specifier = "==4.12.3" },
     { name = "fastapi", specifier = "==0.111.0" },
     { name = "fastapi-cli", specifier = "==0.0.4" },
@@ -690,6 +728,8 @@ requires-dist = [
     { name = "openai", specifier = "==1.30.4" },
     { name = "pandas", specifier = "==2.2.2" },
     { name = "peopledatalabs", specifier = "==3.1.0" },
+    { name = "pinecone", specifier = ">=5.3.0" },
+    { name = "pinecone-client", specifier = ">=5.0.1" },
     { name = "pluggy", specifier = "==1.5.0" },
     { name = "pre-commit", specifier = "==3.7.1" },
     { name = "psycopg2", specifier = "==2.9.9" },
@@ -697,10 +737,13 @@ requires-dist = [
     { name = "pycparser", specifier = "==2.22" },
     { name = "pydantic", specifier = "==2.7.4" },
     { name = "pydantic-core", specifier = "==2.18.4" },
+    { name = "pymupdf", specifier = ">=1.24.10" },
     { name = "pytest", specifier = "==8.3.2" },
     { name = "pytest-asyncio", specifier = "==0.23.8" },
     { name = "pytest-mock", specifier = "==3.14.0" },
+    { name = "python-docx", specifier = ">=1.1.2" },
     { name = "python-dotenv", specifier = "==1.0.1" },
+    { name = "python-pptx", specifier = ">=1.0.2" },
     { name = "requests", specifier = "==2.32.3" },
     { name = "requests-file", specifier = "==2.0.0" },
     { name = "requests-oauthlib", specifier = "==1.4.0" },
@@ -1875,6 +1918,61 @@ wheels = [
 ]
 
 [[package]]
+name = "pinecone"
+version = "5.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "pinecone-plugin-inference" },
+    { name = "pinecone-plugin-interface" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+    { name = "urllib3", marker = "python_full_version < '4.0'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/6b/d063c43e62770cc38fa3c88ab108f0f0355cbb2318e4e15ba0a066599cea/pinecone-5.3.0.tar.gz", hash = "sha256:287162b063d81bfa9278f7505e7303e77247c9c8c42601bb53397605575e5cff", size = 184592 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/c9/123f4971b333b427babaffe6f5353146cf794c1c3bf6e05f694e6ff46ddc/pinecone-5.3.0-py3-none-any.whl", hash = "sha256:7e8b0c582c797d10ca6da7258905ed5095aa1b0e0952b06286c9249a5dc4e97a", size = 419825 },
+]
+
+[[package]]
+name = "pinecone-client"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "pinecone-plugin-inference" },
+    { name = "pinecone-plugin-interface" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+    { name = "urllib3", marker = "python_full_version < '4.0'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/a4/739fe0a4a173658d541206ec7fdb0cc4c9ddc364de216af668b988bf0868/pinecone_client-5.0.1.tar.gz", hash = "sha256:11c33ff5d1c38a6ce69e69fe532c0f22f312fb28d761bb30b3767816d3181d64", size = 122207 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/d0/c64336b8f76e63296d04b885c545c0872ff070e6b2bc725dd0ff3ae681dc/pinecone_client-5.0.1-py3-none-any.whl", hash = "sha256:c8f7835e1045ba84e295f217a8e85573ffb80b41501bbc1af6d92c9631c567a7", size = 244818 },
+]
+
+[[package]]
+name = "pinecone-plugin-inference"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pinecone-plugin-interface" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/03/96/a5738492f131166eb2f9e99fb15a724cf482192e8443bf7069809485432b/pinecone_plugin_inference-1.1.0.tar.gz", hash = "sha256:283e5ae4590b901bf2179beb56fc3d1b715e63582f37ec7abb0708cf70912d1f", size = 48997 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/5e/a7eb453cfb3aa9c8c995a1dca5fcf57f79b67400593d5c6759571567e30c/pinecone_plugin_inference-1.1.0-py3-none-any.whl", hash = "sha256:32c61aba21c9a28fdcd0e782204c1ca641aeb3fd6e42764fbf0de8186eb657ec", size = 85353 },
+]
+
+[[package]]
+name = "pinecone-plugin-interface"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/fb/e8a4063264953ead9e2b24d9b390152c60f042c951c47f4592e9996e57ff/pinecone_plugin_interface-0.0.7.tar.gz", hash = "sha256:b8e6675e41847333aa13923cc44daa3f85676d7157324682dc1640588a982846", size = 3370 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/1d/a21fdfcd6d022cb64cef5c2a29ee6691c6c103c4566b41646b080b7536a5/pinecone_plugin_interface-0.0.7-py3-none-any.whl", hash = "sha256:875857ad9c9fc8bbc074dbe780d187a2afd21f5bfe0f3b08601924a61ef1bba8", size = 6249 },
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2098,6 +2196,39 @@ wheels = [
 ]
 
 [[package]]
+name = "pymupdf"
+version = "1.24.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pymupdfb" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/83/57/da06ca4886afc71a624e4b463d05f45c8a822596ede939957295e229eb4e/PyMuPDF-1.24.10.tar.gz", hash = "sha256:bd3ebd6d3fb8a845582098362f885bfb0a31ae4272587efc2c55c5e29fe7327a", size = 46988085 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/84/7231344d98355a40fb57c4025391dfb4116e2c3e9d98d5cc83f80c5ea942/PyMuPDF-1.24.10-cp312-none-macosx_10_9_x86_64.whl", hash = "sha256:f323aa7bb55e0214e632bfe24fa140bd5dcfeac2d3977bdce46e760385140513", size = 3230169 },
+    { url = "https://files.pythonhosted.org/packages/b2/bc/975b4fe4400b00c912dad1874c43d31486150e6f39d7dae758751c27e2dd/PyMuPDF-1.24.10-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:50d2972558d25ce46a8634b58787b28dbeff9b3fe4299530fc9c8c9921061e83", size = 2980118 },
+    { url = "https://files.pythonhosted.org/packages/5b/dc/0f22c77ac4f8e6b8316072519513d5f0111fffe96d357051db0ddf043032/PyMuPDF-1.24.10-cp312-none-manylinux2014_aarch64.whl", hash = "sha256:0e3969c2fdff682b3b2c6a2b463adde068d6d8e20e2133ef6c8503469259646a", size = 3216830 },
+    { url = "https://files.pythonhosted.org/packages/a3/1b/1b41b27aab571b835f8d983492b80ed64548e3b5c4d169e23c639727d43b/PyMuPDF-1.24.10-cp312-none-manylinux2014_x86_64.whl", hash = "sha256:cd78ee1ebefdfe72bc36fd4b731cc8c694eb8ef5337d8ea956b0e94cd88751fc", size = 3491118 },
+    { url = "https://files.pythonhosted.org/packages/2d/3c/f1ffbc6e13ab37900c2aa71e434bbba922770091242e2b059acdb14f779e/PyMuPDF-1.24.10-cp312-none-musllinux_1_2_x86_64.whl", hash = "sha256:696eed91d2ee44e76277dfeb6bd904c84ae005378588949df6ed9be9e03b9817", size = 3612589 },
+    { url = "https://files.pythonhosted.org/packages/53/fb/158909af75c84968ea7e6659a75fd67bd462103c599033b23ffd6bc173be/PyMuPDF-1.24.10-cp312-none-win32.whl", hash = "sha256:1e5413e1aeab2f18e1ca1b3ff17057a4a7c5cbf4ff14abc93203da88fc1a1dd8", size = 2701190 },
+    { url = "https://files.pythonhosted.org/packages/91/4a/4a54d3f6a779ac5eed92e82fe3c1bb426bc40f9ea57c8656839198944a82/PyMuPDF-1.24.10-cp312-none-win_amd64.whl", hash = "sha256:227a4473fce8fa32b9268da68781048795503b67dc045867fc201e1334204bf1", size = 3228084 },
+]
+
+[[package]]
+name = "pymupdfb"
+version = "1.24.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/ff/ecfcb41414b51976974d74c8e35fef0a0e5b47c7046a11c860553f5dccf0/PyMuPDFb-1.24.10.tar.gz", hash = "sha256:007b91fa9b528c5c0eecea2e49c486ac02e878274f9e31522bdd948adc5f8327", size = 37502 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/94/b217dc987b4ac0e3793984427112d6032563b741e27763f7761c2231d022/PyMuPDFb-1.24.10-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:cd6b24630d90dce9ab3e59d06c5e616686f8d7ec626be1311721fcb062aa0078", size = 15536229 },
+    { url = "https://files.pythonhosted.org/packages/16/7a/f634c76d8331cb8dedcfaced17424cc469ee20b7f53cf29c9ef17a01b461/PyMuPDFb-1.24.10-py3-none-macosx_11_0_arm64.whl", hash = "sha256:fda2c34b206f724b1b5685b67188e2a57bcaa5c99bc40a0a5bc62057514c5cdf", size = 15149482 },
+    { url = "https://files.pythonhosted.org/packages/62/97/67b5da2edd034e66dadd0ec530e277afb14fe866a3b3b01d9fad154bc6f8/PyMuPDFb-1.24.10-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4f50a7472f9bb10cbc7a1cd589ee4626ca030b8a4a02749f9a29eb6f00c0e0db", size = 15711338 },
+    { url = "https://files.pythonhosted.org/packages/62/b9/ad3f076e86328880797fe7e98c43b2879df56cf6cb75ac3058da06d6e6cb/PyMuPDFb-1.24.10-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:409f1270ef2e70d845e80149ff3db9cfed578274042316cba55cc3e3882421ea", size = 15921939 },
+    { url = "https://files.pythonhosted.org/packages/15/e7/02160ea905a7ba16d6e1ca51759ae1c1045785ebebae57ba30e82617f934/PyMuPDFb-1.24.10-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:aca96b6e9ee3096a26810592f4d899f4d3cf3cf0c902ae7e8cca09bce4d946c4", size = 17076991 },
+    { url = "https://files.pythonhosted.org/packages/d3/c0/e1ed840440131f71b068cdb3b620a69ec27543b1012a6bd855d8d05f1629/PyMuPDFb-1.24.10-py3-none-win32.whl", hash = "sha256:2d231b42fe3bf79837df235e7fbdf7ff8b46bf4ca1346d0f0124fb1cdd343ce8", size = 11731706 },
+    { url = "https://files.pythonhosted.org/packages/70/cb/8459d6c179befd7c6eee555334f054e9a6dcdd9f8671891e1da19e0ce526/PyMuPDFb-1.24.10-py3-none-win_amd64.whl", hash = "sha256:27ea65c701608b6b7632703339ca33ea6d513843b26dbe9bdefb2f56f7b9b196", size = 13186168 },
+]
+
+[[package]]
 name = "pyopenssl"
 version = "24.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2170,6 +2301,19 @@ wheels = [
 ]
 
 [[package]]
+name = "python-docx"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/e4/386c514c53684772885009c12b67a7edd526c15157778ac1b138bc75063e/python_docx-1.1.2.tar.gz", hash = "sha256:0cf1f22e95b9002addca7948e16f2cd7acdfd498047f1941ca5d293db7762efd", size = 5656581 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/3d/330d9efbdb816d3f60bf2ad92f05e1708e4a1b9abe80461ac3444c83f749/python_docx-1.1.2-py3-none-any.whl", hash = "sha256:08c20d6058916fb19853fcf080f7f42b6270d89eac9fa5f8c15f691c0017fabe", size = 244315 },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2185,6 +2329,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5c/0f/9c55ac6c84c0336e22a26fa84ca6c51d58d7ac3a2d78b0dfa8748826c883/python_multipart-0.0.9.tar.gz", hash = "sha256:03f54688c663f1b7977105f021043b0793151e4cb1c1a9d4a11fc13d622c4026", size = 31516 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/47/444768600d9e0ebc82f8e347775d24aef8f6348cf00e9fa0e81910814e6d/python_multipart-0.0.9-py3-none-any.whl", hash = "sha256:97ca7b8ea7b05f977dc3849c3ba99d51689822fab725c3703af7c866a0c2b215", size = 22299 },
+]
+
+[[package]]
+name = "python-pptx"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+    { name = "pillow" },
+    { name = "typing-extensions" },
+    { name = "xlsxwriter" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/52/a9/0c0db8d37b2b8a645666f7fd8accea4c6224e013c42b1d5c17c93590cd06/python_pptx-1.0.2.tar.gz", hash = "sha256:479a8af0eaf0f0d76b6f00b0887732874ad2e3188230315290cd1f9dd9cc7095", size = 10109297 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/4f/00be2196329ebbff56ce564aa94efb0fbc828d00de250b1980de1a34ab49/python_pptx-1.0.2-py3-none-any.whl", hash = "sha256:160838e0b8565a8b1f67947675886e9fea18aa5e795db7ae531606d68e785cba", size = 472788 },
 ]
 
 [[package]]
@@ -2974,6 +3133,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/5b/4660897233eb2c8c4de3dc7cefed114c61bacb3c28327e64150dc44ee2f6/wrapt-1.16.0-cp312-cp312-win32.whl", hash = "sha256:685f568fa5e627e93f3b52fda002c7ed2fa1800b50ce51f6ed1d572d8ab3e7fc", size = 35568 },
     { url = "https://files.pythonhosted.org/packages/5c/cc/8297f9658506b224aa4bd71906447dea6bb0ba629861a758c28f67428b91/wrapt-1.16.0-cp312-cp312-win_amd64.whl", hash = "sha256:dcdba5c86e368442528f7060039eda390cc4091bfd1dca41e8046af7c910dda8", size = 37653 },
     { url = "https://files.pythonhosted.org/packages/ff/21/abdedb4cdf6ff41ebf01a74087740a709e2edb146490e4d9beea054b0b7a/wrapt-1.16.0-py3-none-any.whl", hash = "sha256:6906c4100a8fcbf2fa735f6059214bb13b97f75b1a61777fcf6432121ef12ef1", size = 23362 },
+]
+
+[[package]]
+name = "xlsxwriter"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/c3/b36fa44a0610a0f65d2e65ba6a262cbe2554b819f1449731971f7c16ea3c/XlsxWriter-3.2.0.tar.gz", hash = "sha256:9977d0c661a72866a61f9f7a809e25ebbb0fb7036baa3b9fe74afcfca6b3cb8c", size = 198732 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/ea/53d1fe468e63e092cf16e2c18d16f50c29851242f9dd12d6a66e0d7f0d02/XlsxWriter-3.2.0-py3-none-any.whl", hash = "sha256:ecfd5405b3e0e228219bcaf24c2ca0915e012ca9464a14048021d21a995d490e", size = 159925 },
 ]
 
 [[package]]
