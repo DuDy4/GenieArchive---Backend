@@ -40,8 +40,6 @@ profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 
 
-
-
 @v1_router.post("/file-uploaded")
 async def file_uploaded(request: Request):
     logger.info(f"New file uploaded")
@@ -49,6 +47,15 @@ async def file_uploaded(request: Request):
     if not uploaded_files:
         logger.error(f"Body not found in azure event")
         return
+    try:
+        # This is used for going throug azure validation and must not be used in production scenario
+        if uploaded_files[0]['data']:
+            data = uploaded_files[0]['data'];
+            if data['validationCode'] and data['validationUrl']:
+                logger.info("Azure validation completed")
+                return 
+    except:
+        logger.info("Handling uploaded file")
     UserMaterialServices.file_uploaded(uploaded_files)
     
 
