@@ -183,7 +183,7 @@ class Langsmith:
         finally:
             if not response:
                 logger.error("Meeting guidelines response returned None")
-                response = self.run_prompt_get_meeting_guidelines(
+                response = await self.run_prompt_get_meeting_guidelines(
                     customer_strengths, meeting_details, meeting_goals, case
                 )
             logger.debug(f"Got meeting guidelines from Langsmith: {response}")
