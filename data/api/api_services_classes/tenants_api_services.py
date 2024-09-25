@@ -66,8 +66,8 @@ class TenantsApiService:
                 time_diff = datetime.datetime.now() - last_fetch_meetings
 
             if time_diff.total_seconds() < 30:
-                logger.info("Meetings already fetched in the last minute. Skipping.")
-                return {"message": "Meetings already fetched in the last hour. Skipping..."}
+                logger.info("Meetings already fetched in the last 30 seconds. Skipping.")
+                return {"message": "Meetings already fetched in the last 30 seconds. Skipping..."}
         else:
             logger.warning("Missing last_fetch_meetings. Skipping check.")
 
