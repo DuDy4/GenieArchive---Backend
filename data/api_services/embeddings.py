@@ -30,8 +30,6 @@ embeddings_model = EmbeddingsClient(
     credential=AzureKeyCredential(credential),
 )
 model_name = "intfloat/multilingual-e5-large"
-# tokenizer = AutoTokenizer.from_pretrained(model_name)
-# model = AutoModel.from_pretrained(model_name)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX)
 
@@ -63,14 +61,8 @@ class GenieEmbeddingsClient:
         index.upsert(vectors=list(zip(ids, embeddings_data, pinecone_metadata)))
     
     def generate_embeddings(self, text: list[str]):
-        # inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-        # with torch.no_grad():
-        #     model_output = model(**inputs)
-        
-        # embeddings = model_output.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
         response = embeddings_model.embed(input=text)
         return response.data
-        # return embeddings
     
 
     def search_materials_by_prospect_data(self, user_id, prospect_data):
