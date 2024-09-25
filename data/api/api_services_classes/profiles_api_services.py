@@ -185,40 +185,28 @@ class ProfilesApiService:
         else:
             personal_data = self.personal_data_repository.get_apollo_personal_data(uuid)
             fixed_experience = fix_and_sort_experience_from_apollo(personal_data)
+        logger.info(f"Fixed experience: {fixed_experience}")
 
         if fixed_experience:
             # Sort experiences by end_date (if end_date is None, treat as current job)
             fixed_experience.sort(key=lambda x: x["end_date"] or "9999-12", reverse=True)
 
-            last_employers = []
-            employer_positions = {}
-            total_positions = 0
+            # Get the last 3 employers with different positions
 
-            for exp in fixed_experience:
-                company_id = exp["company"]["id"]
-                position_title = exp["title"]["name"]
-
-                # Ensure company_id exists in the dictionary
-                if company_id not in employer_positions:
-                    employer_positions[company_id] = set()
-
-                # Check if the position is already counted for this employer
-                if position_title not in employer_positions[company_id]:
-                    # Track the position for this employer
-                    employer_positions[company_id].add(position_title)
-                    last_employers.append(exp)
-                    total_positions += 1
-
-                # If we have reached 5 positions, stop collecting
-                if total_positions >= 5:
+            final_experience = []
+            employers = set()
+            for experience in fixed_experience:
+                if len(employers) >= 3:
                     break
-
-                # If we have collected 3 employers with different positions, stop
-                if len(employer_positions) >= 3:
-                    break
+                company_obj = experience["company"]
+                if company_obj:
+                    company = company_obj["name"]
+                    if company:
+                        final_experience.append(experience)
+                        employers.add(company)
 
             # Convert to custom title case for consistency
-            return to_custom_title_case(last_employers)
+            return to_custom_title_case(final_experience)
 
         logger.error(f"Profile {uuid} was not found under tenant {tenant_id}")
         raise HTTPException(
