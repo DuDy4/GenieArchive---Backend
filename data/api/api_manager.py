@@ -3,8 +3,11 @@ import requests
 from fastapi import Request, Query
 from fastapi.routing import APIRouter
 
-from common.utils import env_utils, email_utils
-
+from common.utils import env_utils, email_utils, job_utils, jwt_utils
+from data.internal_services.tenant_service import TenantService
+from data.internal_services.files_upload_service import FileUploadService
+from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event import GenieEvent
 from starlette.responses import JSONResponse
 from fastapi import HTTPException
 
@@ -14,9 +17,11 @@ from data.api.api_services_classes.meetings_api_services import MeetingsApiServi
 from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
+from data.api.api_services_classes.user_materials_services import UserMaterialServices
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
+from data.data_common.utils.str_utils import upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -34,6 +39,32 @@ tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 
+
+
+
+@v1_router.post("/file-uploaded")
+async def file_uploaded(request: Request):
+    logger.info(f"New file uploaded")
+    uploaded_files = await request.json()
+    if not uploaded_files:
+        logger.error(f"Body not found in azure event")
+        return
+    UserMaterialServices.file_uploaded(uploaded_files)
+    
+
+@v1_router.post("/generate-upload-url")
+async def get_file_upload_url(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid""")
+    
+    body = await request.json()
+    if not body or not body['file_name']:
+        raise HTTPException(status_code=401, detail=f"""Missing filename""")
+    file_name = body['file_name']
+    upload_url = UserMaterialServices.generate_upload_url(tenant_id, file_name)
+    return JSONResponse(content={"upload_url": upload_url})
+    
 
 @v1_router.post("/successful-login")
 async def post_successful_login(
@@ -454,4 +485,9 @@ def get_tenant_id_to_impersonate(
         else:
             logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
     logger.info(f"User is not impersonating tenant")
+    return None
+
+def get_request_state_value(request: Request, key: str) -> str:
+    if request and request.state and hasattr(request.state, key):
+        return getattr(request.state, key)
     return None

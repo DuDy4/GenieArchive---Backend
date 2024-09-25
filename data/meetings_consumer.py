@@ -25,6 +25,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, Agend
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.api_services.embeddings import GenieEmbeddingsClient
 
 import requests
 from common.genie_logger import GenieLogger
@@ -77,6 +78,7 @@ class MeetingManager(GenieConsumer):
         self.tenant_repository = tenants_repository()
         self.profiles_repository = profiles_repository()
         self.langsmith = Langsmith()
+        self.embeddings_client = GenieEmbeddingsClient()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -231,7 +233,10 @@ class MeetingManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         tenant_id = event_body.get("tenant_id")
+        if not tenant_id:
+            tenant_id = logger.get_tenant_id()
         logger.debug(f"Tenant ID: {tenant_id}")
+        seller_email = self.tenant_repository.get_tenant_email(tenant_id)
         person = event_body.get("person")
         if not person:
             logger.error("No person in event")
@@ -267,9 +272,12 @@ class MeetingManager(GenieConsumer):
                     f"CRITICAL ERROR - no personal data were found after an event that announced they were updated"
                 )
                 continue
-
+            seller_context = None
+            if seller_email:
+                seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
+                seller_context = " || ".join(seller_context) if seller_context else None
             meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
-                personal_data=personal_data, my_company_data=self_company
+                personal_data=personal_data, my_company_data=self_company, seller_context=seller_context
             )
             if not meetings_goals:
                 logger.error(f"No meeting goals found for {person.email}")
@@ -278,7 +286,8 @@ class MeetingManager(GenieConsumer):
             self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
             event = GenieEvent(
                 topic=Topic.NEW_MEETING_GOALS,
-                data={"meeting_uuid": meeting.uuid},
+                data={"meeting_uuid": meeting.uuid, "seller_context" : seller_context},
+                scope="public",
             )
             event.send()
         logger.info(f"Finished processing meetings goals for new personal data: {person.email}")
@@ -329,16 +338,19 @@ class MeetingManager(GenieConsumer):
                 if not personal_data:
                     logger.error(f"No personal data found for {email}")
                     continue
+                seller_context = self.embeddings_client.search_materials_by_prospect_data(self_email, personal_data)
+                seller_context = " || ".join(seller_context) if seller_context else None
                 logger.debug(f"Got personal data for {email}: {str(personal_data)[:300]}")
                 meetings_goals = self.langsmith.run_prompt_get_meeting_goals(
-                    personal_data=personal_data, my_company_data=company
+                    personal_data=personal_data, my_company_data=company, seller_context=seller_context
                 )
                 logger.info(f"Meetings goals: {meetings_goals}")
                 self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
                 logger.info(f"Meeting goals saved for {meeting.uuid}")
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
-                    data=json.dumps({"meeting_uuid": meeting.uuid}),
+                    data=json.dumps({"meeting_uuid": meeting.uuid, "seller_context" : seller_context}),
+                    scope="public",
                 )
                 event.send()
                 break  # Only process one email per meeting - need to implement couple attendees in the future
@@ -376,8 +388,14 @@ class MeetingManager(GenieConsumer):
             logger.debug(f"Meeting goals: {meeting_goals}")
             meeting_details = meeting.to_dict()
             logger.info("About to run ask langsmith for guidelines")
+            tenant_id = logger.get_tenant_id()
+            seller_context = None
+            if tenant_id:
+                seller_email = self.tenant_repository.get_tenant_email(tenant_id)
+                seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, profile)
+                seller_context = " || ".join(seller_context) if seller_context else None
             agendas = self.langsmith.run_prompt_get_meeting_guidelines(
-                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
+                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals, seller_context=seller_context
             )
             logger.info(f"Meeting agenda: {agendas}")
             try:
@@ -401,6 +419,8 @@ class MeetingManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         meeting_uuid = event_body.get("meeting_uuid")
+        seller_context = event_body.get("seller_context")
+        seller_context = " || ".join(seller_context) if seller_context else None
         if not meeting_uuid:
             logger.error("No meeting uuid in event")
             return
@@ -435,7 +455,7 @@ class MeetingManager(GenieConsumer):
             meeting_details = meeting.to_dict()
             logger.info("About to run ask langsmith for guidelines")
             agendas = self.langsmith.run_prompt_get_meeting_guidelines(
-                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals
+                customer_strengths=strengths, meeting_details=meeting_details, meeting_goals=meeting_goals, seller_context=seller_context
             )
             logger.info(f"Meeting agenda: {agendas}")
 
