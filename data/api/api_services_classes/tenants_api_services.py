@@ -168,6 +168,11 @@ class TenantsApiService:
                 )
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
             else:
+                if not tenant_id or (not user_name and not user_email and not user_id):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Missing tenant ID or Credentials",
+                    )
                 # Signup new user
                 logger.debug(f"About to signup new user: {user_email}")
                 self.tenants_repository.insert(
