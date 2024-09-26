@@ -127,7 +127,9 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
-    def run_prompt_get_meeting_goals(self, personal_data, my_company_data, seller_context, call_info={}):
+    async def run_prompt_get_meeting_goals(
+        self, personal_data, my_company_data, seller_context, call_info={}
+    ):
         if seller_context:
             prompt = hub.pull("get_meeting_goals_w_context")
         else:
@@ -136,12 +138,12 @@ class Langsmith:
             "personal_data": personal_data,
             "my_company_data": my_company_data,
             "info": call_info,
-            "seller_context" : seller_context
+            "seller_context": seller_context,
         }
         response = None
         try:
             runnable = prompt | self.model
-            response = self._run_prompt_with_retry(runnable, arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
@@ -158,7 +160,9 @@ class Langsmith:
                     response = []
             return response
 
-    def run_prompt_get_meeting_guidelines(self, customer_strengths, meeting_details, meeting_goals, seller_context, case={}):
+    async def run_prompt_get_meeting_guidelines(
+        self, customer_strengths, meeting_details, meeting_goals, seller_context, case={}
+    ):
         if seller_context:
             prompt = hub.pull("get_meeting_guidelines_w_context")
         else:
@@ -168,19 +172,19 @@ class Langsmith:
             "meeting_details": meeting_details,
             "meeting_goals": meeting_goals,
             "case": case,
-            "seller_context" : seller_context
+            "seller_context": seller_context,
         }
         response = None
         try:
             runnable = prompt | self.model
-            response = self._run_prompt_with_retry(runnable, arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
         finally:
             if not response:
                 logger.error("Meeting guidelines response returned None")
-                response = self.run_prompt_get_meeting_goals(
-                    customer_strengths, meeting_details, meeting_goals
+                response = await self.run_prompt_get_meeting_guidelines(
+                    customer_strengths, meeting_details, meeting_goals, case
                 )
             logger.debug(f"Got meeting guidelines from Langsmith: {response}")
             while True:
