@@ -52,6 +52,7 @@ async def file_uploaded(request: Request):
         if uploaded_files[0]['data']:
             data = uploaded_files[0]['data'];
             if data['validationCode'] and data['validationUrl']:
+                logger.info(f"Azure data: {uploaded_files}")
                 logger.info("Azure validation completed")
                 return 
     except:
