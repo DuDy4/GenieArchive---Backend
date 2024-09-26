@@ -1,7 +1,9 @@
 import os
 import io
 import docx
-import fitz  # PyMuPDF for PDF
+import fitz  
+import pytesseract
+from PIL import Image
 from pptx import Presentation
 
 def get_file_name_from_url(url: str) -> str:
@@ -10,12 +12,30 @@ def get_file_name_from_url(url: str) -> str:
 def get_file_extension(file_name: str) -> str:
     return os.path.splitext(file_name)[1]
 # PDF extraction (using PyMuPDF)
-def extract_text_from_pdf(file_content):
+def extract_text_from_pdf2(file_content):
     pdf_document = fitz.open(stream=file_content, filetype="pdf")
     text = ""
     for page in pdf_document:
         text += page.get_text("text")
     return text
+
+def extract_text_from_pdf(file_content):
+    try:
+        pdf_document = fitz.open(stream=file_content, filetype="pdf")
+        text = ""
+        for page_number in range(pdf_document.page_count):
+            page = pdf_document[page_number]
+            # Attempt to extract text
+            page_text = page.get_text("text")
+            if not page_text.strip():  # If no text found, try OCR on the page's image
+                pix = page.get_pixmap()
+                img = Image.open(io.BytesIO(pix.tobytes()))
+                page_text = pytesseract.image_to_string(img)
+            text += page_text
+        return text
+    except Exception as e:
+        print(f"An error occurred while extracting text: {e}")
+        return ""
 
 
 def extract_text_from_docx(file_content):

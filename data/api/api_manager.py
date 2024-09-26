@@ -44,6 +44,8 @@ profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 
+logger.info("Imported all services")
+
 @v1_router.post("/file-uploaded")
 async def file_uploaded(request: Request):
     logger.info(f"New file uploaded")
