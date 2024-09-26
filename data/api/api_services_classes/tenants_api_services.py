@@ -174,7 +174,7 @@ class TenantsApiService:
                     {
                         "uuid": get_uuid4(),
                         "tenantId": tenant_id,
-                        "name": tenant_name,
+                        "user_name": user_name,
                         "email": user_email,
                         "user_id": user_id,
                     }
