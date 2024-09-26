@@ -1,7 +1,17 @@
+import asyncio
 import json
+from errno import EHOSTDOWN
 
 from common.utils import email_utils
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, evaluate_meeting_classification
+from data.data_common.data_transfer_objects.meeting_dto import (
+    MeetingDTO,
+    evaluate_meeting_classification,
+    AgendaItem,
+    MeetingClassification,
+)
+from data.api_services.embeddings import GenieEmbeddingsClient
+from ai.langsmith.langsmith_loader import Langsmith
+
 from data.data_common.dependencies.dependencies import (
     tenants_repository,
     google_creds_repository,
@@ -9,6 +19,8 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     meetings_repository,
     profiles_repository,
+    companies_repository,
+    personal_data_repository,
 )
 from common.genie_logger import GenieLogger
 import uuid
@@ -28,6 +40,10 @@ class AdminApiService:
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
         self.profiles_repository = profiles_repository()
+        self.companies_repository = companies_repository()
+        self.personal_data_repository = personal_data_repository()
+        self.embeddings_client = GenieEmbeddingsClient()
+        self.langsmith = Langsmith()
 
     def sync_profile(self, person_uuid):
         self.validate_uuid(person_uuid)
@@ -155,3 +171,113 @@ class AdminApiService:
                     logger.error(f"Error syncing email: {result}")
                 else:
                     logger.info(f"Email synced for {email}")
+
+    def process_single_meeting_agenda(self, meeting_uuid: str):
+        meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
+        if not meeting:
+            logger.error(f"Meeting not found: {meeting_uuid}")
+            return {"error": "Meeting not found"}
+        if meeting.agenda:
+            logger.error(f"Meeting already has an agenda: {meeting_uuid}")
+            return {"error": "Meeting already has an agenda"}
+        if meeting.classification.value != MeetingClassification.EXTERNAL.value:
+            logger.error(f"Meeting is not external: {meeting_uuid}")
+            return {"error": "Meeting is not external"}
+        participant_emails = meeting.participants_emails
+        if not participant_emails:
+            logger.error(f"No participant emails found for meeting: {meeting.uuid}")
+            return {"error": "No participant emails found"}
+        host_email = self.tenants_repository.get_tenant_email(meeting.tenant_id)
+        if not host_email or "@" not in host_email:
+            logger.error(f"No host email found for tenant: {meeting.tenant_id}")
+            return {"error": "No host email found"}
+        self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+        if not self_email or self_email != host_email:
+            logger.error(f"Host email not found in participant emails: {participant_emails}")
+            return {"error": "Host email not found"}
+        goals = self.meetings_repository.get_meeting_goals(meeting_uuid)
+        if goals:
+            return self.handle_meeting_with_goals(meeting, self_email, goals)
+        else:
+            return self.handle_meeting_without_goals(meeting, self_email)
+
+    def handle_meeting_with_goals(self, meeting: MeetingDTO, self_email: str, goals: list):
+        participant_emails = meeting.participants_emails
+        emails = email_utils.filter_emails(self_email, participant_emails)
+        profiles = self.profiles_repository.get_profiles_by_email_list(emails)
+        if not profiles:
+            logger.error(f"No strengths found for any participant for meeting: {meeting.uuid}")
+            return {"error": f"No strengths found for any participant for meeting: {meeting.uuid}"}
+        profile = profiles[0]
+        seller_context = None
+        if self_email:
+            seller_context = self.embeddings_client.search_materials_by_prospect_data(self_email, profile)
+            seller_context = " || ".join(seller_context) if seller_context else None
+        logger.info(f"About to run ask langsmith for meeting guidelines for meeting {meeting.uuid}")
+        meeting_guidelines = asyncio.run(
+            self.langsmith.run_prompt_get_meeting_guidelines(profile, meeting, goals, seller_context)
+        )
+        if not meeting_guidelines:
+            logger.error(f"Failed to create meeting guidelines for meeting {meeting.uuid}")
+            return {"error": f"Failed to create meeting guidelines for meeting {meeting.uuid}"}
+        logger.info(f"Meeting guidelines: {meeting_guidelines}")
+        try:
+            agendas = [AgendaItem.from_dict(agenda) for agenda in meeting_guidelines]
+        except AttributeError as e:
+            logger.error(f"Error converting agenda to AgendaItem: {e}")
+            return {"error": f"Error converting agenda to AgendaItem: {e}"}
+        meeting.agenda = agendas
+        self.meetings_repository.save_meeting(meeting)
+        event = GenieEvent(
+            topic=Topic.UPDATED_AGENDA_FOR_MEETING,
+            data=json.dumps(meeting.to_dict()),
+        )
+        event.send()
+        return {"status": f"Created Agenda for meeting {meeting.uuid}"}
+
+    def handle_meeting_without_goals(self, meeting: MeetingDTO, self_email: str):
+        self_company = self.companies_repository.get_company_from_domain(email_utils.get_domain(self_email))
+        if not self_company:
+            logger.error(f"Company not found for email: {self_email}")
+            return {"error": "Company not found"}
+        target_personal_data = None
+        for email_obj in meeting.participants_emails:
+            email = email_obj.get("email")
+            if not email:
+                logger.error(f"No email found in participant email object: {email_obj}")
+                continue
+            if email == self_email:
+                continue
+            personal_data = self.personal_data_repository.get_any_personal_data_by_email(email)
+            if personal_data:
+                target_personal_data = personal_data
+                break
+        if not target_personal_data:
+            logger.error(f"No target personal data for any participant for meeting: {meeting.uuid}")
+            return {"error": "No target personal data found"}
+        # Else, we have a target personal data and company data
+        seller_context = None
+        if self_email:
+            seller_context = self.embeddings_client.search_materials_by_prospect_data(
+                self_email, target_personal_data
+            )
+            seller_context = " || ".join(seller_context) if seller_context else None
+        logger.info(f"About to run ask langsmith for meeting goals for meeting {meeting.uuid}")
+        meetings_goals = asyncio.run(
+            self.langsmith.run_prompt_get_meeting_goals(
+                personal_data=target_personal_data,
+                my_company_data=self_company,
+                seller_context=seller_context,
+            )
+        )
+        if not meetings_goals:
+            logger.error(f"No meeting goals found for {meeting.uuid}")
+            return {"error": "No meeting goals found"}
+        logger.info(f"Meetings goals: {meetings_goals}")
+        self.meetings_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+        event = GenieEvent(
+            topic=Topic.NEW_MEETING_GOALS,
+            data={"meeting_uuid": meeting.uuid, "seller_context": seller_context},
+        )
+        event.send()
+        return {"status": f"Created Meeting goals. Proceeding to Create agenda"}

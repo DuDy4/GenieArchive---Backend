@@ -421,6 +421,37 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
+    def get_any_personal_data_by_email(self, email_address: str):
+        """
+        Retrieve personal data associated with an email address.
+
+        :param email_address: Email address of the person.
+        :return: Personal data as a json if personalData exists, None otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT pdl_personal_data, apollo_personal_data
+        FROM personalData
+        WHERE email = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email_address,))
+                personal_data = cursor.fetchone()
+                pdl_personal_data = personal_data[0] if personal_data else None
+                apollo_personal_data = personal_data[1] if personal_data else None
+                if pdl_personal_data:
+                    return pdl_personal_data
+                elif apollo_personal_data:
+                    return apollo_personal_data
+                else:
+                    logger.warning("personalData was not found in db by email address")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving personal data: {e}", e)
+            traceback.format_exc()
+            return None
+
     def get_profile_picture_url(self, uuid: str):
         """
         Retrieve the profile picture URL for a profile.

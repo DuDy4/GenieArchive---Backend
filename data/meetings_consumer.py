@@ -72,7 +72,7 @@ class MeetingManager(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.meeting_repository = meetings_repository()
+        self.meetings_repository = meetings_repository()
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.tenant_repository = tenants_repository()
@@ -148,14 +148,14 @@ class MeetingManager(GenieConsumer):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
 
-            meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
+            meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
                 meeting.google_calendar_id
             )
             if meeting_in_database:
                 if self.check_same_meeting(meeting, meeting_in_database):
                     logger.info("Meeting already in database")
                     continue
-            self.meeting_repository.save_meeting(meeting)
+            self.meetings_repository.save_meeting(meeting)
             if meeting.classification.value != MeetingClassification.EXTERNAL.value:
                 logger.info(f"Meeting is {meeting.classification.value}. skipping")
                 continue
@@ -194,13 +194,13 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         logger.debug(f"Meeting: {str(meeting)[:300]}")
-        meeting_in_database = self.meeting_repository.get_meeting_by_google_calendar_id(
+        meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
             meeting.google_calendar_id
         )
         if self.check_same_meeting(meeting, meeting_in_database):
             logger.info("Meeting already in database")
             return
-        self.meeting_repository.save_meeting(meeting)
+        self.meetings_repository.save_meeting(meeting)
         participant_emails = meeting.participants_emails
         try:
             self_email = [email for email in participant_emails if email.get("self")][0].get("email")
@@ -246,7 +246,7 @@ class MeetingManager(GenieConsumer):
         person = PersonDTO.from_dict(person)
         logger.debug(f"Person: {person}")
 
-        meetings = self.meeting_repository.get_meetings_without_goals_by_email(person.email)
+        meetings = self.meetings_repository.get_meetings_without_goals_by_email(person.email)
         if not meetings:
             logger.error(f"No meetings found for {person.email}")
             return
@@ -286,7 +286,7 @@ class MeetingManager(GenieConsumer):
                 logger.error(f"No meeting goals found for {person.email}")
                 continue
             logger.info(f"Meetings goals: {meetings_goals}")
-            self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+            self.meetings_repository.save_meeting_goals(meeting.uuid, meetings_goals)
             event = GenieEvent(
                 topic=Topic.NEW_MEETING_GOALS,
                 data={"meeting_uuid": meeting.uuid, "seller_context": seller_context},
@@ -309,13 +309,13 @@ class MeetingManager(GenieConsumer):
             logger.error(f"No company found for {company_uuid}")
             return
 
-        meetings_list = self.meeting_repository.get_meetings_without_goals_by_company_domain(company.domain)
+        meetings_list = self.meetings_repository.get_meetings_without_goals_by_company_domain(company.domain)
         if not meetings_list:
             logger.error(f"No meetings found for {company.domain}")
             return
         logger.debug(f"Meetings without goals for {company.domain}: {meetings_list}")
         for meeting in meetings_list:
-            if self.meeting_repository.get_meeting_goals(meeting.uuid):
+            if self.meetings_repository.get_meeting_goals(meeting.uuid):
                 logger.info(f"Meeting {meeting.uuid} already has goals")
                 continue
             participant_emails = meeting.participants_emails
@@ -350,7 +350,7 @@ class MeetingManager(GenieConsumer):
                     personal_data=personal_data, my_company_data=company, seller_context=seller_context
                 )
                 logger.info(f"Meetings goals: {meetings_goals}")
-                self.meeting_repository.save_meeting_goals(meeting.uuid, meetings_goals)
+                self.meetings_repository.save_meeting_goals(meeting.uuid, meetings_goals)
                 logger.info(f"Meeting goals saved for {meeting.uuid}")
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
@@ -379,19 +379,18 @@ class MeetingManager(GenieConsumer):
             logger.error("No strengths in profile")
             return
 
-        meetings_list = self.meeting_repository.get_meetings_without_agenda_by_email(person.get("email"))
+        meetings_list = self.meetings_repository.get_meetings_without_agenda_by_email(person.get("email"))
         logger.info(f"Meetings without agenda for {person.get('email')}: {len(meetings_list)}")
         for meeting in meetings_list:
             if meeting.agenda:
                 logger.error(f"Should not have got here: Meeting {meeting.uuid} already has an agenda")
                 continue
-            meeting_goals = self.meeting_repository.get_meeting_goals(meeting.uuid)
+            meeting_goals = self.meetings_repository.get_meeting_goals(meeting.uuid)
             if not meeting_goals:
                 logger.error(f"No meeting goals found for {meeting.uuid}")
                 continue
             logger.debug(f"Meeting goals: {meeting_goals}")
             meeting_details = meeting.to_dict()
-            logger.info("About to run ask langsmith for guidelines")
             tenant_id = logger.get_tenant_id()
             seller_context = None
             if tenant_id:
@@ -400,6 +399,7 @@ class MeetingManager(GenieConsumer):
                     seller_email, profile
                 )
                 seller_context = " || ".join(seller_context) if seller_context else None
+            logger.info("About to run ask langsmith for guidelines")
             agendas = await self.langsmith.run_prompt_get_meeting_guidelines(
                 customer_strengths=strengths,
                 meeting_details=meeting_details,
@@ -413,7 +413,7 @@ class MeetingManager(GenieConsumer):
                 logger.error(f"Error converting agenda to AgendaItem: {e}")
                 continue
             meeting.agenda = agendas
-            self.meeting_repository.save_meeting(meeting)
+            self.meetings_repository.save_meeting(meeting)
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),
@@ -433,14 +433,14 @@ class MeetingManager(GenieConsumer):
         if not meeting_uuid:
             logger.error("No meeting uuid in event")
             return
-        meeting = self.meeting_repository.get_meeting_data(meeting_uuid)
+        meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
         if not meeting:
             logger.error(f"No meeting found for {meeting_uuid}")
             return
         if meeting.agenda:
             logger.error(f"Meeting {meeting.uuid} already has an agenda")
             return
-        meeting_goals = self.meeting_repository.get_meeting_goals(meeting.uuid)
+        meeting_goals = self.meetings_repository.get_meeting_goals(meeting.uuid)
         if not meeting_goals:
             logger.error(f"No meeting goals found for {meeting.uuid}")
             return
@@ -478,7 +478,7 @@ class MeetingManager(GenieConsumer):
                 traceback.print_exc()
                 continue
             meeting.agenda = agendas
-            self.meeting_repository.save_meeting(meeting)
+            self.meetings_repository.save_meeting(meeting)
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),

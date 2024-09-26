@@ -21,7 +21,11 @@ from data.api.api_services_classes.user_materials_services import UserMaterialSe
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
-from data.data_common.utils.str_utils import upload_file_name_validation, ALLOWED_EXTENSIONS, MAX_FILE_NAME_LENGTH
+from data.data_common.utils.str_utils import (
+    upload_file_name_validation,
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_NAME_LENGTH,
+)
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -49,30 +53,32 @@ async def file_uploaded(request: Request):
         return
     try:
         # This is used for going throug azure validation and must not be used in production scenario
-        if uploaded_files[0]['data']:
-            data = uploaded_files[0]['data'];
-            if data['validationCode'] and data['validationUrl']:
+        if uploaded_files[0]["data"]:
+            data = uploaded_files[0]["data"]
+            if data["validationCode"] and data["validationUrl"]:
                 logger.info(f"Azure data: {uploaded_files}")
                 logger.info("Azure validation completed")
-                return 
+                return
     except:
         logger.info("Handling uploaded file")
     UserMaterialServices.file_uploaded(uploaded_files)
-    
+
 
 @v1_router.post("/generate-upload-url")
 async def get_file_upload_url(request: Request):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
-        raise HTTPException(status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid""")
-    
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
+        )
+
     body = await request.json()
-    if not body or not body['file_name']:
+    if not body or not body["file_name"]:
         raise HTTPException(status_code=401, detail=f"""Missing filename""")
-    file_name = body['file_name']
+    file_name = body["file_name"]
     upload_url = UserMaterialServices.generate_upload_url(tenant_id, file_name)
     return JSONResponse(content={"upload_url": upload_url})
-    
+
 
 @v1_router.post("/successful-login")
 async def post_successful_login(
@@ -381,6 +387,21 @@ def sync_email(
     return JSONResponse(content=response)
 
 
+@v1_router.get("/internal/sync-meeting-agenda/{meeting_uuid}")
+def sync_meeting_agenda(meeting_uuid: str, api_key: str) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    response = admin_api_service.process_single_meeting_agenda(meeting_uuid)
+    return JSONResponse(content=response)
+
+
 @v1_router.get("/internal/sync-meetings-agenda")
 def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
     """
@@ -494,6 +515,7 @@ def get_tenant_id_to_impersonate(
             logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
     logger.info(f"User is not impersonating tenant")
     return None
+
 
 def get_request_state_value(request: Request, key: str) -> str:
     if request and request.state and hasattr(request.state, key):

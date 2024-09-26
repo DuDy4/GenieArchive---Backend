@@ -20,6 +20,7 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 DEFAULT_PROFILE_PICTURE = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
+
 class ProfilesRepository:
     def __init__(self, conn):
         self.conn = conn
@@ -483,6 +484,78 @@ class ProfilesRepository:
             traceback.print_exc()
             return []
 
+    def get_strengths_by_email_list(self, emails: list[str]) -> list:
+        select_query = """
+        SELECT persons.email, profiles.strengths
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid
+        WHERE persons.email = ANY(%s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (emails,))
+                rows = cursor.fetchall()
+                logger.info(f"Got {len(rows)} profiles from database")
+                email_strengths_list = []
+
+                for row in rows:
+                    email = row[0]
+                    strengths_data = row[1]
+                    strengths = [Strength.from_dict(s) for s in strengths_data[:5]]  # Limit to 5 strengths
+                    email_strengths_list.append({"email": email, "strengths": strengths})
+
+                return email_strengths_list
+
+        except Exception as error:
+            logger.error(f"Error fetching profiles by email list: {error}")
+            traceback.print_exc()
+            return []
+
+    def get_profiles_by_email_list(self, emails: list[str]) -> list:
+        select_query = """
+        SELECT persons.email, profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid
+        WHERE persons.email = ANY(%s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (emails,))
+                rows = cursor.fetchall()
+                logger.info(f"Got {len(rows)} profiles from database")
+                profiles = []
+
+                for row in rows:
+                    email = row[0]
+                    uuid = UUID(row[1])
+                    name = row[2]
+                    company = row[3]
+                    position = row[4]
+                    summary = row[9] if row[9] else None
+                    picture_url = AnyUrl(row[10]) if AnyUrl(row[10]) else None
+                    strengths = [Strength.from_dict(item) for item in row[5]]
+                    hobbies = json.loads(row[6]) if isinstance(row[6], str) else row[6]
+                    connections = [Connection.from_dict(item) for item in row[7]]
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()}
+                    profile_data = (
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    profiles.append({"email": email, "profile": ProfileDTO.from_tuple(profile_data)})
+                return profiles
+        except Exception as error:
+            logger.error(f"Error fetching profiles by email list: {error}")
+            traceback.print_exc()
+            return []
+
     def insert_profile_without_strengths_and_get_to_know(self, person_data):
         insert_query = """
         INSERT INTO profiles (uuid, name, company, position)
@@ -595,9 +668,7 @@ class ProfilesRepository:
                 }
             ),
             profile_dict["summary"] if profile_dict["summary"] else "",
-            str(profile_dict["picture_url"])
-            if profile_dict["picture_url"]
-            else DEFAULT_PROFILE_PICTURE,
+            str(profile_dict["picture_url"]) if profile_dict["picture_url"] else DEFAULT_PROFILE_PICTURE,
         )
 
         try:
