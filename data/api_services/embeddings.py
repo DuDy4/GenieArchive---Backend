@@ -42,6 +42,7 @@ class GenieEmbeddingsClient:
             raise ValueError("LangSmith API key is missing. Please set it in the .env file.")
 
     def embed_document(self, doc_text, metadata):
+        logger.info("Begin embedding document")
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_text(doc_text)
 
@@ -58,6 +59,7 @@ class GenieEmbeddingsClient:
         pinecone_metadata = [{**correct_metadata, "chunk": chunk} for chunk in chunks]
 
         index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
+        logger.info("Finished embedding document")
 
     def generate_embeddings(self, text: list[str]):
         if not text:

@@ -67,10 +67,13 @@ class SalesMaterialConsumer(GenieConsumer):
         file_content = FileUploadService.read_blob_file(url)
         file_type = get_file_extension(get_file_name_from_url(url))
         if file_type == ".pdf":
+            logger.info(f"Reading PDF file")
             text = extract_text_from_pdf(file_content)
         elif file_type == ".docx" or file_type == ".doc":
+            logger.info(f"Reading DOC file")
             text = extract_text_from_docx(file_content)
         elif file_type == ".pptx" or file_type == ".ppt":
+            logger.info(f"Reading PPT file")
             text = extract_text_from_pptx(file_content)
         else:
             raise ValueError("Unsupported file type")

@@ -1,4 +1,5 @@
 import os
+import io
 import docx
 import fitz  # PyMuPDF for PDF
 from pptx import Presentation
@@ -16,13 +17,14 @@ def extract_text_from_pdf(file_content):
         text += page.get_text("text")
     return text
 
-# DOCX extraction
+
 def extract_text_from_docx(file_content):
-    doc = docx.Document(file_content)
-    text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+    with io.BytesIO(file_content) as file_like_object:
+        doc = docx.Document(file_like_object)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
     return text
 
-# PPTX extraction
+
 def extract_text_from_pptx(file_content):
     presentation = Presentation(file_content)
     text = ""

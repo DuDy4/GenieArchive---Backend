@@ -42,7 +42,7 @@ meetings_api_service = MeetingsApiService()
 tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
-
+user_materials_service = UserMaterialServices()
 
 @v1_router.post("/file-uploaded")
 async def file_uploaded(request: Request):
@@ -61,7 +61,7 @@ async def file_uploaded(request: Request):
                 return
     except:
         logger.info("Handling uploaded file")
-    UserMaterialServices.file_uploaded(uploaded_files)
+    user_materials_service.file_uploaded(uploaded_files)
 
 
 @v1_router.post("/generate-upload-url")
