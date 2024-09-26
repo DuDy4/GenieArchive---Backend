@@ -144,7 +144,7 @@ class MeetingsApiService:
         logger.info(f"Company: {str(company)[:300]}")
         mid_company = None
         if company:
-            if len(company.news) > 3:
+            if company.news and len(company.news) > 3:
                 news = []
                 domain = company.domain
                 try:
@@ -161,6 +161,8 @@ class MeetingsApiService:
                 except Exception as e:
                     logger.error(f"Error processing company news: {e}")
                     company.news = []
+            else:
+                company.news = []
             mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
             logger.info(f"Company: {str(mid_company)[:300]}")
