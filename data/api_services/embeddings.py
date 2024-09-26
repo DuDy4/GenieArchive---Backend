@@ -53,11 +53,11 @@ class GenieEmbeddingsClient:
             "tenant_id": metadata.get("tenant_id"),
             "type": metadata.get("type"),
         }
-        embeddings_data = [embedding["embedding"] for embedding in embeddings]
-        ids = [f"{vector_id}_{i}" for i in range(len(embeddings_data))]
+        # embeddings_data = [embedding["embedding"] for embedding in embeddings]
+        ids = [f"{vector_id}_{i}" for i in range(len(embeddings))]
         pinecone_metadata = [{**correct_metadata, "chunk": chunk} for chunk in chunks]
 
-        index.upsert(vectors=list(zip(ids, embeddings_data, pinecone_metadata)))
+        index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
 
     def generate_embeddings(self, text: list[str]):
         if not text:
@@ -65,7 +65,9 @@ class GenieEmbeddingsClient:
         if isinstance(text, str):
             text = [text]
         response = embeddings_model.embed(input=text)
-        return response.data
+        response_data =  response.data
+        embeddings_data = [embedding["embedding"] for embedding in response_data]
+        return  embeddings_data
 
     def search_materials_by_prospect_data(self, user_id, prospect_data):
         profile_query = f"""
