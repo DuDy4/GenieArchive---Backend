@@ -59,7 +59,7 @@ class TenantsRepository:
                     (
                         tenant.get("uuid", uuid),
                         tenant.get("tenantId"),
-                        tenant.get("name"),
+                        tenant.get("user_name"),
                         tenant.get("email"),
                         tenant.get("user_id"),
                     ),
@@ -114,7 +114,6 @@ class TenantsRepository:
         except psycopg2.Error as error:
             logger.error("Error getting tenant id:", error)
             logger.error(f"Specific error message: {error.pgerror}")
-
 
     def get_all_tenants(self) -> list[TenantDTO]:
         select_query = """
