@@ -76,7 +76,7 @@ async def get_file_upload_url(request: Request):
     if not body or not body["file_name"]:
         raise HTTPException(status_code=401, detail=f"""Missing filename""")
     file_name = body["file_name"]
-    upload_url = UserMaterialServices.generate_upload_url(tenant_id, file_name)
+    upload_url = user_materials_service.generate_upload_url(tenant_id, file_name)
     return JSONResponse(content={"upload_url": upload_url})
 
 
