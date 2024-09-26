@@ -46,6 +46,9 @@ dependencies = [
     "beautifulsoup4==4.12.3",
 
 
+    "deep-translator>=1.11.4",
+
+
     "fastapi-cli==0.0.4",
 
 

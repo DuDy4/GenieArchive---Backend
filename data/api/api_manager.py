@@ -2,6 +2,8 @@ import requests
 
 from fastapi import Request, Query
 from fastapi.routing import APIRouter
+from deep_translator import GoogleTranslator
+
 
 from common.utils import env_utils, email_utils, job_utils, jwt_utils
 from data.internal_services.tenant_service import TenantService
@@ -45,6 +47,7 @@ admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 
 logger.info("Imported all services")
+
 
 @v1_router.post("/file-uploaded")
 async def file_uploaded(request: Request):
@@ -109,6 +112,17 @@ async def login_event(
     response = tenants_api_service.login_event(user_info)
     logger.info(f"About to send response: {response}")
     return JSONResponse(content=response, status_code=200)
+
+
+@v1_router.post("/google-services/translate")
+async def translate_text(request: TranslateRequest):
+
+    try:
+        logger.info(f"Text: {request.text}")
+        result = GoogleTranslator(source="auto", target="en").translate(request.text)
+        return {"translatedText": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
 
 
 @v1_router.post("/create-ticket")
