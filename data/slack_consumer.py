@@ -71,14 +71,10 @@ class SlackConsumer(GenieConsumer):
         company = None
         if domain:
             company = self.company_repository.get_company_from_domain(email.split("@")[1])
-        message = f"failed to identify info for email: {email}."
+        message = f"[CTX={logger.get_ctx_id()}] failed to identify info for email: {email}."
         if company:
             message += f"""
-            We know that this domain is associated with a company {company.name}.
-
-            {"Company size: " + company.size if company and company.size else ""}
-
-            {company.overview if company and company.overview else ""}
+            COMPANY= {company.name}.
             """
         send_message(message)
 
