@@ -1,6 +1,6 @@
 import psycopg2
 import traceback
-from psycopg2 import sql
+from psycopg2 import sql, pool
 from dotenv import load_dotenv
 import os
 from contextlib import contextmanager
@@ -38,15 +38,31 @@ def create_database_if_not_exists():
         traceback.print_exc()
 
 
+connection_pool = psycopg2.pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=20,  # Adjust this based on your expected concurrency
+    user=db_user,
+    password=password,
+    host=host,
+    port=port,
+    database=database,
+)
+
+
 def get_db_connection():
-    try:
-        create_database_if_not_exists()
-        conn = psycopg2.connect(user=db_user, host=host, database=database, password=password, port=port)
-        return conn
-    except Exception as error:
-        logger.error("Could not connect to PostgreSQL:", error)
-        traceback.print_exc()
-        return None
+    # Get a connection from the pool
+    return connection_pool.getconn()
+
+
+# def get_db_connection():
+#     try:
+#         create_database_if_not_exists()
+#         conn = psycopg2.connect(user=db_user, host=host, database=database, password=password, port=port)
+#         return conn
+#     except Exception as error:
+#         logger.error("Could not connect to PostgreSQL:", error)
+#         traceback.print_exc()
+#         return None
 
 
 @contextmanager
