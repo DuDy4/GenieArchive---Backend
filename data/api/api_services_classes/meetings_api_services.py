@@ -47,6 +47,17 @@ class MeetingsApiService:
         logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
         return dict_meetings
 
+    def delete_meeting(self, tenant_id, meeting_uuid):
+        meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
+        if not meeting:
+            logger.error(f"Meeting not found for meeting_uuid: {meeting_uuid}")
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        if meeting.tenant_id != tenant_id:
+            logger.error(f"Tenant mismatch for tenant_id: {tenant_id}, meeting_uuid: {meeting_uuid}")
+            raise HTTPException(status_code=400, detail="Tenant mismatch")
+        self.meetings_repository.delete(meeting_uuid)
+        return {"status": "success", "message": "Meeting deleted"}
+
     def get_meeting_overview(self, tenant_id, meeting_uuid):
         meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
         if not meeting:
@@ -135,9 +146,8 @@ class MeetingsApiService:
 
         if not companies:
             logger.error("No companies found in this meeting")
-            raise HTTPException(
-                status_code=404,
-                detail="No companies found in this meeting. Might be that we are still processing the data.",
+            return MidMeetingCompany(
+                name="Unknown",
             )
 
         company = companies[0] if companies else None
