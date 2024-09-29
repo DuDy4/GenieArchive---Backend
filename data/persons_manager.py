@@ -285,9 +285,8 @@ class PersonManager(GenieConsumer):
             self.persons_repository.save_person(person)
             return {"status": "success"}
         event = GenieEvent(
-            Topic.APOLLO_NEW_PERSON_TO_ENRICH,
+            topic=Topic.APOLLO_NEW_PERSON_TO_ENRICH,
             data={"person": person.to_dict()},
-            scope="public",
         )
         event.send()
         logger.info(f"Sent 'apollo' event to the event queue")
@@ -319,7 +318,6 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(
             Topic.APOLLO_NEW_PERSON_TO_ENRICH,
             data={"person": person.to_dict()},
-            scope="public",
         )
         event.send()
         logger.info(f"Sent 'apollo' event to the event queue")
@@ -345,7 +343,6 @@ class PersonManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.PDL_NEW_PERSON_TO_ENRICH,
                 data={"person": person.to_dict()},
-                scope="public",
             )
             event.send()
             return {"error": "Failed to get personal data"}
@@ -409,7 +406,6 @@ class PersonManager(GenieConsumer):
                 event = GenieEvent(
                     topic=Topic.NEW_PERSONAL_DATA,
                     data={"person": person.to_dict(), "personal_data": apollo_personal_data},
-                    scope="public",
                 )
                 event.send()
                 return {"status": "success"}
@@ -429,7 +425,6 @@ class PersonManager(GenieConsumer):
                 event = GenieEvent(
                     topic=Topic.NEW_PERSONAL_DATA,
                     data={"person": person.to_dict(), "personal_data": apollo_personal_data},
-                    scope="public",
                 )
                 event.send()
                 logger.info("Sent 'new_personal_data' event to the event queue")
@@ -542,7 +537,6 @@ class PersonManager(GenieConsumer):
             event = GenieEvent(
                 Topic.APOLLO_NEW_PERSON_TO_ENRICH,
                 data={"person": person.to_dict()},
-                scope="public",
             )
             event.send()
             logger.info(f"Sent 'apollo' event to the event queue")
@@ -587,7 +581,6 @@ class PersonManager(GenieConsumer):
             event = GenieEvent(
                 Topic.NEW_PERSONAL_DATA,
                 data={"person": person.to_dict(), "personal_data": fetched_personal_data},
-                scope="public",
             )
             event.send()
             # Need to implement a call to langsmith, but ensure there is no one in process

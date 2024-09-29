@@ -12,5 +12,5 @@ def test_new_contacts(email_address: str):
 
     test_data = {"email": email_address}
 
-    event = GenieEvent(topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, data=json.dumps(test_data), scope="public")
+    event = GenieEvent(topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, data=json.dumps(test_data))
     event.send()

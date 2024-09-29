@@ -22,15 +22,8 @@ def test_meetings():
             meetings_repository.insert_meeting(meeting_dto)
         assert meetings_repository.exists(meeting_dto.google_calendar_id)
         print("Meetings test passed")
-    data_to_send = {
-        "tenant_id": "TestOwner",
-        "meetings": meetings
-    }
-    event = GenieEvent(
-        topic=Topic.NEW_MEETINGS_TO_PROCESS,
-        data=data_to_send,
-        scope="public",
-    )
+    data_to_send = {"tenant_id": "TestOwner", "meetings": meetings}
+    event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data=data_to_send)
     event.send()
 
 
@@ -44,7 +37,7 @@ meetings = [
         "participants_emails": ["asaf@genieai.ai"],
         "start_time": "2024-07-27T17:00:00+03:00",
         "end_time": "2024-07-27T17:30:00+03:00",
-        "agenda": []
+        "agenda": [],
     },
     # {
     #     "uuid": "65b5afe9",

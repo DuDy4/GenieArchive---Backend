@@ -92,9 +92,7 @@ def test_new_profile():
   ]
 }"""
     data_to_send = {"person": person, "profile": profile}
-    event = GenieEvent(
-        topic=Topic.NEW_PROCESSED_PROFILE, data=data_to_send, scope="public"
-    )
+    event = GenieEvent(topic=Topic.NEW_PROCESSED_PROFILE, data=data_to_send)
     event.send()
 
 

@@ -4,6 +4,7 @@ import os
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 from common.utils import env_utils
@@ -12,13 +13,11 @@ load_dotenv()
 
 connection_str = env_utils.get("EVENTHUB_CONNECTION_STRING", "")
 eventhub_name = env_utils.get("EVENTHUB_NAME", "")
-producer = EventHubProducerClient.from_connection_string(
-    conn_str=connection_str, eventhub_name=eventhub_name
-)
+producer = EventHubProducerClient.from_connection_string(conn_str=connection_str, eventhub_name=eventhub_name)
 
 
 class GenieEvent:
-    def __init__(self, topic, data: str | dict, scope, ctx_id=None):
+    def __init__(self, topic, data: str | dict, scope="public", ctx_id=None):
         self.topic = topic
         self.data: str = self.ensure_json_format(data)
         self.scope = scope

@@ -39,7 +39,7 @@ def test_new_contacts():
 
     # test_data = [person1.to_json(), person2.to_json(), person3.to_json()]
 
-    event = GenieEvent(topic=Topic.NEW_CONTACT, data=person3.to_json(), scope="public")
+    event = GenieEvent(topic=Topic.NEW_CONTACT, data=person3.to_json())
     event.send()
 
 

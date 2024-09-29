@@ -3,7 +3,8 @@ import json
 import os
 import sys
 import traceback
-from typing import List
+from datetime import datetime
+import pytz
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -118,22 +119,27 @@ class MeetingManager(GenieConsumer):
                 logger.info(f"Unknown topic: {topic}")
 
     async def handle_new_meetings_to_process(self, event):
-        """
-        This function processes a list of meetings and saves them to the database.
-        It is important to first save all meetings to database, and then process them - so they will be shown in the UI.
-        It then sends 3 events:
-        1. To process the company of the user.
-        2. To process the company of the user's contacts.
-        3. To process the emails of the user's contacts.
-        """
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         meetings = event_body.get("meetings")
+
         tenant_id = event_body.get("tenant_id")
         self_email = self.tenant_repository.get_tenant_email(tenant_id)
         emails_to_send_events = []
+
+        # Convert the meeting start times to timezone-aware datetime and sort meetings by start time
+        def get_start_time(meeting):
+            start_time = meeting["start"].get("dateTime")
+            if start_time:
+                # Convert the time to a timezone-aware datetime object
+                return datetime.fromisoformat(start_time).astimezone(pytz.UTC)
+            return None
+
+        # Sort meetings by the start time
+        meetings = sorted(meetings, key=lambda m: get_start_time(m) or datetime.max.replace(tzinfo=pytz.UTC))
+
         for meeting in meetings:
             logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
             if isinstance(meeting, str):
@@ -160,26 +166,26 @@ class MeetingManager(GenieConsumer):
             emails_to_process = email_utils.filter_emails(self_email, participant_emails)
             logger.info(f"Emails to process: {emails_to_process}")
             emails_to_send_events = list(set(emails_to_send_events + emails_to_process))
+
         logger.info(f"Emails to send events: {emails_to_send_events}")
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": tenant_id, "email": self_email},
-            scope="public",
         )
         event.send()
+
         for email in emails_to_send_events:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": tenant_id, "email": email},
-                scope="public",
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": tenant_id, "email": email},
-                scope="public",
             )
             event.send()
+
         return {"status": "success"}
 
     async def handle_new_meeting(self, event):
@@ -205,19 +211,16 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-                scope="public",
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-                scope="public",
             )
             event.send()
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": meeting.tenant_id, "email": self_email},
-            scope="public",
         )
         event.send()
         return {"status": "success"}
@@ -276,7 +279,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.NEW_MEETING_GOALS,
                 data={"meeting_uuid": meeting.uuid},
-                scope="public",
             )
             event.send()
         logger.info(f"Finished processing meetings goals for new personal data: {person.email}")
@@ -337,7 +339,6 @@ class MeetingManager(GenieConsumer):
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
                     data=json.dumps({"meeting_uuid": meeting.uuid}),
-                    scope="public",
                 )
                 event.send()
                 break  # Only process one email per meeting - need to implement couple attendees in the future
@@ -389,7 +390,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),
-                scope="public",
             )
             event.send()
         logger.info(f"Finished processing meetings for new profile: {person.get('email')}")
@@ -450,7 +450,6 @@ class MeetingManager(GenieConsumer):
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
                 data=json.dumps(meeting.to_dict()),
-                scope="public",
             )
             event.send()
             break

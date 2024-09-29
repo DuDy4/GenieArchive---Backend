@@ -477,6 +477,22 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
+    def get_all_meetings(self):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings from database")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching all meetings:", error)
+            traceback.print_exception(error)
+            return []
+
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
