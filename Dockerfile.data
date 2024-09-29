@@ -15,6 +15,7 @@ RUN apt-get update && \
     apt-get install -y git libpq-dev gcc build-essential && \
     rm -rf /var/lib/apt/lists/*
 RUN if [ "$SERVICE_NAME" = "sales_material_consumer" ]; then \
+    apt-get install -y software-properties-common && add-apt-repository universe && apt-get update && \
     apt-get install -y tesseract-ocr; \
     fi
 RUN pip install uv
