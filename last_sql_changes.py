@@ -10,10 +10,6 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
-ALTER TABLE personalData
-ADD COLUMN news JSONB,
-ADD COLUMN news_status TEXT,
-ADD COLUMN news_last_updated TIMESTAMP;
 """
 
 max_retries = 5
