@@ -171,19 +171,23 @@ class ProfilesApiService:
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
 
     def get_work_experience(self, tenant_id, uuid):
-        personal_data = self.personal_data_repository.get_pdl_personal_data(uuid)
-
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
             logger.error(f"Profile {uuid} was not found under tenant {tenant_id}")
             raise HTTPException(
                 status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {tenant_id}"}
             )
 
+        personal_data = self.personal_data_repository.get_pdl_personal_data(uuid)
         if personal_data:
             experience = personal_data["experience"]
             fixed_experience = fix_and_sort_experience_from_pdl(experience)
         else:
             personal_data = self.personal_data_repository.get_apollo_personal_data(uuid)
+            if not personal_data:
+                logger.error(f"Could not find personal data for profile {uuid}")
+                raise HTTPException(
+                    status_code=404, detail={"error": f"Could not find personal data for profile {uuid}"}
+                )
             fixed_experience = fix_and_sort_experience_from_apollo(personal_data)
         logger.info(f"Fixed experience: {fixed_experience}")
 
