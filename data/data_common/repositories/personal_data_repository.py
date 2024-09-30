@@ -37,7 +37,10 @@ class PersonalDataRepository:
             pdl_last_updated TIMESTAMP,
             apollo_personal_data JSONB,
             apollo_status TEXT,
-            apollo_last_updated TIMESTAMP
+            apollo_last_updated TIMESTAMP,
+            news JSONB,
+            news_status TEXT,
+            news_last_updated TIMESTAMP
         );
         """
         try:

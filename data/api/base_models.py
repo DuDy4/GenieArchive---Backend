@@ -367,20 +367,20 @@ class MeetingCompany(BaseModel):
 
 class MidMeetingCompany(BaseModel):
     name: str
-    description: Optional[str] | None
-    logo: Optional[str] | None
-    overview: Optional[str] | None
-    size: Optional[str] | None
-    industry: Optional[str] | None
-    address: Optional[str] | None
-    country: Optional[str] | None
-    annual_revenue: Optional[str] | None
-    total_funding: Optional[str] | None
-    funding_rounds: Optional[List[FundingEvent]] | None
+    description: Optional[str] | None = None
+    logo: Optional[str] | None = None
+    overview: Optional[str] | None = None
+    size: Optional[str] | None = None
+    industry: Optional[str] | None = None
+    address: Optional[str] | None = None
+    country: Optional[str] | None = None
+    annual_revenue: Optional[str] | None = None
+    total_funding: Optional[str] | None = None
+    funding_rounds: Optional[List[FundingEvent]] | None = []
     technologies: Optional[List[str]] = []
     challenges: Optional[List[Challenge]] = []
-    social_links: Optional[List[SocialMediaLinks]] | None
-    news: List[NewsData]
+    social_links: Optional[List[SocialMediaLinks]] | None = []
+    news: List[NewsData] = []
 
     @classmethod
     def from_dict(cls, data: Dict):
