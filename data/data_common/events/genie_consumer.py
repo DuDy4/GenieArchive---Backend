@@ -11,6 +11,9 @@ from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
+from fastapi import FastAPI
+from threading import Thread
+import uvicorn
 
 load_dotenv()
 configure_azure_monitor()
@@ -36,10 +39,39 @@ class GenieConsumer:
             consumer_group=consumer_group,
             eventhub_name=eventhub_name,
             checkpoint_store=checkpoint_store,
-            transport_type=TransportType.AmqpOverWebsocket,  # Optional: use AMQP over WebSockets if necessary for network conditions
+            transport_type=TransportType.AmqpOverWebsocket,
         )
         self.topics = topics
         self._shutdown_event = asyncio.Event()
+        self.is_healthy = True  
+
+        health_check_port = env_utils.get("HEALTH_CHECK_PORT")
+        if health_check_port:
+            self.start_health_check_server()
+
+    def start_health_check_server(self):
+        app = FastAPI()
+
+        @app.get("/health")
+        async def health_check():
+            if self.is_healthy:
+                return {"status": "healthy"}
+            else:
+                return {"status": "unhealthy"}, 500
+
+        # Run FastAPI in a separate thread
+        thread = Thread(target=self.run_server, args=(app,))
+        thread.daemon = True
+        thread.start()
+
+    
+    def run_server(self, app):
+        # Get the port from an environment variable, defaulting to 8000 if not set
+        health_check_port = env_utils.get("HEALTH_CHECK_PORT")
+        if health_check_port:
+            logger.info(f"Starting health check server on port {health_check_port}")
+            uvicorn.run(app, host="0.0.0.0", port=int(health_check_port))
+
 
     async def on_event(self, partition_context, event):
         topic = event.properties.get(b"topic")

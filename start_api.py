@@ -127,6 +127,11 @@ def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
     return RedirectResponse(url=base_url + "/docs")
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+
 app.include_router(v1_router, dependencies=[Depends(genie_metrics)])
 
 PORT = int(env_utils.get("PERSON_PORT", 8000))

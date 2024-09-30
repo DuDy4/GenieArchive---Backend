@@ -1,6 +1,9 @@
 import asyncio
+import os
 import sys
 
+from dotenv import load_dotenv
+os.environ["HEALTH_CHECK_PORT"] = ""
 from data.pdl_consumer import PDLConsumer
 from data.person_langsmith import LangsmithConsumer
 from data.persons_manager import PersonManager
@@ -13,6 +16,7 @@ from data.sales_material_consumer import SalesMaterialConsumer
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 
+load_dotenv()
 configure_azure_monitor()
 logger = GenieLogger()
 
