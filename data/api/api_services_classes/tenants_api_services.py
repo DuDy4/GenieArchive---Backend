@@ -133,13 +133,14 @@ class TenantsApiService:
 
         return {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
 
+
     def create_tenant(self, tenant_data):
         tenant_id = tenant_data.get("tenantId")
         if not tenant_id:
             raise HTTPException(status_code=400, detail="Missing tenant ID")
         self.tenants_repository.insert(tenant_data)
 
-    # Other tenant-related logic here...
+
     def login_event(self, user_info):
         try:
             user_name = user_info.get("name")
@@ -189,6 +190,7 @@ class TenantsApiService:
         except Exception as e:
             logger.error(f"Error during login event: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        
 
     def import_google_meetings(self, tenant_id):
         tenant_email = self.tenants_repository.get_tenant_email(tenant_id)

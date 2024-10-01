@@ -10,6 +10,7 @@ logging.getLogger("aiohttp").setLevel(logging.WARNING)
 logging.getLogger("asyncio.default_exception_handler").setLevel(logging.ERROR)
 logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("pinecone_plugin_interface.logging").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 

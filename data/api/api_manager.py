@@ -1,6 +1,6 @@
 import requests
 
-from fastapi import Request, Query
+from fastapi import Request, Query, BackgroundTasks
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 
@@ -20,6 +20,7 @@ from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
+from data.api.api_services_classes.stats_api_services import StatsApiService
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
@@ -45,6 +46,7 @@ tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
+stats_api_service = StatsApiService()
 
 logger.info("Imported all services")
 
@@ -101,6 +103,7 @@ async def post_successful_login(
 
 @v1_router.post("/users/login-event")
 async def login_event(
+    background_tasks: BackgroundTasks,
     request: Request,
 ):
     """
@@ -111,6 +114,8 @@ async def login_event(
     logger.info(f"Received user info: {user_info}")
     response = tenants_api_service.login_event(user_info)
     logger.info(f"About to send response: {response}")
+    if response:
+        background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("teanant_id"))
     return JSONResponse(content=response, status_code=200)
 
 
@@ -296,6 +301,7 @@ def get_profile_get_to_know(
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
 def get_profile_good_to_know(
+    background_tasks: BackgroundTasks,
     request: Request,
     uuid: str,
     tenant_id: str,
@@ -313,6 +319,8 @@ def get_profile_good_to_know(
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     response = profiles_api_service.get_profile_good_to_know(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
+    if not allowed_impersonate_tenant_id:
+        background_tasks.add_task(stats_api_service.view_profile_event, tenant_id=tenant_id, profile_id=uuid)
     return response
 
 
@@ -348,6 +356,7 @@ def get_work_experience(
     ],
 )
 def get_meeting_overview(
+    background_tasks: BackgroundTasks,
     request: Request,
     tenant_id: str,
     meeting_uuid: str,
@@ -367,6 +376,8 @@ def get_meeting_overview(
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     response = meetings_api_service.get_meeting_overview(tenant_id, meeting_uuid)
     logger.info(f"About to send response: {response}")
+    if not allowed_impersonate_tenant_id:
+        background_tasks.add_task(stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid)
     return response
 
 

@@ -10,6 +10,7 @@ from ..repositories.google_creds_repository import GoogleCredsRepository
 from ..repositories.ownerships_repository import OwnershipsRepository
 from ..repositories.hobbies_repository import HobbiesRepository
 from ..repositories.companies_repository import CompaniesRepository
+from ..repositories.stats_repository import StatsRepository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -25,7 +26,20 @@ def tenants_repository() -> TenantsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in tenants_repository")
+            logger.debug("Connection returned to pool in tenants_repository")
+
+
+def stats_repository() -> StatsRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        return StatsRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+    finally:
+        if conn:
+            connection_pool.putconn(conn)
+            logger.debug("Connection returned to pool in stats_repository")
 
 
 def interactions_repository() -> InteractionsRepository:
@@ -38,7 +52,7 @@ def interactions_repository() -> InteractionsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in interactions_repository")
+            logger.debug("Connection returned to pool in interactions_repository")
 
 
 def companies_repository() -> CompaniesRepository:
@@ -51,7 +65,7 @@ def companies_repository() -> CompaniesRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in companies_repository")
+            logger.debug("Connection returned to pool in companies_repository")
 
 
 def personal_data_repository() -> PersonalDataRepository:
@@ -64,7 +78,7 @@ def personal_data_repository() -> PersonalDataRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in personal_data_repository")
+            logger.debug("Connection returned to pool in personal_data_repository")
 
 
 def profiles_repository() -> ProfilesRepository:
@@ -77,7 +91,7 @@ def profiles_repository() -> ProfilesRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in profiles_repository")
+            logger.debug("Connection returned to pool in profiles_repository")
 
 
 def persons_repository() -> PersonsRepository:
@@ -90,7 +104,7 @@ def persons_repository() -> PersonsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in persons_repository")
+            logger.debug("Connection returned to pool in persons_repository")
 
 
 def meetings_repository() -> MeetingsRepository:
@@ -103,7 +117,7 @@ def meetings_repository() -> MeetingsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in meetings_repository")
+            logger.debug("Connection returned to pool in meetings_repository")
 
 
 def google_creds_repository() -> GoogleCredsRepository:
@@ -116,7 +130,7 @@ def google_creds_repository() -> GoogleCredsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in google_creds_repository")
+            logger.debug("Connection returned to pool in google_creds_repository")
 
 
 def ownerships_repository() -> OwnershipsRepository:
@@ -129,7 +143,7 @@ def ownerships_repository() -> OwnershipsRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in ownerships_repository")
+            logger.debug("Connection returned to pool in ownerships_repository")
 
 
 def hobbies_repository() -> HobbiesRepository:
@@ -142,4 +156,4 @@ def hobbies_repository() -> HobbiesRepository:
     finally:
         if conn:
             connection_pool.putconn(conn)
-            logger.info("Connection returned to pool in hobbies_repository")
+            logger.debug("Connection returned to pool in hobbies_repository")
