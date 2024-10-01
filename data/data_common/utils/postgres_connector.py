@@ -23,7 +23,7 @@ port = int(env_utils.get(DEV_MODE + "DB_PORT"))
 # Create a connection pool
 connection_pool = psycopg2.pool.SimpleConnectionPool(
     minconn=1,
-    maxconn=20,  # Adjust this based on your expected concurrency
+    maxconn=25,  # Adjust this based on your expected concurrency
     user=db_user,
     password=password,
     host=host,
