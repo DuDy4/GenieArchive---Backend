@@ -10,6 +10,8 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
+ALTER TABLE persons
+ADD COLUMN last_message_sent_at TIMESTAMP
 """
 
 max_retries = 5
