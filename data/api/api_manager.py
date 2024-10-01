@@ -114,8 +114,7 @@ async def login_event(
     logger.info(f"Received user info: {user_info}")
     response = tenants_api_service.login_event(user_info)
     logger.info(f"About to send response: {response}")
-    if response:
-        background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("teanant_id"))
+    background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("tenant_id"))
     return JSONResponse(content=response, status_code=200)
 
 
