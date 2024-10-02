@@ -3,9 +3,6 @@ import os
 import sys
 import asyncio
 
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -19,12 +16,6 @@ from data.data_common.utils.persons_utils import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
 )
-from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.repositories.personal_data_repository import PersonalDataRepository
-from data.data_common.repositories.profiles_repository import ProfilesRepository
-from data.data_common.repositories.ownerships_repository import OwnershipsRepository
-from data.data_common.repositories.meetings_repository import MeetingsRepository
-from data.data_common.repositories.companies_repository import CompaniesRepository
 
 from data.data_common.dependencies.dependencies import (
     persons_repository,
@@ -36,9 +27,10 @@ from data.data_common.dependencies.dependencies import (
 )
 
 from data.importers.profile_pictures import get_profile_picture
-from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE 
+from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -255,7 +247,7 @@ class PersonManager(GenieConsumer):
         if not person or not personal_data:
             logger.error("No person or personal data found")
             return {"error": "No person or personal data found"}
-        data_to_send = {"person": person.to_dict(), "personal_data": personal_data, "tenant_id" : tenant_id}
+        data_to_send = {"person": person.to_dict(), "personal_data": personal_data, "tenant_id": tenant_id}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
         event.send()
@@ -462,9 +454,7 @@ class PersonManager(GenieConsumer):
         # This is a test to get profile picture from social media links
         social_media_links = self.personal_data_repository.get_social_media_links(uuid)
         picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
-        profile["picture_url"] = (
-            picture_url if picture_url else DEFAULT_PROFILE_PICTURE
-        )
+        profile["picture_url"] = picture_url if picture_url else DEFAULT_PROFILE_PICTURE
 
         if profile.get("strengths") and isinstance(profile["strengths"], dict):
             logger.warning("Strengths is a dict again...")
@@ -493,16 +483,14 @@ class PersonManager(GenieConsumer):
         logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_dto)
         logger.info(f"About to fetch profile picture for {person.email}")
-        if (
-            not profile_dto.picture_url
-            or profile_dto.picture_url == DEFAULT_PROFILE_PICTURE
-        ):
+        if not profile_dto.picture_url or profile_dto.picture_url == DEFAULT_PROFILE_PICTURE:
             profile_dto.picture_url = get_profile_picture(person, social_media_links)
             self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)
         logger.info(f"Profile picture url: {profile_dto.picture_url}")
         json_profile = profile_dto.to_json()
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
+        self.persons_repository.remove_last_sent_message(person.uuid)
         logger.info("Saved new processed data to profiles_repository")
         return {"status": "success"}
 

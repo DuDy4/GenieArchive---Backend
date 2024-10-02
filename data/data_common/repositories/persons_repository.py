@@ -386,3 +386,13 @@ class PersonsRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(query, (email,))
             self.conn.commit()
+
+    def remove_last_sent_message(self, uuid):
+        query = """
+        UPDATE persons
+        SET last_message_sent_at = NULL
+        WHERE uuid = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (uuid,))
+            self.conn.commit()
