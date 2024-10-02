@@ -120,6 +120,7 @@ class AdminApiService:
 
     def process_agenda_to_all_meetings(self, number_of_meetings=10):
         all_meetings = self.meetings_repository.get_all_external_meetings_without_agenda()
+        logger.info(f"Found {len(all_meetings)} meetings without agenda")
         all_meetings = all_meetings[:number_of_meetings]
         logger.info(f"Processing {len(all_meetings)} meetings")
         for meeting in all_meetings:
@@ -137,6 +138,8 @@ class AdminApiService:
                     self.process_meeting_from_scratch(meeting)
             logger.debug("Processing complete")
         logger.info("Finished processing all meetings")
+        all_meetings = self.meetings_repository.get_all_external_meetings_without_agenda()
+        logger.info(f"After processing, found {len(all_meetings)} meetings without agenda")
         return {"status": "success"}
 
     def process_classification_to_all_meetings(self):
