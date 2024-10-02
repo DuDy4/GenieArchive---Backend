@@ -398,15 +398,15 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
-    def get_meetings_without_agenda_by_email(self, email):
+    def get_meetings_with_goals_without_agenda_by_email(self, email):
         """
-        Get a list of meetings that have a specific email as a participant and have no agenda (NULL or empty list).
+        Get a list of meetings that have a specific email as a participant and have no agenda (NULL or empty list) - but has goals.
         """
 
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' or agenda = 'null')) AND classification = 'external';
+        WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' OR agenda != 'null')) AND (goals IS NOT NULL OR goals != '[]' OR goals = 'null') AND classification = 'external';
         """
         email_json = json.dumps([{"email": email}])
         try:

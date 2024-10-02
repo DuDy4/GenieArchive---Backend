@@ -379,7 +379,9 @@ class MeetingManager(GenieConsumer):
             logger.error("No strengths in profile")
             return
 
-        meetings_list = self.meetings_repository.get_meetings_without_agenda_by_email(person.get("email"))
+        meetings_list = self.meetings_repository.get_meetings_with_goals_without_agenda_by_email(
+            person.get("email")
+        )
         logger.info(f"Meetings without agenda for {person.get('email')}: {len(meetings_list)}")
         for meeting in meetings_list:
             if meeting.agenda:
