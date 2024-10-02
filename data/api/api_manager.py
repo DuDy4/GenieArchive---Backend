@@ -376,8 +376,32 @@ def get_meeting_overview(
     response = meetings_api_service.get_meeting_overview(tenant_id, meeting_uuid)
     logger.info(f"About to send response: {response}")
     if not allowed_impersonate_tenant_id:
-        background_tasks.add_task(stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid)
+        background_tasks.add_task(
+            stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid
+        )
     return response
+
+
+@v1_router.delete("/{tenant_id}/{meeting_uuid}", response_class=JSONResponse)
+def delete_meeting(
+    request: Request,
+    tenant_id: str,
+    meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> JSONResponse:
+    """
+    Delete a meeting.
+
+    - **tenant_id**: Tenant ID
+    - **meeting_uuid**: Meeting UUID
+    """
+    logger.info(f"Got delete meeting request for meeting: {meeting_uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = meetings_api_service.delete_meeting(tenant_id, meeting_uuid)
+    logger.info(f"About to send response: {response}")
+    return JSONResponse(content=response)
 
 
 @v1_router.get("/internal/sync-profile/{person_uuid}")
