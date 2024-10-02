@@ -17,11 +17,12 @@ class MeetingClassification(Enum):
     EXTERNAL = "external"
     INTERNAL = "internal"
     PRIVATE = "private"
+    DELETED = "deleted"
 
     @staticmethod
     def from_str(label: str):
         label = label.lower()
-        if label in ("external", "internal", "private"):
+        if label in ("external", "internal", "private", "deleted"):
             return MeetingClassification[label.upper()]
         else:
             raise ValueError(f"Invalid classification: {label}")
@@ -146,10 +147,11 @@ class MeetingDTO:
             agenda=[AgendaItem.from_dict(agenda) for agenda in data.get("agenda")]
             if data.get("agenda")
             else None,
-            classification=MeetingClassification.from_str(data.get("classification")) if data.get("classification") 
-                else evaluate_meeting_classification(
-                    data.get("participants_emails", []) or MeetingClassification.EXTERNAL
-                )
+            classification=MeetingClassification.from_str(data.get("classification"))
+            if data.get("classification")
+            else evaluate_meeting_classification(
+                data.get("participants_emails", []) or MeetingClassification.EXTERNAL
+            ),
         )
 
     def to_tuple(self) -> tuple:
