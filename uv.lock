@@ -735,7 +735,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = "==0.1.7" },
     { name = "langchain-text-splitters", specifier = "==0.2.0" },
     { name = "langchainhub", specifier = "==0.1.16" },
-    { name = "langsmith", specifier = "==0.1.63" },
+    { name = "langsmith", specifier = ">=0.1.63" },
     { name = "launchpadlib", specifier = "==1.10.13" },
     { name = "linkedin-profile-picture", git = "https://github.com/shashankdeshpande/linkedin-profile-picture.git?rev=12bdbaaa5a5759091905f48a9205f2c4c845de1c" },
     { name = "loguru", specifier = "==0.7.2" },
