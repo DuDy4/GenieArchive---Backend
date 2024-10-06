@@ -453,7 +453,9 @@ def sync_meeting_agenda(meeting_uuid: str, api_key: str) -> JSONResponse:
 
 
 @v1_router.get("/internal/sync-meetings-agenda")
-def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
+def process_meetings_agendas(
+    background_tasks: BackgroundTasks, api_key: str, meetings_number: int = 10
+) -> JSONResponse:
     """
     Sync an email from the beginning
 
@@ -463,8 +465,9 @@ def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONRes
     if api_key != INTERNAL_API_KEY:
         logger.error(f"Invalid API key: {api_key}")
         return JSONResponse(content={"error": "Invalid API key"})
-    response = admin_api_service.process_agenda_to_all_meetings(meetings_number)
-    return JSONResponse(content=response)
+    logger.info(f"Processing {meetings_number} meetings agendas")
+    background_tasks.add_task(admin_api_service.process_agenda_to_all_meetings, meetings_number)
+    return JSONResponse(content={"status": "success", "message": "Processing all meetings agendas"})
 
 
 @v1_router.get("/internal/sync-meeting-classification")
