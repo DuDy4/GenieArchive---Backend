@@ -37,6 +37,7 @@ class Topic:
         "new-personal-data-to-process"  # PersonManager calls for Langsmith to process enriched data
     )
     NEW_PROCESSED_PROFILE = "new-processed-profile"  # Langsmith Succeeded in processing enriched data
+    FETCH_NEWS = "fetch-news"  # PersonManager calls for LinkedIn scraper to fetch news
 
     # Company enrichment
     NEW_EMAIL_TO_PROCESS_DOMAIN = "new-email-to-process-domain"  # Call for hunter.io

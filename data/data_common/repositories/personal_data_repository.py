@@ -2,10 +2,10 @@ from typing import Optional, List
 import json
 import psycopg2
 import traceback
-
+from datetime import datetime
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-
+from data.data_common.data_transfer_objects.company_dto import NewsData
 from common.genie_logger import GenieLogger
 from data.data_common.utils.str_utils import to_custom_title_case
 
@@ -27,7 +27,7 @@ class PersonalDataRepository:
     def create_table_if_not_exists(self):
         create_table_query = """
         CREATE TABLE IF NOT EXISTS personalData (
-            id SERIAL PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
             email VARCHAR,
@@ -37,9 +37,12 @@ class PersonalDataRepository:
             pdl_last_updated TIMESTAMP,
             apollo_personal_data JSONB,
             apollo_status TEXT,
-            apollo_last_updated TIMESTAMP
-        );
-        """
+            apollo_last_updated TIMESTAMP,
+            news JSONB,
+            news_status TEXT,
+            news_last_updated TIMESTAMP
+            );
+            """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(create_table_query)
@@ -393,33 +396,73 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
-
-    def get_personal_uuid_by_email(self, email_address: str):
+    def update_news_to_db(self, uuid: str, news_data: dict, status: str):
         """
-        Retrieve personal data uuid associated with an email address.
+        Update news data in the personaldata table in the database.
 
-        :param email_address: Email address of the person.
-        :return: Personal data uuid if personalData exists, None otherwise.
+        :param uuid: Unique identifier for the personalData (required).
+        :param news_data: A dictionary containing the news data.
+        :param status: A string indicating the status of the news ("Fetched" or "Failed to fetch").
         """
-        self.create_table_if_not_exists()
-        select_query = """
-        SELECT uuid
-        FROM personalData
-        WHERE email = %s
+        if not uuid:
+            logger.error("UUID is None or empty. Cannot update the database.")
+            return
+
+        update_query = """
+        UPDATE personaldata
+        SET news = COALESCE(personaldata.news, '[]'::jsonb) || %s::jsonb,
+            news_status = %s,
+            news_last_updated = %s
+        WHERE uuid = %s
         """
         try:
+            news_last_updated = datetime.now()
+            json_news_data = json.dumps(news_data) if news_data else None
+
+            logger.debug(f"Updating news in DB, UUID: {uuid}, status: {status}, news_data: {str(json_news_data)[:100]}")
+
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email_address,))
-                uuid = cursor.fetchone()
-                if uuid:
-                    return uuid[0]
-                else:
-                    logger.warning("personalData uuid was not found in db by email address")
-                    return None
+                cursor.execute(update_query, (
+                    json_news_data,  # Update the news column by appending new data to the existing data
+                    status,  # Update the news status
+                    news_last_updated,  # Update the last updated timestamp
+                    uuid  # Use the UUID to find the correct row
+                ))
+                self.conn.commit()
+
+            logger.info(f"Successfully updated news with UUID: {uuid} and status: {status}")
+
         except Exception as e:
-            logger.error(f"Error retrieving personal data: {e}", e)
-            traceback.format_exc()
-            return None
+            self.conn.rollback()
+            logger.error(f"Error updating news in the database: {e}")
+            raise
+
+        def get_personal_uuid_by_email(self, email_address: str):
+            """
+            Retrieve personal data uuid associated with an email address.
+
+            :param email_address: Email address of the person.
+            :return: Personal data uuid if personalData exists, None otherwise.
+            """
+            self.create_table_if_not_exists()
+            select_query = """
+            SELECT uuid
+            FROM personalData
+            WHERE email = %s
+            """
+            try:
+                with self.conn.cursor() as cursor:
+                    cursor.execute(select_query, (email_address,))
+                    uuid = cursor.fetchone()
+                    if uuid:
+                        return uuid[0]
+                    else:
+                        logger.warning("personalData uuid was not found in db by email address")
+                        return None
+            except Exception as e:
+                logger.error(f"Error retrieving personal data: {e}", e)
+                traceback.format_exc()
+                return None
 
     def get_profile_picture_url(self, uuid: str):
         """
@@ -898,7 +941,7 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving status: {e}", e)
             traceback.format_exc()
             return None
-
+    
     def get_all_personal_data_with_missing_attributes(self):
         """
         Retrieve personal data with missing attributes that have valid corresponding data in the persons table.

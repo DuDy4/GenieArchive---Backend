@@ -1,6 +1,5 @@
 import json
 from typing import List, Dict, Optional, Union, Tuple, Any
-
 from pydantic import HttpUrl, field_validator, BaseModel
 from datetime import date
 
@@ -33,12 +32,13 @@ class FundingEvent(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    def to_tuple(self) -> Tuple[date, Optional[HttpUrl], Optional[str], Optional[List[str]], str]:
+    
+    def to_tuple(self) -> Tuple[date, Optional[HttpUrl], Optional[str], Optional[List[str]], str]: # type: ignore
         return self.date, self.news_url, self.type, self.investors, self.amount
 
     @classmethod
     def from_tuple(
-        cls, data: Tuple[date, Optional[HttpUrl], Optional[str], Optional[List[str]], str]
+        cls, data: Tuple[date, Optional[HttpUrl], Optional[str], Optional[List[str]], str] # type: ignore
     ) -> "FundingEvent":
         return cls(date=data[0], news_url=data[1], type=data[2], investors=data[3], amount=data[4])
 
@@ -158,11 +158,11 @@ class NewsData(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]: # type: ignore
         return self.date, self.link, self.media, self.title, self.summary
 
     @classmethod
-    def from_tuple(cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]) -> "NewsData":
+    def from_tuple(cls, data: Tuple[Optional['date'], str, str, str, Optional[str]]) -> "NewsData":
         return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
 
     def to_dict(self) -> Dict[str, Any]:

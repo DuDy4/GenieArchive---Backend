@@ -55,12 +55,17 @@ class PersonsRepository:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(insert_query, person_data)
-                self.conn.commit()
+                self.conn.commit()  # Commit transaction if successful
                 person_id = cursor.fetchone()[0]
                 logger.info(f"Inserted person to database. Person id: {person_id}")
                 return person.uuid
+        except psycopg2.errors.UniqueViolation as error:
+            logger.warning(f"Duplicate entry for UUID: {person.uuid}, skipping insert.")
+            self.conn.rollback()  # Rollback the transaction in case of duplicate key
+            return None  # Return None or some other indication that insert was skipped
         except psycopg2.Error as error:
             logger.error(f"Error inserting person: {error.pgerror}")
+            self.conn.rollback()  # Rollback the transaction for any other database error
             traceback.print_exc()
             raise Exception(f"Error inserting person, because: {error.pgerror}")
 

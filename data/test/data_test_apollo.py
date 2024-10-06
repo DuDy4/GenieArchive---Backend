@@ -16,4 +16,4 @@ def test_pdl_failed_to_enrich_email(email_address: str):
     event.send()
 
 
-test_failed_to_enrich_email("nativ@hanacovc.com")
+test_failed_to_enrich_email("nativ@hanacovc.com") # type: ignore
