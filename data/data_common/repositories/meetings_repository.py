@@ -421,6 +421,18 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
+    def update_tenant_id(self, new_tenant_id, old_tenant_id):
+        update_query = "UPDATE meetings SET tenant_id = %s WHERE tenant_id = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating tenant_id: {error.pgerror}")
+            traceback.print_exc()
+            return False
+
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
