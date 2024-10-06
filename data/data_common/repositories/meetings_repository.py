@@ -131,7 +131,7 @@ class MeetingsRepository:
             return
 
     def exists(self, google_calendar_id: str) -> bool:
-        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s AND classification != 'deleted';"
+        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
             with self.conn.cursor() as cursor:
                 logger.info(f"About to execute check if uuid exists: {google_calendar_id}")
@@ -158,7 +158,7 @@ class MeetingsRepository:
         exists_query = """
         SELECT 1 FROM meetings
         WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
-        AND classification = %s AND classification != 'deleted';
+        AND classification = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -393,7 +393,7 @@ class MeetingsRepository:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE classification IS NULL AND classification != 'deleted';
+        WHERE classification IS NULL or classification = 'null' AND classification != 'deleted';
         """
         try:
             with self.conn.cursor() as cursor:
@@ -439,7 +439,7 @@ class MeetingsRepository:
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
         start_time = %s, end_time = %s, agenda = %s, classification = %s
-        WHERE google_calendar_id = %s AND classification != 'deleted';
+        WHERE google_calendar_id = %s;
         """
 
         agenda = meeting.agenda
@@ -528,6 +528,23 @@ class MeetingsRepository:
                 return meetings
         except Exception as error:
             logger.error("Error fetching all meetings:", exc_info=True)
+            return []
+
+    def get_meetings_with_missing_classification(self):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification IS NULL AND classification != 'deleted';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings with missing classification from database")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching meetings with missing classification:", error)
+            traceback.print_exception(error)
             return []
 
 

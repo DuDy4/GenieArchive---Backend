@@ -148,8 +148,10 @@ class AdminApiService:
             logger.debug(f"Processing meeting {meeting}")
             classification = evaluate_meeting_classification(meeting.participants_emails)
             meeting.classification = classification
+            logger.info(f"Updated meeting {meeting.uuid} with classification {meeting.classification}")
             self.meetings_repository.save_meeting(meeting)
             logger.info(f"Updated meeting {meeting.uuid} with classification {classification}")
+        return {"status": f"success. evaluated classification for {len(meetings)} meetings"}
 
     def process_new_classification_to_all_meetings(self):
         meetings = self.meetings_repository.get_all_meetings()
