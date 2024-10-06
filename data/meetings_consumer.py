@@ -130,6 +130,7 @@ class MeetingManager(GenieConsumer):
         tenant_id = event_body.get("tenant_id")
         self_email = self.tenant_repository.get_tenant_email(tenant_id)
         emails_to_send_events = []
+        meetings_dto_to_check_deletion = []  # List of meetings to check if they need to be deleted
 
         # Convert the meeting start times to timezone-aware datetime and sort meetings by start time
         def get_start_time(meeting):
@@ -147,7 +148,9 @@ class MeetingManager(GenieConsumer):
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-
+            meetings_dto_to_check_deletion.append(
+                meeting
+            )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
             meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
                 meeting.google_calendar_id
             )
@@ -187,6 +190,8 @@ class MeetingManager(GenieConsumer):
                 data={"tenant_id": tenant_id, "email": email},
             )
             event.send()
+
+        self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion)
 
         return {"status": "success"}
 
@@ -516,6 +521,38 @@ class MeetingManager(GenieConsumer):
         if meeting.tenant_id != meeting_in_database.tenant_id:
             return False
         return True
+
+    def handle_check_meetings_to_delete(self, meetings_imported: list[MeetingDTO]):
+        logger.info(f"Checking for meetings to delete")
+        last_date_imported = meetings_imported[-1].start_time
+        if not last_date_imported:
+            logger.error(f"No last date imported found")
+            return
+        logger.info(f"Last date imported: {last_date_imported}")
+        meetings_from_database = (
+            self.meetings_repository.get_all_meetings_by_tenant_id_that_should_be_imported(
+                len(meetings_imported)
+            )
+        )
+        if not meetings_from_database:
+            logger.info("No meetings found")
+            return {"status": "Failed to find meetings"}
+        logger.info(f"Meetings to check for deletion: {len(meetings_from_database)}")
+        meetings_google_ids = [meeting.google_calendar_id for meeting in meetings_imported]
+        for meeting in meetings_from_database:
+            if meeting.google_calendar_id in meetings_google_ids:
+                meetings_google_ids.remove(meeting.google_calendar_id)
+                continue
+            else:
+                logger.info(
+                    f"Meeting {meeting.uuid} not found in imported meetings. Checking if it should be deleted"
+                )
+                if meeting.start_time < last_date_imported:
+                    logger.info(f"Meeting {meeting.uuid} should be deleted")
+                    meeting.classification = MeetingClassification.DELETED
+                    self.meetings_repository.save_meeting(meeting)
+                    logger.info(f"Meeting {meeting.uuid} deleted")
+        logger.info(f"Finished checking for meetings to delete")
 
 
 if __name__ == "__main__":

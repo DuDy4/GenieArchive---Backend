@@ -1,4 +1,5 @@
 import traceback
+from datetime import timedelta, datetime, timezone
 from typing import Optional, List
 import psycopg2
 import json
@@ -493,6 +494,41 @@ class MeetingsRepository:
             logger.error(f"Error deleting meeting: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error deleting meeting, because: {error.pgerror}")
+
+    def get_all_meetings_by_tenant_id_that_should_be_imported(
+        self, number_of_imported_meetings: int
+    ) -> list[MeetingDTO]:
+        # Calculate the cutoff time as current time minus 10 hours
+        ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
+        cutoff_time = ten_hours_ago.isoformat()  # Get the ISO 8601 format string for comparison
+
+        # Create the SELECT query with WHERE and ORDER BY clauses
+        select_query = f"""
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification != 'deleted'
+        AND start_time > %s
+        ORDER BY start_time DESC
+        {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
+        """
+
+        try:
+            with self.conn.cursor() as cursor:
+                # Execute the query with cutoff_time and length_to_search parameters
+                if number_of_imported_meetings > 0:
+                    cursor.execute(select_query, (cutoff_time, number_of_imported_meetings))
+                else:
+                    cursor.execute(select_query, (cutoff_time,))
+
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings from database")
+
+                # Map the result to MeetingDTO objects
+                meetings = [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+                return meetings
+        except Exception as error:
+            logger.error("Error fetching all meetings:", exc_info=True)
+            return []
 
 
 def hash_participants(participants_emails: list[str]) -> str:
