@@ -42,6 +42,8 @@ from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
+linkedin_scrapper = HandleLinkedinScrape()
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 CONSUMER_GROUP = "personmanagerconsumergroup"

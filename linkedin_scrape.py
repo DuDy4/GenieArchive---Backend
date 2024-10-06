@@ -11,7 +11,7 @@ from datetime import datetime
 load_dotenv()
 
 class HandleLinkedinScrape:
-    def __init__(self, linkedin_url: str):
+    def __init__(self):
         self.api_key = os.getenv("RAPIDAPI_KEY")
         self.base_url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-profile-posts"
         self.headers = {
@@ -19,7 +19,7 @@ class HandleLinkedinScrape:
             "x-rapidapi-host": "fresh-linkedin-profile-data.p.rapidapi.com"
         }
         
-        self.result = self.fetch_and_process_posts(linkedin_url, num_posts=3)
+        # self.result = self.fetch_and_process_posts(linkedin_url, num_posts=3)
 
     def fetch_and_process_posts(self, linkedin_url: str, num_posts=3) -> List[NewsData]:
         """
