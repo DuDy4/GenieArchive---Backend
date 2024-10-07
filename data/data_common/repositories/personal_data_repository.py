@@ -219,6 +219,7 @@ class PersonalDataRepository:
             traceback.print_exc()
             return None
 
+
     def should_do_personal_data_lookup(self, uuid: str) -> bool:
         """
         Check if a there's a potential for personal data update.
@@ -396,6 +397,84 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
+    
+
+    def should_do_linkedin_posts_lookup(self, uuid: str) -> bool:
+        """
+        Check if there's a potential for a LinkedIn posts update.
+        The reasons for additional data lookup are:
+        1. The last update was more than 7 days ago.
+        2. LinkedIn posts exist.
+        3. LinkedIn URL exists.
+        
+        :param uuid: Unique identifier for the personalData.
+        :return: True if LinkedIn posts update should be done, False otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT
+            CASE
+                WHEN news_status = 'TRIED_BUT_FAILED'
+                AND news_last_updated > NOW() - INTERVAL '7 days'
+                AND (linkedin_url IS NULL OR linkedin_url = '')
+                THEN true
+                ELSE false
+            END AS update_failed_recently
+        FROM
+            personaldata
+        WHERE
+            uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                result = cursor.fetchone()
+
+                if result is None:
+                    logger.error(f"No data found for uuid: {uuid}")
+                    return False  # If no row is returned, the check fails.
+
+                update_failed_recently = result[0]
+                return not update_failed_recently
+        except psycopg2.Error as e:
+            logger.error("Error checking for existing personalData:", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error("Error checking personalData existence:", exc_info=True)
+            return False
+
+        
+    def get_news_data(self, email):
+        query = """
+        SELECT news FROM personaldata WHERE email = %s;
+        """
+        try:
+            with (self.conn.cursor() as cursor):
+                cursor.execute(query, (email,))
+                news = cursor.fetchone()
+                if news is None:
+                    logger.error(f"No news data for uuid: {email}, and news is null instead of empty list")
+                    return []
+                logger.debug(f"News data by email: {news}")
+                if not news:
+                    news = []  # In case news is null
+                else:
+                    news = news[0]  # news is a tuple containing the news data
+                if len(news) > 2:
+                    news = news[:2]
+                res_news = NewsData.process_news(news)
+                if not res_news:
+                    logger.warning(f"No news data for email {email}")
+                    return []
+                return res_news
+        except psycopg2.Error as error:
+            logger.error(f"Error getting news data by email: {error}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return None
+        
+
     def update_news_to_db(self, uuid: str, news_data: dict, status: str):
         """
         Update news data in the personaldata table in the database.

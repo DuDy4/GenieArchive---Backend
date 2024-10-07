@@ -161,6 +161,7 @@ class NewsData(BaseModel):
     def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]: # type: ignore
         return self.date, self.link, self.media, self.title, self.summary
 
+
     @classmethod
     def from_tuple(cls, data: Tuple[Optional['date'], str, str, str, Optional[str]]) -> "NewsData":
         return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
@@ -185,6 +186,23 @@ class NewsData(BaseModel):
             summary=data.get("summary"),
         )
 
+
+    def process_news(news: List[dict]) -> List:
+        logger.debug(f"News data: {news}")
+        res_news = []
+        if news:
+            for item in news:
+                logger.debug(f"Item: {item}")
+                try:
+                    deserialized_news = NewsData.from_dict(item)
+                    logger.debug(f"Deserialized news: {deserialized_news}")
+                    if deserialized_news:
+                        res_news.append(deserialized_news)
+                    logger.debug(f"Processed news: {res_news}")
+                except Exception as e:
+                    logger.error(f"Error deserializing news: {e}. Skipping this news item")
+        logger.debug(f"News data: {res_news}")
+        return res_news
 
 class CompanyDTO:
     def __init__(

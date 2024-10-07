@@ -67,7 +67,7 @@ class PersonManager(GenieConsumer):
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
                 Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON,
                 Topic.NEW_PERSONAL_DATA,
-                Topic.FETCH_NEWS,
+                
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -118,8 +118,8 @@ class PersonManager(GenieConsumer):
             case Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON:
                 logger.info("Handling already failed to enrich person")
                 await self.handle_pdl_already_failed_to_enrich_person(event)
-            case Topic.FETCH_NEWS:
-                logger.info("Handling fetch news")
+            case Topic.NEW_PERSONAL_DATA:
+                logger.info("Handling linkedin scrape")
                 await self.handle_linkedin_scrape(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
@@ -594,28 +594,30 @@ class PersonManager(GenieConsumer):
         
         if not linkedin:
             logger.error(f"No LinkedIn URL found in event body, skipping this part: {event_body}")
-            self.personal_data_repository.update_news_to_db(uuid, None, "Failed to fetch")
             return {"error": "No LinkedIn URL found in event body"}
         
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
 
-        scraper = HandleLinkedinScrape(linkedin)
-        scraped_posts = scraper.result  
+        if self.personal_data_repository.should_do_linkedin_posts_lookup(uuid):
+            scraped_posts = linkedin_scrapper.fetch_and_process_posts(linkedin)  
         
-        if not scraped_posts:
-            logger.error(f"No posts found or an error occurred while scraping {linkedin}")
-            self.personal_data_repository.update_news_to_db(uuid, None, "Failed to fetch")
-            return {"error": "No posts found or an error occurred"}
+            if not scraped_posts:
+                logger.error(f"No posts found or an error occurred while scraping {linkedin}")
+                self.personal_data_repository.update_news_to_db(uuid, None, PersonalDataRepository.TRIED_BUT_FAILED)
+                return {"error": "No posts found or an error occurred"}
 
-        logger.info(f"Successfully scraped {len(scraped_posts)} posts from LinkedIn URL: {linkedin}")
-        news_data_objects = []
-        for post in scraped_posts:
-            post_json = post.to_dict()
-            if post_json.get('image_urls'):
-                post_json['images'] = post_json['image_urls']  
-            news_data_objects.append(post_json)
-            self.personal_data_repository.update_news_to_db(uuid, post_json, "Fetched")
-        return {"posts": news_data_objects}
+            logger.info(f"Successfully scraped {len(scraped_posts)} posts from LinkedIn URL: {linkedin}")
+            news_data_objects = []
+            for post in scraped_posts:
+                post_json = post.to_dict()
+                if post_json.get('image_urls'):
+                    post_json['images'] = post_json['image_urls']  
+                news_data_objects.append(post_json)
+                self.personal_data_repository.update_news_to_db(uuid, post_json, PersonalDataRepository.FETCHED)
+            return {"posts": news_data_objects}
+        else:
+            logger.info(f"No need to scrape LinkedIn posts for {uuid} as it was scraped recently or never")
+            return {"error": "No need to scrape LinkedIn posts"}    
       
     async def check_profile_data_from_person(self, person: PersonDTO):
         if not person:
