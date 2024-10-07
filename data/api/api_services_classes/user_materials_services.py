@@ -41,9 +41,7 @@ class UserMaterialServices:
             if not tenant_id:
                 logger.error(f"Tenant ID not found the email: {user_email}")
                 continue
-            logger.info(f"File: {file}")
             upload_time = file.get("eventTime")
-            logger.info(f"Upload time: {upload_time}")
             if not upload_time:
                 logger.error(f"Upload time not found in the event data")
             logger.set_tenant_id(tenant_id)

@@ -66,13 +66,11 @@ class SalesMaterialConsumer(GenieConsumer):
         file_name = get_file_name_from_url(blob_name)
         logger.info(f"Processing file with name: {file_name}")
         metadata = event_body["metadata"]
-        logger.info(f"Metadata: {metadata}")
         email = metadata.get("user")
         tenant_id = metadata.get("tenant_id")
         if not email or not tenant_id:
             logger.error(f"Email or tenant_id not found in metadata: {metadata}")
             return
-        upload_time = metadata.get("upload_time")
         logger.info(f"Uploading file with email: {email}, tenant_id: {tenant_id}, upload_time: {upload_time}")
         file_uploaded_dto = FileUploadDTO.from_file(
             file_name=file_name, file_content=text, email=email, tenant_id=tenant_id, upload_time=upload_time
