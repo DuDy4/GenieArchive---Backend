@@ -5,8 +5,11 @@ import re
 from typing import List
 from pydantic import BaseModel
 from common.genie_logger import GenieLogger
+from common.utils import env_utils
 
 logger = GenieLogger()
+
+additional_domains = env_utils.get("ADDITIONAL_EMAIL_DOMAINS", "").split(",")
 
 
 async def fetch_public_domains():
@@ -18,10 +21,12 @@ async def fetch_public_domains():
     domain_dict = {}
     for domain in domain_list:
         domain_dict[domain] = True
+
     return domain_dict
 
 
 PUBLIC_DOMAIN = asyncio.run(fetch_public_domains())
+PUBLIC_DOMAIN["group.calendar.google.com"] = True
 
 
 def extract_email_from_url(url: str) -> str:
@@ -54,6 +59,8 @@ def filter_email_objects(participants_emails):
         if email_domain == host_domain:
             continue
         elif email_domain in PUBLIC_DOMAIN:
+            continue
+        if "assistant." in email.get("email"):
             continue
         else:
             final_list.append(email)

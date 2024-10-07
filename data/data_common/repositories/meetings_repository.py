@@ -1,4 +1,5 @@
 import traceback
+from datetime import timedelta, datetime, timezone
 from typing import Optional, List
 import psycopg2
 import json
@@ -8,7 +9,7 @@ from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem, MeetingClassification
 
 
 class MeetingsRepository:
@@ -85,118 +86,15 @@ class MeetingsRepository:
             traceback.print_exc()
             raise Exception(f"Error inserting meeting, because: {error}")
 
-    def save_agenda(self, uuid: str, agenda_list: List[AgendaItem]):
-        if not agenda_list:
-            logger.error(f"Invalid agenda data: {agenda_list}, skip saving agenda")
-            return None
-        agenda_dicts = [
-            agenda.to_dict() if isinstance(agenda, AgendaItem) else agenda for agenda in agenda_list
-        ]
-        update_query = """
-        UPDATE meetings
-        SET agenda = %s
-        WHERE uuid = %s;
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (json.dumps(agenda_dicts), uuid))
-                self.conn.commit()
-                logger.info(f"Updated agenda in database for meeting uuid {uuid}")
-        except psycopg2.Error as error:
-            raise Exception(f"Error updating agenda, because: {error.pgerror}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
-
-    def save_meeting_goals(self, uuid: str, goals: List[str]):
-        if not goals:
-            logger.error(f"Invalid goals data: {goals}, skip saving goals")
-            return None
-        goals_json = json.dumps(goals)
-        update_query = """
-        UPDATE meetings
-        SET goals = %s
-        WHERE uuid = %s;
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (goals_json, uuid))
-                self.conn.commit()
-                logger.info(f"Updated goals in database for meeting uuid {uuid}")
-        except psycopg2.Error as error:
-            raise Exception(f"Error updating goals, because: {error.pgerror}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return
-
-    def exists(self, google_calendar_id: str) -> bool:
-        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s AND classification != 'deleted';"
-        try:
-            with self.conn.cursor() as cursor:
-                logger.info(f"About to execute check if uuid exists: {google_calendar_id}")
-                cursor.execute(exists_query, (google_calendar_id,))
-                result = cursor.fetchone() is not None
-                logger.info(f"{google_calendar_id} existence in database: {result}")
-                return result
-        except psycopg2.Error as error:
-            logger.error(f"Error checking existence of uuid {google_calendar_id}: {error}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return False
-
-    def exists_without_changes(self, meeting: MeetingDTO) -> bool:
-        participants_hash = hash_participants(meeting.participants_emails)
-        agenda = meeting.agenda
-        if agenda:
-            agenda = [
-                agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
-                for agenda_item in agenda
-            ]
-        exists_query = """
-        SELECT 1 FROM meetings
-        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
-        AND classification = %s AND classification != 'deleted';
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                logger.info(
-                    f"About to execute check if meeting exists without changes: {meeting.google_calendar_id}({meeting.subject})"
-                )
-                cursor.execute(
-                    exists_query,
-                    (
-                        meeting.google_calendar_id,
-                        participants_hash,
-                        meeting.start_time,
-                        meeting.link,
-                        json.dumps(agenda),
-                        meeting.classification.value,
-                    ),
-                )
-                result = cursor.fetchone() is not None
-                logger.info(f"{meeting.google_calendar_id} existence in database without changes: {result}")
-                return result
-        except psycopg2.Error as error:
-            logger.error(
-                f"Error checking existence of meeting without changes for google_calendar_id {meeting.google_calendar_id}: {error}"
-            )
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return False
-
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE uuid = %s AND classification != 'deleted';
+        WHERE uuid = %s AND classification != %s;
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (uuid, MeetingClassification.DELETED.value))
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got meeting data {row[0]} from database")
@@ -214,11 +112,11 @@ class MeetingsRepository:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE google_calendar_id = %s AND classification != 'deleted';
+        WHERE google_calendar_id = %s AND classification != %s;
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (google_calendar_id,))
+                cursor.execute(select_query, (google_calendar_id, MeetingClassification.DELETED.value))
                 row = cursor.fetchone()
                 if row:
                     logger.debug(f"Got meeting data {row[0]} from database")
@@ -236,12 +134,12 @@ class MeetingsRepository:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE tenant_id = %s AND classification != 'deleted';
+        WHERE tenant_id = %s AND classification != %s;
         """
         try:
             self.create_table_if_not_exists()
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (tenant_id,))
+                cursor.execute(select_query, (tenant_id, MeetingClassification.DELETED.value))
                 meetings = cursor.fetchall()
                 if meetings:
                     logger.info(f"Got {len(meetings)} meetings from database")
@@ -254,40 +152,16 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
-    def get_meetings_by_participants_emails(self, emails: list[str]) -> list[MeetingDTO]:
-        if not emails:
-            return []
-        query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
-        FROM meetings
-        WHERE participants_emails ?| array[%s] AND classification != 'deleted';
-        """
-        formatted_emails = ",".join(emails)
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(query, (formatted_emails,))
-                meetings = cursor.fetchall()
-                logger.info(f"Retrieved meetings for participants emails: {emails}")
-                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
-        except psycopg2.Error as error:
-            logger.error(f"Error fetching meetings by participants emails: {error.pgerror}")
-            traceback.print_exc()
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return []
-
     def get_meetings_without_goals_by_email(self, email: str) -> list[MeetingDTO]:
         query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE (participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = 'external' AND classification != 'deleted';
+        WHERE (participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = %s;
         """
         email_json = json.dumps([{"email": email}])
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, (email_json,))
+                cursor.execute(query, (email_json, MeetingClassification.EXTERNAL.value))
                 meetings = cursor.fetchall()
                 logger.info(f"Retrieved {len(meetings)} meetings for email: {email} with no agenda")
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
@@ -304,18 +178,17 @@ class MeetingsRepository:
         query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE
-            (EXISTS (
+        WHERE EXISTS (
                 SELECT 1
                 FROM jsonb_array_elements(participants_emails) AS participants
                 WHERE participants->>'email' ILIKE %s
             )
-            AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = 'external' AND classification != 'deleted';
+            AND (goals IS NULL OR goals = '[]' or agenda = 'null') AND classification = %s;
         """
         email_pattern = f"%@{domain}"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, (email_pattern,))
+                cursor.execute(query, (email_pattern, MeetingClassification.EXTERNAL.value))
                 meetings = cursor.fetchall()
                 logger.info(
                     f"Retrieved {len(meetings)} meetings with emails from domain: {domain} and no agenda"
@@ -330,33 +203,11 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
-    def get_meetings_with_goals_without_agenda_by_email(self, email):
-        select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
-        FROM meetings
-        WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' OR agenda != 'null')) AND (goals IS NOT NULL OR goals != '[]' OR goals = 'null') AND classification = 'external' AND classification != 'deleted';
-        """
-        email_json = json.dumps([{"email": email}])
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email_json,))
-                meetings = cursor.fetchall()
-                logger.info(f"Got {len(meetings)} meetings without agenda for email: {email}")
-                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
-        except psycopg2.Error as error:
-            logger.error(f"Error fetching meetings without agenda by email: {error.pgerror}")
-            traceback.print_exc()
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return []
-
     def get_meeting_goals(self, uuid: str) -> Optional[List[str]]:
-        select_query = "SELECT goals FROM meetings WHERE uuid = %s AND classification != 'deleted';"
+        select_query = "SELECT goals FROM meetings WHERE uuid = %s AND classification != %s;"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
+                cursor.execute(select_query, (uuid, MeetingClassification.DELETED.value))
                 row = cursor.fetchone()
                 if row:
                     logger.info(f"Got meeting goals {row[0]} from database")
@@ -373,11 +224,11 @@ class MeetingsRepository:
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location,
          start_time, end_time, agenda, classification
         FROM meetings
-        WHERE (agenda IS NULL OR agenda = '[]' or agenda = 'null') AND classification = 'external' AND classification != 'deleted'
+        WHERE (agenda IS NULL OR agenda = '[]' or agenda = 'null') AND classification = %s;
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
+                cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
                 meetings = cursor.fetchall()
                 logger.info(f"Got {len(meetings)} external meetings without agenda from database")
                 for meeting in meetings:
@@ -392,7 +243,7 @@ class MeetingsRepository:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE classification IS NULL AND classification != 'deleted';
+        WHERE classification IS NULL or classification = 'null';
         """
         try:
             with self.conn.cursor() as cursor:
@@ -408,11 +259,11 @@ class MeetingsRepository:
     def get_all_meetings(self):
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
-        FROM meetings WHERE classification != 'deleted';
+        FROM meetings WHERE classification != %s;
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
+                cursor.execute(select_query, (MeetingClassification.DELETED.value,))
                 meetings = cursor.fetchall()
                 logger.info(f"Got {len(meetings)} meetings from database")
                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
@@ -421,24 +272,24 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
-    def update_tenant_id(self, new_tenant_id, old_tenant_id):
-        update_query = "UPDATE meetings SET tenant_id = %s WHERE tenant_id = %s;"
+    def delete(self, uuid: str):
+        delete_query = "UPDATE meetings SET classification = %s WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                cursor.execute(delete_query, (MeetingClassification.DELETED.value, uuid))
                 self.conn.commit()
-                return True
+                logger.info(f"Deleted meeting with uuid: {uuid}")
         except psycopg2.Error as error:
-            logger.error(f"Error updating tenant_id: {error.pgerror}")
+            logger.error(f"Error deleting meeting: {error.pgerror}")
             traceback.print_exc()
-            return False
+            raise Exception(f"Error deleting meeting, because: {error.pgerror}")
 
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
         start_time = %s, end_time = %s, agenda = %s, classification = %s
-        WHERE google_calendar_id = %s AND classification != 'deleted';
+        WHERE google_calendar_id = %s;
         """
 
         agenda = meeting.agenda
@@ -482,17 +333,113 @@ class MeetingsRepository:
         else:
             self.insert_meeting(meeting)
 
-    def delete(self, uuid: str):
-        delete_query = "UPDATE meetings SET classification = 'deleted' WHERE uuid = %s;"
+    def exists(self, google_calendar_id: str) -> bool:
+        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(delete_query, (uuid,))
-                self.conn.commit()
-                logger.info(f"Deleted meeting with uuid: {uuid}")
+                logger.info(f"About to execute check if uuid exists: {google_calendar_id}")
+                cursor.execute(exists_query, (google_calendar_id,))
+                result = cursor.fetchone() is not None
+                logger.info(f"{google_calendar_id} existence in database: {result}")
+                return result
         except psycopg2.Error as error:
-            logger.error(f"Error deleting meeting: {error.pgerror}")
+            logger.error(f"Error checking existence of uuid {google_calendar_id}: {error}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
-            raise Exception(f"Error deleting meeting, because: {error.pgerror}")
+            return False
+
+    def exists_without_changes(self, meeting: MeetingDTO) -> bool:
+        participants_hash = hash_participants(meeting.participants_emails)
+        agenda = meeting.agenda
+        if agenda:
+            agenda = [
+                agenda_item.to_dict() if isinstance(agenda_item, AgendaItem) else agenda_item
+                for agenda_item in agenda
+            ]
+        exists_query = """
+        SELECT 1 FROM meetings
+        WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
+        AND classification = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                logger.info(
+                    f"About to execute check if meeting exists without changes: {meeting.google_calendar_id}({meeting.subject})"
+                )
+                cursor.execute(
+                    exists_query,
+                    (
+                        meeting.google_calendar_id,
+                        participants_hash,
+                        meeting.start_time,
+                        meeting.link,
+                        json.dumps(agenda),
+                        meeting.classification.value,
+                    ),
+                )
+                result = cursor.fetchone() is not None
+                logger.info(f"{meeting.google_calendar_id} existence in database without changes: {result}")
+                return result
+        except psycopg2.Error as error:
+            logger.error(
+                f"Error checking existence of meeting without changes for google_calendar_id {meeting.google_calendar_id}: {error}"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return False
+
+    def get_all_meetings_by_tenant_id_that_should_be_imported(
+        self, number_of_imported_meetings: int
+    ) -> list[MeetingDTO]:
+        ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
+        cutoff_time = ten_hours_ago.isoformat()
+
+        select_query = f"""
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification != %s
+        AND start_time > %s
+        ORDER BY start_time DESC
+        {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
+        """
+
+        try:
+            with self.conn.cursor() as cursor:
+                if number_of_imported_meetings > 0:
+                    cursor.execute(
+                        select_query,
+                        (MeetingClassification.DELETED.value, cutoff_time, number_of_imported_meetings),
+                    )
+                else:
+                    cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time))
+
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings from database")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching all meetings:", exc_info=True)
+            return []
+
+    def get_meetings_with_missing_classification(self) -> list[MeetingDTO]:
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification IS NULL or classification = 'null';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings with missing classification from database")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching meetings with missing classification:", error)
+            traceback.print_exception(error)
+            return []
 
 
 def hash_participants(participants_emails: list[str]) -> str:
