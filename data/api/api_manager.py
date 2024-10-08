@@ -24,11 +24,7 @@ from data.api.api_services_classes.stats_api_services import StatsApiService
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
-from data.data_common.utils.str_utils import (
-    upload_file_name_validation,
-    ALLOWED_EXTENSIONS,
-    MAX_FILE_NAME_LENGTH,
-)
+
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -379,6 +375,20 @@ def get_meeting_overview(
     if not allowed_impersonate_tenant_id:
         background_tasks.add_task(stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid)
     return response
+
+
+@v1_router.get("/genie-usage")
+def get_genie_usage(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
+        )
+    profile_views_last_7_days = stats_api_service.get_profile_views_last_7_days()
+    profile_views_last_24_hours = stats_api_service.get_profile_last_24_hours()
+    meeting_views_last_7_days = stats_api_service.get_meeting_views_last_7_days()
+    meeting_views_last_24_hours = stats_api_service.get_meeting_views_last_24_hours()
+    
 
 
 @v1_router.get("/internal/sync-profile/{person_uuid}")

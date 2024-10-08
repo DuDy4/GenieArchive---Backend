@@ -1,6 +1,7 @@
 
 import datetime
 from data.data_common.dependencies.dependencies import stats_repository, tenants_repository
+from ..api_services_classes.badges_api_services import BadgesApiService
 from data.data_common.data_transfer_objects.stats_dto import StatsDTO
 from common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
@@ -13,6 +14,7 @@ class StatsApiService:
     def __init__(self):
         self.stats_repository = stats_repository()
         self.tenants_repository = tenants_repository()
+        self.badges_api_service = BadgesApiService()
 
 
     def view_meeting_event(self, tenant_id: str, meeting_id: str):
@@ -22,6 +24,7 @@ class StatsApiService:
         if not tenant_id or not meeting_id:
             return
         email = self.tenants_repository.get_tenant_email(tenant_id)
+        self.badges_api_service.handle_event(email, "VIEW_MEETING", meeting_id)
         stats_data = {
             "email": email,
             "tenant_id": tenant_id,

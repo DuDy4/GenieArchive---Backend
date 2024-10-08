@@ -14,7 +14,6 @@ class ActionEnum(str, Enum):
 class EntityEnum(str, Enum):
     MEETING = "MEETING"
     PROFILE = "PROFILE"
-    LOGIN = "LOGIN"
     USER = "USER"
 
 class StatsDTO(BaseModel):
