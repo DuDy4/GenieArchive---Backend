@@ -23,7 +23,8 @@ class FileUploadRepository:
             uuid VARCHAR UNIQUE NOT NULL,
             file_name VARCHAR,
             file_hash VARCHAR UNIQUE,
-            upload_time TIMESTAMP,
+            upload_time_epoch BIGINT,
+            upload_timestamp TIMESTAMP,
             email VARCHAR,
             tenant_id VARCHAR
         );
@@ -41,11 +42,19 @@ class FileUploadRepository:
         :return: the uuid of the newly created file upload in the database
         """
         insert_query = """
-        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time, email, tenant_id)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
-        file_data = file_upload.to_tuple()
+        file_data = (
+            str(file_upload.uuid),
+            file_upload.file_name,
+            file_upload.file_hash,
+            file_upload.upload_time_epoch,
+            file_upload.upload_timestamp,
+            file_upload.email,
+            file_upload.tenant_id,
+        )
 
         logger.info(f"About to insert file upload data: {file_data}")
 
@@ -79,7 +88,9 @@ class FileUploadRepository:
 
     def get_files_by_email(self, email: str) -> list[FileUploadDTO] | None:
         select_query = """
-        SELECT * FROM file_uploads WHERE email = %s;
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id
+        FROM file_uploads
+        WHERE email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -87,10 +98,134 @@ class FileUploadRepository:
                 files = cursor.fetchall()
                 if files:
                     logger.info(f"Got files uploaded by email {email}")
-                    return [FileUploadDTO.from_tuple(file[1:]) for file in files]
+                    return [
+                        FileUploadDTO(
+                            uuid=file[0],
+                            file_name=file[1],
+                            file_hash=file[2],
+                            upload_time_epoch=file[3],
+                            upload_timestamp=file[4],
+                            email=file[5],
+                            tenant_id=file[6],
+                        )
+                        for file in files
+                    ]
                 logger.info(f"No files found for email {email}")
                 return None
         except psycopg2.Error as error:
             logger.error(f"Error getting files by email: {error}")
             traceback.print_exc()
             return None
+
+    def get_file_count_and_last_upload_time(self, tenant_id: str) -> tuple[int, datetime | None]:
+        """
+        Get the count of files and the timestamp of the last upload for a specific tenant.
+        :param tenant_id: ID of the tenant
+        :return: (upload_count, last_upload_time) tuple
+        """
+        query = """
+        SELECT COUNT(*), MAX(upload_timestamp)
+        FROM file_uploads
+        WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (tenant_id,))
+                result = cursor.fetchone()
+                upload_count, last_upload_time = result if result else (0, None)
+                logger.info(
+                    f"Tenant {tenant_id} has {upload_count} files uploaded, last upload at {last_upload_time}"
+                )
+                return upload_count, last_upload_time
+        except psycopg2.Error as error:
+            logger.error(f"Error getting file count and last upload time for tenant {tenant_id}: {error}")
+            traceback.print_exc()
+            return 0, None
+
+    def exists_metadata(self, file_upload_dto):
+        query = """
+        SELECT * FROM file_uploads WHERE file_name = %s AND email = %s AND tenant_id = %s AND upload_time_epoch = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    query,
+                    (
+                        file_upload_dto.file_name,
+                        file_upload_dto.email,
+                        file_upload_dto.tenant_id,
+                        file_upload_dto.upload_time_epoch,
+                    ),
+                )
+                result = cursor.fetchone()
+                return result is not None
+        except psycopg2.Error as error:
+            logger.error(f"Error checking existence of file metadata: {error}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
+    def update_file_hash(self, file_upload_dto):
+        query = """
+        UPDATE file_uploads
+        SET file_hash = %s
+        WHERE file_name = %s AND email = %s AND tenant_id = %s AND upload_time_epoch = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    query,
+                    (
+                        file_upload_dto.file_hash,
+                        file_upload_dto.file_name,
+                        file_upload_dto.email,
+                        file_upload_dto.tenant_id,
+                        file_upload_dto.upload_time_epoch,
+                    ),
+                )
+                self.conn.commit()
+        except psycopg2.Error as error:
+            logger.error(f"Error updating file metadata: {error}")
+            traceback.print_exc()
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+        return True
+
+    def is_last_file_added(self, tenant_id: str, current_upload_time_epoch: int) -> bool:
+        """
+        Checks if the current file with the provided `current_upload_time_epoch` is the latest one for a given tenant.
+
+        :param tenant_id: ID of the tenant
+        :param current_upload_time_epoch: The epoch time of the current file upload to be checked
+        :return: True if it is the latest upload, otherwise False
+        """
+        query = """
+        SELECT MAX(upload_time_epoch) FROM file_uploads WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (tenant_id,))
+                latest_upload_time_epoch = cursor.fetchone()[0]
+
+                # Log the comparison of current vs latest upload times
+                logger.info(
+                    f"Tenant {tenant_id} - Current Upload Time Epoch: {current_upload_time_epoch}, "
+                    f"Latest Upload Time Epoch: {latest_upload_time_epoch}"
+                )
+
+                # Check if the current upload time is the same as the latest upload time
+                is_latest = latest_upload_time_epoch and (
+                    current_upload_time_epoch == latest_upload_time_epoch
+                )
+                logger.info(f"Is current upload the last file: {is_latest}")
+                return is_latest
+        except psycopg2.Error as error:
+            logger.error(f"Error checking last file added for tenant {tenant_id}: {error}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False

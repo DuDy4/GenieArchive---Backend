@@ -2,9 +2,11 @@ import asyncio
 import os
 import sys
 import json
+from datetime import datetime, timedelta, timezone
 
-from data.api.api_manager import file_uploaded
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO
+from data.data_common.events.genie_event import GenieEvent
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -29,17 +31,17 @@ logger = GenieLogger()
 
 CONSUMER_GROUP = "sales_material_consumer_group"
 
+# Load sleep time for checking the last file from environment variables
+SLEEP_TIME_FOR_LAST_FILE_CHECK = int(env_utils.get("SLEEP_TIME_FOR_LAST_FILE_CHECK", "15"))
+
 
 class SalesMaterialConsumer(GenieConsumer):
-    def __init__(
-        self,
-    ):
-        super().__init__(
-            topics=[Topic.FILE_UPLOADED],
-            consumer_group=CONSUMER_GROUP,
-        )
+    def __init__(self):
+        super().__init__(topics=[Topic.FILE_UPLOADED], consumer_group=CONSUMER_GROUP)
         self.embeddings_client = GenieEmbeddingsClient()
         self.file_upload_repository = file_upload_repository()
+        # Dictionary to track successful embeddings for each tenant
+        self.embedding_success_by_tenant = {}
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -50,7 +52,7 @@ class SalesMaterialConsumer(GenieConsumer):
                 logger.info("Handling file upload event")
                 await self.embed_and_store_content(event)
             case _:
-                logger.error(f"Should not have reached here: {topic}, consumer_group: {CONSUMER_GROUP}")
+                logger.error(f"Unexpected topic: {topic}, consumer_group: {CONSUMER_GROUP}")
 
     async def embed_and_store_content(self, event):
         event_body = json.loads(event.body_as_str())
@@ -60,30 +62,75 @@ class SalesMaterialConsumer(GenieConsumer):
         blob_name = event_data["blobUrl"]
         text = await self.fetch_doc_content(blob_name)
         if not text:
-            logger.error(f"Could not fetch doc content {blob_name}")
+            logger.error(f"Could not fetch document content from {blob_name}")
             return
+
         logger.info(f"Processing file url: {blob_name}")
         file_name = get_file_name_from_url(blob_name)
         logger.info(f"Processing file with name: {file_name}")
-        metadata = event_body["metadata"]
-        email = metadata.get("user")
-        tenant_id = metadata.get("tenant_id")
-        if not email or not tenant_id:
-            logger.error(f"Email or tenant_id not found in metadata: {metadata}")
-            return
-        logger.info(f"Uploading file with email: {email}, tenant_id: {tenant_id}, upload_time: {upload_time}")
-        file_uploaded_dto = FileUploadDTO.from_file(
-            file_name=file_name, file_content=text, email=email, tenant_id=tenant_id, upload_time=upload_time
-        )
-        logger.info(f"File upload DTO: {file_uploaded_dto}")
-        file_uploaded_in_db = self.file_upload_repository.exists(file_uploaded_dto.file_hash)
+        file_id = event_data.get("file_id")
+        file_uploaded = event_body.get("file_uploaded")
+        file_upload_dto = FileUploadDTO.from_dict(file_uploaded)
+        if not file_upload_dto:
+            logger.error(f"File upload DTO not found in the event data")
+            return {"status": "error", "message": "File upload DTO not found in the event data"}
+
+        logger.info(f"File upload DTO: {file_upload_dto}")
+        file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
         if file_uploaded_in_db:
             logger.info(f"File already exists in the database")
             return
-        self.file_upload_repository.insert(file_uploaded_dto)
+
+        file_upload_dto.update_file_content(text)
+        logger.info(f"File content updated in the DTO: {file_upload_dto.file_hash}")
+
+        self.file_upload_repository.update_file_hash(file_upload_dto)
         logger.info(f"File uploaded in the database")
-        self.embeddings_client.embed_document(text, metadata)
-        return {"status": "success"}
+
+        # Try to embed the document content
+        try:
+            metadata = {
+                "id": file_id,
+                "user": file_upload_dto.email,
+                "tenant_id": file_upload_dto.tenant_id,
+                "type": "uploaded_file",
+                "upload_time": file_upload_dto.upload_timestamp,
+            }
+            embedding_result = self.embeddings_client.embed_document(text, metadata)
+            if embedding_result:
+                logger.info(f"Document embedded successfully")
+                self.embedding_success_by_tenant[file_upload_dto.tenant_id] = True
+            else:
+                logger.error(f"Document embedding failed for tenant {file_upload_dto.tenant_id}")
+        except Exception as e:
+            logger.error(
+                f"An error occurred during document embedding for tenant {file_upload_dto.tenant_id}: {e}"
+            )
+            return
+
+        # Check if this file is the last file uploaded for the tenant
+        is_last_file = await self.check_last_file(file_upload_dto)
+        if is_last_file:
+            # If it's the last file, send an event if any file was successfully embedded for the tenant
+            if self.embedding_success_by_tenant.get(file_upload_dto.tenant_id, False):
+                # event = GenieEvent(Topic.NEW_EMBEDDED_DOCUMENT, {"metadata": metadata})
+                # event.send()
+                logger.info(
+                    f"Triggered NEW_EMBEDDED_DOCUMENT event for tenant {file_upload_dto.tenant_id} after processing all files."
+                )
+                # Remove tenant from tracking after the event is sent
+                del self.embedding_success_by_tenant[file_upload_dto.tenant_id]
+                return {"status": "success"}
+            else:
+                logger.warning(
+                    f"No files were successfully embedded for tenant {file_upload_dto.tenant_id}. Skipping event trigger."
+                )
+                # Remove tenant from tracking even if no embedding was successful
+                self.embedding_success_by_tenant[file_upload_dto.tenant_id] = False
+                return {"status": "No successful embeddings"}
+        else:
+            logger.info(f"Document embedded successfully but not the last file. Waiting for more files.")
+            return {"status": "Not the last file"}
 
     async def fetch_doc_content(self, url):
         file_content = FileUploadService.read_blob_file(url)
@@ -100,6 +147,12 @@ class SalesMaterialConsumer(GenieConsumer):
         else:
             raise ValueError("Unsupported file type")
         return text
+
+    async def check_last_file(self, file_upload_dto):
+        await asyncio.sleep(SLEEP_TIME_FOR_LAST_FILE_CHECK)
+        return self.file_upload_repository.is_last_file_added(
+            file_upload_dto.tenant_id, file_upload_dto.upload_time_epoch
+        )
 
 
 if __name__ == "__main__":
