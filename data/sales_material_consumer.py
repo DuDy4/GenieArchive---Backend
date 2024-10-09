@@ -83,7 +83,10 @@ class SalesMaterialConsumer(GenieConsumer):
 
         file_upload_dto.update_file_content(text)
         logger.info(f"File content updated in the DTO: {file_upload_dto.file_hash}")
-
+        if self.file_upload_repository.exists(file_upload_dto.file_hash):
+            logger.info(f"File already exists in the database")
+            self.file_upload_repository.delete(file_upload_dto.uuid)
+            return {"status": "error", "message": "File already exists in the database"}
         self.file_upload_repository.update_file_hash(file_upload_dto)
         logger.info(f"File uploaded in the database")
 

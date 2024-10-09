@@ -229,3 +229,19 @@ class FileUploadRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False
+
+    def delete(self, uuid):
+        query = """
+        DELETE FROM file_uploads WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (uuid,))
+                self.conn.commit()
+        except psycopg2.Error as error:
+            logger.error(f"Error deleting file: {error}")
+            traceback.print_exc()
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+        return True
