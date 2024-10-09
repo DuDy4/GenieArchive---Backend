@@ -50,7 +50,7 @@ class SalesMaterialConsumer(GenieConsumer):
         match topic:
             case Topic.FILE_UPLOADED:
                 logger.info("Handling file upload event")
-                await self.embed_and_store_content(event)
+                return await self.embed_and_store_content(event)
             case _:
                 logger.error(f"Unexpected topic: {topic}, consumer_group: {CONSUMER_GROUP}")
 
@@ -116,7 +116,7 @@ class SalesMaterialConsumer(GenieConsumer):
         if is_last_file:
             # If it's the last file, send an event if any file was successfully embedded for the tenant
             if self.embedding_success_by_tenant.get(file_upload_dto.tenant_id, False):
-                event = GenieEvent(Topic.NEW_EMBEDDED_DOCUMENT, {"metadata": metadata})
+                event = GenieEvent(Topic.NEW_EMBEDDED_DOCUMENT, {"tenant_id": file_upload_dto.tenant_id})
                 event.send()
                 logger.info(
                     f"Triggered NEW_EMBEDDED_DOCUMENT event for tenant {file_upload_dto.tenant_id} after processing all files."

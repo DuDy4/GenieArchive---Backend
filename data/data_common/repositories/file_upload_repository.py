@@ -236,7 +236,7 @@ class FileUploadRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, (uuid,))
+                cursor.execute(query, (str(uuid),))
                 self.conn.commit()
         except psycopg2.Error as error:
             logger.error(f"Error deleting file: {error}")
