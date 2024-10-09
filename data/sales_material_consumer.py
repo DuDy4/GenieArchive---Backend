@@ -116,13 +116,13 @@ class SalesMaterialConsumer(GenieConsumer):
         if is_last_file:
             # If it's the last file, send an event if any file was successfully embedded for the tenant
             if self.embedding_success_by_tenant.get(file_upload_dto.tenant_id, False):
-                # event = GenieEvent(Topic.NEW_EMBEDDED_DOCUMENT, {"metadata": metadata})
-                # event.send()
+                event = GenieEvent(Topic.NEW_EMBEDDED_DOCUMENT, {"metadata": metadata})
+                event.send()
                 logger.info(
                     f"Triggered NEW_EMBEDDED_DOCUMENT event for tenant {file_upload_dto.tenant_id} after processing all files."
                 )
                 # Remove tenant from tracking after the event is sent
-                del self.embedding_success_by_tenant[file_upload_dto.tenant_id]
+                self.embedding_success_by_tenant[file_upload_dto.tenant_id] = False
                 return {"status": "success"}
             else:
                 logger.warning(
