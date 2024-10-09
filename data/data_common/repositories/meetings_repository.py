@@ -152,6 +152,31 @@ class MeetingsRepository:
             traceback.print_exception(error)
             return []
 
+    def get_all_future_meetings_for_tenant(self, tenant_id):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE tenant_id = %s
+        AND (
+            CASE
+                WHEN start_time ~ 'T' THEN TO_TIMESTAMP(SPLIT_PART(start_time, '+', 1), 'YYYY-MM-DD"T"HH24:MI:SS')
+                ELSE TO_TIMESTAMP(start_time, 'YYYY-MM-DD')
+            END > %s
+        )
+        AND classification != %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    select_query, (tenant_id, datetime.now(timezone.utc), MeetingClassification.DELETED.value)
+                )
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} future meetings for tenant {tenant_id}")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching future meetings for tenant:", exc_info=True)
+            return []
+
     def get_meetings_without_goals_by_email(self, email: str) -> list[MeetingDTO]:
         query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
@@ -333,6 +358,50 @@ class MeetingsRepository:
         else:
             self.insert_meeting(meeting)
 
+    def save_agenda(self, uuid: str, agenda_list: List[AgendaItem]):
+        if not agenda_list:
+            logger.error(f"Invalid agenda data: {agenda_list}, skip saving agenda")
+            return None
+        agenda_dicts = [
+            agenda.to_dict() if isinstance(agenda, AgendaItem) else agenda for agenda in agenda_list
+        ]
+        update_query = """
+        UPDATE meetings
+        SET agenda = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (json.dumps(agenda_dicts), uuid))
+                self.conn.commit()
+                logger.info(f"Updated agenda in database for meeting uuid {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating agenda, because: {error.pgerror}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
+    def save_meeting_goals(self, uuid: str, goals: List[str]):
+        if not goals:
+            logger.error(f"Invalid goals data: {goals}, skip saving goals")
+            return None
+        goals_json = json.dumps(goals)
+        update_query = """
+        UPDATE meetings
+        SET goals = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (goals_json, uuid))
+                self.conn.commit()
+                logger.info(f"Updated goals in database for meeting uuid {uuid}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error updating goals, because: {error.pgerror}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return
+
     def exists(self, google_calendar_id: str) -> bool:
         exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
         try:
@@ -439,6 +508,78 @@ class MeetingsRepository:
         except Exception as error:
             logger.error("Error fetching meetings with missing classification:", error)
             traceback.print_exception(error)
+            return []
+
+    def get_all_future_external_meetings_for_tenant(self, tenant_id):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE tenant_id = %s
+        AND (
+        CASE
+            WHEN start_time ~ 'T' THEN TO_TIMESTAMP(SPLIT_PART(start_time, '+', 1), 'YYYY-MM-DD"T"HH24:MI:SS')
+            ELSE TO_TIMESTAMP(start_time, 'YYYY-MM-DD')
+        END > %s)
+        AND classification = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    select_query,
+                    (tenant_id, datetime.now(timezone.utc).isoformat(), MeetingClassification.EXTERNAL.value),
+                )
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} future meetings for tenant {tenant_id}")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except Exception as error:
+            logger.error("Error fetching future meetings for tenant:", error)
+            traceback.print_exception(error)
+            return []
+
+    def get_meetings_with_goals_without_agenda_by_email(self, email):
+        select_query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' OR agenda != 'null')) AND (goals IS NOT NULL OR goals != '[]' OR goals = 'null') AND classification = 'external';
+        """
+        email_json = json.dumps([{"email": email}])
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email_json,))
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings without agenda for email: {email}")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching meetings without agenda by email: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
+    def get_meetings_by_participants_emails(self, emails: list[str]) -> list[MeetingDTO]:
+        if not emails:
+            return []
+        query = """
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE participants_emails ?| array[%s] AND classification != 'deleted';
+        """
+        formatted_emails = ",".join(emails)
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (formatted_emails,))
+                meetings = cursor.fetchall()
+                logger.info(f"Retrieved meetings for participants emails: {emails}")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching meetings by participants emails: {error.pgerror}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
             return []
 
 
