@@ -2,6 +2,7 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
     NEW_MEETING_GOALS = (
         "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
     )

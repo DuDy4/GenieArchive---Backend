@@ -42,24 +42,29 @@ class GenieEmbeddingsClient:
             raise ValueError("LangSmith API key is missing. Please set it in the .env file.")
 
     def embed_document(self, doc_text, metadata):
-        logger.info("Begin embedding document")
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = text_splitter.split_text(doc_text)
+        try:
+            logger.info("Begin embedding document")
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = text_splitter.split_text(doc_text)
 
-        embeddings = self.generate_embeddings(chunks)
-        vector_id = metadata["id"]
+            embeddings = self.generate_embeddings(chunks)
+            vector_id = metadata["id"]
 
-        correct_metadata = {
-            "user": metadata.get("user"),
-            "tenant_id": metadata.get("tenant_id"),
-            "type": metadata.get("type"),
-        }
-        # embeddings_data = [embedding["embedding"] for embedding in embeddings]
-        ids = [f"{vector_id}_{i}" for i in range(len(embeddings))]
-        pinecone_metadata = [{**correct_metadata, "chunk": chunk} for chunk in chunks]
+            correct_metadata = {
+                "user": metadata.get("user"),
+                "tenant_id": metadata.get("tenant_id"),
+                "type": metadata.get("type"),
+            }
+            # embeddings_data = [embedding["embedding"] for embedding in embeddings]
+            ids = [f"{vector_id}_{i}" for i in range(len(embeddings))]
+            pinecone_metadata = [{**correct_metadata, "chunk": chunk} for chunk in chunks]
 
-        index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
-        logger.info("Finished embedding document")
+            index.upsert(vectors=list(zip(ids, embeddings, pinecone_metadata)))
+            logger.info("Finished embedding document")
+            return True
+        except Exception as e:
+            logger.error(f"Error in embedding document: {e}")
+            return False
 
     def generate_embeddings(self, text: list[str]):
         if not text:
@@ -67,9 +72,12 @@ class GenieEmbeddingsClient:
         if isinstance(text, str):
             text = [text]
         response = embeddings_model.embed(input=text)
-        response_data =  response.data
-        embeddings_data = [embedding["embedding"] for embedding in response_data]
-        return  embeddings_data
+        response_data = response.data
+        embeddings_data = [
+            [float(value) for value in embedding["embedding"]]  # Ensure all values are floats
+            for embedding in response_data
+        ]
+        return embeddings_data
 
     def search_materials_by_prospect_data(self, user_id, prospect_data):
         profile_query = f"""
