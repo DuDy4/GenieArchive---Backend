@@ -430,7 +430,7 @@ class MeetingsRepository:
         exists_query = """
         SELECT 1 FROM meetings
         WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
-        AND classification = %s;
+        AND classification != %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -445,7 +445,7 @@ class MeetingsRepository:
                         meeting.start_time,
                         meeting.link,
                         json.dumps(agenda),
-                        meeting.classification.value,
+                        MeetingClassification.DELETED.value,
                     ),
                 )
                 result = cursor.fetchone() is not None
@@ -583,6 +583,6 @@ class MeetingsRepository:
             return []
 
 
-def hash_participants(participants_emails: list[str]) -> str:
+def hash_participants(participants_emails: list[str] | list[dict]) -> str:
     emails_string = json.dumps(participants_emails, sort_keys=True)
     return hashlib.sha256(emails_string.encode("utf-8")).hexdigest()

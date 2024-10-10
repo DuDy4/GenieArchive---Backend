@@ -419,7 +419,7 @@ class PersonalDataRepository:
                 ELSE false
             END AS update_failed_recently
         FROM
-            personaldata
+            personalData
         WHERE
             uuid = %s;
         """
@@ -441,18 +441,15 @@ class PersonalDataRepository:
             logger.error("Error checking personalData existence:", exc_info=True)
             return False
 
-    def get_news_data(self, email):
-        query = """
-        SELECT news FROM personaldata WHERE email = %s;
-        """
+    def _get_news(self, query: str, arg: str):
         try:
             with (self.conn.cursor() as cursor):
-                cursor.execute(query, (email,))
+                cursor.execute(query, (arg,))
                 news = cursor.fetchone()
                 if news is None:
-                    logger.error(f"No news data for uuid: {email}, and news is null instead of empty list")
+                    logger.error(f"No news data for {arg}, and news is null instead of empty list")
                     return []
-                logger.debug(f"News data by email: {news}")
+                logger.debug(f"News data: {news}")
                 if not news:
                     news = []  # In case news is null
                 else:
@@ -461,17 +458,25 @@ class PersonalDataRepository:
                     news = news[:2]
                 res_news = NewsData.process_news(news)
                 if not res_news:
-                    logger.warning(f"No news data for email {email}")
+                    logger.warning(f"No news data for {arg}")
                     return []
                 return res_news
         except psycopg2.Error as error:
-            logger.error(f"Error getting news data by email: {error}")
+            logger.error(f"Error getting news data: {error}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return None
 
-    def update_news_to_db(self, uuid: str, news_data: dict, status: str):
+    def get_news_data_by_uuid(self, uuid: str):
+        query = """SELECT news FROM personalData WHERE uuid = %s;"""
+        return self._get_news(query, uuid)
+
+    def get_news_data_by_email(self, email):
+        query = """SELECT news FROM personalData WHERE email = %s;"""
+        return self._get_news(query, email)
+
+    def update_news_to_db(self, uuid: str, news_data: dict | None, status: str):
         """
         Update news data in the personaldata table in the database.
 
@@ -484,8 +489,8 @@ class PersonalDataRepository:
             return
 
         update_query = """
-        UPDATE personaldata
-        SET news = COALESCE(personaldata.news, '[]'::jsonb) || %s::jsonb,
+        UPDATE personalData
+        SET news = COALESCE(personalData.news, '[]'::jsonb) || %s::jsonb,
             news_status = %s,
             news_last_updated = %s
         WHERE uuid = %s

@@ -3,11 +3,13 @@ import os
 import sys
 import asyncio
 
-from linkedin_scrape import HandleLinkedinScrape
+from data.api_services.linkedin_scrape import HandleLinkedinScrape
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
+
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -285,8 +287,7 @@ class PersonManager(GenieConsumer):
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person.email}")
-            self.check_profile_data_from_person(person)
-            return {"status": "success"}
+            return await self.check_profile_data_from_person(person)
         event = GenieEvent(
             Topic.APOLLO_NEW_PERSON_TO_ENRICH,
             data={"person": person.to_dict()},
@@ -325,7 +326,7 @@ class PersonManager(GenieConsumer):
                 logger.warning(f"Profile does not exist in database for person: {person}")
                 return {"error": "Profile does not exist in database"}
             if not profile.picture_url:
-                profile.picture_url = self.personal_data_repository.get_profile_picture(person.uuid)
+                profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
                 self.profiles_repository.save_profile(profile)
                 logger.info(f"Saved profile with picture url: {profile.picture_url}")
             return {"status": "success"}
@@ -468,16 +469,6 @@ class PersonManager(GenieConsumer):
             self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)
         logger.info(f"Profile picture url: {profile_dto.picture_url}")
         json_profile = profile_dto.to_json()
-        event = GenieEvent(
-            Topic.FETCH_NEWS,
-            data={
-                "uuid": uuid,
-                "person": person.to_dict(),
-                "linkedin_profile": social_media_links.get("linkedin", ""),
-            },
-        )
-        event.send()
-        logger.info(f"FETCH_NEWS event sent for person: {person.name}")
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         self.persons_repository.remove_last_sent_message(person.uuid)
@@ -538,14 +529,15 @@ class PersonManager(GenieConsumer):
         return {"status": "success"}
 
     async def handle_linkedin_scrape(self, event):
-        logger.info(f"Handling LinkedIn scrape event: {event}")
+        # logger.info(f"Handling LinkedIn scrape event: {event}")
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-
-        linkedin = event_body.get("linkedin")
-        uuid = event_body.get("uuid")
+        person_dict = event_body.get("person")
+        person = PersonDTO.from_dict(person_dict)
+        linkedin = person.linkedin
+        uuid = person.uuid
 
         logger.debug(f"Extracted UUID: {uuid}")
         if not uuid:
@@ -563,6 +555,11 @@ class PersonManager(GenieConsumer):
 
             if not scraped_posts:
                 logger.error(f"No posts found or an error occurred while scraping {linkedin}")
+                # before updating the status to TRIED_BUT_FAILED, check if there are any posts in the database
+                news_in_database = self.personal_data_repository.get_news_data_by_uuid(uuid)
+                if news_in_database:
+                    logger.info(f"But found news in database for {uuid}")
+                    return {"posts": news_in_database}
                 self.personal_data_repository.update_news_to_db(
                     uuid, None, PersonalDataRepository.TRIED_BUT_FAILED
                 )
@@ -620,7 +617,7 @@ class PersonManager(GenieConsumer):
         try:
             profile = self.profiles_repository.get_profile_data(person.uuid)
             if not profile.picture_url:
-                profile.picture_url = self.personal_data_repository.get_profile_picture(person.uuid)
+                profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
                 logger.info(f"Updated profile picture url: {profile.picture_url}")
             if not profile.strengths and fetched_personal_data:
                 logger.info(

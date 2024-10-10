@@ -1,3 +1,4 @@
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import NewsData
 import requests
 import os
@@ -10,10 +11,12 @@ from datetime import datetime
 
 load_dotenv()
 
+RAPID_API_KEY = env_utils.get("RAPID_API_KEY")
+
 
 class HandleLinkedinScrape:
     def __init__(self):
-        self.api_key = os.getenv("RAPIDAPI_KEY")
+        self.api_key = RAPID_API_KEY
         self.base_url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-profile-posts"
         self.headers = {
             "x-rapidapi-key": self.api_key,
@@ -28,6 +31,9 @@ class HandleLinkedinScrape:
         """
         logger.info(f"Fetching the latest {num_posts} posts from: {linkedin_url}")
         querystring = {"linkedin_url": linkedin_url, "type": "posts"}
+        if not self.api_key:
+            logger.error("API key not found in environment variables")
+            return []
 
         try:
             response = requests.get(self.base_url, headers=self.headers, params=querystring)
