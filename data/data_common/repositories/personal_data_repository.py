@@ -2,10 +2,10 @@ from typing import Optional, List
 import json
 import psycopg2
 import traceback
-
+from datetime import datetime
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-
+from data.data_common.data_transfer_objects.company_dto import NewsData
 from common.genie_logger import GenieLogger
 from data.data_common.utils.str_utils import to_custom_title_case
 
@@ -396,6 +396,126 @@ class PersonalDataRepository:
             logger.error(f"Error retrieving personal data: {e}", e)
             traceback.format_exc()
             return None
+
+    def should_do_linkedin_posts_lookup(self, uuid: str) -> bool:
+        """
+        Check if there's a potential for a LinkedIn posts update.
+        The reasons for additional data lookup are:
+        1. The last update was more than 7 days ago.
+        2. LinkedIn posts exist.
+        3. LinkedIn URL exists.
+
+        :param uuid: Unique identifier for the personalData.
+        :return: True if LinkedIn posts update should be done, False otherwise.
+        """
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT
+            CASE
+                WHEN news_status = 'TRIED_BUT_FAILED'
+                AND news_last_updated > NOW() - INTERVAL '7 days'
+                AND (linkedin_url IS NULL OR linkedin_url = '')
+                THEN true
+                ELSE false
+            END AS update_failed_recently
+        FROM
+            personaldata
+        WHERE
+            uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                result = cursor.fetchone()
+
+                if result is None:
+                    logger.error(f"No data found for uuid: {uuid}")
+                    return False  # If no row is returned, the check fails.
+
+                update_failed_recently = result[0]
+                return not update_failed_recently
+        except psycopg2.Error as e:
+            logger.error("Error checking for existing personalData:", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error("Error checking personalData existence:", exc_info=True)
+            return False
+
+    def get_news_data(self, email):
+        query = """
+        SELECT news FROM personaldata WHERE email = %s;
+        """
+        try:
+            with (self.conn.cursor() as cursor):
+                cursor.execute(query, (email,))
+                news = cursor.fetchone()
+                if news is None:
+                    logger.error(f"No news data for uuid: {email}, and news is null instead of empty list")
+                    return []
+                logger.debug(f"News data by email: {news}")
+                if not news:
+                    news = []  # In case news is null
+                else:
+                    news = news[0]  # news is a tuple containing the news data
+                if len(news) > 2:
+                    news = news[:2]
+                res_news = NewsData.process_news(news)
+                if not res_news:
+                    logger.warning(f"No news data for email {email}")
+                    return []
+                return res_news
+        except psycopg2.Error as error:
+            logger.error(f"Error getting news data by email: {error}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return None
+
+    def update_news_to_db(self, uuid: str, news_data: dict, status: str):
+        """
+        Update news data in the personaldata table in the database.
+
+        :param uuid: Unique identifier for the personalData (required).
+        :param news_data: A dictionary containing the news data.
+        :param status: A string indicating the status of the news ("Fetched" or "Failed to fetch").
+        """
+        if not uuid:
+            logger.error("UUID is None or empty. Cannot update the database.")
+            return
+
+        update_query = """
+        UPDATE personaldata
+        SET news = COALESCE(personaldata.news, '[]'::jsonb) || %s::jsonb,
+            news_status = %s,
+            news_last_updated = %s
+        WHERE uuid = %s
+        """
+        try:
+            news_last_updated = datetime.now()
+            json_news_data = json.dumps(news_data) if news_data else None
+
+            logger.debug(
+                f"Updating news in DB, UUID: {uuid}, status: {status}, news_data: {str(json_news_data)[:100]}"
+            )
+
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    update_query,
+                    (
+                        json_news_data,  # Update the news column by appending new data to the existing data
+                        status,  # Update the news status
+                        news_last_updated,  # Update the last updated timestamp
+                        uuid,  # Use the UUID to find the correct row
+                    ),
+                )
+                self.conn.commit()
+
+            logger.info(f"Successfully updated news with UUID: {uuid} and status: {status}")
+
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Error updating news in the database: {e}")
+            raise
 
     def get_personal_uuid_by_email(self, email_address: str):
         """

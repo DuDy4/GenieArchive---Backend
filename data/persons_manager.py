@@ -3,6 +3,10 @@ import os
 import sys
 import asyncio
 
+from linkedin_scrape import HandleLinkedinScrape
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -32,10 +36,11 @@ from data.data_common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
+linkedin_scrapper = HandleLinkedinScrape()
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 CONSUMER_GROUP = "personmanagerconsumergroup"
-# DEFAULT_PROFILE_PICTURE = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
 
 
 class PersonManager(GenieConsumer):
@@ -55,6 +60,7 @@ class PersonManager(GenieConsumer):
                 Topic.PDL_UP_TO_DATE_ENRICHED_DATA,
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
                 Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON,
+                Topic.NEW_PERSONAL_DATA,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -105,6 +111,9 @@ class PersonManager(GenieConsumer):
             case Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON:
                 logger.info("Handling already failed to enrich person")
                 await self.handle_pdl_already_failed_to_enrich_person(event)
+            case Topic.NEW_PERSONAL_DATA:
+                logger.info("Handling linkedin scrape")
+                await self.handle_linkedin_scrape(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -211,10 +220,6 @@ class PersonManager(GenieConsumer):
             )
             event.send()
             return {"status": "success"}
-
-        event = GenieEvent(Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, person.to_json(), "public")
-        event.send()
-        return {"status": "success"}
 
     async def handle_pdl_updated_enriched_data(self, event):
         # Assuming the event body contains an uuid and a JSON string with the personal data
@@ -488,6 +493,16 @@ class PersonManager(GenieConsumer):
             self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)
         logger.info(f"Profile picture url: {profile_dto.picture_url}")
         json_profile = profile_dto.to_json()
+        event = GenieEvent(
+            Topic.FETCH_NEWS,
+            data={
+                "uuid": uuid,
+                "person": person.to_dict(),
+                "linkedin_profile": social_media_links.get("linkedin", ""),
+            },
+        )
+        event.send()
+        logger.info(f"FETCH_NEWS event sent for person: {person.name}")
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
         event.send()
         self.persons_repository.remove_last_sent_message(person.uuid)
@@ -546,6 +561,52 @@ class PersonManager(GenieConsumer):
         result = await self.check_profile_data_from_person(person)
         logger.info(f"Result: {result}")
         return {"status": "success"}
+
+    async def handle_linkedin_scrape(self, event):
+        logger.info(f"Handling LinkedIn scrape event: {event}")
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+
+        linkedin = event_body.get("linkedin")
+        uuid = event_body.get("uuid")
+
+        logger.debug(f"Extracted UUID: {uuid}")
+        if not uuid:
+            logger.error("UUID is missing in the event data")
+            return {"error": "UUID is missing"}
+
+        if not linkedin:
+            logger.error(f"No LinkedIn URL found in event body, skipping this part: {event_body}")
+            return {"error": "No LinkedIn URL found in event body"}
+
+        logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
+
+        if self.personal_data_repository.should_do_linkedin_posts_lookup(uuid):
+            scraped_posts = linkedin_scrapper.fetch_and_process_posts(linkedin)
+
+            if not scraped_posts:
+                logger.error(f"No posts found or an error occurred while scraping {linkedin}")
+                self.personal_data_repository.update_news_to_db(
+                    uuid, None, PersonalDataRepository.TRIED_BUT_FAILED
+                )
+                return {"error": "No posts found or an error occurred"}
+
+            logger.info(f"Successfully scraped {len(scraped_posts)} posts from LinkedIn URL: {linkedin}")
+            news_data_objects = []
+            for post in scraped_posts:
+                post_json = post.to_dict()
+                if post_json.get("image_urls"):
+                    post_json["images"] = post_json["image_urls"]
+                news_data_objects.append(post_json)
+                self.personal_data_repository.update_news_to_db(
+                    uuid, post_json, PersonalDataRepository.FETCHED
+                )
+            return {"posts": news_data_objects}
+        else:
+            logger.info(f"No need to scrape LinkedIn posts for {uuid} as it was scraped recently or never")
+            return {"error": "No need to scrape LinkedIn posts"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):
         if not person:

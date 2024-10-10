@@ -1,51 +1,70 @@
+from data.data_common.data_transfer_objects.company_dto import NewsData
 import requests
 import os
 from loguru import logger
 from dotenv import load_dotenv
+from typing import List
+from pydantic import ValidationError
+from datetime import datetime
+
 
 load_dotenv()
 
 
-class LinkedInProfileFetcher:
-    def __init__(self, api_key):
-        self.api_key = api_key
+class HandleLinkedinScrape:
+    def __init__(self):
+        self.api_key = os.getenv("RAPIDAPI_KEY")
         self.base_url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-profile-posts"
         self.headers = {
             "x-rapidapi-key": self.api_key,
             "x-rapidapi-host": "fresh-linkedin-profile-data.p.rapidapi.com",
         }
 
-    def fetch_latest_posts(self, linkedin_url, num_posts=3):  # Default value of 3 posts
+        # self.result = self.fetch_and_process_posts(linkedin_url, num_posts=3)
+
+    def fetch_and_process_posts(self, linkedin_url: str, num_posts=3) -> List[NewsData]:
+        """
+        Fetch posts from LinkedIn and process them into NewsData objects, handling multiple image URLs.
+        """
         logger.info(f"Fetching the latest {num_posts} posts from: {linkedin_url}")
         querystring = {"linkedin_url": linkedin_url, "type": "posts"}
 
         try:
             response = requests.get(self.base_url, headers=self.headers, params=querystring)
-            response.raise_for_status()
+            response.raise_for_status()  # Raise exception for HTTP errors
             data = response.json()
-            # Extract the latest `num_posts` posts
-            latest_posts = data["data"][:num_posts]
+            latest_posts = data.get("data", [])[:num_posts]
             logger.success(f"Successfully fetched {len(latest_posts)} posts from {linkedin_url}")
-            return latest_posts
+
+            processed_posts = []
+            for post in latest_posts:
+                try:
+
+                    images = post.get("images", [])
+                    image_urls = [img["url"] for img in images if "url" in img]
+
+                    news_data_dict = {
+                        "date": datetime.strptime(post.get("posted"), "%Y-%m-%d %H:%M:%S").date(),
+                        "link": post.get("post_url"),
+                        "media": "LinkedIn",
+                        "title": post.get("text", "")[:100],
+                        "summary": post.get("text", None),
+                        "image_urls": image_urls,
+                    }
+
+                    news_data = NewsData.from_dict(news_data_dict)
+                    processed_posts.append(news_data)
+
+                except ValidationError as e:
+                    logger.error(f"Validation error for post {post.get('post_url')}: {e}")
+                except Exception as e:
+                    logger.error(f"Error processing post {post.get('post_url')}: {e}")
+
+            return processed_posts
+
         except requests.exceptions.HTTPError as http_err:
             logger.error(f"HTTP error occurred: {http_err}")
         except Exception as err:
             logger.error(f"An error occurred: {err}")
+
         return []
-
-
-# Usage example:
-if __name__ == "__main__":
-    # Fetch the API key from environment variables
-    api_key = os.getenv("RAPID_API_KEY")  # Ensure the environment variable is set as 'RAPIDAPI_KEY'
-
-    if not api_key:
-        logger.error("API key not found in environment variables")
-    else:
-        linkedin_url = "https://www.linkedin.com/in/asaf-savich/"
-        fetcher = LinkedInProfileFetcher(api_key)
-
-        # Fetching the default 3 posts
-        latest_posts = fetcher.fetch_latest_posts(linkedin_url)  # Defaults to 3 posts
-        for post in latest_posts:
-            logger.info(post)
