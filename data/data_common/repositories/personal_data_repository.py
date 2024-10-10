@@ -401,23 +401,27 @@ class PersonalDataRepository:
         """
         Check if there's a potential for a LinkedIn posts update.
         The reasons for additional data lookup are:
-        1. The last update was more than 7 days ago.
-        2. LinkedIn posts exist.
-        3. LinkedIn URL exists.
+        1. The last update was more than 7 days ago and the update previously failed.
+        2. LinkedIn URL exists.
+        3. No 'FETCHED' status in the last 14 days.
 
         :param uuid: Unique identifier for the personalData.
         :return: True if LinkedIn posts update should be done, False otherwise.
         """
-        self.create_table_if_not_exists()
-        select_query = """
+        select_query = f"""
         SELECT
             CASE
-                WHEN news_status = 'TRIED_BUT_FAILED'
+                -- If the status is 'TRIED_BUT_FAILED' in the last 7 days with no LinkedIn URL, then no need to update
+                WHEN news_status = '{self.TRIED_BUT_FAILED}'
                 AND news_last_updated > NOW() - INTERVAL '7 days'
                 AND (linkedin_url IS NULL OR linkedin_url = '')
                 THEN true
+                -- If the status is 'FETCHED' and the last update was more than 14 days ago, then no need to update
+                WHEN news_status = '{self.FETCHED}'
+                AND news_last_updated > NOW() - INTERVAL '14 days'
+                THEN true
                 ELSE false
-            END AS update_failed_recently
+            END AS update_needed
         FROM
             personalData
         WHERE
@@ -432,8 +436,10 @@ class PersonalDataRepository:
                     logger.error(f"No data found for uuid: {uuid}")
                     return False  # If no row is returned, the check fails.
 
-                update_failed_recently = result[0]
-                return not update_failed_recently
+                # update_needed will be true if no update is needed; we want the inverse of that
+                update_needed = result[0]
+                return not update_needed
+
         except psycopg2.Error as e:
             logger.error("Error checking for existing personalData:", exc_info=True)
             return False
