@@ -4,10 +4,9 @@ import requests
 import os
 from loguru import logger
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Dict, Any
 from pydantic import ValidationError
-from datetime import datetime
-
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -44,8 +43,8 @@ class HandleLinkedinScrape:
 
             processed_posts = []
             for post in latest_posts:
+                logger.info(f"Processing post: {post}")
                 try:
-
                     images = post.get("images", [])
                     image_urls = [img["url"] for img in images if "url" in img]
 
@@ -74,3 +73,49 @@ class HandleLinkedinScrape:
             logger.error(f"An error occurred: {err}")
 
         return []
+
+    def sort_data_by_preferences(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sort the data by preferences:
+        1. Posts that are not reshared, but created by the user, in the last 90 days.
+        2. Posts that are reshared, in the last 90 days.
+        3. Posts that are not reshared, but created by the user, older than 90 days.
+        4. Posts that are reshared, older than 90 days.
+        """
+        posts = data.get("data", [])
+        if not posts:
+            return data
+
+        # Define a 90-day window
+        ninety_days_ago = datetime.now() - timedelta(days=90)
+
+        # Create different lists for the four categories
+        recent_original_posts = []
+        recent_reshared_posts = []
+        older_original_posts = []
+        older_reshared_posts = []
+
+        # Sort posts into respective lists based on reshared status and date
+        for post in posts:
+            # Parse the 'posted' date from the post
+            post_date = datetime.strptime(post.get("posted", ""), "%Y-%m-%d %H:%M:%S")
+
+            # Check if the post is reshared and its recency
+            if post.get("reshared"):
+                if post_date > ninety_days_ago:
+                    recent_reshared_posts.append(post)
+                else:
+                    older_reshared_posts.append(post)
+            else:
+                if post_date > ninety_days_ago:
+                    recent_original_posts.append(post)
+                else:
+                    older_original_posts.append(post)
+
+        # Concatenate all sorted categories in order
+        sorted_posts = (
+            recent_original_posts + recent_reshared_posts + older_original_posts + older_reshared_posts
+        )
+        data["data"] = sorted_posts
+
+        return data
