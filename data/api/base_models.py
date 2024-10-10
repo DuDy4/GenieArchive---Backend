@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
-from typing import List, Optional, Dict, Union
+from pydantic import BaseModel, Field, HttpUrl
+from typing import List, Optional, Dict
 
 from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO, MeetingClassification
 from data.data_common.data_transfer_objects.profile_dto import (
@@ -13,13 +13,12 @@ from data.data_common.data_transfer_objects.profile_dto import (
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,
-    NewsData,
     SocialMediaLinks,
     SocialMediaLinksList,
     FundingEvent,
 )
-from data.data_common.data_transfer_objects.tenant_dto import TenantDTO
-from data.data_common.utils.str_utils import titleize_values, to_custom_title_case, get_uuid4, titleize_name
+from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
+from data.data_common.utils.str_utils import titleize_name
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from common.genie_logger import GenieLogger
 
@@ -186,7 +185,7 @@ class Hobby(BaseModel):
 
 
 class GoodToKnowResponse(BaseModel):
-    news: Optional[List[NewsData]] = []
+    news: Optional[List[NewsData | SocialMediaPost]] = []
     hobbies: List[Hobby]
     connections: List[Connection]
 

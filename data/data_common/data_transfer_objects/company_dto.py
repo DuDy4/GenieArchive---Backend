@@ -8,6 +8,9 @@ from data.data_common.utils.str_utils import (
     to_custom_title_case,
     get_uuid4,
 )
+
+from data.data_common.data_transfer_objects.news_data_dto import NewsData
+
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -130,76 +133,6 @@ class SocialMediaLinksList(BaseModel):
 
         # Only valid links are passed to the constructor
         return cls(links=links)
-
-
-class NewsData(BaseModel):
-    date: Optional[date]
-    link: HttpUrl
-    media: str
-    title: str
-    summary: Optional[str]
-
-    @field_validator("media", "title", "link")
-    def not_empty(cls, value):
-        # Convert HttpUrl to str if needed, otherwise ensure it's a string
-        value_to_check = str(value)
-
-        # Check if the value is empty or whitespace
-        if not value_to_check.strip():
-            raise ValueError("Field cannot be empty or whitespace")
-
-        return value
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "NewsData":
-        return cls.parse_raw(json_str)
-
-    def to_json(self) -> str:
-        return self.json()
-
-    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:  # type: ignore
-        return self.date, self.link, self.media, self.title, self.summary
-
-    @classmethod
-    def from_tuple(cls, data: Tuple[Optional["date"], str, str, str, Optional[str]]) -> "NewsData":
-        return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "date": self.date.isoformat(),
-            "link": str(self.link),
-            "media": self.media,
-            "title": self.title,
-            "summary": self.summary,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> "NewsData":
-        data = titleize_values(data)
-        return cls(
-            date=data.get("date"),
-            link=data.get("link"),
-            media=data.get("media"),
-            title=data.get("title"),
-            summary=data.get("summary"),
-        )
-
-    def process_news(news: List[dict]) -> List:
-        logger.debug(f"News data: {news}")
-        res_news = []
-        if news:
-            for item in news:
-                logger.debug(f"Item: {item}")
-                try:
-                    deserialized_news = NewsData.from_dict(item)
-                    logger.debug(f"Deserialized news: {deserialized_news}")
-                    if deserialized_news:
-                        res_news.append(deserialized_news)
-                    logger.debug(f"Processed news: {res_news}")
-                except Exception as e:
-                    logger.error(f"Error deserializing news: {e}. Skipping this news item")
-        logger.debug(f"News data: {res_news}")
-        return res_news
 
 
 class CompanyDTO:

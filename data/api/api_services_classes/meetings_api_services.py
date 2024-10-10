@@ -1,6 +1,6 @@
 from common.utils import email_utils
 from common.utils.str_utils import get_uuid4
-from data.data_common.data_transfer_objects.company_dto import NewsData
+from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
 from data.data_common.data_transfer_objects.meeting_dto import MeetingClassification, MeetingDTO
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.dependencies.dependencies import (
