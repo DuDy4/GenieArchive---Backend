@@ -5,8 +5,10 @@ import os
 from loguru import logger
 from dotenv import load_dotenv
 from typing import List, Dict, Any
-from pydantic import ValidationError
+from pydantic import ValidationError, HttpUrl
 from datetime import datetime, timedelta
+
+from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
 
 load_dotenv()
 
@@ -48,16 +50,30 @@ class HandleLinkedinScrape:
                     images = post.get("images", [])
                     image_urls = [img["url"] for img in images if "url" in img]
 
-                    news_data_dict = {
+                    data_dict = {
                         "date": datetime.strptime(post.get("posted"), "%Y-%m-%d %H:%M:%S").date(),
                         "link": post.get("post_url"),
                         "media": "LinkedIn",
                         "title": post.get("text", "")[:100],
                         "summary": post.get("text", None),
-                        "image_urls": image_urls,
+                        "reshared": post.get("poster_linkedin_url"),
+                        "likes": (
+                            post.get("num_appreciations", 0)
+                            + post.get("num_empathy", 0)
+                            + post.get("num_likes", 0)
+                            + post.get("num_praises", 0)
+                        ),
+                        "images": image_urls,
                     }
-
-                    news_data = NewsData.from_dict(news_data_dict)
+                    try:
+                        news_data = SocialMediaPost.from_dict(data_dict)
+                    except ValidationError as e:
+                        logger.error(f"Validation error for post {post.get('post_url')}: {e}")
+                        try:
+                            news_data = NewsData.from_dict(data_dict)
+                        except ValidationError as e:
+                            logger.error(f"Validation error for post {post.get('post_url')}: {e}")
+                            continue
                     processed_posts.append(news_data)
 
                 except ValidationError as e:

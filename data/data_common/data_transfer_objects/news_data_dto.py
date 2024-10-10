@@ -82,9 +82,13 @@ class NewsData(BaseModel):
 
 
 class SocialMediaPost(NewsData):
-    reshared: bool = Field(default=False, description="Indicates if the post is reshared")
+    reshared: str | None = Field(
+        default=None,
+        description="Indicates if the post is reshared or written by the user."
+        " If reshared, the url to the original poster.",
+    )
     likes: int = Field(default=0, description="Number of likes on the post")
-    images: Optional[List[HttpUrl]] = Field(default=None)
+    images: Optional[List[HttpUrl]] = Field(default=[])
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -105,7 +109,9 @@ class SocialMediaPost(NewsData):
         # Use the Pydantic's dict() method to ensure all inherited fields are included
         base_dict = super().to_dict()
         # Add additional fields from SocialMediaPost
-        base_dict.update({"reshared": self.reshared, "likes": self.likes, "images": self.images})
+        base_dict.update(
+            {"reshared": self.reshared, "likes": self.likes, "images": [str(image) for image in self.images]}
+        )
         return base_dict
 
     def __str__(self):
