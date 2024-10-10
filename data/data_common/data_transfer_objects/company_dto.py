@@ -1,6 +1,5 @@
 import json
 from typing import List, Dict, Optional, Union, Tuple, Any
-
 from pydantic import HttpUrl, field_validator, BaseModel
 from datetime import date
 
@@ -158,11 +157,11 @@ class NewsData(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:  # type: ignore
         return self.date, self.link, self.media, self.title, self.summary
 
     @classmethod
-    def from_tuple(cls, data: Tuple[Optional[date], HttpUrl, str, str, Optional[str]]) -> "NewsData":
+    def from_tuple(cls, data: Tuple[Optional["date"], str, str, str, Optional[str]]) -> "NewsData":
         return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
 
     def to_dict(self) -> Dict[str, Any]:
@@ -184,6 +183,23 @@ class NewsData(BaseModel):
             title=data.get("title"),
             summary=data.get("summary"),
         )
+
+    def process_news(news: List[dict]) -> List:
+        logger.debug(f"News data: {news}")
+        res_news = []
+        if news:
+            for item in news:
+                logger.debug(f"Item: {item}")
+                try:
+                    deserialized_news = NewsData.from_dict(item)
+                    logger.debug(f"Deserialized news: {deserialized_news}")
+                    if deserialized_news:
+                        res_news.append(deserialized_news)
+                    logger.debug(f"Processed news: {res_news}")
+                except Exception as e:
+                    logger.error(f"Error deserializing news: {e}. Skipping this news item")
+        logger.debug(f"News data: {res_news}")
+        return res_news
 
 
 class CompanyDTO:

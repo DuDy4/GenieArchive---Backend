@@ -14,6 +14,3 @@ def test_pdl_failed_to_enrich_email(email_address: str):
 
     event = GenieEvent(topic=Topic.PDL_FAILED_TO_ENRICH_EMAIL, data=json.dumps(test_data))
     event.send()
-
-
-test_failed_to_enrich_email("nativ@hanacovc.com")

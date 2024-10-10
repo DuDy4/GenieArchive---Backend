@@ -144,7 +144,13 @@ class ProfilesApiService:
         if profile:
             profile_email = self.persons_repository.get_person_email(uuid)
             logger.info(f"Got profile email: {profile_email}")
-            news = self.companies_repository.get_news_data_by_email(profile_email)
+            personal_news = self.personal_data_repository.get_news_data(profile_email)
+            if not personal_news:
+                logger.info(f"No personal news found for {uuid}, getting company news")
+                news = self.companies_repository.get_news_data_by_email(profile_email)
+            else:
+                logger.info(f"Got personal news for {uuid}")
+                news = personal_news
             logger.info(f"Got news: {news}")
 
             hobbies_uuid = profile.hobbies

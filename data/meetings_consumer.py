@@ -26,6 +26,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.api_services.embeddings import GenieEmbeddingsClient
 
+
 import requests
 from common.genie_logger import GenieLogger
 

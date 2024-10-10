@@ -49,7 +49,6 @@ class PersonManager(GenieConsumer):
     ):
         super().__init__(
             topics=[
-                Topic.NEW_CONTACT,
                 Topic.NEW_PERSON,
                 Topic.PDL_UPDATED_ENRICHED_DATA,
                 Topic.APOLLO_UPDATED_ENRICHED_DATA,
@@ -78,9 +77,6 @@ class PersonManager(GenieConsumer):
         # Should use Topic class
 
         match topic:
-            case Topic.NEW_CONTACT:
-                logger.info("Handling new salesforce contact")
-                await self.handle_new_salesforce_contact(event)
             case Topic.NEW_PERSON:
                 logger.info("Handling new person")
                 await self.handle_new_person(event)
@@ -116,27 +112,6 @@ class PersonManager(GenieConsumer):
                 await self.handle_linkedin_scrape(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
-
-    async def handle_new_salesforce_contact(self, event):
-        # Assuming the event body contains a JSON string with the contact data
-        logger.info("Handling new salesforce contact")
-        contact_data_str = event.body_as_str()
-        contact_data = json.loads(contact_data_str)
-        if isinstance(contact_data, str):
-            contact_data = json.loads(contact_data)
-        tenant_id = contact_data.get("tenant_id")
-        new_person = PersonDTO.from_dict(contact_data)
-        uuid = self.persons_repository.save_person(new_person)
-
-        new_person.uuid = uuid
-        self.ownerships_repository.save_ownership(new_person.uuid, tenant_id)
-
-        # Send "pdl" event to the event queue
-        person_json = new_person.to_json()
-        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person_json, "public")
-        event.send()
-        logger.info("Sent 'pdl' event to the event queue")
-        return {"status": "success"}
 
     async def handle_new_person(self, event):
         event_body_str = event.body_as_str()
