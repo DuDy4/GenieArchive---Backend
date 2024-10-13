@@ -3,7 +3,7 @@ import psycopg2
 import json
 from common.genie_logger import GenieLogger
 from typing import List, Optional
-from data.data_common.data_transfer_objects.badges_dto import BadgeDTO, UserBadgeDTO, UserBadgeProgressDTO
+from data.data_common.data_transfer_objects.badges_dto import BadgeDTO, UserBadgeDTO, UserBadgeProgressDTO, DetailedUserBadgeProgressDTO
 
 logger = GenieLogger()
 
@@ -89,6 +89,22 @@ class BadgesRepository:
             logger.error(f"Error retrieving badges: {error}")
             traceback.print_exc()
             return []
+            return None
+
+    def get_all_badges_by_type(self, type: str) -> List[BadgeDTO]:
+        select_query = """
+            SELECT * FROM badges 
+            WHERE criteria->>'type' = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (type,))
+                badges = cursor.fetchall()
+                return [BadgeDTO.from_tuple(badge) for badge in badges]
+        except psycopg2.Error as error:
+            logger.error(f"Error retrieving badges: {error}")
+            traceback.print_exc()
+            return []
 
     # User Badge Methods
     def insert_user_badge(self, user_badge: UserBadgeDTO) -> Optional[str]:
@@ -160,17 +176,51 @@ class BadgesRepository:
         :param badge_id: The badge's ID.
         :return: A dictionary representing the user's progress (defaults to empty if not found).
         """
-        select_query = "SELECT progress FROM user_badge_progress WHERE email = %s AND badge_id = %s;"
+        select_query = "SELECT progress, last_updated FROM user_badge_progress WHERE email = %s AND badge_id = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email, badge_id))
                 result = cursor.fetchone()
                 if result:
-                    return result[0]  # Return the progress JSON
+                    return result  # Return the progress JSON
                 else:
                     # If no progress exists, return an empty JSON object representing 0 progress
-                    return {}
+                    return {}, None
         except psycopg2.Error as error:
             logger.error(f"Error retrieving user badge progress: {error}")
             traceback.print_exc()
             return {}
+
+    def get_user_all_current_badges_progress(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
+        """
+        Retrieve the user's progress for all badges. If no progress exists, assume an empty progress.
+
+        :param email: The user's ID.
+        :param badge_id: The badge's ID.
+        :return: A dictionary representing the user's progress (defaults to empty if not found).
+        """
+        select_query = """
+        SELECT ubp.email, b.badge_id, ubp.progress, ubp.last_updated, b.name, b.description, b.icon_url, b.criteria
+        FROM badges b
+        LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
+                AND email = 'asaf@genieai.ai'; 
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (email, ))
+                result = cursor.fetchall()
+                if result:
+                    formatted_results = []
+                    for bage_progress in result:
+                        if not bage_progress[0]:
+                            bage_progress_list = list(bage_progress)
+                            bage_progress_list[0] = email
+                            bage_progress = tuple(bage_progress_list)
+                        formatted_results.append(DetailedUserBadgeProgressDTO.from_tuple(bage_progress))
+                    return formatted_results
+                else:
+                    return []
+        except psycopg2.Error as error:
+            logger.error(f"Error retrieving user badge progress: {error}")
+            traceback.print_exc()
+            return []

@@ -1,6 +1,7 @@
 import datetime
-from data.data_common.dependencies.dependencies import badges_repository
-from data.data_common.data_transfer_objects.badges_dto import UserBadgeProgressDTO, UserBadgeDTO
+from data.data_common.data_transfer_objects.stats_dto import StatsDTO
+from data.data_common.dependencies.dependencies import badges_repository, stats_repository
+from data.data_common.data_transfer_objects.badges_dto import DetailedUserBadgeProgressDTO, UserBadgeProgressDTO, UserBadgeDTO, BadgesEventTypes
 from common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
 
@@ -9,20 +10,65 @@ logger = GenieLogger()
 class BadgesApiService:
     def __init__(self):
         self.badges_repository = badges_repository()
+        self.stats_repository = stats_repository()
 
-    def handle_event(self, email: str, event_type: str, entity_id: str):
+
+    def get_user_badges_status(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
+        """
+        Get all badges for a user.
+        
+        :param email: The email of the tenant/user.
+        :return: A list of badge DTOs.
+        """
+        badges_progress = self.badges_repository.get_user_all_current_badges_progress(email)
+        formatted_badges= []
+        for badge in badges_progress:
+            formatted_badges.append({
+                'badge_id': str(badge.badge_id),
+                'name': badge.badge_name,
+                'description': badge.badge_description,
+                'frequency': badge.criteria['frequency'],
+                'progress': {
+                    'type': badge.criteria['type'],
+                    'count': badge.progress['count'] if badge.progress else 0,
+                    'goal': badge.criteria['count']
+                },
+                'icon_url': badge.badge_icon_url
+            })
+
+        return formatted_badges
+            
+
+    def handle_event(self, email: str, action: str, entity: str, entity_id: str):
         """
         Handles various user events (e.g., profile view, meeting view, login) and updates badge progress.
         
         :param email: The email of the tenant/user.
-        :param event_type: The type of event (e.g., "VIEW_PROFILE", "VIEW_MEETING", "LOGIN").
+        :param action: The type of event (e.g., "VIEW", "LOGIN").
+        :param entity: The entity associated with the event (e.g., "PROFILE", "MEETING").
         :param entity_id: The ID of the entity associated with the event.
         """
-        if not email or not event_type:
+        if not email or not action or not entity or not entity_id:
+            logger.info(f"Invalid badge event data: {email}, {action}, {entity}, {entity_id}")
             return
+        event_type = action + "_" + entity
+        if event_type not in BadgesEventTypes.__members__: 
+            logger.info(f"Invalid badge event type {event_type}")
+            return
+        stats_dto = StatsDTO(entity_id=entity_id, email=email, action=action, entity=entity)
+        start_of_day = datetime.datetime.utcnow().replace(hour=3, minute=0, second=0, microsecond=0)
+        num_events_today = self.stats_repository.count_events_from_date(stats_dto, start_of_day)        
+        if not num_events_today:
+            logger.info(f"Error counting events for user {email}")
+            return
+        if num_events_today > 1:
+            logger.info(f"Skipping badge calc. Event {event_type} for entity {entity_id} already exists for user {email}")
+            return  
         
-        # Fetch all badges to check which badges are relevant for this event type
-        badges = self.badges_repository.get_all_badges()
+        badges = self.badges_repository.get_all_badges_by_type(event_type)
+        if not badges:
+            logger.info(f"No badges found for event type {event_type}")
+            return
         for badge in badges:
             self.update_badge_progress(email, badge, event_type)
 
@@ -35,12 +81,11 @@ class BadgesApiService:
         :param event_type: The type of event (e.g., "VIEW_PROFILE", "VIEW_MEETING").
         """
         # Get the current progress for this badge
-        current_progress = self.badges_repository.get_user_badge_progress(email, str(badge.badge_id)) or {}
+        current_progress, last_updated = self.badges_repository.get_user_badge_progress(email, str(badge.badge_id)) or {}
         now = datetime.datetime.utcnow()
         
         # Reset progress if it's a daily badge and the date has passed 3 AM UTC
         if badge.criteria['frequency'] == 'daily':
-            last_updated = current_progress.get('last_updated', None)
             if last_updated:
                 # Check if the current time is beyond the 3 AM reset point
                 if not self.is_within_daily_window(last_updated, now):
@@ -48,11 +93,11 @@ class BadgesApiService:
 
         # Reset progress if it's a weekly badge and the date has passed Sunday 3 AM UTC
         elif badge.criteria['frequency'] == 'weekly':
-            last_updated = current_progress.get('last_updated', None)
             if last_updated:
                 # Check if the current time is beyond the weekly reset point
                 if not self.is_within_weekly_window(last_updated, now):
                     current_progress = {'count': 0}
+
 
         # Update progress based on the event type and badge criteria
         if badge.criteria['type'] == event_type:

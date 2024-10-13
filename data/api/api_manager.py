@@ -21,6 +21,7 @@ from data.api.api_services_classes.profiles_api_services import ProfilesApiServi
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
+from data.api.api_services_classes.badges_api_services import BadgesApiService
 
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
@@ -43,6 +44,7 @@ profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 stats_api_service = StatsApiService()
+badges_api_service = BadgesApiService()
 
 logger.info("Imported all services")
 
@@ -81,6 +83,20 @@ async def get_file_upload_url(request: Request):
     file_name = body["file_name"]
     upload_url = user_materials_service.generate_upload_url(tenant_id, file_name)
     return JSONResponse(content={"upload_url": upload_url})
+
+
+@v1_router.get("/user-badges")
+async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
+    email = get_request_state_value(request, "user_email")
+    if not email:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user email or email invalid"""
+        )
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        email = tenants_repository().get_tenant_email(allowed_impersonate_tenant_id)
+    badges_progress = badges_api_service.get_user_badges_status(email)
+    return JSONResponse(content=badges_progress)
 
 
 @v1_router.post("/successful-login")

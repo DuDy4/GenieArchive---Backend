@@ -86,7 +86,7 @@ class UserBadgeDTO(BaseModel):
 class UserBadgeProgressDTO(BaseModel):
     email: EmailStr
     badge_id: UUID
-    progress: Dict[str, Any]  # Assuming progress is a dictionary that tracks the user's progress
+    progress: Dict[str, Any]  
     last_updated: datetime
 
     def to_tuple(self) -> Tuple[EmailStr, UUID, Dict[str, Any], datetime]:
@@ -111,4 +111,46 @@ class UserBadgeProgressDTO(BaseModel):
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "UserBadgeProgressDTO":
+        return cls(**data)
+    
+class DetailedUserBadgeProgressDTO(BaseModel):
+    email: EmailStr
+    badge_id: UUID
+    progress: Dict[str, Any]  
+    last_updated: datetime
+    badge_name: str
+    badge_description: str
+    badge_icon_url: str
+    criteria: Dict[str, Any]
+
+    def to_tuple(self) -> Tuple[EmailStr, UUID, Dict[str, Any], datetime, str, str, str, Dict[str, Any]]:
+        return (
+            self.email,
+            str(self.badge_id),
+            self.progress,
+            self.last_updated,
+            self.badge_name,
+            self.badge_description,
+            self.badge_icon_url,
+            self.criteria,
+        )
+
+    @classmethod
+    def from_tuple(cls, data: Tuple[EmailStr, UUID, Dict[str, Any], datetime, str, str, str, Dict[str, Any]]) -> "DetailedUserBadgeProgressDTO":
+        return cls(
+            email=data[0] if data[0] else "",
+            badge_id=data[1],
+            progress=data[2] if data[2] else {},
+            last_updated=data[3] if data[3] else datetime.now(),
+            badge_name=data[4],
+            badge_description=data[5],
+            badge_icon_url=data[6],
+            criteria=data[7],
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump()
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DetailedUserBadgeProgressDTO":
         return cls(**data)

@@ -24,7 +24,7 @@ class StatsApiService:
         if not tenant_id or not meeting_id:
             return
         email = self.tenants_repository.get_tenant_email(tenant_id)
-        self.badges_api_service.handle_event(email, "VIEW_MEETING", meeting_id)
+        # self.badges_api_service.handle_event(email, "VIEW_MEETING", meeting_id)
         stats_data = {
             "email": email,
             "tenant_id": tenant_id,
@@ -84,5 +84,10 @@ class StatsApiService:
             if self.stats_repository.should_log_event(stats_dto):
                 self.stats_repository.insert(stats_dto)
                 logger.info(f"Successfully posted stats data: [email={stats_data.get('email')}, action={stats_data.get('action')}, entity={stats_data.get('entity')}]")
+                self.badges_api_service.handle_event(
+                    stats_data.get("email"), 
+                    stats_data.get("action"),
+                    stats_data.get("entity"), 
+                    stats_data.get("entity_id"))
         except Exception as e:
             logger.info(f"Error posting stats data: {e}")
