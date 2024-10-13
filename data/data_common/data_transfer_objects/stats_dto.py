@@ -1,3 +1,4 @@
+from common.utils.str_utils import get_uuid4
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from uuid import UUID
 from datetime import datetime
@@ -14,17 +15,16 @@ class ActionEnum(str, Enum):
 class EntityEnum(str, Enum):
     MEETING = "MEETING"
     PROFILE = "PROFILE"
-    LOGIN = "LOGIN"
     USER = "USER"
 
 class StatsDTO(BaseModel):
-    uuid: UUID
+    uuid: UUID = Field(default=get_uuid4())
     action: ActionEnum
     entity: EntityEnum
     entity_id: str
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     email: EmailStr
-    tenant_id: str
+    tenant_id: str = Field(default="")
 
     @field_validator("entity_id", "email", "tenant_id")
     def not_empty(cls, value):

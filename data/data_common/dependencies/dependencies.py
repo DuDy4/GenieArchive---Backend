@@ -11,6 +11,7 @@ from ..repositories.ownerships_repository import OwnershipsRepository
 from ..repositories.hobbies_repository import HobbiesRepository
 from ..repositories.companies_repository import CompaniesRepository
 from ..repositories.stats_repository import StatsRepository
+from ..repositories.badges_repository import BadgesRepository
 from ..repositories.file_upload_repository import FileUploadRepository
 from common.genie_logger import GenieLogger
 
@@ -41,6 +42,19 @@ def stats_repository() -> StatsRepository:
         if conn:
             connection_pool.putconn(conn)
             logger.debug("Connection returned to pool in stats_repository")
+
+
+def badges_repository() -> BadgesRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        return BadgesRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+    finally:
+        if conn:
+            connection_pool.putconn(conn)
+            logger.debug("Connection returned to pool in badges_repository")
 
 
 def interactions_repository() -> InteractionsRepository:
