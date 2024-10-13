@@ -1,3 +1,5 @@
+from typing import Union
+
 import requests
 
 from fastapi import Request, Query, BackgroundTasks

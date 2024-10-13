@@ -14,6 +14,7 @@ from data.data_common.dependencies.dependencies import (
 from fastapi import HTTPException
 
 from common.genie_logger import GenieLogger
+from data.data_common.utils.str_utils import to_custom_title_case
 
 logger = GenieLogger()
 
