@@ -462,7 +462,7 @@ class PersonalDataRepository:
                     news = news[0]  # news is a tuple containing the news data
                 if len(news) > 2:
                     news = news[:2]
-                res_news = NewsData.process_news(news)
+                res_news = [NewsData.from_dict(item) for item in news]
                 if not res_news:
                     logger.warning(f"No news data for {arg}")
                     return []
