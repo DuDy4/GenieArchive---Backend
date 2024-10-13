@@ -7,7 +7,7 @@ from typing import Tuple, Dict, Any
 class BadgesEventTypes(str, Enum):
     VIEW_PROFILE = "VIEW_PROFILE"
     VIEW_MEETING = "VIEW_MEETING"
-    LOGIN = "LOGIN"
+    LOGIN_USER = "LOGIN_USER"
 
 
 class BadgeDTO(BaseModel):
