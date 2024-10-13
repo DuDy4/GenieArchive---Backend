@@ -2,6 +2,7 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
     NEW_MEETING_GOALS = (
         "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
     )
@@ -74,12 +75,6 @@ class Topic:
         "failed-to-enrich-person"  # PersonManager notify (slack) that person enrichment failed
     )
     FAILED_TO_GET_COMPANY_DATA = "failed-to-get-company-data"  # CompanyConsumer failed to get company data
-    FAILED_TO_GET_LINKEDIN_URL = (
-        "failed-to-get-linkedin-url"  # NOT ACTIVE - Langsmith failed to get LinkedIn url
-    )
     FAILED_TO_GET_COMPANY_NEWS = "failed-to-get-company-news"  # News scrapper failed to get news
-    FAILED_TO_GET_PERSONAL_DATA = (
-        "failed-to-get-personal-data"  # Both pdl and apollo failed to get personal data
-    )
 
     FILE_UPLOADED = "file-uploaded"

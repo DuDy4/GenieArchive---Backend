@@ -20,6 +20,17 @@ database = env_utils.get(DEV_MODE + "DB_NAME")
 password = env_utils.get(DEV_MODE + "DB_PASSWORD")
 port = int(env_utils.get(DEV_MODE + "DB_PORT"))
 
+# Create a connection pool
+connection_pool = psycopg2.pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=25,  # Adjust this based on your expected concurrency
+    user=db_user,
+    password=password,
+    host=host,
+    port=port,
+    database=database,
+)
+
 
 def create_database_if_not_exists():
     try:
@@ -38,31 +49,21 @@ def create_database_if_not_exists():
         traceback.print_exc()
 
 
-connection_pool = psycopg2.pool.SimpleConnectionPool(
-    minconn=1,
-    maxconn=20,  # Adjust this based on your expected concurrency
-    user=db_user,
-    password=password,
-    host=host,
-    port=port,
-    database=database,
-)
-
-
 def get_db_connection():
-    # Get a connection from the pool
-    return connection_pool.getconn()
+    try:
+        # Get a connection from the pool
+        return connection_pool.getconn()
+    except psycopg2.DatabaseError as e:
+        logger.error(f"Error getting connection from pool: {e}")
+        traceback.print_exc()
+        return None
 
 
-# def get_db_connection():
-#     try:
-#         create_database_if_not_exists()
-#         conn = psycopg2.connect(user=db_user, host=host, database=database, password=password, port=port)
-#         return conn
-#     except Exception as error:
-#         logger.error("Could not connect to PostgreSQL:", error)
-#         traceback.print_exc()
-#         return None
+def release_db_connection(conn):
+    """Safely release the connection back to the pool."""
+    if conn:
+        connection_pool.putconn(conn)
+        logger.debug("Connection released back to pool")
 
 
 @contextmanager
@@ -70,9 +71,16 @@ def db_connection():
     create_database_if_not_exists()
     conn = get_db_connection()
     try:
-        if conn:
+        # Check if the connection is still open before using it
+        if conn and not conn.closed:
             yield conn
+        else:
+            logger.error("Connection is already closed")
+            raise psycopg2.InterfaceError("Connection is closed")
+    except psycopg2.Error as error:
+        logger.error(f"Database error: {error}")
+        traceback.print_exc()
+        yield None
     finally:
-        if conn:
-            conn.close()
-            logger.info("Connection closed")
+        if conn and not conn.closed:
+            release_db_connection(conn)

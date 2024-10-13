@@ -10,7 +10,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 from common.utils import env_utils, email_utils
-from data.api.base_models import ParticipantEmail
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.dependencies.dependencies import (
     meetings_repository,
@@ -18,8 +17,8 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
     tenants_repository,
     profiles_repository,
+    persons_repository,
 )
-from data.data_common.repositories.meetings_repository import MeetingsRepository
 from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem, MeetingClassification
 from data.data_common.events.genie_consumer import GenieConsumer
@@ -69,6 +68,7 @@ class MeetingManager(GenieConsumer):
                 Topic.COMPANY_NEWS_UP_TO_DATE,
                 Topic.NEW_PROCESSED_PROFILE,
                 Topic.NEW_MEETING_GOALS,
+                Topic.NEW_EMBEDDED_DOCUMENT,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -117,6 +117,9 @@ class MeetingManager(GenieConsumer):
             case Topic.NEW_MEETING_GOALS:
                 logger.info("Handling new meeting goals")
                 await self.create_agenda_from_goals(event)
+            case Topic.NEW_EMBEDDED_DOCUMENT:
+                logger.info("Handling new embedded document")
+                await self.recreate_goals_and_agenda_from_new_embedded_document(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -130,6 +133,7 @@ class MeetingManager(GenieConsumer):
         tenant_id = event_body.get("tenant_id")
         self_email = self.tenant_repository.get_tenant_email(tenant_id)
         emails_to_send_events = []
+        meetings_dto_to_check_deletion = []  # List of meetings to check if they need to be deleted
 
         # Convert the meeting start times to timezone-aware datetime and sort meetings by start time
         def get_start_time(meeting):
@@ -147,7 +151,9 @@ class MeetingManager(GenieConsumer):
             if isinstance(meeting, str):
                 meeting = json.loads(meeting)
             meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-
+            meetings_dto_to_check_deletion.append(
+                meeting
+            )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
             meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
                 meeting.google_calendar_id
             )
@@ -188,6 +194,7 @@ class MeetingManager(GenieConsumer):
             )
             event.send()
 
+        self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion)
         return {"status": "success"}
 
     async def handle_new_meeting(self, event):
@@ -301,6 +308,8 @@ class MeetingManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         company_uuid = event_body.get("company_uuid")
+        force_refresh_goals = event_body.get("force_refresh_goals")
+        tenant_id = event_body.get("tenant_id")
         if not company_uuid:
             logger.error("No company uuid in event")
             return
@@ -309,13 +318,17 @@ class MeetingManager(GenieConsumer):
             logger.error(f"No company found for {company_uuid}")
             return
 
-        meetings_list = self.meetings_repository.get_meetings_without_goals_by_company_domain(company.domain)
+        meetings_list = (
+            self.meetings_repository.get_meetings_without_goals_by_company_domain(company.domain)
+            if not force_refresh_goals
+            else self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
+        )
         if not meetings_list:
             logger.error(f"No meetings found for {company.domain}")
             return
         logger.debug(f"Meetings without goals for {company.domain}: {meetings_list}")
         for meeting in meetings_list:
-            if self.meetings_repository.get_meeting_goals(meeting.uuid):
+            if not force_refresh_goals and self.meetings_repository.get_meeting_goals(meeting.uuid):
                 logger.info(f"Meeting {meeting.uuid} already has goals")
                 continue
             participant_emails = meeting.participants_emails
@@ -354,7 +367,13 @@ class MeetingManager(GenieConsumer):
                 logger.info(f"Meeting goals saved for {meeting.uuid}")
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
-                    data=json.dumps({"meeting_uuid": meeting.uuid, "seller_context": seller_context}),
+                    data=json.dumps(
+                        {
+                            "meeting_uuid": meeting.uuid,
+                            "seller_context": seller_context,
+                            "force_refresh_agenda": force_refresh_goals,
+                        }
+                    ),
                 )
                 event.send()
                 break  # Only process one email per meeting - need to implement couple attendees in the future
@@ -379,7 +398,9 @@ class MeetingManager(GenieConsumer):
             logger.error("No strengths in profile")
             return
 
-        meetings_list = self.meetings_repository.get_meetings_without_agenda_by_email(person.get("email"))
+        meetings_list = self.meetings_repository.get_meetings_with_goals_without_agenda_by_email(
+            person.get("email")
+        )
         logger.info(f"Meetings without agenda for {person.get('email')}: {len(meetings_list)}")
         for meeting in meetings_list:
             if meeting.agenda:
@@ -430,6 +451,7 @@ class MeetingManager(GenieConsumer):
         meeting_uuid = event_body.get("meeting_uuid")
         seller_context = event_body.get("seller_context")
         seller_context = " || ".join(seller_context) if seller_context else None
+        force_refresh_agenda = event_body.get("force_refresh_agenda")
         if not meeting_uuid:
             logger.error("No meeting uuid in event")
             return
@@ -437,7 +459,7 @@ class MeetingManager(GenieConsumer):
         if not meeting:
             logger.error(f"No meeting found for {meeting_uuid}")
             return
-        if meeting.agenda:
+        if not force_refresh_agenda and meeting.agenda:
             logger.error(f"Meeting {meeting.uuid} already has an agenda")
             return
         meeting_goals = self.meetings_repository.get_meeting_goals(meeting.uuid)
@@ -486,6 +508,7 @@ class MeetingManager(GenieConsumer):
             event.send()
             break
         logger.info(f"Finished processing meeting agenda for {meeting.uuid}")
+        return {"status": "success"}
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
         logger.debug(
@@ -514,6 +537,72 @@ class MeetingManager(GenieConsumer):
         if meeting.tenant_id != meeting_in_database.tenant_id:
             return False
         return True
+
+    def handle_check_meetings_to_delete(self, meetings_imported: list[MeetingDTO]):
+        logger.info(f"Checking for meetings to delete")
+        last_date_imported = meetings_imported[-1].start_time
+        if not last_date_imported:
+            logger.error(f"No last date imported found")
+            return
+        logger.info(f"Last date imported: {last_date_imported}")
+        meetings_from_database = (
+            self.meetings_repository.get_all_meetings_by_tenant_id_that_should_be_imported(
+                len(meetings_imported)
+            )
+        )
+        if not meetings_from_database:
+            logger.info("No meetings found")
+            return {"status": "Failed to find meetings"}
+        logger.info(f"Meetings to check for deletion: {len(meetings_from_database)}")
+        meetings_google_ids = [meeting.google_calendar_id for meeting in meetings_imported]
+        for meeting in meetings_from_database:
+            if meeting.google_calendar_id in meetings_google_ids:
+                meetings_google_ids.remove(meeting.google_calendar_id)
+                continue
+            else:
+                logger.info(
+                    f"Meeting {meeting.uuid} not found in imported meetings. Checking if it should be deleted"
+                )
+                if meeting.start_time < last_date_imported:
+                    logger.info(f"Meeting {meeting.uuid} should be deleted")
+                    meeting.classification = MeetingClassification.DELETED
+                    self.meetings_repository.save_meeting(meeting)
+                    logger.info(f"Meeting {meeting.uuid} deleted")
+        logger.info(f"Finished checking for meetings to delete")
+
+    async def recreate_goals_and_agenda_from_new_embedded_document(self, event):
+        """
+        This function is triggered when a new document is embedded.
+        It will gather all future external meetings for the tenant, and then recreate the goals and agenda for each
+        """
+        logger.info(f"Person processing event: {str(event)[:300]}")
+        event_body = json.loads(event.body_as_str())
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        tenant_id = event_body.get("tenant_id")
+        if not tenant_id:
+            tenant_id = logger.get_tenant_id()
+        logger.info(f"Tenant ID: {tenant_id}")
+        # tenant_future_meetings = self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
+        # logger.info(f"Future meetings: {len(tenant_future_meetings)}")
+        # if not tenant_future_meetings:
+        #     logger.info("No future meetings found")
+        #     return
+        user_email = self.tenant_repository.get_tenant_email(tenant_id)
+        if not user_email:
+            logger.error(f"No user email found for tenant {tenant_id}")
+            return
+        company = self.companies_repository.get_company_from_domain(user_email.split("@")[1])
+        if not company:
+            logger.error(f"No company found for {user_email}")
+            return
+        event = GenieEvent(
+            topic=Topic.COMPANY_NEWS_UP_TO_DATE,
+            data={"tenant_id": tenant_id, "company_uuid": company.uuid, "force_refresh_goals": True},
+        )
+        event.send()
+        logger.info(f"Finished processing meetings for new embedded document: {tenant_id}")
+        return {"status": "success"}
 
 
 if __name__ == "__main__":

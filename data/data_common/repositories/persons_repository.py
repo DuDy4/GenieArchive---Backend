@@ -27,7 +27,8 @@ class PersonsRepository:
             email VARCHAR,
             linkedin VARCHAR,
             position VARCHAR,
-            timezone VARCHAR
+            timezone VARCHAR,
+            last_message_sent_at TIMESTAMP
         );
         """
         try:
@@ -105,7 +106,7 @@ class PersonsRepository:
 
     def get_person_by_email(self, email: str) -> PersonDTO | None:
         select_query = """
-        SELECT * FROM persons WHERE email = %s;
+        SELECT uuid, name, company, email, linkedin, position, timezone FROM persons WHERE email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -113,7 +114,7 @@ class PersonsRepository:
                 person = cursor.fetchone()
                 if person:
                     logger.info(f"Got person with email {email}")
-                    return PersonDTO.from_tuple(person[1:])
+                    return PersonDTO.from_tuple(person)
                 logger.info(f"Person with email {email} does not exist")
                 return None
         except psycopg2.Error as error:
@@ -367,3 +368,31 @@ class PersonsRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(query)
             return [PersonDTO.from_tuple(row) for row in cursor.fetchall()]
+
+    def get_last_message_sent_at_by_email(self, email):
+        query = """
+        SELECT last_message_sent_at FROM persons WHERE email = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (email,))
+            return cursor.fetchone()[0]
+
+    def update_last_message_sent_at_by_email(self, email):
+        query = """
+        UPDATE persons
+        SET last_message_sent_at = NOW()
+        WHERE email = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (email,))
+            self.conn.commit()
+
+    def remove_last_sent_message(self, uuid):
+        query = """
+        UPDATE persons
+        SET last_message_sent_at = NULL
+        WHERE uuid = %s;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, (uuid,))
+            self.conn.commit()

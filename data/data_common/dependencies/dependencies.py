@@ -12,6 +12,7 @@ from ..repositories.hobbies_repository import HobbiesRepository
 from ..repositories.companies_repository import CompaniesRepository
 from ..repositories.stats_repository import StatsRepository
 from ..repositories.badges_repository import BadgesRepository
+from ..repositories.file_upload_repository import FileUploadRepository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -171,3 +172,16 @@ def hobbies_repository() -> HobbiesRepository:
         if conn:
             connection_pool.putconn(conn)
             logger.debug("Connection returned to pool in hobbies_repository")
+
+
+def file_upload_repository() -> FileUploadRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        return FileUploadRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+    finally:
+        if conn:
+            connection_pool.putconn(conn)
+            logger.debug("Connection returned to pool in file_upload_repository")

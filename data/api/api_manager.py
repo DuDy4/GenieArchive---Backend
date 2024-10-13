@@ -126,8 +126,7 @@ async def login_event(
     logger.info(f"Received user info: {user_info}")
     response = tenants_api_service.login_event(user_info)
     logger.info(f"About to send response: {response}")
-    if response:
-        background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("teanant_id"))
+    background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("tenant_id"))
     return JSONResponse(content=response, status_code=200)
 
 
@@ -389,22 +388,32 @@ def get_meeting_overview(
     response = meetings_api_service.get_meeting_overview(tenant_id, meeting_uuid)
     logger.info(f"About to send response: {response}")
     if not allowed_impersonate_tenant_id:
-        background_tasks.add_task(stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid)
+        background_tasks.add_task(
+            stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid
+        )
     return response
 
 
-@v1_router.get("/genie-usage")
-def get_genie_usage(request: Request):
-    tenant_id = get_request_state_value(request, "tenant_id")
-    if not tenant_id:
-        raise HTTPException(
-            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
-        )
-    profile_views_last_7_days = stats_api_service.get_profile_views_last_7_days()
-    profile_views_last_24_hours = stats_api_service.get_profile_last_24_hours()
-    meeting_views_last_7_days = stats_api_service.get_meeting_views_last_7_days()
-    meeting_views_last_24_hours = stats_api_service.get_meeting_views_last_24_hours()
-    
+@v1_router.delete("/{tenant_id}/{meeting_uuid}", response_class=JSONResponse)
+def delete_meeting(
+    request: Request,
+    tenant_id: str,
+    meeting_uuid: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> JSONResponse:
+    """
+    Delete a meeting.
+
+    - **tenant_id**: Tenant ID
+    - **meeting_uuid**: Meeting UUID
+    """
+    logger.info(f"Got delete meeting request for meeting: {meeting_uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = meetings_api_service.delete_meeting(tenant_id, meeting_uuid)
+    logger.info(f"About to send response: {response}")
+    return JSONResponse(content=response)
 
 
 @v1_router.get("/internal/sync-profile/{person_uuid}")
@@ -456,7 +465,9 @@ def sync_meeting_agenda(meeting_uuid: str, api_key: str) -> JSONResponse:
 
 
 @v1_router.get("/internal/sync-meetings-agenda")
-def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONResponse:
+def process_meetings_agendas(
+    background_tasks: BackgroundTasks, api_key: str, meetings_number: int = 10
+) -> JSONResponse:
     """
     Sync an email from the beginning
 
@@ -466,8 +477,9 @@ def process_meetings_agendas(api_key: str, meetings_number: int = 10) -> JSONRes
     if api_key != INTERNAL_API_KEY:
         logger.error(f"Invalid API key: {api_key}")
         return JSONResponse(content={"error": "Invalid API key"})
-    response = admin_api_service.process_agenda_to_all_meetings(meetings_number)
-    return JSONResponse(content=response)
+    logger.info(f"Processing {meetings_number} meetings agendas")
+    background_tasks.add_task(admin_api_service.process_agenda_to_all_meetings, meetings_number)
+    return JSONResponse(content={"status": "success", "message": "Processing all meetings agendas"})
 
 
 @v1_router.get("/internal/sync-meeting-classification")

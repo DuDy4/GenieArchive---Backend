@@ -20,7 +20,7 @@ load_dotenv()
 class Langsmith:
     def __init__(self):
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
-        self.base_url = "https://api.langsmith.com/v1"
+        self.base_url = env_utils.get("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
         self.model = ChatOpenAI(model="gpt-4o")
         self.embeddings_client = GenieEmbeddingsClient()
 
@@ -147,10 +147,10 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         finally:
-            logger.debug(f"Got meeting goals from Langsmith: {response}")
+            logger.info(f"Got meeting goals from Langsmith: {response}")
             while True:
-                if isinstance(response, dict) and response.get("goals"):
-                    response = response.get("goals")
+                if isinstance(response, dict) and (response.get("goals") or response.get("")):
+                    response = response.get("goals") or response.get("")
                 if isinstance(response, str):
                     response = json.loads(response)
                 if isinstance(response, list):
