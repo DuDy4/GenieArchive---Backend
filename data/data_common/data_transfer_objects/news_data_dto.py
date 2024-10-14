@@ -16,7 +16,7 @@ class NewsData(BaseModel):
     link: HttpUrl
     media: str
     title: str
-    summary: Optional[str]
+    text: Optional[str]
 
     @field_validator("media", "title", "link")
     def not_empty(cls, value):
@@ -37,11 +37,11 @@ class NewsData(BaseModel):
         return self.json()
 
     def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:  # type: ignore
-        return self.date, self.link, self.media, self.title, self.summary
+        return self.date, self.link, self.media, self.title, self.text
 
     @classmethod
     def from_tuple(cls, data: Tuple[Optional["date"], str, str, str, Optional[str]]) -> "NewsData":
-        return cls(date=data[0], link=data[1], media=data[2], title=data[3], summary=data[4])
+        return cls(date=data[0], link=data[1], media=data[2], title=data[3], text=data[4])
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -49,7 +49,7 @@ class NewsData(BaseModel):
             "link": str(self.link),
             "media": self.media,
             "title": self.title,
-            "summary": self.summary,
+            "text": self.text,
         }
 
     @classmethod
@@ -60,7 +60,7 @@ class NewsData(BaseModel):
             link=data.get("link"),
             media=data.get("media"),
             title=data.get("title"),
-            summary=data.get("summary"),
+            text=data.get("text"),
         )
 
     def process_news(self, news: List[dict]) -> List:
@@ -80,6 +80,14 @@ class NewsData(BaseModel):
         logger.debug(f"News data: {res_news}")
         return res_news
 
+    def __eq__(self, other) -> bool:
+        """
+        Custom equality method for NewsData objects.
+        """
+        if not isinstance(other, self.__class__):
+            return False
+        return self.link == other.link
+
 
 class SocialMediaPost(NewsData):
     reshared: str | None = Field(
@@ -89,6 +97,7 @@ class SocialMediaPost(NewsData):
     )
     likes: int = Field(default=0, description="Number of likes on the post")
     images: Optional[List[HttpUrl]] = Field(default=[])
+    summary: Optional[str] = Field(default=None)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):

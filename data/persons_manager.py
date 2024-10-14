@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
 
+from data.data_common.data_transfer_objects.news_data_dto import NewsData
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -549,14 +550,14 @@ class PersonManager(GenieConsumer):
             return {"error": "No LinkedIn URL found in event body"}
 
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
-
+        news_in_database = self.personal_data_repository.get_news_data_by_uuid(uuid)
         if self.personal_data_repository.should_do_linkedin_posts_lookup(uuid):
             scraped_posts = linkedin_scrapper.fetch_and_process_posts(linkedin)
 
             if not scraped_posts:
                 logger.error(f"No posts found or an error occurred while scraping {linkedin}")
                 # before updating the status to TRIED_BUT_FAILED, check if there are any posts in the database
-                news_in_database = self.personal_data_repository.get_news_data_by_uuid(uuid)
+
                 if news_in_database:
                     logger.info(f"But found news in database for {uuid}")
                     return {"posts": news_in_database}
@@ -567,14 +568,24 @@ class PersonManager(GenieConsumer):
 
             logger.info(f"Successfully scraped {len(scraped_posts)} posts from LinkedIn URL: {linkedin}")
             news_data_objects = []
+
             for post in scraped_posts:
-                post_json = post.to_dict()
-                if post_json.get("image_urls"):
-                    post_json["images"] = post_json["image_urls"]
-                news_data_objects.append(post_json)
-                self.personal_data_repository.update_news_to_db(
-                    uuid, post_json, PersonalDataRepository.FETCHED
+                if news_in_database and post in news_in_database:
+                    logger.info(f"Post already in database: {post}")
+                    continue
+                post_dict = post.to_dict() if isinstance(post, NewsData) else post
+                if post_dict.get("image_urls"):
+                    post_dict["images"] = post_dict["image_urls"]
+                news_data_objects.append(post_dict)
+                # self.personal_data_repository.update_news_to_db(
+                #     uuid, post_dict, PersonalDataRepository.FETCHED
+                # )
+            if news_data_objects:
+                event = GenieEvent(
+                    Topic.NEW_NEWS_DATA,
+                    data={"uuid": uuid, "news_data": news_data_objects},
                 )
+                event.send()
             return {"posts": news_data_objects}
         else:
             logger.info(f"No need to scrape LinkedIn posts for {uuid} as it was scraped recently or never")

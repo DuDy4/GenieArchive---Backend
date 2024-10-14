@@ -229,3 +229,16 @@ class Langsmith:
                 else:
                     raise e  # Raise exception if retries are exhausted
         raise Exception("Max retries exceeded")
+
+    async def get_news(self, news_data: dict):
+        prompt = hub.pull("post_summary")
+        runnable = prompt | self.model
+        arguments = [news_data]
+
+        try:
+            response = await self._run_prompt_with_retry(runnable, arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+
+        logger.info(f"Got news summary from Langsmith: {response}")
+        return response

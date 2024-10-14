@@ -12,7 +12,11 @@ from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
-from data.data_common.dependencies.dependencies import companies_repository, profiles_repository
+from data.data_common.dependencies.dependencies import (
+    companies_repository,
+    profiles_repository,
+    personal_data_repository,
+)
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -26,12 +30,13 @@ CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_PERSONAL_DATA],
+            topics=[Topic.NEW_PERSONAL_DATA, Topic.NEW_NEWS_DATA],
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
         self.langsmith = Langsmith()
         self.company_repository = companies_repository()
         self.profiles_repository = profiles_repository()
+        self.personal_data_repository = personal_data_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -42,6 +47,11 @@ class LangsmithConsumer(GenieConsumer):
             case Topic.NEW_PERSONAL_DATA:
                 logger.info("Handling new personal data to process")
                 await self.handle_new_personal_data(event)
+            case Topic.NEW_NEWS_DATA:
+                logger.info("Handling new news data")
+                await self.handle_new_news_data(event)
+            case _:
+                logger.info("No matching topic")
 
     async def handle_new_personal_data(self, event):
         event_body = event.body_as_str()
@@ -88,6 +98,47 @@ class LangsmithConsumer(GenieConsumer):
 
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()
+        return {"status": "success"}
+
+    async def handle_new_news_data(self, event):
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {str(event_body)[:300]}")
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        news_data = event_body.get("news_data")
+        if isinstance(news_data, str):
+            news_data = json.loads(news_data)
+        logger.info(f"News data: {news_data}, type: {type(news_data)}")
+        uuid = event_body.get("uuid")
+        for news_item in news_data:
+            if isinstance(news_item, str):
+                news_item = json.loads(news_item)
+            logger.info(f"News item: {news_item}")
+            response = await self.langsmith.get_news(news_item)
+            logger.info(f"Response: {response}")
+
+            if response:
+                # Ensure response is handled correctly
+                if hasattr(response, "content"):
+                    summary = response.content
+                elif isinstance(response, dict):
+                    summary = response.get("content", "")
+                else:
+                    summary = str(response)
+
+                # Clean the summary if it's a string
+                if isinstance(summary, str):
+                    summary = summary.strip('"')
+
+                logger.info(f"Summary: {summary}")
+
+                # Update the news item with the summary
+                news_item["summary"] = summary
+                logger.info(f"News item with summary: {news_item}")
+
+                # Save to the database
+                self.personal_data_repository.update_news_to_db(uuid, news_item)
         return {"status": "success"}
 
 

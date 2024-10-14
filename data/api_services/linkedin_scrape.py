@@ -26,7 +26,7 @@ class HandleLinkedinScrape:
 
         # self.result = self.fetch_and_process_posts(linkedin_url, num_posts=3)
 
-    def fetch_and_process_posts(self, linkedin_url: str, num_posts=3) -> List[NewsData]:
+    def fetch_and_process_posts(self, linkedin_url: str, num_posts=5) -> List[NewsData]:
         """
         Fetch posts from LinkedIn and process them into NewsData objects, handling multiple image URLs.
         """
@@ -55,7 +55,7 @@ class HandleLinkedinScrape:
                         "link": post.get("post_url"),
                         "media": "LinkedIn",
                         "title": post.get("text", "")[:100],
-                        "summary": post.get("text", None),
+                        "text": post.get("text", None),
                         "reshared": post.get("poster_linkedin_url"),
                         "likes": (
                             post.get("num_appreciations", 0)
