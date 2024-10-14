@@ -455,11 +455,11 @@ class PersonalDataRepository:
                 if news is None:
                     logger.error(f"No news data for {arg}, and news is null instead of empty list")
                     return []
-                logger.debug(f"News data: {news}")
-                if not news:
-                    news = []  # In case news is null
                 else:
-                    news = news[0]  # news is a tuple containing the news data
+                    news = news[0]
+                if not news:
+                    logger.warning(f"No news data for {arg}")
+                    return []
                 if len(news) > 2:
                     news = news[:2]
                 res_news = [NewsData.from_dict(item) for item in news]
@@ -482,7 +482,7 @@ class PersonalDataRepository:
         query = """SELECT news FROM personalData WHERE email = %s;"""
         return self._get_news(query, email)
 
-    def update_news_to_db(self, uuid: str, news_data: dict | None, status: str):
+    def update_news_to_db(self, uuid: str, news_data: dict | None, status: str = "FETCHED"):
         """
         Update news data in the personaldata table in the database.
 

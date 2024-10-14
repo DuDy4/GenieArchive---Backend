@@ -103,6 +103,9 @@ class TenantsRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email,))
                 result = cursor.fetchone()
+                if not result:
+                    logger.error(f"No tenant found for email: {email}")
+                    return None
                 logger.info(f"Result of tenant id query: {result}")
                 if len(result) > 1:
                     logger.error("More than one tenant found for email")
