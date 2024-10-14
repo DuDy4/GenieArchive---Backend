@@ -11,6 +11,10 @@ from data.data_common.data_transfer_objects.meeting_dto import (
 )
 from data.api_services.embeddings import GenieEmbeddingsClient
 from ai.langsmith.langsmith_loader import Langsmith
+from data.internal_scripts.fetch_social_media_news import (
+    fetch_linkedin_posts,
+    get_all_uuids_that_should_try_posts,
+)
 
 from data.data_common.dependencies.dependencies import (
     tenants_repository,
@@ -295,3 +299,9 @@ class AdminApiService:
         except Exception as e:
             logger.error(f"Error checking database connection: {e}")
             return False
+
+    def sync_personal_news(self, scrap_num=5):
+        all_uuids = get_all_uuids_that_should_try_posts()
+        logger.info(f"Found {len(all_uuids)} uuids to fetch posts")
+        fetch_linkedin_posts(all_uuids, scrap_num)
+        return {"status": "success"}
