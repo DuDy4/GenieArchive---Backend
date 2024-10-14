@@ -7,11 +7,7 @@ from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 
 
-from common.utils import env_utils, email_utils, job_utils, jwt_utils
-from data.internal_services.tenant_service import TenantService
-from data.internal_services.files_upload_service import FileUploadService
-from data.data_common.events.topics import Topic
-from data.data_common.events.genie_event import GenieEvent
+from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse
 from fastapi import HTTPException
 
@@ -518,6 +514,27 @@ def process_meetings_classification(api_key: str) -> JSONResponse:
     logger.info(f"Processing all meetings classification")
     response = admin_api_service.process_new_classification_to_all_meetings()
     return JSONResponse(content=response)
+
+
+@v1_router.get("/internal/sync-personal-news")
+def process_personal_news(background_tasks: BackgroundTasks, api_key: str, num: str = "5") -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing {num} personal news")
+    try:
+        num = int(num)
+    except ValueError:
+        logger.error(f"Invalid number of news: {num}")
+        num = 5
+    background_tasks.add_task(admin_api_service.sync_personal_news, int(num))
+    return JSONResponse(content={"status": "success", "message": "Processing personal news"})
 
 
 @v1_router.get(

@@ -2,7 +2,9 @@ from typing import Optional, List
 import json
 import psycopg2
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from data.data_common.utils.postgres_connector import get_db_connection
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
@@ -414,18 +416,7 @@ class PersonalDataRepository:
         """
         select_query = f"""
         SELECT
-            CASE
-                -- If the status is 'TRIED_BUT_FAILED' in the last 7 days with no LinkedIn URL, then no need to update
-                WHEN news_status = '{self.TRIED_BUT_FAILED}'
-                AND news_last_updated > NOW() - INTERVAL '7 days'
-                AND (linkedin_url IS NULL OR linkedin_url = '')
-                THEN true
-                -- If the status is 'FETCHED' and the last update was more than 14 days ago, then no need to update
-                WHEN news_status = '{self.FETCHED}'
-                AND news_last_updated > NOW() - INTERVAL '14 days'
-                THEN true
-                ELSE false
-            END AS update_needed
+            news_status, news_last_updated
         FROM
             personalData
         WHERE
@@ -440,9 +431,13 @@ class PersonalDataRepository:
                     logger.error(f"No data found for uuid: {uuid}")
                     return False  # If no row is returned, the check fails.
 
-                # update_needed will be true if no update is needed; we want the inverse of that
-                update_needed = result[0]
-                return not update_needed
+                # If the news status is 'FETCHED' or 'TRIED_BUT_FAILED' and the last update was within the last 14 days, no update is needed.
+                if (result[0] == self.FETCHED or result[0] == self.TRIED_BUT_FAILED) and result[
+                    1
+                ] < datetime.now() - timedelta(days=14):
+                    return True
+                else:
+                    return False
 
         except psycopg2.Error as e:
             logger.error("Error checking for existing personalData:", exc_info=True)
@@ -1214,3 +1209,13 @@ class PersonalDataRepository:
             traceback.print_exc()
             # self.conn.rollback()
         return
+
+
+if __name__ == "__main__":
+    db = PersonalDataRepository(get_db_connection())
+    all_uuids = db.get_all_uuids_that_should_try_fetch_posts()
+    logger.info(f"Got all uuids: {all_uuids}")
+    for uuid in all_uuids:
+        logger.info(f"Got uuid: {uuid}")
+        should_fetch = db.should_do_linkedin_posts_lookup(uuid)
+        print(should_fetch)
