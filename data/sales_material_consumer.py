@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO
 from data.data_common.events.genie_event import GenieEvent
+from ai.langsmith.langsmith_loader import Langsmith
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -42,6 +43,7 @@ class SalesMaterialConsumer(GenieConsumer):
         self.file_upload_repository = file_upload_repository()
         # Dictionary to track successful embeddings for each tenant
         self.embedding_success_by_tenant = {}
+        self.langsmith = Langsmith()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -74,6 +76,7 @@ class SalesMaterialConsumer(GenieConsumer):
         if not file_upload_dto:
             logger.error(f"File upload DTO not found in the event data")
             return {"status": "error", "message": "File upload DTO not found in the event data"}
+        file_upload_dto.update_file_content(text)
 
         logger.info(f"File upload DTO: {file_upload_dto}")
         file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
@@ -81,7 +84,6 @@ class SalesMaterialConsumer(GenieConsumer):
             logger.info(f"File already exists in the database")
             return
 
-        file_upload_dto.update_file_content(text)
         logger.info(f"File content updated in the DTO: {file_upload_dto.file_hash}")
         if self.file_upload_repository.exists(file_upload_dto.file_hash):
             logger.info(f"File already exists in the database")
@@ -90,7 +92,9 @@ class SalesMaterialConsumer(GenieConsumer):
         self.file_upload_repository.update_file_hash(file_upload_dto)
         logger.info(f"File uploaded in the database")
 
-        # Try to embed the document content
+        processed_content = await self.langsmith.preprocess_uploaded_file_content(text)
+        processed_content_text = processed_content.content
+
         try:
             metadata = {
                 "id": file_id,
@@ -99,7 +103,7 @@ class SalesMaterialConsumer(GenieConsumer):
                 "type": "uploaded_file",
                 "upload_time": file_upload_dto.upload_timestamp,
             }
-            embedding_result = self.embeddings_client.embed_document(text, metadata)
+            embedding_result = self.embeddings_client.embed_document(processed_content_text, metadata)
             if embedding_result:
                 logger.info(f"Document embedded successfully")
                 self.embedding_success_by_tenant[file_upload_dto.tenant_id] = True

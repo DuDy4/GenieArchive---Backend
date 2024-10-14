@@ -106,3 +106,27 @@ class GenieEmbeddingsClient:
         else:
             logger.info(f"No results returned for user {user_id}")
         return chunks_text
+    
+    def delete_vectors_by_user(self, user_id):
+        if user_id:
+            logger.info(f"Deleting vectors for user {user_id}")
+            filter_metadata = {"user": user_id} 
+            response = index.query(
+                vector=[0] * 1024, 
+                filter=filter_metadata,
+                top_k=100, 
+                include_metadata=False, 
+                include_values=False  
+            )
+
+            vector_ids = [match['id'] for match in response['matches']]
+
+            if vector_ids:
+                index.delete(ids=vector_ids)
+                print(f"Deleted {len(vector_ids)} vectors with matching metadata.")
+            else:
+                print("No vectors found with the given metadata filter.")
+            logger.info(f"Deleted vectors for user {user_id}")
+        else:
+            logger.error(f"User ID not provided for deletion")
+    

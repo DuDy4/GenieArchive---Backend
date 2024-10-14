@@ -196,6 +196,16 @@ class Langsmith:
                     break
             return response
 
+    async def preprocess_uploaded_file_content(self, text):
+        try:
+            prompt = hub.pull("file-upload-preprocessing")
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, text)
+        except Exception as e:
+            logger.error(f"Error running file upload preprocessing: {e}")
+            response = text
+        return response
+
     def ask_chatgpt(self, prompt):
         try:
             runnable = self.model

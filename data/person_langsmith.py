@@ -9,6 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
 
 from ai.langsmith.langsmith_loader import Langsmith
+from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
@@ -37,6 +38,7 @@ class LangsmithConsumer(GenieConsumer):
         self.company_repository = companies_repository()
         self.profiles_repository = profiles_repository()
         self.personal_data_repository = personal_data_repository()
+        self.embeddings_client = GenieEmbeddingsClient()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
