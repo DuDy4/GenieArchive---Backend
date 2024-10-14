@@ -84,3 +84,13 @@ def db_connection():
     finally:
         if conn and not conn.closed:
             release_db_connection(conn)
+
+
+def check_db_connection():
+    with db_connection() as conn:
+        if conn:
+            logger.info("Connection is active")
+            return True
+        else:
+            logger.error("Connection is not active")
+            return False

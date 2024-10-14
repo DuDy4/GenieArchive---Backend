@@ -28,6 +28,7 @@ from fastapi import HTTPException
 
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.data_common.utils.postgres_connector import check_db_connection
 
 logger = GenieLogger()
 
@@ -286,3 +287,11 @@ class AdminApiService:
         )
         event.send()
         return {"status": f"Created Meeting goals. Proceeding to Create agenda"}
+
+    def check_database_connection(self):
+        try:
+            connection: bool = check_db_connection()
+            return connection
+        except Exception as e:
+            logger.error(f"Error checking database connection: {e}")
+            return False
