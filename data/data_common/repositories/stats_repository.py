@@ -1,6 +1,6 @@
 import traceback
 import psycopg2
-from datetime import timedelta
+from datetime import timedelta, datetime
 from data.data_common.data_transfer_objects.stats_dto import StatsDTO
 from common.genie_logger import GenieLogger
 
@@ -112,6 +112,35 @@ class StatsRepository:
             existing_event = cursor.fetchone()
 
         return existing_event is None
+    
+    def count_events_from_date(self, stats: StatsDTO, timestamp: datetime) -> bool:
+        """
+        Check if this is the first event for the user today.
+        
+        :param stats: StatsDTO object containing event details.
+        :return: True if this is the first event today, False otherwise.
+        """
+        # Extract relevant fields from StatsDTO
+        email = stats.email
+        action = stats.action
+        entity = stats.entity
+        entity_id = stats.entity_id
+
+        query = """
+            SELECT COUNT(id) FROM stats
+            WHERE email = %s AND action = %s AND entity = %s AND entity_id = %s 
+            AND timestamp >= %s;
+        """
+        
+        params = (email, action, entity, entity_id, timestamp)
+        num_events = None
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            num_events = result[0] if result else None
+
+
+        return num_events
 
 
     def get_stats_by_email(self, email: str) -> list[StatsDTO] | None:

@@ -179,7 +179,6 @@ class MeetingsApiService:
             mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
             logger.info(f"Company: {str(mid_company)[:300]}")
-
         return mid_company
 
     def handle_participants_overview(self, participants_emails):
