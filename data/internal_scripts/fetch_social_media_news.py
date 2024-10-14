@@ -32,8 +32,10 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
             if not linkedin_url:
                 logger.error(f"Person with uuid {uuid} has no linkedin_url")
                 continue
+            logger.info(f"Fetching posts for {linkedin_url}")
 
             should_fetch = personal_data_repository.should_do_linkedin_posts_lookup(uuid)
+            logger.info(f"Should fetch posts: {should_fetch}")
             if not should_fetch:
                 logger.info(f"Skipping fetching posts for {linkedin_url}")
                 continue
@@ -54,6 +56,9 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
             news_in_database = personal_data_repository.get_news_data_by_uuid(uuid)
 
             for post in scraped_posts:
+                if not post:
+                    logger.error(f"Post is empty: {post}")
+                    continue
                 if news_in_database and post in news_in_database:
                     logger.info(f"Post already in database: {post}")
                     continue
@@ -82,6 +87,6 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
             continue
 
 
-# all_personal_data_uuid = get_all_uuids_that_should_try_posts()
-# logger.info(f"Persons needs refetch news: {len(all_personal_data_uuid)}")
-# fetch_linkedin_posts(all_personal_data_uuid)
+all_personal_data_uuid = get_all_uuids_that_should_try_posts()
+logger.info(f"Persons needs refetch news: {len(all_personal_data_uuid)}")
+fetch_linkedin_posts(all_personal_data_uuid)

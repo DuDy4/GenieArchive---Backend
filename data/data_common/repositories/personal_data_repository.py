@@ -227,44 +227,35 @@ class PersonalDataRepository:
 
     def should_do_personal_data_lookup(self, uuid: str) -> bool:
         """
-        Check if a there's a potential for personal data update.
-        The reasons for additional data lookup are:
+        Check if personal data lookup is needed.
+        The reasons for an additional data lookup are:
         1. The last update was more than 30 days ago.
-        2. PDL data exists
-        3. Apollo data exists
-        4. LinkedIn URL exists
+        2. Either PDL or Apollo data exists.
+        3. LinkedIn URL exists.
 
         :param uuid: Unique identifier for the personalData.
-        :return: True if personalData exists, False otherwise.
+        :return: True if personalData lookup is needed, False otherwise.
         """
-        self.create_table_if_not_exists()
         select_query = """
             SELECT
-                CASE
-                    WHEN pdl_status = 'TRIED_BUT_FAILED'
-                    AND pdl_last_updated > NOW() - INTERVAL '30 days'
-                    AND apollo_status = 'TRIED_BUT_FAILED'
-                    AND apollo_last_updated > NOW() - INTERVAL '30 days'
-                    AND (linkedin_url IS NULL OR linkedin_url = '')
-                    THEN true
-                    ELSE false
-                END AS update_failed_recently
-            FROM
-                personaldata
-            WHERE
-                uuid = %s;
-
+                (
+                    (pdl_last_updated IS NULL OR pdl_last_updated < NOW() - INTERVAL '30 days')
+                    OR (apollo_last_updated IS NULL OR apollo_last_updated < NOW() - INTERVAL '30 days')
+                    OR linkedin_url IS NOT NULL AND linkedin_url != ''
+                ) AS lookup_needed
+            FROM personaldata
+            WHERE uuid = %s;
         """
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (uuid,))
-                update_failed_recently = cursor.fetchone()
-                return not update_failed_recently[0]
+                result = cursor.fetchone()
+                return result[0]  # Returns True if lookup is needed
         except psycopg2.Error as e:
-            logger.error("Error checking for existing personalData:", e)
+            logger.error("Database error during personal data lookup check: %s", e)
             return False
         except Exception as e:
-            logger.error("Error checking personalData existence:", e)
+            logger.error("Unexpected error during personal data lookup check: %s", e)
             return False
 
     def get_apollo_personal_data(self, uuid: str) -> Optional[dict]:
@@ -403,60 +394,17 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def should_do_linkedin_posts_lookup(self, uuid: str) -> bool:
-        """
-        Check if there's a potential for a LinkedIn posts update.
-        The reasons for additional data lookup are:
-        1. The last update was more than 7 days ago and the update previously failed.
-        2. LinkedIn URL exists.
-        3. No 'FETCHED' status in the last 14 days.
-
-        :param uuid: Unique identifier for the personalData.
-        :return: True if LinkedIn posts update should be done, False otherwise.
-        """
-        select_query = f"""
-        SELECT
-            news_status, news_last_updated
-        FROM
-            personalData
-        WHERE
-            uuid = %s;
-        """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
-                result = cursor.fetchone()
-
-                if result is None:
-                    logger.error(f"No data found for uuid: {uuid}")
-                    return False  # If no row is returned, the check fails.
-
-                # If the news status is 'FETCHED' or 'TRIED_BUT_FAILED' and the last update was within the last 14 days, no update is needed.
-                if (result[0] == self.FETCHED or result[0] == self.TRIED_BUT_FAILED) and result[
-                    1
-                ] < datetime.now() - timedelta(days=14):
-                    return True
-                else:
-                    return False
-
-        except psycopg2.Error as e:
-            logger.error("Error checking for existing personalData:", exc_info=True)
-            return False
-        except Exception as e:
-            logger.error("Error checking personalData existence:", exc_info=True)
-            return False
-
     def get_all_uuids_that_should_try_fetch_posts(self) -> List[str]:
         select_query = f"""
-        SELECT uuid
+        SELECT uuid, name, email, linkedin_url, pdl_status, apollo_status, news_status, news_last_updated
         FROM personalData
-        WHERE (pdl_status = '{self.FETCHED}' OR apollo_status = '{self.FETCHED}') AND
-        (news_status IS NULL OR news_status = 'null' OR
-        news_status = 'TRIED_BUT_FAILED'
-        AND news_last_updated > NOW() - INTERVAL '{LAST_UPDATED_NEWS_INTERVAL} days'
-        AND (linkedin_url IS NULL OR linkedin_url = '')
-        OR news_status = 'FETCHED'
-        AND news_last_updated > NOW() - INTERVAL '{LAST_UPDATED_NEWS_INTERVAL} days')
+        WHERE
+        (linkedin_url IS NOT NULL AND linkedin_url != '')
+        AND (pdl_status = 'FETCHED' OR apollo_status = 'FETCHED')
+        AND (
+            news_status IS NULL
+            OR news_last_updated <= NOW() - INTERVAL '14 days'
+        );
         """
         try:
             with self.conn.cursor() as cursor:
@@ -1209,3 +1157,38 @@ class PersonalDataRepository:
             traceback.print_exc()
             # self.conn.rollback()
         return
+
+    def should_do_linkedin_posts_lookup(self, uuid: str) -> bool:
+        """
+        Check if LinkedIn posts lookup is needed.
+        The reasons for an additional data lookup are:
+        1. The last update was more than 14 days ago.
+        2. LinkedIn URL exists.
+
+        :param uuid: Unique identifier for the personalData.
+        :return: True if LinkedIn posts lookup is needed, False otherwise.
+        """
+        select_query = """
+            SELECT
+                (
+                    linkedin_url IS NOT NULL
+                    AND linkedin_url != ''
+                    AND (
+                        news_last_updated IS NULL
+                        OR news_last_updated < NOW() - INTERVAL '14 days'
+                    )
+                ) AS lookup_needed
+            FROM personaldata
+            WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                result = cursor.fetchone()
+                return bool(result[0])  # Convert result to boolean
+        except psycopg2.Error as e:
+            logger.error("Database error during LinkedIn posts lookup check: %s", e)
+            return False
+        except Exception as e:
+            logger.error("Unexpected error during LinkedIn posts lookup check: %s", e)
+            return False
