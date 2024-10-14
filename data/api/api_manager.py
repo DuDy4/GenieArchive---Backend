@@ -59,7 +59,7 @@ async def file_uploaded(request: Request):
         logger.error(f"Body not found in azure event")
         return
     try:
-        # This is used for going throug azure validation and must not be used in production scenario
+        # This is used for going through azure validation and must not be used in production scenario
         if uploaded_files[0]["data"]:
             data = uploaded_files[0]["data"]
             if data["validationCode"] and data["validationUrl"]:
@@ -68,7 +68,11 @@ async def file_uploaded(request: Request):
                 return
     except:
         logger.info("Handling uploaded file")
-    user_materials_service.file_uploaded(uploaded_files)
+    result = user_materials_service.file_uploaded(uploaded_files)
+    if result:
+        return JSONResponse(content={"status": "success", "message": "File uploaded"})
+    else:
+        return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
 
 
 @v1_router.post("/generate-upload-url")

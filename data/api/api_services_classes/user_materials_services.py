@@ -89,6 +89,7 @@ class UserMaterialServices:
                 Topic.FILE_UPLOADED,
                 {"event_data": file_data, "file_uploaded": file_upload_dto.to_dict(), "file_id": file_id},
             ).send()
+            return {"status": "success"}
 
     def generate_upload_url(self, tenant_id, file_name):
         if not upload_file_name_validation(file_name):
