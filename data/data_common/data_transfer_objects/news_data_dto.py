@@ -16,7 +16,8 @@ class NewsData(BaseModel):
     link: HttpUrl
     media: str
     title: str
-    text: Optional[str]
+    text: Optional[str] = Field(default=None)
+    summary: Optional[str] = Field(default=None)
 
     @field_validator("media", "title", "link")
     def not_empty(cls, value):
@@ -36,8 +37,8 @@ class NewsData(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str]]:  # type: ignore
-        return self.date, self.link, self.media, self.title, self.text
+    def to_tuple(self) -> Tuple[Optional[date], HttpUrl, str, str, Optional[str], Optional[str]]:  # type: ignore
+        return self.date, self.link, self.media, self.title, self.text, self.summary
 
     @classmethod
     def from_tuple(cls, data: Tuple[Optional["date"], str, str, str, Optional[str]]) -> "NewsData":
@@ -50,6 +51,7 @@ class NewsData(BaseModel):
             "media": self.media,
             "title": self.title,
             "text": self.text,
+            "summary": self.summary,
         }
 
     @classmethod
@@ -61,6 +63,7 @@ class NewsData(BaseModel):
             media=data.get("media"),
             title=data.get("title"),
             text=data.get("text"),
+            summary=data.get("summary"),
         )
 
     def process_news(self, news: List[dict]) -> List:
