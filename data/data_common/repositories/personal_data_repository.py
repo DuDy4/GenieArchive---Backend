@@ -2,16 +2,13 @@ from typing import Optional, List
 import json
 import psycopg2
 import traceback
-from datetime import datetime, timedelta
-
-from data.data_common.utils.postgres_connector import get_db_connection
+from datetime import datetime
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
 from common.genie_logger import GenieLogger
-from data.data_common.utils.str_utils import to_custom_title_case
 
 logger = GenieLogger()
 
