@@ -3,6 +3,8 @@ import json
 import psycopg2
 import traceback
 from datetime import datetime
+
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
@@ -10,6 +12,8 @@ from common.genie_logger import GenieLogger
 from data.data_common.utils.str_utils import to_custom_title_case
 
 logger = GenieLogger()
+
+LAST_UPDATED_NEWS_INTERVAL = env_utils.get("LAST_UPDATED_NEWS_INTERVAL", "14")
 
 
 class PersonalDataRepository:
@@ -315,7 +319,7 @@ class PersonalDataRepository:
             traceback.format_exc()
             return None
 
-    def get_apolo_personal_data_by_linkedin(self, linkedin_profile_url: str) -> Optional[dict]:
+    def get_apollo_personal_data_by_linkedin(self, linkedin_profile_url: str) -> Optional[dict]:
         """
         Retrieve personal data associated with an uuid.
 
@@ -446,6 +450,28 @@ class PersonalDataRepository:
         except Exception as e:
             logger.error("Error checking personalData existence:", exc_info=True)
             return False
+
+    def get_all_uuids_that_should_try_fetch_posts(self) -> List[str]:
+        select_query = f"""
+        SELECT uuid
+        FROM personalData
+        WHERE (pdl_status = '{self.FETCHED}' OR apollo_status = '{self.FETCHED}') AND
+        (news_status IS NULL OR news_status = 'null' OR
+        news_status = 'TRIED_BUT_FAILED'
+        AND news_last_updated > NOW() - INTERVAL '{LAST_UPDATED_NEWS_INTERVAL} days'
+        AND (linkedin_url IS NULL OR linkedin_url = '')
+        OR news_status = 'FETCHED'
+        AND news_last_updated > NOW() - INTERVAL '{LAST_UPDATED_NEWS_INTERVAL} days')
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                uuids = cursor.fetchall()
+                return [uuid[0] for uuid in uuids]
+        except Exception as e:
+            logger.error(f"Error retrieving UUIDs that should try posts: {e}", e)
+            traceback.format_exc()
+            return []
 
     def _get_news(self, query: str, arg: str):
         try:
@@ -929,6 +955,32 @@ class PersonalDataRepository:
                     return None
         except Exception as e:
             logger.error(f"Error retrieving email address: {e}", e)
+            traceback.format_exc()
+            return None
+
+    def get_linkedin_url(self, uuid):
+        """
+        Retrieve the LinkedIn URL for a profile.
+
+        :param uuid: Unique identifier for the profile.
+        :return: LinkedIn URL if profile exists, None otherwise.
+        """
+        select_query = """
+        SELECT linkedin_url
+        FROM personalData
+        WHERE uuid = %s
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (uuid,))
+                linkedin_url = cursor.fetchone()
+                if linkedin_url:
+                    return linkedin_url[0]
+                else:
+                    logger.warning("Profile was not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving LinkedIn URL: {e}", e)
             traceback.format_exc()
             return None
 
