@@ -1209,13 +1209,3 @@ class PersonalDataRepository:
             traceback.print_exc()
             # self.conn.rollback()
         return
-
-
-if __name__ == "__main__":
-    db = PersonalDataRepository(get_db_connection())
-    all_uuids = db.get_all_uuids_that_should_try_fetch_posts()
-    logger.info(f"Got all uuids: {all_uuids}")
-    for uuid in all_uuids:
-        logger.info(f"Got uuid: {uuid}")
-        should_fetch = db.should_do_linkedin_posts_lookup(uuid)
-        print(should_fetch)
