@@ -8,8 +8,10 @@ from dotenv import load_dotenv
 
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from azure.monitor.opentelemetry import configure_azure_monitor
-from common.genie_logger import GenieLogger
 from common.utils import jwt_utils
+from common.genie_logger import GenieLogger
+from data.data_common.utils.postgres_connector import check_db_connection
+
 # Load environment variables and initialize logger
 load_dotenv()
 logger = GenieLogger()
@@ -22,8 +24,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from common.utils import env_utils
+
 logger.info("Importing API")
 from data.api.api_manager import v1_router
+
 logger.info("Finished Importing API")
 
 GENIE_CONTEXT_HEADER = "genie-context"
@@ -57,17 +61,17 @@ class JWTValidationMiddleware(BaseHTTPMiddleware):
             if payload:
                 request.state.user_email = jwt_utils.get_user_email(payload)
                 request.state.tenant_id = jwt_utils.get_tenant_id(payload)
-        
+
         response = await call_next(request)
         return response
-    
+
+
 async def genie_metrics(request: Request):
-    if request.scope['endpoint']:
-        function_name = request.scope['endpoint'].__name__
+    if request.scope["endpoint"]:
+        function_name = request.scope["endpoint"].__name__
         logger.set_function(function_name)
     logger.info("START HANDLING API")
     return
-
 
 
 class GenieContextMiddleware(BaseHTTPMiddleware):
@@ -83,9 +87,9 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
         if request.url and request.url.path:
             logger.set_endpoint(request.url.path)
             logger.info(f"Request to {request.url.path}")
-        if request.state and hasattr(request.state, 'user_email'):
+        if request.state and hasattr(request.state, "user_email"):
             logger.set_email(request.state.user_email)
-        if request.state and hasattr(request.state, 'tenant_id'):
+        if request.state and hasattr(request.state, "tenant_id"):
             logger.set_tenant_id(request.state.tenant_id)
         response = await call_next(request)
         logger.info(f"FINISH HANDLING API")
@@ -127,8 +131,12 @@ def read_root(request: Request):
     base_url = request.url.scheme + "://" + request.url.netloc
     return RedirectResponse(url=base_url + "/docs")
 
+
 @app.get("/health")
 async def health_check():
+    db_connected = check_db_connection()
+    if not db_connected:
+        raise HTTPException(status_code=500, detail="Database connection failed")
     return {"status": "healthy"}
 
 
@@ -155,7 +163,7 @@ def handle_shutdown_signal(signal, frame):
 
 # Register the shutdown signal handler for KeyboardInterrupt (Ctrl+C)
 signal.signal(signal.SIGINT, handle_shutdown_signal)
-signal.signal(signal.SIGTERM, handle_shutdown_signal)  
+signal.signal(signal.SIGTERM, handle_shutdown_signal)
 
 logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}")
 

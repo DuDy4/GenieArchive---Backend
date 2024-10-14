@@ -90,6 +90,7 @@ def check_db_connection():
     with db_connection() as conn:
         if conn:
             logger.info("Connection is active")
+
             return True
         else:
             logger.error("Connection is not active")
