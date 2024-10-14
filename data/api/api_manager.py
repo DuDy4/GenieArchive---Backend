@@ -588,14 +588,7 @@ def get_tenant_id_to_impersonate(
     return None
 
 
-@v1_router.get(
-    "/internal/check-health",
-    summary="Check the health of the service",
-    include_in_schema=False,
-)
 def get_request_state_value(request: Request, key: str):
-    db_connected = admin_api_service.check_database_connection()
-    logger.info(f"DB connection status: {db_connected}")
-    if request and request.state and hasattr(request.state, key) and db_connected:
+    if request and request.state and hasattr(request.state, key):
         return getattr(request.state, key)
     return None
