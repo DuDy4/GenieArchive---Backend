@@ -492,6 +492,20 @@ class MeetingsRepository:
         except Exception as error:
             logger.error("Error fetching all meetings:", exc_info=True)
             return []
+        
+
+    def hard_delete(self, google_calendar_id: str):
+        delete_query = "DELETE FROM meetings WHERE google_calendar_id = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (google_calendar_id,))
+                self.conn.commit()
+                logger.info(f"Hard deleted meeting with google_calendar_id: {google_calendar_id}")
+        except psycopg2.Error as error:
+            logger.error(f"Error hard deleting meeting: {error.pgerror}")
+            traceback.print_exc()
+            raise Exception(f"Error hard deleting meeting, because: {error.pgerror}")
+        
 
     def get_meetings_with_missing_classification(self) -> list[MeetingDTO]:
         select_query = """

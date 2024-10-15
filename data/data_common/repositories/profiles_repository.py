@@ -143,6 +143,19 @@ class ProfilesRepository:
             logger.error(f"Error fetching profile data by uuid: {error}")
             traceback.print_exception(error)
         return None
+    
+    def delete_by_email(self, email: str):
+        delete_query = """
+        DELETE FROM profiles
+        WHERE uuid = (SELECT uuid FROM persons WHERE email = %s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(delete_query, (email,))
+                self.conn.commit()
+                logger.info(f"Deleted profile for {email}")
+        except psycopg2.Error as error:
+            raise Exception(f"Error deleting profile, because: {error.pgerror}")
 
     def get_profiles_from_list(self, uuids: list, search: Optional[str] = None) -> list:
         """

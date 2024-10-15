@@ -17,6 +17,7 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
     profiles_repository,
     personal_data_repository,
+    tenants_repository
 )
 from common.genie_logger import GenieLogger
 
@@ -37,6 +38,7 @@ class LangsmithConsumer(GenieConsumer):
         self.langsmith = Langsmith()
         self.company_repository = companies_repository()
         self.profiles_repository = profiles_repository()
+        self.tenants_repository = tenants_repository()
         self.personal_data_repository = personal_data_repository()
         self.embeddings_client = GenieEmbeddingsClient()
 
@@ -86,7 +88,14 @@ class LangsmithConsumer(GenieConsumer):
             company_dict.pop("employees")
             company_dict.pop("logo")
 
-        response = await self.langsmith.get_profile(person_data, company_dict)
+        seller_context = None
+        seller_tenant_id = logger.get_tenant_id()
+        if seller_tenant_id:
+            seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
+            if seller_email:
+                seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person_data)
+
+        response = await self.langsmith.get_profile(person_data, company_dict, seller_context)
         logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
 
         profile_strength_and_get_to_know = {

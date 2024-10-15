@@ -24,7 +24,7 @@ class Langsmith:
         self.model = ChatOpenAI(model="gpt-4o")
         self.embeddings_client = GenieEmbeddingsClient()
 
-    async def get_profile(self, person_data, company_data=None):
+    async def get_profile(self, person_data, company_data=None, seller_context=None):
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
         logger.debug(f"Person data: {person_data.keys()}")
@@ -33,7 +33,7 @@ class Langsmith:
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
-        get_to_know = await self.run_prompt_get_to_know(person_data, company_data)
+        get_to_know = await self.run_prompt_get_to_know(person_data, company_data, seller_context)
         person_data["get_to_know"] = get_to_know
         return person_data
 
@@ -61,8 +61,8 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith: {response}")
         return response
 
-    async def run_prompt_get_to_know(self, person_data, company_data=None):
-        prompt = hub.pull("dos-and-donts")
+    async def run_prompt_get_to_know(self, person_data, company_data=None, seller_context=None):
+        prompt = hub.pull("dos_and_donts_w_context")
         runnable = prompt | self.model
         arguments = {
             "personal_data": person_data.get("personal_data", "not found"),
@@ -72,6 +72,7 @@ class Langsmith:
             "news": company_data.get("news", "not found") if company_data else "not found",
             "product_data": person_data.get("product_data", "not found"),
             "company_data": company_data if company_data else "not found",
+            "seller_context" : seller_context if seller_context else "not found",
         }
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
