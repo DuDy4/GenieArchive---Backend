@@ -428,14 +428,14 @@ class PersonalDataRepository:
                     return []
                 if len(news) > 2:
                     news = news[:2]
-                res_news = [NewsData.from_dict(item) for item in news]
+                res_news = [SocialMediaPost.from_dict(item) for item in news]
                 if not res_news:
                     logger.warning(f"No news data for {arg}")
                     return []
                 return res_news
         except psycopg2.Error as error:
             logger.error(f"Error getting news data: {error}")
-            return None
+            return []
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return None
