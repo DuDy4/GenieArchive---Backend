@@ -3,9 +3,15 @@ import psycopg2
 import json
 from common.genie_logger import GenieLogger
 from typing import List, Optional
-from data.data_common.data_transfer_objects.badges_dto import BadgeDTO, UserBadgeDTO, UserBadgeProgressDTO, DetailedUserBadgeProgressDTO
+from data.data_common.data_transfer_objects.badges_dto import (
+    BadgeDTO,
+    UserBadgeDTO,
+    UserBadgeProgressDTO,
+    DetailedUserBadgeProgressDTO,
+)
 
 logger = GenieLogger()
+
 
 class BadgesRepository:
     def __init__(self, conn):
@@ -93,7 +99,7 @@ class BadgesRepository:
 
     def get_all_badges_by_type(self, type: str) -> List[BadgeDTO]:
         select_query = """
-            SELECT * FROM badges 
+            SELECT * FROM badges
             WHERE criteria->>'type' = %s;
         """
         try:
@@ -145,7 +151,7 @@ class BadgesRepository:
     def update_user_badge_progress(self, user_badge_progress: UserBadgeProgressDTO) -> bool:
         """
         Insert or update the user's badge progress in the database.
-        
+
         :param email: The user's ID.
         :param badge_id: The badge's ID.
         :param new_progress: A dictionary representing the updated progress.
@@ -160,7 +166,14 @@ class BadgesRepository:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (user_badge_progress.email, str(user_badge_progress.badge_id), json.dumps(user_badge_progress.progress)))
+                cursor.execute(
+                    update_query,
+                    (
+                        user_badge_progress.email,
+                        str(user_badge_progress.badge_id),
+                        json.dumps(user_badge_progress.progress),
+                    ),
+                )
                 self.conn.commit()
                 return True
         except psycopg2.Error as error:
@@ -176,7 +189,9 @@ class BadgesRepository:
         :param badge_id: The badge's ID.
         :return: A dictionary representing the user's progress (defaults to empty if not found).
         """
-        select_query = "SELECT progress, last_updated FROM user_badge_progress WHERE email = %s AND badge_id = %s;"
+        select_query = (
+            "SELECT progress, last_updated FROM user_badge_progress WHERE email = %s AND badge_id = %s;"
+        )
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (email, badge_id))
@@ -203,11 +218,11 @@ class BadgesRepository:
         SELECT ubp.email, b.badge_id, ubp.progress, ubp.last_updated, b.name, b.description, b.icon_url, b.criteria
         FROM badges b
         LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
-                AND email = 'asaf@genieai.ai'; 
+                AND email = %s;
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email, ))
+                cursor.execute(select_query, (email,))
                 result = cursor.fetchall()
                 if result:
                     formatted_results = []
