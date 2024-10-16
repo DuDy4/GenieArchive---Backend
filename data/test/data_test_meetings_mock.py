@@ -1,7 +1,10 @@
 import sys
 import os
 
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.events.topics import Topic
+from data.data_common.repositories.persons_repository import PersonsRepository
+from data.data_common.repositories.profiles_repository import ProfilesRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -12,8 +15,17 @@ from data.data_common.dependencies.dependencies import (
     get_db_connection,
 )
 
+from common.genie_logger import GenieLogger
+logger = GenieLogger()
+
 TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
+SELLER_EMAIL = 'asaf@genieai.ai'
+EMAIL = "asaf@trywonder.ai"
+GOOGLE_CALENDAR_ID = "d02e2931"
+
 def test_meetings():
+    logger.set_tenant_id(TENANT_ID)
+    logger.set_email(SELLER_EMAIL)
     conn = get_db_connection()
     meetings_repository = MeetingsRepository(conn=conn)
     for meeting in meetings:
@@ -36,39 +48,41 @@ def test_meetings():
 
 meetings = [
     {
-        "uuid": "65b5afe83",
-        "google_calendar_id": "d02e293",
+        "uuid": "65b5afe88",
+        "google_calendar_id": GOOGLE_CALENDAR_ID,
         "tenant_id": TENANT_ID,
         "link": "https://meet.google.com/bla-bla-bla",
         "subject": "Intro Me <> You",
-        "participants_emails": [{"email":"asaf@genieai.ai", "self" : True}, {"email":"steve@apple.com"}],
-        "attendees" : [{"email":"asaf@genieai.ai", "self" : True}, {"email":"steve@apple.com"}],
-        "start_time": "2024-07-27T17:00:00+03:00",
-        "start" : {"date" : "2024-09-27T17:00:00+03:00"},
-        "end_time": "2024-07-27T17:30:00+03:00",
-        "end" : {"date" : "2024-09-27T17:45:00+03:00"},
+        "participants_emails": [{"email":SELLER_EMAIL, "self" : True}, {"email": EMAIL}],
+        "attendees" : [{"email":SELLER_EMAIL, "self" : True}, {"email": EMAIL}],
+        "start_time": "2024-10-27T17:00:00+03:00",
+        "start" : {"date" : "2024-10-27T17:00:00+03:00"},
+        "end_time": "2024-10-27T17:30:00+03:00",
+        "end" : {"date" : "2024-10-27T17:45:00+03:00"},
         "agenda": []
     },
-    # {
-    #     "uuid": "65b5afe9",
-    #     "google_calendar_id": "d02e30",
-    #     "tenant_id": "TestOwner",
-    #     "link": "https://meet.google.com/bla-bla-bla2",
-    #     "subject": "Second intro Me <> You",
-    #     "participants_emails": ["asaf@genieai.ai"],
-    #     "start_time": "2024-07-24T16:00:00+03:00",
-    #     "end_time": "2024-07-24T17:30:00+03:00",
-    # },
-    # {
-    #     "uuid": "65b5afd0",
-    #     "google_calendar_id": "d02e31",
-    #     "tenant_id": "TestOwner",
-    #     "link": "https://meet.google.com/bla-bla-bla3",
-    #     "subject": "Hackathon",
-    #     "participants_emails": ["asaf@genieai.ai"],
-    #     "start_time": "2024-07-30",
-    #     "end_time": "2024-07-31",
-    # },
 ]
 
+def clean_persons():
+    conn = get_db_connection()
+    meetings_repository = MeetingsRepository(conn=conn)
+    profiles_repository = ProfilesRepository(conn=conn)
+    persons_repository = PersonsRepository(conn=conn)
+    for meeting in meetings:
+        meeting_dto = MeetingDTO.from_dict(meeting)
+        if meetings_repository.exists(meeting_dto.google_calendar_id):
+            print("Deleting meeting")
+            meetings_repository.hard_delete(meeting_dto.google_calendar_id)
+            if persons_repository.exists_properties(PersonDTO.from_dict({"email":EMAIL})):
+                print("Deleting person")
+                profiles_repository.delete_by_email(EMAIL)
+        else:
+            print("Meeting not found")
+        assert not meetings_repository.exists(meeting_dto.google_calendar_id)
+        print("Meetings test passed")
+    
+
+
+# clean_persons()
 test_meetings()
+
