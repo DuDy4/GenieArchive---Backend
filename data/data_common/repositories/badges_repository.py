@@ -211,7 +211,6 @@ class BadgesRepository:
         Retrieve the user's progress for all badges. If no progress exists, assume an empty progress.
 
         :param email: The user's ID.
-        :param badge_id: The badge's ID.
         :return: A dictionary representing the user's progress (defaults to empty if not found).
         """
         select_query = """
