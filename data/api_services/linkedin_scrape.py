@@ -56,7 +56,9 @@ class HandleLinkedinScrape:
                         "media": "LinkedIn",
                         "title": post.get("text", "")[:100],
                         "text": post.get("text", None),
-                        "reshared": post.get("poster_linkedin_url"),
+                        "reshared": post.get("poster_linkedin_url")
+                        if post.get("poster_linkedin_url") != linkedin_url
+                        else None,
                         "likes": (
                             post.get("num_appreciations", 0)
                             + post.get("num_empathy", 0)
