@@ -426,8 +426,8 @@ class PersonalDataRepository:
                 if not news:
                     logger.warning(f"No news data for {arg}")
                     return []
-                if len(news) > 2:
-                    news = news[:2]
+                # if len(news) > 2:
+                #     news = news[:2]
                 res_news = [SocialMediaPost.from_dict(item) for item in news]
                 if not res_news:
                     logger.warning(f"No news data for {arg}")
