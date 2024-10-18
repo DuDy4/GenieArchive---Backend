@@ -5,7 +5,13 @@ from typing import Tuple, Dict, Any, Optional
 import hashlib
 
 from common.utils.str_utils import get_uuid4
+from enum import Enum
 
+class FileStatusEnum(str, Enum):
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 class FileUploadDTO(BaseModel):
     uuid: UUID
@@ -15,6 +21,7 @@ class FileUploadDTO(BaseModel):
     upload_time_epoch: int  # Epoch time in seconds
     email: EmailStr
     tenant_id: str
+    status: FileStatusEnum
 
     @field_validator("file_name", "email", "tenant_id")
     def not_empty(cls, value):
@@ -22,7 +29,7 @@ class FileUploadDTO(BaseModel):
             raise ValueError("Field cannot be empty or whitespace")
         return value
 
-    def to_tuple(self) -> Tuple[str, str, Optional[str], datetime, int, str, str]:
+    def to_tuple(self) -> Tuple[str, str, Optional[str], datetime, int, str, str, str]:
         return (
             str(self.uuid),
             self.file_name,
@@ -31,6 +38,7 @@ class FileUploadDTO(BaseModel):
             self.upload_time_epoch,
             self.email,
             self.tenant_id,
+            str(self.status)
         )
 
     @classmethod
@@ -43,6 +51,7 @@ class FileUploadDTO(BaseModel):
             upload_time_epoch=data[4],
             email=data[5],
             tenant_id=data[6],
+            status=FileStatusEnum(data[7])
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -54,6 +63,7 @@ class FileUploadDTO(BaseModel):
             "upload_time_epoch": self.upload_time_epoch,
             "email": self.email,
             "tenant_id": self.tenant_id,
+            "status": self.status
         }
 
     @classmethod
@@ -78,6 +88,7 @@ class FileUploadDTO(BaseModel):
             upload_time_epoch=int(upload_timestamp.timestamp()),
             email=email,
             tenant_id=tenant_id,
+            status=FileStatusEnum.UPLOADED
         )
 
     def update_file_content(self, file_content: str) -> None:

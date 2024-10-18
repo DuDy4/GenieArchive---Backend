@@ -130,3 +130,4 @@ class GenieEmbeddingsClient:
         else:
             logger.error(f"User ID not provided for deletion")
     
+

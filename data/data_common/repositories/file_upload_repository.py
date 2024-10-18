@@ -1,7 +1,7 @@
 import traceback
 import psycopg2
 from datetime import datetime
-from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO
+from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO, FileStatusEnum
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -27,6 +27,7 @@ class FileUploadRepository:
             upload_timestamp TIMESTAMP,
             email VARCHAR,
             tenant_id VARCHAR
+            status VARCHAR DEFAULT 'UPLOADED' NOT NULL
         );
         """
         try:
@@ -42,8 +43,8 @@ class FileUploadRepository:
         :return: the uuid of the newly created file upload in the database
         """
         insert_query = """
-        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         file_data = (
@@ -54,6 +55,7 @@ class FileUploadRepository:
             file_upload.upload_timestamp,
             file_upload.email,
             file_upload.tenant_id,
+            file_upload.status.value,
         )
 
         logger.info(f"About to insert file upload data: {file_data}")
@@ -88,7 +90,7 @@ class FileUploadRepository:
 
     def get_files_by_email(self, email: str) -> list[FileUploadDTO] | None:
         select_query = """
-        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status
         FROM file_uploads
         WHERE email = %s;
         """
@@ -107,6 +109,7 @@ class FileUploadRepository:
                             upload_timestamp=file[4],
                             email=file[5],
                             tenant_id=file[6],
+                            status=file[7],
                         )
                         for file in files
                     ]
@@ -229,6 +232,25 @@ class FileUploadRepository:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return False
+        
+    def update_file_status(self, uuid: str, status: FileStatusEnum) -> bool:
+        query = """
+        UPDATE file_uploads
+        SET status = %s
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (status.value, str(uuid)))
+                self.conn.commit()
+        except psycopg2.Error as error:
+            logger.error(f"Error updating file status: {error}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+        return True
 
     def delete(self, uuid):
         query = """

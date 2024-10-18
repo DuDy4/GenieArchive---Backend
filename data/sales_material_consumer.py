@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from common.utils import env_utils
-from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO
+from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO, FileStatusEnum
 from data.data_common.events.genie_event import GenieEvent
 from ai.langsmith.langsmith_loader import Langsmith
 
@@ -78,6 +78,8 @@ class SalesMaterialConsumer(GenieConsumer):
             return {"status": "error", "message": "File upload DTO not found in the event data"}
         file_upload_dto.update_file_content(text)
 
+        self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.PROCESSING) 
+
         logger.info(f"File upload DTO: {file_upload_dto}")
         file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
         if file_uploaded_in_db:
@@ -106,10 +108,12 @@ class SalesMaterialConsumer(GenieConsumer):
             embedding_result = self.embeddings_client.embed_document(processed_content_text, metadata)
             if embedding_result:
                 logger.info(f"Document embedded successfully")
+                self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.COMPLETED) 
                 self.embedding_success_by_tenant[file_upload_dto.tenant_id] = True
             else:
                 logger.error(f"Document embedding failed for tenant {file_upload_dto.tenant_id}")
         except Exception as e:
+            self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.FAILED) 
             logger.error(
                 f"An error occurred during document embedding for tenant {file_upload_dto.tenant_id}: {e}"
             )
