@@ -97,6 +97,10 @@ class SalesMaterialConsumer(GenieConsumer):
         processed_content = await self.langsmith.preprocess_uploaded_file_content(text)
         processed_content_text = processed_content.content
 
+        file_categories = await self.langsmith.run_prompt_doc_categories(processed_content_text)
+        if file_categories:
+            self.file_upload_repository.update_file_categories(file_upload_dto.uuid, file_categories)
+
         try:
             metadata = {
                 "id": file_id,

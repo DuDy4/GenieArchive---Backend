@@ -115,6 +115,19 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
+        return response
+
+    async def run_prompt_doc_categories(self, doc_content):
+        prompt = hub.pull("classify-file-category")
+        try:
+            runnable = prompt | self.model
+            response = runnable.invoke({"file_content": doc_content})
+        except Exception as e:
+            response = f"Error: {e}"
+        if isinstance(response, dict) and response.get("doc_categories"):
+            return response.get("doc_categories")
+        else:
+            return []
 
     def run_prompt_company_overview_challenges(self, company_data):
         logger.info("Running Langsmith prompt for company overview and challenges")

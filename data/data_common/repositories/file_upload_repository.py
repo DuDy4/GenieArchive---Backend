@@ -26,8 +26,9 @@ class FileUploadRepository:
             upload_time_epoch BIGINT,
             upload_timestamp TIMESTAMP,
             email VARCHAR,
-            tenant_id VARCHAR
-            status VARCHAR DEFAULT 'UPLOADED' NOT NULL
+            tenant_id VARCHAR,
+            status VARCHAR DEFAULT 'UPLOADED' NOT NULL,
+            categories JSONB DEFAULT '[]'::JSONB NOT NULL
         );
         """
         try:
@@ -43,8 +44,8 @@ class FileUploadRepository:
         :return: the uuid of the newly created file upload in the database
         """
         insert_query = """
-        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         file_data = (
@@ -56,6 +57,7 @@ class FileUploadRepository:
             file_upload.email,
             file_upload.tenant_id,
             file_upload.status.value,
+            file_upload.categories,
         )
 
         logger.info(f"About to insert file upload data: {file_data}")
@@ -119,6 +121,25 @@ class FileUploadRepository:
             logger.error(f"Error getting files by email: {error}")
             traceback.print_exc()
             return None
+        
+    def update_file_categories(self, uuid: str, categories: list[str]) -> bool:
+        query = """
+        UPDATE file_uploads
+        SET categories = to_jsonb(%s)
+        WHERE uuid = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (categories, str(uuid)))
+                self.conn.commit()
+        except psycopg2.Error as error:
+            logger.error(f"Error updating file categories: {error}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+        return True
 
     def get_file_count_and_last_upload_time(self, tenant_id: str) -> tuple[int, datetime | None]:
         """

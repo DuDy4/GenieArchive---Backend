@@ -25,6 +25,9 @@ class FileUploadService:
     def generate_upload_url(tenant_id: str, file_name: str):
         user_id = FileUploadService.tenants_repository.get_tenant_email(tenant_id)
         try:
+            if not user_id:
+                logger.error(f"Could not find user with tenant ID: {tenant_id}")
+                return None
             blob_full_name = f"{user_id}/uploads/{file_name}"        
             if not FileUploadService.does_folder_exist(UPLOADED_MATERIALS_CONTINAER_NAME, user_id):
                 FileUploadService.create_user_folder(UPLOADED_MATERIALS_CONTINAER_NAME, user_id)
