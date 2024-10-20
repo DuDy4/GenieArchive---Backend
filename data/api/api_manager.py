@@ -87,6 +87,20 @@ async def get_file_upload_url(request: Request):
     return JSONResponse(content={"upload_url": upload_url})
 
 
+@v1_router.get("/uploaded-files")
+async def get_file_upload_url(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
+        )
+    uploaded_files = user_materials_service.get_all_files(tenant_id)
+    if not uploaded_files:
+        return JSONResponse(content=[])
+    uploaded_files_json = [file.to_dict() for file in uploaded_files]
+    return JSONResponse(content=uploaded_files_json)
+
+
 @v1_router.get("/user-badges")
 async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
     email = get_request_state_value(request, "user_email")

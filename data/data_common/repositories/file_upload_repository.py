@@ -140,6 +140,39 @@ class FileUploadRepository:
             logger.error(f"Unexpected error: {e}")
             return False
         return True
+    
+    def get_all_files(self, tenant_id: str) -> list[FileUploadDTO] | None:
+        select_query = """
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
+        FROM file_uploads
+        WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (tenant_id,))
+                files = cursor.fetchall()
+                if files:
+                    logger.info(f"Got all files uploaded by tenant {tenant_id}")
+                    return [
+                        FileUploadDTO(
+                            uuid=file[0],
+                            file_name=file[1],
+                            file_hash=file[2],
+                            upload_time_epoch=file[3],
+                            upload_timestamp=file[4],
+                            email=file[5],
+                            tenant_id=file[6],
+                            status=file[7],
+                            categories=file[8]
+                        )
+                        for file in files
+                    ]
+                logger.info(f"No files found for tenant {tenant_id}")
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error getting all files by tenant: {error}")
+            traceback.print_exc()
+            return None
 
     def get_file_count_and_last_upload_time(self, tenant_id: str) -> tuple[int, datetime | None]:
         """

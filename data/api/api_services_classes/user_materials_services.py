@@ -90,6 +90,9 @@ class UserMaterialServices:
                 {"event_data": file_data, "file_uploaded": file_upload_dto.to_dict(), "file_id": file_id},
             ).send()
             return {"status": "success"}
+        
+    def get_all_files(self, tenant_id):
+        return self.file_upload_repository.get_all_files(tenant_id)
 
     def generate_upload_url(self, tenant_id, file_name):
         if not upload_file_name_validation(file_name):
