@@ -492,7 +492,6 @@ class MeetingsRepository:
         except Exception as error:
             logger.error("Error fetching all meetings:", exc_info=True)
             return []
-        
 
     def hard_delete(self, google_calendar_id: str):
         delete_query = "DELETE FROM meetings WHERE google_calendar_id = %s;"
@@ -505,7 +504,18 @@ class MeetingsRepository:
             logger.error(f"Error hard deleting meeting: {error.pgerror}")
             traceback.print_exc()
             raise Exception(f"Error hard deleting meeting, because: {error.pgerror}")
-        
+
+    def update_tenant_id(self, new_tenant_id, old_tenant_id):
+        update_query = "UPDATE meetings SET tenant_id = %s WHERE tenant_id = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                self.conn.commit()
+                return True
+        except psycopg2.Error as error:
+            logger.error(f"Error updating tenant_id: {error.pgerror}")
+            traceback.print_exc()
+            return False
 
     def get_meetings_with_missing_classification(self) -> list[MeetingDTO]:
         select_query = """
