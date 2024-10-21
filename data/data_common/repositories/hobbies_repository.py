@@ -3,6 +3,7 @@ from typing import Optional
 import uuid
 import psycopg2
 from common.genie_logger import GenieLogger
+
 logger = GenieLogger()
 
 
@@ -78,7 +79,7 @@ class HobbiesRepository:
     def get_hobby(self, uuid: str) -> {}:
         logger.info(f"About to get hobby with uuid: {uuid}")
         select_query = """
-        SELECT * FROM hobbies WHERE uuid = %s;
+        SELECT hobby_name, icon_url FROM hobbies WHERE uuid = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -87,8 +88,8 @@ class HobbiesRepository:
                 if hobby:
                     logger.info(f"Got hobby with uuid {uuid}")
                     return {
-                        "hobby_name": hobby[2],
-                        "icon_url": hobby[3],
+                        "hobby_name": hobby[0],
+                        "icon_url": hobby[1],
                     }
                 logger.info(f"Hobby with uuid {uuid} does not exist")
                 return None
@@ -113,7 +114,7 @@ class HobbiesRepository:
         except psycopg2.Error as error:
             logger.error(f"Error updating hobby: {error}")
             return False
-        
+
     def find_or_create_hobby(self, hobby_name: str, icon_url: str) -> str:
         """
         Find hobby by name or create a new one
@@ -123,7 +124,7 @@ class HobbiesRepository:
         if not hobby_uuid:
             hobby_uuid = self.create_hobby(hobby_name, icon_url)
         return hobby_uuid
-    
+
     def create_hobby(self, hobby_name: str, icon_url: str) -> str:
         """
         Create new hobby
@@ -157,4 +158,29 @@ class HobbiesRepository:
                 return None
         except psycopg2.Error as error:
             logger.error(f"Error finding hobby: {error}")
+            return None
+
+    def get_hobby_by_name(self, hobby_name):
+        """
+        Get hobby by name
+        """
+        logger.info(f"About to get hobby with name: {hobby_name}")
+        select_query = """
+        SELECT uuid, hobby_name, icon_url FROM hobbies WHERE hobby_name = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (hobby_name.lower(),))
+                hobby = cursor.fetchone()
+                if hobby:
+                    logger.info(f"Got hobby with name {hobby_name}")
+                    return {
+                        "uuid": hobby[0],
+                        "hobby_name": hobby[1],
+                        "icon_url": hobby[2],
+                    }
+                logger.info(f"Hobby with name {hobby_name} does not exist")
+                return None
+        except psycopg2.Error as error:
+            logger.error(f"Error getting hobby: {error}")
             return None

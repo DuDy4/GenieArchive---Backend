@@ -154,6 +154,15 @@ class ProfilesApiService:
             hobbies_uuid = profile.hobbies
             logger.info(f"Got hobbies: {hobbies_uuid}")
             hobbies = [self.hobbies_repository.get_hobby(str(hobby_uuid)) for hobby_uuid in hobbies_uuid]
+            if not hobbies:
+                logger.info(f"No hobbies found for {uuid}")
+                hobbies_names = self.personal_data_repository.get_hobbies_by_email(profile_email)
+                hobbies = [
+                    self.hobbies_repository.get_hobby_by_name(hobby_name)
+                    for hobby_name in hobbies_names
+                    if hobby_name
+                ]
+                hobbies = [hobby for hobby in hobbies if (hobby and hobby.get("icon_url"))]
             logger.info(f"Got hobbies: {hobbies}")
 
             connections = profile.connections
