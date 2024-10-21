@@ -1189,3 +1189,23 @@ class PersonalDataRepository:
         except Exception as e:
             logger.error("Unexpected error during LinkedIn posts lookup check: %s", e)
             return False
+
+    def get_hobbies_by_email(self, profile_email):
+        query = """
+                SELECT pdl_personal_data->'interests'
+                FROM personalData
+                WHERE email = %s;
+                """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (profile_email,))
+                hobbies = cursor.fetchone()
+                if hobbies:
+                    return hobbies[0]
+                else:
+                    logger.warning("Hobbies were not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving hobbies: {e}", e)
+            traceback.format_exc()
+            return None
