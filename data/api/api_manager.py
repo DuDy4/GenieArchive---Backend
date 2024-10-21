@@ -140,10 +140,9 @@ async def login_event(
     logger.info("Fetching user info")
     user_info = await request.json()
     logger.info(f"Received user info: {user_info}")
-    response = tenants_api_service.login_event(user_info)
-    logger.info(f"About to send response: {response}")
+    background_tasks.add_task(tenants_api_service.login_event, user_info)
     background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("tenant_id"))
-    return JSONResponse(content=response, status_code=200)
+    return JSONResponse(content="Login event received. Updated credentials", status_code=200)
 
 
 @v1_router.post("/google-services/translate")

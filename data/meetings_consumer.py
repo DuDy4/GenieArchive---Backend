@@ -233,6 +233,11 @@ class MeetingManager(GenieConsumer):
             data={"tenant_id": meeting.tenant_id, "email": self_email},
         )
         event.send()
+        event = GenieEvent(
+            topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+            data={"tenant_id": meeting.tenant_id, "email": self_email},
+        )
+        event.send()
         return {"status": "success"}
 
     async def create_goals_from_new_personal_data(self, event):

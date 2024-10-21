@@ -426,16 +426,16 @@ class PersonalDataRepository:
                 if not news:
                     logger.warning(f"No news data for {arg}")
                     return []
-                if len(news) > 2:
-                    news = news[:2]
-                res_news = [NewsData.from_dict(item) for item in news]
+                # if len(news) > 2:
+                #     news = news[:2]
+                res_news = [SocialMediaPost.from_dict(item) for item in news]
                 if not res_news:
                     logger.warning(f"No news data for {arg}")
                     return []
                 return res_news
         except psycopg2.Error as error:
             logger.error(f"Error getting news data: {error}")
-            return None
+            return []
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return None
@@ -1189,3 +1189,23 @@ class PersonalDataRepository:
         except Exception as e:
             logger.error("Unexpected error during LinkedIn posts lookup check: %s", e)
             return False
+
+    def get_hobbies_by_email(self, profile_email):
+        query = """
+                SELECT pdl_personal_data->'interests'
+                FROM personalData
+                WHERE email = %s;
+                """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (profile_email,))
+                hobbies = cursor.fetchone()
+                if hobbies:
+                    return hobbies[0]
+                else:
+                    logger.warning("Hobbies were not found")
+                    return None
+        except Exception as e:
+            logger.error(f"Error retrieving hobbies: {e}", e)
+            traceback.format_exc()
+            return None
