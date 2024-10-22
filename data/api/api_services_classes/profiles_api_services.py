@@ -3,6 +3,7 @@ from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sor
 from data.api.base_models import *
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
+    tenant_profiles_repository,
     ownerships_repository,
     meetings_repository,
     tenants_repository,
@@ -22,6 +23,7 @@ logger = GenieLogger()
 class ProfilesApiService:
     def __init__(self):
         self.profiles_repository = profiles_repository()
+        self.tenant_profiles_repository = tenant_profiles_repository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
         self.tenants_repository = tenants_repository()
@@ -125,6 +127,10 @@ class ProfilesApiService:
             raise HTTPException(status_code=404, detail="Profile not found under this tenant")
 
         profile = self.profiles_repository.get_profile_data(uuid)
+        tenant_specific_get_to_know = self.tenant_profiles_repository.get_get_to_know(uuid, tenant_id)
+        if tenant_specific_get_to_know:
+            logger.info(f"Got tenant specific get to know for : {profile.name}")
+            profile.get_to_know = tenant_specific_get_to_know   
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             formated_get_to_know = "".join(
@@ -157,12 +163,13 @@ class ProfilesApiService:
             if not hobbies:
                 logger.info(f"No hobbies found for {uuid}")
                 hobbies_names = self.personal_data_repository.get_hobbies_by_email(profile_email)
-                hobbies = [
-                    self.hobbies_repository.get_hobby_by_name(hobby_name)
-                    for hobby_name in hobbies_names
-                    if hobby_name
-                ]
-                hobbies = [hobby for hobby in hobbies if (hobby and hobby.get("icon_url"))]
+                if hobbies_names:
+                    hobbies = [
+                        self.hobbies_repository.get_hobby_by_name(hobby_name)
+                        for hobby_name in hobbies_names
+                        if hobby_name
+                    ]
+                    hobbies = [hobby for hobby in hobbies if (hobby and hobby.get("icon_url"))]
             logger.info(f"Got hobbies: {hobbies}")
 
             connections = profile.connections

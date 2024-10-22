@@ -976,7 +976,6 @@ class PersonalDataRepository:
             with self.conn.cursor() as cursor:
                 cursor.execute(select_query, (str(uuid),))
                 result = cursor.fetchone()
-                logger.info(f"Got result: {result}")
                 if result:
                     pdl_social_link = result[0]
                     apollo_data = result[1]

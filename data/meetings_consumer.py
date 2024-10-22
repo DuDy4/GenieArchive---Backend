@@ -17,7 +17,7 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
     tenants_repository,
     profiles_repository,
-    persons_repository,
+    ownerships_repository,
 )
 from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem, MeetingClassification
@@ -78,6 +78,7 @@ class MeetingManager(GenieConsumer):
         self.companies_repository = companies_repository()
         self.tenant_repository = tenants_repository()
         self.profiles_repository = profiles_repository()
+        self.ownerships_repository = ownerships_repository()
         self.langsmith = Langsmith()
         self.embeddings_client = GenieEmbeddingsClient()
 
@@ -120,7 +121,7 @@ class MeetingManager(GenieConsumer):
                 await self.create_agenda_from_goals(event)
             case Topic.NEW_EMBEDDED_DOCUMENT:
                 logger.info("Handling new embedded document")
-                await self.recreate_goals_and_agenda_from_new_embedded_document(event)
+                await self.handle_new_embedded_document(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -576,10 +577,10 @@ class MeetingManager(GenieConsumer):
                     logger.info(f"Meeting {meeting.uuid} deleted")
         logger.info(f"Finished checking for meetings to delete")
 
-    async def recreate_goals_and_agenda_from_new_embedded_document(self, event):
+    async def handle_new_embedded_document(self, event):
         """
         This function is triggered when a new document is embedded.
-        It will gather all future external meetings for the tenant, and then recreate the goals and agenda for each
+        It will gather all future external meetings for the tenant.
         """
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
@@ -589,11 +590,6 @@ class MeetingManager(GenieConsumer):
         if not tenant_id:
             tenant_id = logger.get_tenant_id()
         logger.info(f"Tenant ID: {tenant_id}")
-        # tenant_future_meetings = self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
-        # logger.info(f"Future meetings: {len(tenant_future_meetings)}")
-        # if not tenant_future_meetings:
-        #     logger.info("No future meetings found")
-        #     return
         user_email = self.tenant_repository.get_tenant_email(tenant_id)
         if not user_email:
             logger.error(f"No user email found for tenant {tenant_id}")
@@ -602,6 +598,19 @@ class MeetingManager(GenieConsumer):
         if not company:
             logger.error(f"No company found for {user_email}")
             return
+        meetings = self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
+        if not meetings:
+            logger.error(f"No meetings found for {tenant_id}")
+            return
+        person_ids = self.ownerships_repository.get_all_persons_for_tenant(tenant_id)
+        if person_ids:
+            unique_person_ids = list(set(person_ids))
+            for person_id in unique_person_ids:
+                GenieEvent(
+                    topic=Topic.NEW_PERSON_CONTEXT,
+                    data={"tenant_id": tenant_id, "company_uuid": company.uuid, "person_id": person_id},
+                ).send()
+
         event = GenieEvent(
             topic=Topic.COMPANY_NEWS_UP_TO_DATE,
             data={"tenant_id": tenant_id, "company_uuid": company.uuid, "force_refresh_goals": True},

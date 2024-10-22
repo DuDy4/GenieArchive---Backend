@@ -18,7 +18,7 @@ from common.utils import env_utils
 
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.dependencies.dependencies import companies_repository, persons_repository
+from data.data_common.dependencies.dependencies import companies_repository, persons_repository, tenants_repository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -43,6 +43,7 @@ class SlackConsumer(GenieConsumer):
         )
         self.company_repository: CompaniesRepository = companies_repository()
         self.persons_repository: PersonsRepository = persons_repository()
+        self.tenants_repository = tenants_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -65,7 +66,7 @@ class SlackConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         email = event_body.get("email")
         domain = email.split("@")[1] if "@" in email else None
-
+        tenant_id = logger.get_tenant_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(email)
         if last_message_sent_at:
             time_period_delta = timedelta(seconds=TIME_PERIOD_TO_SENT_MESSAGE)
@@ -78,6 +79,12 @@ class SlackConsumer(GenieConsumer):
         if domain:
             company = self.company_repository.get_company_from_domain(email.split("@")[1])
         message = f"[CTX={logger.get_ctx_id()}] failed to identify info for email: {email}."
+        if tenant_id:
+            email = self.tenants_repository.get_tenant_email(tenant_id)
+            if email:
+                message += f"""
+                    Originating user: {email}.
+                    """
         if company:
             message += f"""
             COMPANY= {company.name}.

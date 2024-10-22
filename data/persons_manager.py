@@ -31,6 +31,7 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     meetings_repository,
     companies_repository,
+    tenant_profiles_repository,
 )
 
 from data.importers.profile_pictures import get_profile_picture
@@ -72,6 +73,7 @@ class PersonManager(GenieConsumer):
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
         self.companies_repository = companies_repository()
+        self.tenant_profiles_repository = tenant_profiles_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -469,6 +471,13 @@ class PersonManager(GenieConsumer):
         )
         logger.debug(f"Profile person: {profile_details}")
         self.profiles_repository.save_profile(profile_dto)
+        if profile.get("tenant_get_to_know"):
+            tenant_id = logger.get_tenant_id()
+            if tenant_id:
+                self.tenant_profiles_repository.update_get_to_know(uuid, profile.get("tenant_get_to_know"), tenant_id)
+                logger.info(f"Saved tenant profile for profile: {profile_dto.name}")
+            else:
+                logger.info("Could not get tenant id - skipping tenant profile save")
         logger.info(f"About to fetch profile picture for {person.email}")
         if not profile_dto.picture_url or profile_dto.picture_url == DEFAULT_PROFILE_PICTURE:
             profile_dto.picture_url = get_profile_picture(person, social_media_links)

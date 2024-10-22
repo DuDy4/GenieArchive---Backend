@@ -280,7 +280,7 @@ class ParticipantEmail(BaseModel):
     def from_dict(cls, data: Dict):
         return cls(
             email_address=data["email"],
-            responseStatus=data["responseStatus"],
+            responseStatus=data["responseStatus"] if "responseStatus" in data else "needsAction",
             organizer=data.get("organizer", False),
             self=data.get("self", False),
         )

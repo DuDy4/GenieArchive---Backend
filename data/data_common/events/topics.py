@@ -4,6 +4,7 @@ class Topic:
     # New objects events
     NEW_NEWS_DATA = "new-news-data"  # News scrapper saved news data
     NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
+    NEW_PERSON_CONTEXT = "new-person-context"  
     NEW_MEETING_GOALS = (
         "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
     )
@@ -39,6 +40,7 @@ class Topic:
         "new-personal-data-to-process"  # PersonManager calls for Langsmith to process enriched data
     )
     NEW_PROCESSED_PROFILE = "new-processed-profile"  # Langsmith Succeeded in processing enriched data
+    NEW_BASE_PROFILE = "new-base-profile"  # Langsmith Succeeded in processing calculating strengths
 
     # Company enrichment
     NEW_EMAIL_TO_PROCESS_DOMAIN = "new-email-to-process-domain"  # Call for hunter.io
