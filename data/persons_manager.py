@@ -230,6 +230,11 @@ class PersonManager(GenieConsumer):
         if not person or not personal_data:
             logger.error("No person or personal data found")
             return {"error": "No person or personal data found"}
+        event = GenieEvent(
+            Topic.APOLLO_NEW_PERSON_TO_ENRICH,
+            data={"person": person.to_dict()},
+        )
+        event.send()
         data_to_send = {"person": person.to_dict(), "personal_data": personal_data, "tenant_id": tenant_id}
         # Send "new_personal_data" event to the event queue
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public")
