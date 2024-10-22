@@ -4,6 +4,7 @@ from ..utils.postgres_connector import get_db_connection, connection_pool
 from ..repositories.personal_data_repository import PersonalDataRepository
 from ..repositories.persons_repository import PersonsRepository
 from ..repositories.profiles_repository import ProfilesRepository
+from ..repositories.tenant_profiles_repository import TenantProfilesRepository
 from ..repositories.tenants_repository import TenantsRepository
 from ..repositories.meetings_repository import MeetingsRepository
 from ..repositories.google_creds_repository import GoogleCredsRepository
@@ -107,6 +108,18 @@ def profiles_repository() -> ProfilesRepository:
         if conn:
             connection_pool.putconn(conn)
             logger.debug("Connection returned to pool in profiles_repository")
+
+def tenant_profiles_repository() -> TenantProfilesRepository:
+    conn = get_db_connection()  # Establish the database connection
+    try:
+        return TenantProfilesRepository(conn=conn)
+    except Exception as e:
+        logger.error(f"Error establishing database connection: {e}")
+        return None
+    finally:
+        if conn:
+            connection_pool.putconn(conn)
+            logger.debug("Connection returned to pool in tenant_profiles_repository")
 
 
 def persons_repository() -> PersonsRepository:

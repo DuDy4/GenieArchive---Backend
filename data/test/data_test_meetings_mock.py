@@ -20,7 +20,7 @@ logger = GenieLogger()
 
 TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
 SELLER_EMAIL = 'asaf@genieai.ai'
-EMAIL = "asaf@trywonder.ai"
+EMAIL = "yaron.avisror@mend.io"
 GOOGLE_CALENDAR_ID = "d02e2931"
 
 def test_meetings():
@@ -48,17 +48,17 @@ def test_meetings():
 
 meetings = [
     {
-        "uuid": "65b5afe88",
+        "uuid": "65b5afe90",
         "google_calendar_id": GOOGLE_CALENDAR_ID,
         "tenant_id": TENANT_ID,
         "link": "https://meet.google.com/bla-bla-bla",
         "subject": "Intro Me <> You",
         "participants_emails": [{"email":SELLER_EMAIL, "self" : True}, {"email": EMAIL}],
         "attendees" : [{"email":SELLER_EMAIL, "self" : True}, {"email": EMAIL}],
-        "start_time": "2024-10-27T17:00:00+03:00",
-        "start" : {"date" : "2024-10-27T17:00:00+03:00"},
-        "end_time": "2024-10-27T17:30:00+03:00",
-        "end" : {"date" : "2024-10-27T17:45:00+03:00"},
+        "start_time": "2024-11-27T17:00:00+03:00",
+        "start" : {"date" : "2024-11-27T17:00:00+03:00"},
+        "end_time": "2024-11-27T17:30:00+03:00",
+        "end" : {"date" : "2024-11-27T17:45:00+03:00"},
         "agenda": []
     },
 ]

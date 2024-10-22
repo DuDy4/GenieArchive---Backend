@@ -42,7 +42,7 @@ class OwnershipsRepository:
                 cursor.execute(select_query, (tenant_id,))
                 logger.debug(f"Executed query")
                 ownerships = cursor.fetchall()
-                logger.info(f"Got all ownerships for tenant {tenant_id}: {ownerships}")
+                logger.info(f"Got all ownerships for tenant {tenant_id}")
                 ownerships = [ownership[0] for ownership in ownerships]
                 return ownerships
         except psycopg2.Error as error:

@@ -33,6 +33,9 @@ class Langsmith:
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
+        return await self.get_get_to_know(person_data, company_data, seller_context)
+
+    async def get_get_to_know(self, person_data, company_data=None, seller_context=None):
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data, seller_context)
         person_data["get_to_know"] = get_to_know
         return person_data

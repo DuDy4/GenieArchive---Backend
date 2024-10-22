@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import sys
 import os
@@ -22,12 +23,14 @@ def test_uploaded_file():
     file_id = 'e3d97c0b-a01e-00e9-3602-232330064dc8'
 
     file_upload = FileUploadDTO.from_dict(file_upload_dto)
+    file_upload.upload_timestamp = datetime.today()
+    file_upload.upload_time_epoch = int(datetime.today().timestamp())
     if file_upload_repository.exists_metadata(file_upload):
         logger.info(f"File already exists in the database")
     else:
         file_upload_repository.insert(file_upload)
 
-    test_data = {"event_data": file_data, "file_uploaded": file_upload_dto, "file_id": file_id}
+    test_data = {"event_data": file_data, "file_uploaded": file_upload.to_dict(), "file_id": file_id}
 
     event = GenieEvent(topic=Topic.FILE_UPLOADED, data=test_data)
     event.send()
