@@ -305,3 +305,30 @@ class AdminApiService:
         logger.info(f"Found {len(all_uuids)} uuids to fetch posts")
         fetch_linkedin_posts(all_uuids, scrap_num)
         return {"status": "success"}
+
+    def process_missing_apollo_personal_data(self):
+        all_personal_data_uuid = self.personal_data_repository.get_all_uuids_without_apollo()
+        logger.info(f"Persons without apollo_data: {len(all_personal_data_uuid)}")
+        self.fetch_apollo_data(all_personal_data_uuid)
+        return {"status": "success"}
+
+    def get_all_uuids_that_did_not_try_apollo(self):
+        all_personal_data_uuid = self.personal_data_repository.get_all_uuids_without_apollo()
+        return all_personal_data_uuid
+
+    def fetch_apollo_data(self, uuids: list):
+        for uuid in uuids:
+            try:
+                person = self.persons_repository.get_person(uuid)
+                if not person:
+                    logger.error(f"Person with uuid {uuid} not found")
+                    continue
+                if not person.email:
+                    logger.error(f"Person with uuid {uuid} has no email")
+                    continue
+                event = GenieEvent(topic=Topic.APOLLO_NEW_PERSON_TO_ENRICH, data={"person": person.to_dict()})
+                event.send()
+                logger.info(f"Sent event for {person.email}")
+            except Exception as e:
+                logger.error(f"Error sending event for {uuid}: {e}")
+                break

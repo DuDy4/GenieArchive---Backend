@@ -220,7 +220,7 @@ class ProfilesApiService:
             final_experience = []
             employers = set()
             for experience in fixed_experience:
-                if len(employers) >= 3:
+                if len(employers) >= 4:
                     break
                 company_obj = experience["company"]
                 if company_obj:

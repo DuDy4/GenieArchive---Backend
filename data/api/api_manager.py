@@ -550,6 +550,22 @@ def process_personal_news(background_tasks: BackgroundTasks, api_key: str, num: 
     return JSONResponse(content={"status": "success", "message": "Processing personal news"})
 
 
+@v1_router.get("/internal/sync-personal-data-apollo")
+def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str) -> JSONResponse:
+    """
+    Sync an email from the beginning
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing personal data from Apollo")
+    background_tasks.add_task(admin_api_service.process_missing_apollo_personal_data)
+    return JSONResponse(content={"status": "success", "message": "Processing personal data from Apollo"})
+
+
 @v1_router.get(
     "/google/import-meetings/{tenant_id}",
     response_class=JSONResponse,

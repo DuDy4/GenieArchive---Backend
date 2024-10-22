@@ -72,13 +72,13 @@ class ApolloConsumer(GenieConsumer):
         #     logger.info(f"Person already has LinkedIn: {person.LinkedIn}")
         #     return {"status": "ok"}
         person_in_db = self.persons_repository.get_person_by_email(person.email)
-        if person_in_db:
-            # if person_in_db.linkedin:
-            #     logger.info(f"Person in database already has linkedin_url: {person_in_db.LinkedIn}")
-            personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(person.email)
-            if personal_data:
-                logger.info(f"Personal data already exists for email: {person.email}")
-                return {"status": "ok"}
+        # if person_in_db:
+        # if person_in_db.linkedin:
+        #     logger.info(f"Person in database already has linkedin_url: {person_in_db.LinkedIn}")
+        # personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(person.email)
+        # if personal_data:
+        #     logger.info(f"Personal data already exists for email: {person.email}")
+        #     return {"status": "ok"}
         apollo_personal_data_from_db = self.personal_data_repository.get_apollo_personal_data_by_email(
             person.email
         )
