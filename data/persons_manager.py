@@ -528,7 +528,11 @@ class PersonManager(GenieConsumer):
         person = PersonDTO.from_dict(person_dict)
         tenant_id = event_body.get("tenant_id")
         logger.debug(f"Person: {person}, Tenant: {tenant_id}")
-        self.ownerships_repository.save_ownership(person.uuid, tenant_id)
+        if not person:
+            logger.error(f"Invalid person data: {person}")
+            return {"error": "Invalid person data"}
+        if tenant_id:
+            self.ownerships_repository.save_ownership(person.uuid, tenant_id)
 
         result = await self.check_profile_data_from_person(person)
         logger.info(f"Result: {result}")
