@@ -95,6 +95,4 @@ def fix_company_name_in_profiles():
         logger.error(f"Could not find company from any resource for {person.email}")
 
 
-# get_all_persons_with_personal_data_but_no_profile()
-
-fix_company_name_in_profiles()
+# fix_company_name_in_profiles()

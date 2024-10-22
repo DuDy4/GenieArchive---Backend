@@ -97,8 +97,7 @@ async def get_file_upload_url(request: Request):
     uploaded_files = user_materials_service.get_all_files(tenant_id)
     if not uploaded_files:
         return JSONResponse(content=[])
-    uploaded_files_json = [file.to_dict() for file in uploaded_files]
-    return JSONResponse(content=uploaded_files_json)
+    return JSONResponse(content=uploaded_files)
 
 
 @v1_router.get("/user-badges")

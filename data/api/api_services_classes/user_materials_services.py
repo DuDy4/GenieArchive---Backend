@@ -2,7 +2,7 @@ from datetime import datetime
 from os.path import exists
 
 from common.utils import email_utils
-from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO
+from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO, FileCategoryEnum
 from data.data_common.dependencies.dependencies import (
     tenants_repository,
     file_upload_repository,
@@ -90,9 +90,12 @@ class UserMaterialServices:
                 {"event_data": file_data, "file_uploaded": file_upload_dto.to_dict(), "file_id": file_id},
             ).send()
             return {"status": "success"}
-        
+
     def get_all_files(self, tenant_id):
-        return self.file_upload_repository.get_all_files(tenant_id)
+        all_files = self.file_upload_repository.get_all_files(tenant_id)
+        all_categories = FileCategoryEnum.get_all_categories()
+        all_files_jsoned = [file.to_dict() for file in all_files] if all_files else []
+        return {"files": all_files_jsoned, "categories": all_categories}
 
     def generate_upload_url(self, tenant_id, file_name):
         if not upload_file_name_validation(file_name):
