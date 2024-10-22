@@ -1,6 +1,6 @@
 import datetime
 from data.data_common.data_transfer_objects.stats_dto import StatsDTO
-from data.data_common.dependencies.dependencies import badges_repository, stats_repository
+from data.data_common.dependencies.dependencies import badges_repository, stats_repository, tenants_repository
 from data.data_common.data_transfer_objects.badges_dto import (
     DetailedUserBadgeProgressDTO,
     UserBadgeProgressDTO,
@@ -17,14 +17,16 @@ class BadgesApiService:
     def __init__(self):
         self.badges_repository = badges_repository()
         self.stats_repository = stats_repository()
+        self.tenants_repository = tenants_repository()
 
-    def get_user_badges_status(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
+    def get_user_badges_status(self, tenant_id: str) -> list[DetailedUserBadgeProgressDTO]:
         """
         Get all badges for a user.
 
-        :param email: The email of the tenant/user.
+        :param tenant_id: The ID of the tenant/user.
         :return: A list of badge DTOs.
         """
+        email = self.tenants_repository.get_tenant_email(tenant_id)
         badges_progress = self.badges_repository.get_user_all_current_badges_progress(email)
         formatted_badges = []
         for badge in badges_progress:
