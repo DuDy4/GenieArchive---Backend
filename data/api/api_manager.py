@@ -2,11 +2,11 @@ from typing import Union
 
 import requests
 
-from fastapi import Request, Query, BackgroundTasks
+from fastapi import Request, Query, BackgroundTasks, Depends
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 
-
+from common.genie_logger import tenant_id
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse
 from fastapi import HTTPException
@@ -20,9 +20,6 @@ from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
-
-from data.data_common.repositories.tenants_repository import TenantsRepository
-from data.data_common.dependencies.dependencies import tenants_repository
 
 
 logger = GenieLogger()
@@ -108,9 +105,13 @@ async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str]
             status_code=401, detail=f"""Unauthorized request. JWT is missing user email or email invalid"""
         )
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
-    if allowed_impersonate_tenant_id:
-        email = tenants_repository().get_tenant_email(allowed_impersonate_tenant_id)
-    badges_progress = badges_api_service.get_user_badges_status(email)
+    # if allowed_impersonate_tenant_id:
+    #     email = tenants_repository.get_tenant_email(allowed_impersonate_tenant_id)
+    if not allowed_impersonate_tenant_id:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
+        )
+    badges_progress = badges_api_service.get_user_badges_status(tenant_id=allowed_impersonate_tenant_id)
     return JSONResponse(content=badges_progress)
 
 
@@ -612,7 +613,6 @@ def fetch_all_tenants(
 def get_tenant_id_to_impersonate(
     impersonate_tenant_id: str,
     request: Request,
-    tenants_repository: TenantsRepository = tenants_repository(),
 ):
     logger.info(f"Checking if user is impersonating tenant")
     logger.info(f"Request state: {request.state}")
@@ -623,12 +623,7 @@ def get_tenant_id_to_impersonate(
         and email_utils.is_genie_admin(request.state.user_email)
     ):
         logger.info(f"User is impersonating tenant")
-        impersonated_email = tenants_repository.get_tenant_email(impersonate_tenant_id)
-        if impersonated_email:
-            logger.warning(f"User {request.state.user_email} is IMPERONSATING {impersonated_email}")
-            return impersonate_tenant_id
-        else:
-            logger.info(f"Could not find tenant to impersonate. Continue with original tenant id")
+        return impersonate_tenant_id
     logger.info(f"User is not impersonating tenant")
     return None
 
