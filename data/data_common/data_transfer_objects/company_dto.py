@@ -389,10 +389,10 @@ class CompanyDTO:
 
     def __str__(self):
         return (
-            f"CompanyDTO(uuid={self.uuid},\n name={self.name},\n domain={self.domain},\n address={self.address},\n "
-            f"country={self.country},\n logo={self.logo},\n founded_year={self.founded_year},\n size={self.size},\n "
-            f"industry={self.industry},\n description={self.description},\n overview={self.overview},\n challenges={self.challenges},\n "
-            f"technologies={self.technologies},\n employees={self.employees},\n social_links={self.social_links},\n "
-            f"annual_revenue={self.annual_revenue},\n total_funding={self.total_funding},\n funding_rounds={self.funding_rounds},\n "
+            f"CompanyDTO(uuid={self.uuid}, name={self.name}, domain={self.domain}, address={self.address}, "
+            f"country={self.country}, logo={self.logo}, founded_year={self.founded_year}, size={self.size}, "
+            f"industry={self.industry}, description={self.description}, overview={self.overview}, challenges={self.challenges}, "
+            f"technologies={self.technologies}, employees={self.employees}, social_links={self.social_links}, "
+            f"annual_revenue={self.annual_revenue}, total_funding={self.total_funding}, funding_rounds={self.funding_rounds}, "
             f"news={self.news})"
         )
