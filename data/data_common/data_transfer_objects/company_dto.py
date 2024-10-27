@@ -204,7 +204,7 @@ class CompanyDTO:
             ]
             if self.funding_rounds
             else None,
-            "news": [news_item.to_dict() for news_item in self.news if not isinstance(news_item, dict)]
+            "news": [news_item.to_dict() if not isinstance(news_item, dict) else news_item for news_item in self.news ]
             if self.news
             else None,
         }

@@ -445,6 +445,40 @@ def sync_profile(person_uuid: str, api_key: str) -> JSONResponse:
     response = admin_api_service.sync_profile(person_uuid)
     return JSONResponse(content=response)
 
+@v1_router.get("/internal/latest-profiles")
+def get_latest_profiles(request: Request, limit: int = 3, search_term: str = None) -> JSONResponse:
+    """
+    Get the latest profiles created by genie for admins.
+
+    """
+    if (
+        request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        response = admin_api_service.get_latest_profiles(limit, search_term)
+        return JSONResponse(content=response)
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden endpoint")
+    
+    
+@v1_router.post("/internal/update-profiles")
+async def update_profiles(request: Request) -> JSONResponse:
+    """
+    Update profiles for admins.
+
+    """
+    if (
+        request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        body = await request.json()
+        response = admin_api_service.update_profiles(body)
+        return JSONResponse(content=response)
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden endpoint")
+
 
 @v1_router.get("/internal/sync-email/{person_uuid}")
 def sync_email(
