@@ -52,7 +52,11 @@ def create_database_if_not_exists():
 def get_db_connection():
     try:
         # Get a connection from the pool
-        return connection_pool.getconn()
+        conn = connection_pool.getconn()
+        if conn.closed:
+            logger.error("Connection is closed")
+            return get_db_connection()
+        return conn
     except psycopg2.DatabaseError as e:
         logger.error(f"Error getting connection from pool: {e}")
         traceback.print_exc()

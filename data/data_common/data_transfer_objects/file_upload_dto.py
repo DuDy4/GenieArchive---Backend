@@ -7,18 +7,25 @@ import hashlib
 from common.utils.str_utils import get_uuid4
 from enum import Enum
 
+
 class FileStatusEnum(str, Enum):
     UPLOADED = "UPLOADED"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
+
 class FileCategoryEnum(str, Enum):
-    FAQ = "FAQ"
     WHITEPAPER = "WHITEPAPER"
     CASE_STUDY = "CASE_STUDY"
     COMPETITOR_ANALYSIS = "COMPETITOR_ANALYSIS"
+    FAQ = "FAQ"
     OTHER = "OTHER"
+
+    @classmethod
+    def get_all_categories(cls) -> List[str]:
+        return [category.value for category in cls]
+
 
 class FileUploadDTO(BaseModel):
     uuid: UUID
@@ -47,11 +54,13 @@ class FileUploadDTO(BaseModel):
             self.email,
             self.tenant_id,
             str(self.status),
-            self.categories
+            self.categories,
         )
 
     @classmethod
-    def from_tuple(cls, data: Tuple[UUID, str, Optional[str], datetime, int, str, str, List[str]]) -> "FileUploadDTO":
+    def from_tuple(
+        cls, data: Tuple[UUID, str, Optional[str], datetime, int, str, str, List[str]]
+    ) -> "FileUploadDTO":
         return cls(
             uuid=data[0],
             file_name=data[1],
@@ -61,7 +70,7 @@ class FileUploadDTO(BaseModel):
             email=data[5],
             tenant_id=data[6],
             status=FileStatusEnum(data[7]),
-            categories=data[8]
+            categories=data[8],
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -74,7 +83,7 @@ class FileUploadDTO(BaseModel):
             "email": self.email,
             "tenant_id": self.tenant_id,
             "status": self.status,
-            "categories": self.categories
+            "categories": self.categories,
         }
 
     @classmethod
@@ -100,7 +109,7 @@ class FileUploadDTO(BaseModel):
             email=email,
             tenant_id=tenant_id,
             status=FileStatusEnum.UPLOADED,
-            categories=[]
+            categories=[],
         )
 
     def update_file_content(self, file_content: str) -> None:

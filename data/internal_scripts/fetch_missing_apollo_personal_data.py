@@ -54,6 +54,6 @@ def fetch_apollo_data(uuids: list):
             break
 
 
-all_personal_data_uuid = get_all_uuids_that_did_not_try_apollo()
-logger.info(f"Persons without apollo_data: {len(all_personal_data_uuid)}")
-fetch_apollo_data(all_personal_data_uuid)
+# all_personal_data_uuid = get_all_uuids_that_did_not_try_apollo()
+# logger.info(f"Persons without apollo_data: {len(all_personal_data_uuid)}")
+# fetch_apollo_data(all_personal_data_uuid)
