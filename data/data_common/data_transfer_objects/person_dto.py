@@ -15,7 +15,7 @@ class PersonDTO:
 
     def to_dict(self):
         return {
-            "uuid": self.uuid,
+            "uuid": str(self.uuid),
             "name": self.name,
             "company": self.company,
             "email": self.email,

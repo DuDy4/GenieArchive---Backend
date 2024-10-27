@@ -180,7 +180,7 @@ class CompanyDTO:
 
     def to_dict(self):
         return {
-            "uuid": self.uuid,
+            "uuid": str(self.uuid),
             "name": to_custom_title_case(self.name),
             "domain": self.domain,
             "address": self.address,
@@ -204,7 +204,10 @@ class CompanyDTO:
             ]
             if self.funding_rounds
             else None,
-            "news": [news_item.to_dict() if not isinstance(news_item, dict) else news_item for news_item in self.news ]
+            "news": [
+                news_item.to_dict() if not isinstance(news_item, dict) else news_item
+                for news_item in self.news
+            ]
             if self.news
             else None,
         }
