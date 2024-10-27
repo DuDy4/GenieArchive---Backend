@@ -22,10 +22,6 @@ class Hobby(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "Hobby":
-        return cls.parse_obj(data)
-
     def to_tuple(self) -> Tuple[str, str]:
         return self.hobby_name, self.icon_url
 
@@ -60,7 +56,11 @@ class Phrase(BaseModel):
         return cls(phrase_text=data[0], reasoning=data[1], confidence_score=data[2])
 
     def to_dict(self) -> Dict[str, any]:
-        return self.model_dump()
+        return {
+            "phrase_text": str(self.phrase_text),
+            "reasoning": str(self.reasoning),
+            "confidence_score": int(self.confidence_score),
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "Phrase":
@@ -181,7 +181,21 @@ class ProfileDTO(BaseModel):
         return cls.parse_raw(json_str)
 
     def to_dict(self) -> dict:
-        return self.model_dump()
+        profile_dict = {
+            "uuid": str(self.uuid),
+            "name": self.name,
+            "company": self.company,
+            "position": self.position,
+            "summary": self.summary,
+            "picture_url": self.picture_url,
+            "get_to_know": {
+                key: [phrase.to_dict() for phrase in phrases] for key, phrases in self.get_to_know.items()
+            },
+            "connections": [connection.to_dict() for connection in self.connections],
+            "strengths": [strength.to_dict() for strength in self.strengths],
+            "hobbies": [str(hobby) for hobby in self.hobbies],
+        }
+        return profile_dict
 
     @classmethod
     def from_dict(cls, data: dict) -> "ProfileDTO":
