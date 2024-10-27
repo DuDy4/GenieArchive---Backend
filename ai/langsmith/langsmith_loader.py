@@ -270,12 +270,14 @@ class Langsmith:
         logger.info(f"Got news summary from Langsmith: {response}")
         return response
 
-    def get_company_challenges_with_news(self, company_dto):
+    async def get_company_challenges_with_news(self, company_dto):
         prompt = hub.pull("get_company_challenges_with_news")
         arguments = {"company_data": company_dto.to_dict(), "company_news": company_dto.news}
         try:
             runnable = prompt | self.model
-            response = self._run_prompt_with_retry(runnable, arguments)
+            response = await self._run_prompt_with_retry(runnable, arguments)
+            if response and isinstance(response, dict):
+                response = response.get("challenges")
         except Exception as e:
             response = f"Error: {e}"
         return response

@@ -85,7 +85,7 @@ class CompanyConsumer(GenieConsumer):
         news = self.fetched_news(company_dto.uuid, company_dto.name)
         company_dto.challenges = None
         company_dto.news = news
-        updated_challenges = self.langsmith.get_company_challenges_with_news(company_dto)
+        updated_challenges = await self.langsmith.get_company_challenges_with_news(company_dto)
         logger.info(f"Updated challenges: {updated_challenges}")
         company_dto.challenges = updated_challenges
         self.companies_repository.save_company_without_news(company_dto)
