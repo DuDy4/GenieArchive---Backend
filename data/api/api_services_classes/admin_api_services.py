@@ -11,6 +11,9 @@ from data.data_common.data_transfer_objects.meeting_dto import (
 )
 from data.api_services.embeddings import GenieEmbeddingsClient
 from ai.langsmith.langsmith_loader import Langsmith
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 from data.internal_scripts.fetch_social_media_news import (
     fetch_linkedin_posts,
     get_all_uuids_that_should_try_posts,
@@ -25,6 +28,7 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     companies_repository,
     personal_data_repository,
+    tenant_profiles_repository,
 )
 from common.genie_logger import GenieLogger
 import uuid
@@ -46,9 +50,57 @@ class AdminApiService:
         self.meetings_repository = meetings_repository()
         self.profiles_repository = profiles_repository()
         self.companies_repository = companies_repository()
+        self.tenant_profiles_repository = tenant_profiles_repository()
         self.personal_data_repository = personal_data_repository()
         self.embeddings_client = GenieEmbeddingsClient()
         self.langsmith = Langsmith()
+
+    def update_profiles(self, profiles):
+        for profile_data in profiles:
+            profile = profile_data.get("profile")
+            person = profile_data.get("person")
+            company = profile_data.get("company")
+
+            profile_dto = ProfileDTO.from_dict(profile)
+            person_dto = PersonDTO.from_dict(person)
+            company_dto = CompanyDTO.from_dict(company)
+
+            logger.info(f"Updating Profile: {profile_dto.name} - {person_dto.email} - {company_dto.name}")
+
+            self.persons_repository.save_person(person_dto)
+            self.companies_repository.save_company_without_news(company_dto)
+            self.profiles_repository.save_profile(profile_dto)
+        return {"status": "success"}
+
+    def get_latest_profiles(self, limit, search_term=None):
+        profile_uuids = self.profiles_repository.get_latest_profile_ids(limit, search_term)
+        profiles = []
+        for profile_uuid in profile_uuids:
+            profile = self.profiles_repository.get_profile_data(profile_uuid)
+            if not profile:
+                logger.error(f"Profile not found for: {profile_uuid}")
+                continue
+            profile.uuid = str(profile_uuid)
+            profile.picture_url = str(profile.picture_url)
+            if not profile:
+                logger.error(f"Profile not found: {profile_uuid}")
+                continue
+            # specific_get_to_know = self.tenant_profiles_repository.get_get_to_know(profile_uuid)
+            # if specific_get_to_know:
+            #     profile.get_to_know = specific_get_to_know
+
+            person = self.persons_repository.get_person(profile_uuid)
+            company = self.companies_repository.get_company_from_domain(person.email.split("@")[1])
+            profiles.append(
+                {
+                    "profile": profile.to_dict(),
+                    "person": person.to_dict(),
+                    "company": company.to_dict() if company else None,
+                }
+            )
+
+
+        return profiles
 
     def sync_profile(self, person_uuid):
         self.validate_uuid(person_uuid)

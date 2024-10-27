@@ -100,6 +100,29 @@ class ProfilesRepository:
         except Exception as error:
             logger.error(f"Error fetching id by uuid: {error}")
         return None
+    
+    def get_latest_profile_ids(self, limit: int, search_term: Optional[str] = None):
+        select_query = """ SELECT pr.uuid FROM profiles pr """
+        where_query = """ JOIN persons pe ON pr.uuid = pe.uuid
+                          WHERE pe.email LIKE %s OR pr.name LIKE %s """
+        order_query = "ORDER BY pr.id DESC LIMIT %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                if search_term:
+                    select_query = select_query + where_query + order_query
+                    cursor.execute(select_query, (f"%{search_term}%", f"%{search_term}%", limit))
+                else:
+                    cursor.execute(select_query + order_query, (limit,))
+                rows = cursor.fetchall()
+                profile_ids = [row[0] for row in rows]
+                if rows:
+                    profile_ids = [row[0] for row in rows]
+                    return profile_ids
+                else:
+                    logger.error(f"Error with getting latest profile ids")
+        except Exception as error:
+            logger.error(f"Error fetching latest id: {error}")
+        return None
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
