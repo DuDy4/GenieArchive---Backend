@@ -100,7 +100,7 @@ class ProfilesRepository:
         except Exception as error:
             logger.error(f"Error fetching id by uuid: {error}")
         return None
-    
+
     def get_latest_profile_ids(self, limit: int, search_term: Optional[str] = None):
         select_query = """ SELECT pr.uuid FROM profiles pr """
         where_query = """ JOIN persons pe ON pr.uuid = pe.uuid
@@ -166,7 +166,7 @@ class ProfilesRepository:
             logger.error(f"Error fetching profile data by uuid: {error}")
             traceback.print_exception(error)
         return None
-    
+
     def delete_by_email(self, email: str):
         delete_query = """
         DELETE FROM profiles

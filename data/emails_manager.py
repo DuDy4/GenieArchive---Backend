@@ -11,11 +11,15 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
+from common.utils.email_utils import filter_email_objects, filter_emails
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, MeetingClassification
+from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.dependencies.dependencies import (
     google_creds_repository,
     meetings_repository,
     tenants_repository,
+    profiles_repository,
+    companies_repository,
 )
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.topics import Topic
@@ -36,7 +40,10 @@ class EmailManager(GenieConsumer):
         )
         self.meetings_repository = meetings_repository()
         self.tenants_repository = tenants_repository()
+        self.companies_repository = companies_repository()
+        self.profiles_repository = profiles_repository()
         self.email_sender = GmailSender()
+        self.langsmith = Langsmith()
 
     async def process_event(self, event):
         logger.info(f"EmailManager processing event: {event}")
@@ -66,7 +73,7 @@ class EmailManager(GenieConsumer):
                 "message": f"Reminder already sent for meeting with UUID {meeting_uuid}",
             }
         meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
-        if not meeting:
+        if not meeting or not meeting.classification == MeetingClassification.EXTERNAL:
             logger.error(f"Meeting with UUID {meeting_uuid} not found")
             return {"status": "error", "message": f"Meeting with UUID {meeting_uuid} not found"}
         logger.info(f"Sending reminder for meeting with UUID {meeting_uuid}")
@@ -79,8 +86,26 @@ class EmailManager(GenieConsumer):
             logger.error(f"Tenant email not found for tenant ID {tenant_id}")
             return {"status": "error", "message": f"Tenant email not found for tenant ID {tenant_id}"}
 
-        message_to_send = self.email_sender.create_meeting_reminder_email(meeting)
-        logger.info(f"Sending reminder email to {tenant_email}: {message_to_send}")
+        filtered_emails = filter_emails(tenant_email, meeting.participants_emails)
+        logger.info(f"Filtered emails: {filtered_emails}")
+        filtered_profiles = [self.profiles_repository.get_profiles_by_email_list(filtered_emails)]
+        target_companies = [
+            self.companies_repository.get_company_from_domain(email.split("@")[1])
+            for email in filtered_emails
+        ]
+        if not target_companies:
+            logger.error("No target companies found for filtered emails")
+            return {"status": "error", "message": "No target companies found for filtered emails"}
+        target_company = target_companies[0]
+        target_company.employees = None
+
+        meeting_response = await self.langsmith.get_meeting_summary(
+            meeting_data=meeting, profiles=filtered_profiles, company_data=target_company
+        )
+        logger.info(f"Meeting summary response: {meeting_response}")
+
+        # message_to_send = self.email_sender.create_meeting_reminder_email_body(meeting)
+        # logger.info(f"Sending reminder email to {tenant_email}: {meeting_summary}")
 
 
 class GmailSender:
@@ -141,7 +166,7 @@ class GmailSender:
         body_text = f"Hello {profile.name},\n\nPlease review this link before the meeting:\n{link}\n\nBest regards,\nYour Team"
         self.send_email(user_email, profile.email, subject, body_text)  # Send to user's email
 
-    def create_meeting_reminder_email(self, meeting: MeetingDTO):
+    def create_meeting_reminder_email_body(self, meeting: MeetingDTO):
         """Creates a meeting reminder email."""
         body_text = f"""
         Hello,\n\n

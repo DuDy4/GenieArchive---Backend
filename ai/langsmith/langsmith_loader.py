@@ -281,3 +281,17 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
+
+    async def get_meeting_summary(self, meeting_data, profiles, company_data):
+        prompt = hub.pull("get_meeting_summary_to_email")
+        arguments = {
+            "meeting_data": meeting_data,
+            "profiles": profiles,
+            "company_data": company_data,
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
