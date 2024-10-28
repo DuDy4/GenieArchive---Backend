@@ -37,7 +37,8 @@ class MeetingsRepository:
             end_time VARCHAR,
             goals JSONB,
             agenda JSONB,
-            classification VARCHAR
+            classification VARCHAR,
+            reminder_sent BOOLEAN DEFAULT FALSE
         );
         """
         try:
@@ -581,6 +582,25 @@ class MeetingsRepository:
             logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
             return []
+
+    def has_sent_meeting_reminder(self, meeting_uuid: str) -> bool:
+        select_query = "SELECT reminder_sent FROM meetings WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (meeting_uuid,))
+                reminder_sent = cursor.fetchone()
+                logger.info(f"Got reminder_sent for meeting {meeting_uuid}")
+                if reminder_sent:
+                    return reminder_sent[0]
+                return False
+        except psycopg2.Error as error:
+            logger.error(f"Error fetching reminder_sent for meeting: {error.pgerror}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return False
 
     def get_meetings_by_participants_emails(self, emails: list[str]) -> list[MeetingDTO]:
         if not emails:
