@@ -547,7 +547,7 @@ class ProfilesRepository:
             traceback.print_exc()
             return []
 
-    def get_profiles_by_email_list(self, emails: list[str]) -> list:
+    def get_profiles_by_email_list(self, emails: list[str]) -> list[dict]:
         select_query = """
         SELECT persons.email, profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url
         FROM profiles
@@ -586,6 +586,50 @@ class ProfilesRepository:
                         hobbies,
                     )
                     profiles.append({"email": email, "profile": ProfileDTO.from_tuple(profile_data)})
+                return profiles
+        except Exception as error:
+            logger.error(f"Error fetching profiles by email list: {error}")
+            traceback.print_exc()
+            return []
+
+    def get_profiles_dto_by_email_list(self, emails: list[str]) -> list[ProfileDTO]:
+        select_query = """
+        SELECT profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url
+        FROM profiles
+        JOIN persons on persons.uuid = profiles.uuid
+        WHERE persons.email = ANY(%s);
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (emails,))
+                rows = cursor.fetchall()
+                logger.info(f"Got {len(rows)} profiles from database")
+                profiles = []
+
+                for row in rows:
+                    uuid = UUID(row[0])
+                    name = row[1]
+                    company = row[2]
+                    position = row[3]
+                    summary = row[8] if row[8] else None
+                    picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
+                    strengths = [Strength.from_dict(item) for item in row[4]]
+                    hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                    connections = [Connection.from_dict(item) for item in row[6]]
+                    get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                    profile_data = (
+                        uuid,
+                        name,
+                        company,
+                        position,
+                        summary,
+                        picture_url,
+                        get_to_know,
+                        connections,
+                        strengths,
+                        hobbies,
+                    )
+                    profiles.append(ProfileDTO.from_tuple(profile_data))
                 return profiles
         except Exception as error:
             logger.error(f"Error fetching profiles by email list: {error}")

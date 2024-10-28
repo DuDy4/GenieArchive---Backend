@@ -22,8 +22,10 @@ class TenantsApiService:
     def __init__(self):
         self.tenants_repository = tenants_repository()
         self.google_creds_repository = google_creds_repository()
-        self.google_client_id = env_utils.get(f"{DEV_MODE}GOOGLE_CLIENT_ID")
-        self.google_client_secret = env_utils.get(f"{DEV_MODE}GOOGLE_CLIENT_SECRET")
+        self.google_client_id = env_utils.get(f"GOOGLE_CLIENT_ID")
+        self.google_client_secret = env_utils.get(f"GOOGLE_CLIENT_SECRET")
+        self.email_google_client_id = env_utils.get(f"EMAIL_GOOGLE_CLIENT_ID")
+        self.email_google_client_secret = env_utils.get(f"EMAIL_GOOGLE_CLIENT_SECRET")
         self.google_token_uri = "https://oauth2.googleapis.com/token"
 
     async def post_successful_login(self, auth_data: dict):
@@ -204,8 +206,8 @@ class TenantsApiService:
         flow = Flow.from_client_config(
             {
                 "web": {
-                    "client_id": self.google_client_id,
-                    "client_secret": self.google_client_secret,
+                    "client_id": self.email_google_client_id,
+                    "client_secret": self.email_google_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": self.google_token_uri,
                     "redirect_uris": [REDIRECT_URI],
@@ -222,8 +224,8 @@ class TenantsApiService:
         flow = Flow.from_client_config(
             {
                 "web": {
-                    "client_id": self.google_client_id,
-                    "client_secret": self.google_client_secret,
+                    "client_id": self.email_google_client_id,
+                    "client_secret": self.email_google_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": self.google_token_uri,
                     "redirect_uris": [REDIRECT_URI],

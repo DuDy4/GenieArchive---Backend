@@ -282,12 +282,14 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
-    async def get_meeting_summary(self, meeting_data, profiles, company_data):
+    async def get_meeting_summary(self, meeting_data, seller_context, profiles, company_data):
+        logger.info("Running Langsmith prompt for meeting summary")
         prompt = hub.pull("get_meeting_summary_to_email")
         arguments = {
             "meeting_data": meeting_data,
             "profiles": profiles,
             "company_data": company_data,
+            "seller_context": seller_context,
         }
         try:
             runnable = prompt | self.model

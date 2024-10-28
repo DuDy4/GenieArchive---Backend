@@ -626,6 +626,22 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
+    def update_senders_meeting_reminder(self, meeting_uuid):
+        update_query = "UPDATE meetings SET reminder_sent = TRUE WHERE uuid = %s;"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (meeting_uuid,))
+                self.conn.commit()
+                logger.info(f"Updated reminder_sent for meeting {meeting_uuid}")
+        except psycopg2.Error as error:
+            logger.error(f"Error updating reminder_sent for meeting: {error.pgerror}")
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return False
+
 
 def hash_participants(participants_emails: list[str] | list[dict]) -> str:
     emails_string = json.dumps(participants_emails, sort_keys=True)
