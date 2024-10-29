@@ -293,6 +293,13 @@ class GmailSender:
                         </td>
                     </tr>
                 </table>
+                
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E0E0E0; text-align: center; color: #999999; font-size: 12px;">
+                    <p style="margin: 0;">You are receiving this email because you have a scheduled meeting with GenieAI.</p>
+                    <p style="margin: 5px 0;">
+                        If you no longer wish to receive these reminders, you can <a href="{self.create_unsubscribe_link(meeting)}" style="color: #7A5CFA; text-decoration: none;">unsubscribe here</a>.
+                    </p>
+                </div>
 
             </div>
         </body>
@@ -305,6 +312,9 @@ class GmailSender:
         """Creates a meeting link for a meeting."""
         encoded_subject = quote(meeting.subject) if meeting.subject else ""
         return f"{APP_URL}/meeting/{meeting.uuid}?name={encoded_subject}"
+
+    def create_unsubscribe_link(self, meeting):
+        return f"{APP_URL}/unsubscribe/{meeting.tenant_id}"
 
 
 if __name__ == "__main__":
