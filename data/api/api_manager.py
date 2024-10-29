@@ -91,6 +91,20 @@ async def file_uploaded(request: Request):
         return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
 
 
+@v1_router.get("/user-info/{tenant_id}")
+async def get_user_info(tenant_id: str):
+    """Returns the user info for a given tenant."""
+    user_info = tenants_api_service.get_user_info(tenant_id)
+    return JSONResponse(content=user_info)
+
+
+@v1_router.post("/unsubscribe/{tenant_id}")
+async def unsubscribe(tenant_id: str):
+    """Unsubscribes the tenant from the service."""
+    response = tenants_api_service.update_user_reminder_subscription(tenant_id, False)
+    return JSONResponse(content=response)
+
+
 @v1_router.post("/generate-upload-url")
 async def get_file_upload_url(request: Request):
     tenant_id = get_request_state_value(request, "tenant_id")

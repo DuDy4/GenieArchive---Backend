@@ -53,6 +53,18 @@ class TenantsApiService:
         }
         return response
 
+    def get_user_info(self, tenant_id):
+        tenant_email, tenant_name = self.tenants_repository.get_tenant_email_and_name(tenant_id)
+        return {"email": tenant_email, "name": tenant_name}
+
+    def update_user_reminder_subscription(self, tenant_id: str, reminder_subscription: bool):
+        try:
+            self.tenants_repository.update_reminder_subscription(tenant_id, reminder_subscription)
+            return {"status": "success", "message": "Reminder subscription updated successfully"}
+        except Exception as e:
+            logger.error(f"Error updating reminder subscription: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error updating reminder subscription")
+
     def fetch_google_meetings(self, user_email):
         logger.info(f"Received Google meetings request for tenant: {user_email}")
 
