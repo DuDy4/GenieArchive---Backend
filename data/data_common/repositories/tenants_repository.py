@@ -29,7 +29,8 @@ class TenantsRepository:
             tenant_id VARCHAR,
             user_name VARCHAR,
             email VARCHAR,
-            user_id VARCHAR
+            user_id VARCHAR,
+            reminder_subscription BOOLEAN DEFAULT TRUE
         );
         """
         try:
@@ -220,4 +221,4 @@ class TenantsRepository:
         except Exception as error:
             logger.error("Error updating reminder subscription:", error)
             logger.error(traceback.format_exc())
-
+            

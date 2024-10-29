@@ -626,8 +626,39 @@ class MeetingsRepository:
             traceback.print_exc()
             return []
 
+    def get_meetings_to_send_reminders(self):
+        """
+        This will return all external meetings that are scheduled to start in the next 30 minutes,
+        and have not yet had a reminder sent, for tenants with reminder_subscription = TRUE.
+        """
+        select_query = """
+            SELECT m.uuid, m.google_calendar_id, m.tenant_id, m.participants_emails, m.participants_hash, m.link, 
+                   m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification
+            FROM meetings m
+            INNER JOIN tenants t ON m.tenant_id = t.tenant_id
+            WHERE m.start_time::timestamp < CURRENT_TIMESTAMP + INTERVAL '30 minutes' 
+              AND m.start_time::timestamp > CURRENT_TIMESTAMP 
+              AND m.classification = %s 
+              AND m.reminder_sent is null
+              AND t.reminder_subscription = TRUE;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings to send reminders for")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as db_error:
+            logger.error(f"Database error fetching meetings to send reminders for: {db_error.pgerror}")
+            logger.debug(traceback.format_exc())  # Logs the traceback for detailed error analysis
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            logger.debug(traceback.format_exc())  # Logs the traceback for general exceptions
+            return []
+
     def update_senders_meeting_reminder(self, meeting_uuid):
-        update_query = "UPDATE meetings SET reminder_sent = TRUE WHERE uuid = %s;"
+        update_query = "UPDATE meetings SET reminder_sent = CURRENT_TIMESTAMP WHERE uuid = %s;"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(update_query, (meeting_uuid,))

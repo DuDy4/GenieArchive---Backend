@@ -7,5 +7,5 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
 
-event = GenieEvent(Topic.NEW_UPCOMING_MEETING, {"meeting_uuid": "d70bed58-7e4e-457a-898d-83db742640ab"})
+event = GenieEvent(Topic.NEW_UPCOMING_MEETING, {"meeting_uuid": "ec5592b3-bf2e-4784-9823-5c7e0300ec9b"})
 event.send()

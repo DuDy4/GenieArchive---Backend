@@ -228,8 +228,11 @@ class TenantsApiService:
             scopes=["https://www.googleapis.com/auth/gmail.send"],
         )
         flow.redirect_uri = REDIRECT_URI
-        auth_url, _ = flow.authorization_url(access_type="offline", prompt="consent")
-        return auth_url
+        authorization_url, state = flow.authorization_url(
+            access_type="offline",
+            prompt="consent"
+        )
+        return authorization_url
 
     def handle_google_oauth_callback(self, code: str):
         """Handles the OAuth callback, exchanges code for tokens, and saves to the database."""

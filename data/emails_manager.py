@@ -208,6 +208,7 @@ class GmailSender:
                     attendee["profile_picture"] = str(profile.picture_url)
 
         key_points = meeting_summary.get("key_points")
+        meeting_subject = meeting.subject  # Assume 'subject' is a property of MeetingDTO
 
         # Format attendees
         attendees_str = "".join(
@@ -237,10 +238,14 @@ class GmailSender:
                 <p style="font-size: 18px; font-weight: bold; color: #333333;">
                     👋 Hello,
                 </p>
+                
                 <p style="font-size: 16px; color: #444444;">
                     Just wanted to remind you that we have your back for your upcoming meeting! 🚀💼
                 </p>
-
+                <p style="font-size: 20px; font-weight: bold; color: #004080; text-align: center">
+                    Subject: {meeting_subject}
+                </p>
+    
                 <div style="margin-top: 20px;">
                     <h3 style="font-size: 22px; color: #004080; border-bottom: 2px solid #E0E0E0; padding-bottom: 8px; font-weight: 700;">Company Overview</h3>
                     <table style="width: 100%; margin-top: 10px; margin-left: 15px;">
@@ -254,32 +259,32 @@ class GmailSender:
                         </tr>
                     </table>
                 </div>
-
+    
                 {f"""<div style="margin-top: 20px;">
                     <h3 style="font-size: 22px; color: #004080; border-bottom: 2px solid #E0E0E0; padding-bottom: 8px; font-weight: 700;">Attendees</h3>
                     <ul style="list-style-type: none; padding: 0; margin: 0; font-size: 14px; color: #333333;">
                         {attendees_str}
                     </ul>
                 </div>""" if attendees else ""}
-
+    
                 {f"""
                 <div style="margin-top: 20px;">
                     <h3 style="font-size: 22px; color: #004080; border-bottom: 2px solid #E0E0E0; padding-bottom: 8px; font-weight: 700;">Key Points</h3>
                     <ul style="padding-left: 20px; color: #333333; font-size: 14px; margin: 0;">
                         {"".join(
-                            f"<li style='background-color: {('#f9f9ff' if i % 2 == 0 else '#ffffff')}; padding: 8px; border-radius: 5px; margin-bottom: 5px; list-style: \"🔹\";'>{point}</li>"
-                            for i, point in enumerate(key_points)
-                        )}
+            f"<li style='background-color: {('#f9f9ff' if i % 2 == 0 else '#ffffff')}; padding: 8px; border-radius: 5px; margin-bottom: 5px; list-style: \"🔹\";'>{point}</li>"
+            for i, point in enumerate(key_points)
+        )}
                     </ul>
                 </div>
                 """ if key_points else ""}
-
+    
                 <div style="margin-top: 20px; text-align: center;">
                     <a href="{self.create_meeting_link(meeting)}" style="display: inline-block; padding: 12px 24px; font-size: 16px; color: #ffffff; background-color: #7A5CFA; border-radius: 5px; text-decoration: none; margin-top: 10px;">
                         View More Meeting Details
                     </a>
                 </div>
-
+    
                 <table style="margin-top: 30px;">
                     <tr>
                         <td style="vertical-align: middle; padding-right: 10px;">
@@ -297,15 +302,16 @@ class GmailSender:
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E0E0E0; text-align: center; color: #999999; font-size: 12px;">
                     <p style="margin: 0;">You are receiving this email because you have a scheduled meeting with GenieAI.</p>
                     <p style="margin: 5px 0;">
-                        If you no longer wish to receive these reminders, you can <a href="{self.create_unsubscribe_link(meeting)}" style="color: #7A5CFA; text-decoration: none;">unsubscribe here</a>.
+                        If you no longer wish to receive these reminders, you can <a href="{self.create_unsubscribe_link(meeting)}" style="color: #7A5CFA; text-decoration: none;">unsubscribe</a> here.
                     </p>
                 </div>
-
+    
             </div>
         </body>
         </html>
         """
         return body_html
+
 
 
     def create_meeting_link(self, meeting: MeetingDTO):

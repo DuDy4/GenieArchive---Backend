@@ -10,8 +10,11 @@ logger = GenieLogger()
 conn = get_db_connection()
 
 alter_command = """
-ALTER TABLE meetings
-ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.meetings
+DROP COLUMN IF EXISTS reminder_sent;
+
+ALTER TABLE public.meetings
+ADD COLUMN IF NOT EXISTS reminder_sent TIMESTAMP DEFAULT NULL;
 """
 
 max_retries = 5

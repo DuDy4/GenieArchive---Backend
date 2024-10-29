@@ -119,7 +119,6 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
     if not personal_data:
         logger.error(f"Personal data not found for {person.uuid}")
         return None
-    personal_experience = personal_data.get("employment_history")
     apollo_company, position = get_company_and_position_from_apollo_personal_data(personal_data)
     company = get_company_name_from_domain(person.email)
     if not company:
