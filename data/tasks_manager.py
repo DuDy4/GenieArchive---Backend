@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 import logging
 import time
-from tasks import send_reminder_email  # Import the task module
+from data.tasks import send_reminder_email  # Import the task module
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
