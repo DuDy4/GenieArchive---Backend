@@ -687,7 +687,6 @@ def get_tenant_id_to_impersonate(
     request: Request,
 ):
     logger.info(f"Checking if user is impersonating tenant")
-    logger.info(f"Request state: {request.state}")
     if (
         impersonate_tenant_id
         and request.state
