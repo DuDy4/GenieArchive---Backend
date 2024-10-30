@@ -29,7 +29,8 @@ class TenantsRepository:
             tenant_id VARCHAR,
             user_name VARCHAR,
             email VARCHAR,
-            user_id VARCHAR
+            user_id VARCHAR,
+            reminder_subscription BOOLEAN DEFAULT TRUE
         );
         """
         try:
@@ -195,3 +196,29 @@ class TenantsRepository:
             logger.error("Error getting all tenants ids:", error)
             logger.error(traceback.format_exc())
             return []
+
+    def get_tenant_email_and_name(self, tenant_id):
+        select_query = """
+        SELECT email, user_name FROM tenants WHERE tenant_id = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (tenant_id,))
+                result = cursor.fetchone()
+                return result
+        except Exception as error:
+            logger.error("Error getting tenant email and name:", error)
+            logger.error(traceback.format_exc())
+            return None
+
+    def update_reminder_subscription(self, tenant_id, reminder_subscription: bool):
+        update_query = "UPDATE tenants SET reminder_subscription = %s WHERE tenant_id = %s"
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(update_query, (reminder_subscription, tenant_id))
+                self.conn.commit()
+                logger.info(f"Updated reminder subscription for tenant {tenant_id}")
+        except Exception as error:
+            logger.error("Error updating reminder subscription:", error)
+            logger.error(traceback.format_exc())
+            

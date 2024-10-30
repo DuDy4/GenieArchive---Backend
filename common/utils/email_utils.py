@@ -39,7 +39,7 @@ def extract_email_from_url(url: str) -> str:
         return None
 
 
-def filter_email_objects(participants_emails):
+def filter_email_objects(participants_emails) -> List:
     """
     Filter emails of:
     1. is the organizer.

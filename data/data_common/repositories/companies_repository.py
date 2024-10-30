@@ -210,6 +210,31 @@ class CompaniesRepository:
             traceback.print_exc()
             return []
 
+    def get_all_companies_without_challenges(self):
+        select_query = """
+        SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+        FROM companies WHERE challenges IS NULL or challenges = '[]';
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                companies = cursor.fetchall()
+                if companies:
+                    logger.debug(f"Got {len(companies)} companies: {companies}")
+                    companies = [CompanyDTO.from_tuple(company) for company in companies]
+                    logger.debug(f"Companies: {companies}")
+                    return companies
+                logger.info(f"No companies found")
+                return []
+        except psycopg2.Error as error:
+            logger.error(f"Error getting companies: {error}")
+            traceback.print_exc()
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            traceback.print_exc()
+            return []
+
     def save_news(self, uuid, news: Union[List[NewsData], List[dict]]):
         self.create_table_if_not_exists()
         self.validate_news(news)

@@ -1,6 +1,7 @@
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
 from data.data_common.dependencies.dependencies import tenants_repository, google_creds_repository
+from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from data.data_common.events.genie_event import GenieEvent
@@ -13,13 +14,18 @@ from data.internal_services.tenant_service import TenantService
 
 logger = GenieLogger()
 
+REDIRECT_URI = env_utils.get("SELF_URL") + "/v1/google-oauth/callback"
+DEV_MODE = env_utils.get("DEV_MODE", "")
+
 
 class TenantsApiService:
     def __init__(self):
         self.tenants_repository = tenants_repository()
         self.google_creds_repository = google_creds_repository()
-        self.google_client_id = env_utils.get("GOOGLE_CLIENT_ID")
-        self.google_client_secret = env_utils.get("GOOGLE_CLIENT_SECRET")
+        self.google_client_id = env_utils.get(f"GOOGLE_CLIENT_ID")
+        self.google_client_secret = env_utils.get(f"GOOGLE_CLIENT_SECRET")
+        self.email_google_client_id = env_utils.get(f"EMAIL_GOOGLE_CLIENT_ID")
+        self.email_google_client_secret = env_utils.get(f"EMAIL_GOOGLE_CLIENT_SECRET")
         self.google_token_uri = "https://oauth2.googleapis.com/token"
 
     async def post_successful_login(self, auth_data: dict):
@@ -46,6 +52,18 @@ class TenantsApiService:
             },
         }
         return response
+
+    def get_user_info(self, tenant_id):
+        tenant_email, tenant_name = self.tenants_repository.get_tenant_email_and_name(tenant_id)
+        return {"email": tenant_email, "name": tenant_name}
+
+    def update_user_reminder_subscription(self, tenant_id: str, reminder_subscription: bool):
+        try:
+            self.tenants_repository.update_reminder_subscription(tenant_id, reminder_subscription)
+            return {"status": "success", "message": "Reminder subscription updated successfully"}
+        except Exception as e:
+            logger.error(f"Error updating reminder subscription: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error updating reminder subscription")
 
     def fetch_google_meetings(self, user_email):
         logger.info(f"Received Google meetings request for tenant: {user_email}")
@@ -133,13 +151,11 @@ class TenantsApiService:
 
         return {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
 
-
     def create_tenant(self, tenant_data):
         tenant_id = tenant_data.get("tenantId")
         if not tenant_id:
             raise HTTPException(status_code=400, detail="Missing tenant ID")
         self.tenants_repository.insert(tenant_data)
-
 
     def login_event(self, user_info):
         try:
@@ -190,10 +206,69 @@ class TenantsApiService:
         except Exception as e:
             logger.error(f"Error during login event: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-        
 
     def import_google_meetings(self, tenant_id):
         tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
         if not tenant_email:
             raise HTTPException(status_code=404, detail="Tenant not found")
         return self.fetch_google_meetings(tenant_email)
+
+    def start_google_oauth(self):
+        """Initiates the OAuth flow and returns an authorization URL."""
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": self.email_google_client_id,
+                    "client_secret": self.email_google_client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": self.google_token_uri,
+                    "redirect_uris": [REDIRECT_URI],
+                }
+            },
+            scopes=["https://www.googleapis.com/auth/gmail.send"],
+        )
+        flow.redirect_uri = REDIRECT_URI
+        authorization_url, state = flow.authorization_url(
+            access_type="offline",
+            prompt="consent"
+        )
+        return authorization_url
+
+    def handle_google_oauth_callback(self, code: str):
+        """Handles the OAuth callback, exchanges code for tokens, and saves to the database."""
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": self.email_google_client_id,
+                    "client_secret": self.email_google_client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": self.google_token_uri,
+                    "redirect_uris": [REDIRECT_URI],
+                }
+            },
+            scopes=["https://www.googleapis.com/auth/gmail.send"],
+        )
+        flow.redirect_uri = REDIRECT_URI
+
+        try:
+            # Exchange authorization code for tokens
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+
+            # Extract tokens
+            access_token = creds.token
+            refresh_token = creds.refresh_token
+
+            # Save tokens to the database using GoogleCredsRepository
+            self.google_creds_repository.save_creds(
+                user_email="hello@genieai.ai",
+                user_access_token=access_token,
+                user_refresh_token=refresh_token,
+            )
+            logger.info(f"Tokens saved for user hello@genieai.ai")
+
+            return {"status": "success", "message": "Tokens saved to database."}
+
+        except Exception as e:
+            logger.error(f"Error during OAuth callback: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error during OAuth callback")

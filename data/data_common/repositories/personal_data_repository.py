@@ -569,7 +569,7 @@ class PersonalDataRepository:
                 cursor.execute(select_query, (uuid,))
                 profile_picture_url = cursor.fetchone()
                 if profile_picture_url:
-                    return profile_picture_url[0]
+                    return profile_picture_url[0] if 'static.licdn.com' not in profile_picture_url[0] else "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
                 else:
                     logger.warning("Profile was not found")
                     return ""

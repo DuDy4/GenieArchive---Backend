@@ -8,7 +8,7 @@ from deep_translator import GoogleTranslator
 
 from common.genie_logger import tenant_id
 from common.utils import env_utils, email_utils
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from fastapi import HTTPException
 
 from data.api.base_models import *
@@ -44,6 +44,29 @@ badges_api_service = BadgesApiService()
 logger.info("Imported all services")
 
 
+@v1_router.get("/google-oauth/start")
+async def google_oauth_start():
+    """Initiates the OAuth flow and returns an authorization URL."""
+    auth_url = tenants_api_service.start_google_oauth()
+    return RedirectResponse(auth_url)
+
+
+@v1_router.get("/google-oauth/callback")
+async def google_oauth_callback(request: Request, code: str = Query(...)):
+    """Handles the OAuth callback and saves tokens to the database."""
+    try:
+        logger.info("Handling OAuth callback")
+        response = tenants_api_service.handle_google_oauth_callback(code)
+        if response:
+            return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
+        else:
+            return JSONResponse(content={"status": "error", "message": "Error saving tokens to database."})
+
+    except Exception as e:
+        logger.error(f"Error during OAuth callback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+
 @v1_router.post("/file-uploaded")
 async def file_uploaded(request: Request):
     logger.info(f"New file uploaded")
@@ -66,6 +89,20 @@ async def file_uploaded(request: Request):
         return JSONResponse(content={"status": "success", "message": "File uploaded"})
     else:
         return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
+
+
+@v1_router.get("/user-info/{tenant_id}")
+async def get_user_info(tenant_id: str):
+    """Returns the user info for a given tenant."""
+    user_info = tenants_api_service.get_user_info(tenant_id)
+    return JSONResponse(content=user_info)
+
+
+@v1_router.post("/unsubscribe/{tenant_id}")
+async def unsubscribe(tenant_id: str):
+    """Unsubscribes the tenant from the service."""
+    response = tenants_api_service.update_user_reminder_subscription(tenant_id, False)
+    return JSONResponse(content=response)
 
 
 @v1_router.post("/generate-upload-url")
@@ -445,6 +482,7 @@ def sync_profile(person_uuid: str, api_key: str) -> JSONResponse:
     response = admin_api_service.sync_profile(person_uuid)
     return JSONResponse(content=response)
 
+
 @v1_router.get("/internal/latest-profiles")
 def get_latest_profiles(request: Request, limit: int = 3, search_term: str = None) -> JSONResponse:
     """
@@ -460,8 +498,8 @@ def get_latest_profiles(request: Request, limit: int = 3, search_term: str = Non
         return JSONResponse(content=response)
     else:
         raise HTTPException(status_code=403, detail="Forbidden endpoint")
-    
-    
+
+
 @v1_router.post("/internal/update-profiles")
 async def update_profiles(request: Request) -> JSONResponse:
     """

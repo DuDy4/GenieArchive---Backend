@@ -82,7 +82,13 @@ class CompanyConsumer(GenieConsumer):
             logger.info(f"Company news for {company_dto.name} is up to date")
             return {"status": "success"}
         logger.info(f"Fetching news for company {company_dto.name}")
-        self.fetched_news(company_dto.uuid, company_dto.name)
+        news = self.fetched_news(company_dto.uuid, company_dto.name)
+        company_dto.challenges = None
+        company_dto.news = news
+        updated_challenges = await self.langsmith.get_company_challenges_with_news(company_dto)
+        logger.info(f"Updated challenges: {updated_challenges}")
+        company_dto.challenges = updated_challenges
+        self.companies_repository.save_company_without_news(company_dto)
         event = GenieEvent(topic=Topic.COMPANY_NEWS_UPDATED, data={"company_uuid": company_dto.uuid})
         event.send()
 
@@ -157,6 +163,7 @@ class CompanyConsumer(GenieConsumer):
             logger.info(f"Fetched {len(news_list)} news for company {company_name}")
             self.companies_repository.save_news(company_uuid, news_list)
             logger.info(f"Company news for {company_name} updated")
+            return news_list
         else:
             logger.info(f"No news found for company {company_name}")
 

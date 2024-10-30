@@ -176,6 +176,7 @@ def get_profile_picture(person: PersonDTO, social_links: list[SocialMediaLinks])
             )
         )
         profile_picture = profile_picture.strip() if isinstance(profile_picture, str) else None
+        profile_picture = profile_picture if 'static.licdn.com' not in profile_picture else None
 
         # Validate LinkedIn picture URL is working
         if profile_picture and linkedin_picture_fetcher.check_url_exists(profile_picture):
@@ -204,4 +205,4 @@ def get_profile_picture(person: PersonDTO, social_links: list[SocialMediaLinks])
                     logger.warning(f"No {platform} profile picture found for {person.uuid}")
     # Step 5: No valid profile picture found
     logger.warning(f"No valid profile picture found for {person.uuid}")
-    return None
+    return 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png'

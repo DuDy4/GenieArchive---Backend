@@ -75,7 +75,7 @@ class Langsmith:
             "news": company_data.get("news", "not found") if company_data else "not found",
             "product_data": person_data.get("product_data", "not found"),
             "company_data": company_data if company_data else "not found",
-            "seller_context" : seller_context if seller_context else "not found",
+            "seller_context": seller_context if seller_context else "not found",
         }
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
@@ -268,4 +268,32 @@ class Langsmith:
             response = f"Error: {e}"
 
         logger.info(f"Got news summary from Langsmith: {response}")
+        return response
+
+    async def get_company_challenges_with_news(self, company_dto):
+        prompt = hub.pull("get_company_challenges_with_news")
+        arguments = {"company_data": company_dto.to_dict(), "company_news": company_dto.news}
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+            if response and isinstance(response, dict):
+                response = response.get("challenges")
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
+    async def get_meeting_summary(self, meeting_data, seller_context, profiles, company_data):
+        logger.info("Running Langsmith prompt for meeting summary")
+        prompt = hub.pull("get_meeting_summary_to_email")
+        arguments = {
+            "meeting_data": meeting_data,
+            "profiles": profiles,
+            "company_data": company_data,
+            "seller_context": seller_context,
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+        except Exception as e:
+            response = f"Error: {e}"
         return response
