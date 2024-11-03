@@ -136,19 +136,15 @@ async def get_file_upload_url(request: Request):
 
 @v1_router.get("/user-badges")
 async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
-    email = get_request_state_value(request, "user_email")
-    if not email:
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
         raise HTTPException(
-            status_code=401, detail=f"""Unauthorized request. JWT is missing user email or email invalid"""
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"""
         )
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
-    # if allowed_impersonate_tenant_id:
-    #     email = tenants_repository.get_tenant_email(allowed_impersonate_tenant_id)
-    if not allowed_impersonate_tenant_id:
-        raise HTTPException(
-            status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
-        )
-    badges_progress = badges_api_service.get_user_badges_status(tenant_id=allowed_impersonate_tenant_id)
+    if allowed_impersonate_tenant_id:
+        tenant_id = allowed_impersonate_tenant_id
+    badges_progress = badges_api_service.get_user_badges_status(tenant_id=tenant_id)
     return JSONResponse(content=badges_progress)
 
 
