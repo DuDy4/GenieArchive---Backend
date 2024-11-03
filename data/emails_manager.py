@@ -292,7 +292,7 @@ class GmailSender:
                         </td>
                         <td style="vertical-align: middle;">
                             <p style="font-size: 16px; color: #333333; margin: 0;">
-                                Warm regards,<br>
+                                Best wishes,<br>
                                 <strong style="color: #7A5CFA;">GenieAI</strong>
                             </p>
                         </td>

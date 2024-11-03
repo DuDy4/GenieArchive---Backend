@@ -6,6 +6,7 @@ from typing import Union, Optional
 import psycopg2
 from pydantic import AnyUrl
 
+from common.utils import env_utils
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
@@ -19,6 +20,7 @@ from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 DEFAULT_PROFILE_PICTURE = "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png"
+BLOB_CONTAINER_PICTURES_NAME = env_utils.get("BLOB_CONTAINER_PICTURES_NAME", "profile-pictures")
 
 
 class ProfilesRepository:
@@ -809,6 +811,29 @@ class ProfilesRepository:
                 if rows:
                     logger.info(f"Got {len(rows)} profile pictures from database")
                     return [{"name": row[0], "picture_url": row[1]} for row in rows]
+                else:
+                    logger.info(f"Could not find profile pictures")
+                    return []
+        except Exception as error:
+            logger.error(f"Error fetching profile pictures: {error}")
+            traceback.print_exc()
+            return []
+
+    def get_all_profiles_pictures_to_upload(self):
+        select_query = f"""
+        SELECT uuid, picture_url
+        FROM profiles
+        WHERE not(picture_url IS NULL OR picture_url = ''
+        OR picture_url = '{DEFAULT_PROFILE_PICTURE}' OR picture_url LIKE 'https://static.licdn.com%' OR
+        picture_url LIKE '%{BLOB_CONTAINER_PICTURES_NAME}%');
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query)
+                rows = cursor.fetchall()
+                if rows:
+                    logger.info(f"Got {len(rows)} profile pictures from database")
+                    return [{"uuid": row[0], "picture_url": row[1]} for row in rows]
                 else:
                     logger.info(f"Could not find profile pictures")
                     return []
