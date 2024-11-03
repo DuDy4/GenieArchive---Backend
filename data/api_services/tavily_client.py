@@ -2,7 +2,7 @@ import os
 import sys
 from tavily import TavilyClient
 from dotenv import load_dotenv
-from datetime import date
+from datetime import date, datetime
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -31,8 +31,8 @@ class Tavily:
         if not topic:
             logger.error("Topic is missing")
             return
-        query = f"What are the lates updates about the company {topic}? Only return answers with a score of 0.8 and above"
-        response = tavily_client.search(query)
+        query = f"What are the lates updates about the company {topic}? Only return answers with a score of 0.8 and above, make sure to include date field in the response."
+        response = tavily_client.search(query, topic="news", max_results=5)
 
         news_list = []
         results = response.get("results", [])
@@ -41,12 +41,14 @@ class Tavily:
                 if news:
                     logger.info(f"Missing data in news: {news}")
                 continue
+            logger.info(f"Found news: {news}")
+            datetime_obj = datetime.strptime(news.get('published_date'), "%a, %d %b %Y %H:%M:%S %Z") if news.get('published_date') else None
             news_data = {
                 "title": news.get("title"),
                 "summary": news.get("content"),
                 "media": "Web",
                 "link": news.get("url"),
-                "date": str(date.today()),
+                "date": str(datetime_obj.date()) if datetime_obj else str(date.today()),
             }
             news_list.append(NewsData.from_dict(news_data))
         if not news_list:
