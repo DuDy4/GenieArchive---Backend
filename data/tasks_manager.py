@@ -28,7 +28,7 @@ class SchedulerService:
             self.scheduler.add_job(task_module.run, DateTrigger(run_date=datetime.now()))
 
         # Schedule the task for every 15 minutes at fixed intervals
-        cron_trigger = CronTrigger(minute="*/15")
+        cron_trigger = CronTrigger(minute="*/5")
         self.scheduler.add_job(task_module.run, cron_trigger, id=task_module.__name__, replace_existing=True)
 
         logger.info(f"Scheduled task '{task_module.__name__}' for every 15 minutes at fixed intervals.")
