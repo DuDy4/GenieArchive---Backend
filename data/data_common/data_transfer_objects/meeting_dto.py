@@ -3,7 +3,10 @@ import json
 import re
 from enum import Enum
 
+from datetime import datetime, timedelta, timezone
+
 from typing import List, Dict, Any, Optional
+from zoneinfo import ZoneInfo
 
 from data.data_common.utils.str_utils import get_uuid4
 from common.utils.email_utils import filter_email_objects
@@ -225,6 +228,51 @@ class MeetingDTO:
             f"agenda={self.agenda}), classification={self.classification}"
         )
 
+    @staticmethod
+    def calculate_reminder_schedule(start_time_str: str, meeting_timezone: str = 'UTC') -> datetime:
+        try:
+            # Convert start_time_str to a datetime object in the provided timezone
+            if 'T' in start_time_str:
+                # Assume ISO format
+                start_time = datetime.fromisoformat(start_time_str).replace(tzinfo=None)
+            else:
+                # Assume a date without time, default to midnight in the given timezone
+                start_time = datetime.strptime(start_time_str, "%Y-%m-%d")
+
+            logger.info(f"Start time: {start_time}")
+
+            # Localize the datetime to the meeting's timezone
+            localized_start_time = start_time.replace(tzinfo=ZoneInfo(meeting_timezone))
+
+            logger.info(f"Localized start time: {localized_start_time}")
+
+            # Convert the localized time to UTC
+            start_time_utc = localized_start_time.astimezone(timezone.utc)
+
+            logger.info(f"Start time in UTC: {start_time_utc}")
+
+            # Calculate the reminder time (30 minutes before the meeting) in UTC
+            reminder_time = start_time_utc - timedelta(minutes=30)
+
+            logger.info(f"Reminder time: {reminder_time}")
+
+            # Round up to the nearest 5-minute interval
+            reminder_minute = (reminder_time.minute + 4) // 5 * 5
+            reminder_time = reminder_time.replace(minute=reminder_minute, second=0, microsecond=0)
+
+            logger.info(f"Reminder time after rounding: {reminder_time}")
+
+            # Adjust if rounding pushed the time to the next hour
+            if reminder_minute == 60:
+                reminder_time += timedelta(hours=1)
+                reminder_time = reminder_time.replace(minute=0)
+
+            return reminder_time  # Returns the reminder time in UTC
+        except ValueError as e:
+            logger.error(f"Invalid start_time format: {start_time_str} - {e}")
+            return None
+
+
 
 def evaluate_meeting_classification(participants_emails: List[str]) -> MeetingClassification:
     if len(participants_emails) <= 1:
@@ -279,3 +327,6 @@ def extract_meeting_links(event):
     if len(meeting_links) > 1:
         meeting_links = list(set(meeting_links))
     return meeting_links[0] if meeting_links else ""
+
+
+
