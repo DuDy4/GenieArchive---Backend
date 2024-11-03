@@ -134,7 +134,11 @@ class Connection(BaseModel):
         return cls(name=data[0], image_url=data[1], linkedin_url=data[2])
 
     def to_dict(self) -> Dict[str, any]:
-        return self.model_dump()
+        return {
+            "name": str(self.name),
+            "image_url": str(self.image_url) if self.image_url else None,
+            "linkedin_url": str(self.linkedin_url) if self.linkedin_url else None,
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "Connection":
