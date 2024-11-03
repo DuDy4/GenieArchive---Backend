@@ -636,8 +636,8 @@ class MeetingsRepository:
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE m.start_time::timestamp < CURRENT_TIMESTAMP + INTERVAL '30 minutes' 
-              AND m.start_time::timestamp > CURRENT_TIMESTAMP 
+            WHERE (m.start_time::timestamp AT TIME ZONE 'UTC') < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') + INTERVAL '30 minutes'
+              AND (m.start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
               AND m.classification = %s 
               AND m.reminder_sent is null
               AND t.reminder_subscription = TRUE;
@@ -656,6 +656,30 @@ class MeetingsRepository:
             logger.error(f"Unexpected error: {e}")
             logger.debug(traceback.format_exc())  # Logs the traceback for general exceptions
             return []
+
+    def get_next_meeting(self):
+        select_query = """
+            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
+                   subject, location, start_time, end_time, agenda, classification
+            FROM meetings
+            WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') and classification = %s
+            ORDER BY start_time
+            LIMIT 1;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
+                meeting = cursor.fetchone()
+                if meeting:
+                    logger.info(f"Got next meeting: {meeting[0]}")
+                    return MeetingDTO.from_tuple(meeting)
+                else:
+                    logger.info("No upcoming meeting found")
+                    return None
+        except psycopg2.Error as db_error:
+            logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
+            logger.debug(traceback.format_exc())
+
 
     def update_senders_meeting_reminder(self, meeting_uuid):
         update_query = "UPDATE meetings SET reminder_sent = CURRENT_TIMESTAMP WHERE uuid = %s;"
