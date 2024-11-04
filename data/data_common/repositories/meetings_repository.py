@@ -324,6 +324,10 @@ class MeetingsRepository:
         agenda = meeting.agenda
         agenda_dicts = [agenda_item.to_dict() for agenda_item in agenda] if agenda else None
 
+        reminder_schedule = meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None
+
+        logger.info(f"Reminder schedule: {reminder_schedule}")
+
         meeting_data = (
             meeting.tenant_id,
             json.dumps(meeting.participants_emails),
@@ -335,7 +339,7 @@ class MeetingsRepository:
             meeting.end_time,
             json.dumps(agenda_dicts),
             meeting.classification.value,
-            meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None,
+            reminder_schedule,
             meeting.google_calendar_id,
         )
         logger.debug(f"About to update meeting data: {meeting_data}")
@@ -435,7 +439,7 @@ class MeetingsRepository:
         exists_query = """
         SELECT 1 FROM meetings
         WHERE google_calendar_id = %s AND participants_hash = %s AND start_time = %s AND link = %s AND agenda = %s
-        AND classification != %s;
+        AND classification != %s AND reminder_schedule = %s;
         """
         try:
             with self.conn.cursor() as cursor:
@@ -451,6 +455,7 @@ class MeetingsRepository:
                         meeting.link,
                         json.dumps(agenda),
                         MeetingClassification.DELETED.value,
+                        meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None,
                     ),
                 )
                 result = cursor.fetchone() is not None
@@ -683,6 +688,29 @@ class MeetingsRepository:
         except psycopg2.Error as db_error:
             logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
             logger.debug(traceback.format_exc())
+
+
+    def get_all_meetings_without_reminders(self):
+        select_query = """
+            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
+                   subject, location, start_time, end_time, agenda, classification
+            FROM meetings
+            WHERE reminder_schedule IS NULL AND classification = %s;
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
+                meetings = cursor.fetchall()
+                logger.info(f"Got {len(meetings)} meetings without reminders")
+                return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+        except psycopg2.Error as db_error:
+            logger.error(f"Database error fetching meetings without reminders: {db_error.pgerror}")
+            logger.debug(traceback.format_exc())
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            logger.debug(traceback.format_exc())
+            return []
 
 
     def update_senders_meeting_reminder(self, meeting_uuid):
