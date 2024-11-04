@@ -38,7 +38,8 @@ class MeetingsRepository:
             goals JSONB,
             agenda JSONB,
             classification VARCHAR,
-            reminder_sent BOOLEAN DEFAULT FALSE
+            reminder_sent BOOLEAN DEFAULT FALSE,
+            reminder_schedule TIMESTAMPTZ DEFAULT NULL
         );
         """
         try:
@@ -55,8 +56,9 @@ class MeetingsRepository:
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
         insert_query = """
-        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, classification)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link,
+         subject, location, start_time, end_time, classification, reminder_schedule)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
@@ -72,6 +74,7 @@ class MeetingsRepository:
             meeting.start_time,
             meeting.end_time,
             meeting.classification.value,  # Convert enum to string for DB
+            meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None,
         )
         logger.info(f"About to insert meeting data: {meeting_data}")
 
@@ -314,7 +317,7 @@ class MeetingsRepository:
         update_query = """
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
-        start_time = %s, end_time = %s, agenda = %s, classification = %s
+        start_time = %s, end_time = %s, agenda = %s, classification = %s, reminder_schedule = %s
         WHERE google_calendar_id = %s;
         """
 
@@ -332,6 +335,7 @@ class MeetingsRepository:
             meeting.end_time,
             json.dumps(agenda_dicts),
             meeting.classification.value,
+            meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None,
             meeting.google_calendar_id,
         )
         logger.debug(f"About to update meeting data: {meeting_data}")
@@ -633,13 +637,13 @@ class MeetingsRepository:
         """
         select_query = """
             SELECT m.uuid, m.google_calendar_id, m.tenant_id, m.participants_emails, m.participants_hash, m.link, 
-                   m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification
+                   m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE (m.start_time::timestamp AT TIME ZONE 'UTC') < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') + INTERVAL '30 minutes'
-              AND (m.start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '15 minutes') 
+                  AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '30 minutes')
               AND m.classification = %s 
-              AND m.reminder_sent is null
+              AND m.reminder_sent IS NULL
               AND t.reminder_subscription = TRUE;
         """
         try:
