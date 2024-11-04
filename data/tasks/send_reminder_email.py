@@ -16,11 +16,20 @@ def run():
     meetings_to_send_reminders = meetings_repository.get_meetings_to_send_reminders()
     logger.info(f"Number of meetings to send reminders: {len(meetings_to_send_reminders)}")
 
+    next_meeting = meetings_repository.get_next_meeting()
+    if next_meeting:
+        logger.info(f"Next meeting: {next_meeting.subject}, start_time: {next_meeting.start_time}, classification: {next_meeting.classification.value}")
+        next_meeting_time = datetime.fromisoformat(next_meeting.start_time).replace(tzinfo=timezone.utc)
+        next_meeting_time_utc = next_meeting_time.astimezone(timezone.utc)
+        logger.info(f"Next meeting start time in UTC: {next_meeting_time_utc}")
+
+    else:
+        logger.info("No upcoming meetings")
+
     for meeting in meetings_to_send_reminders:
         logger.info(f"Sending reminder for meeting: {meeting.subject}, "
                     f"Start Time (UTC): {meeting.start_time}, "
                     f"Classification: {meeting.classification.value}")
-
         event = GenieEvent(
             topic=Topic.NEW_UPCOMING_MEETING,
             data={"meeting_uuid": meeting.uuid},
