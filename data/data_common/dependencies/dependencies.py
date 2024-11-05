@@ -16,24 +16,19 @@ from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 
-try:
-    t_repository = TenantsRepository()
-    pd_repository = PersonalDataRepository()
-    p_repository = PersonsRepository()
-    pr_repository = ProfilesRepository()
-    tp_repository = TenantProfilesRepository()
-    m_repository = MeetingsRepository()
-    gc_repository = GoogleCredsRepository()
-    o_repository = OwnershipsRepository()
-    h_repository = HobbiesRepository()
-    c_repository = CompaniesRepository()
-    s_repository = StatsRepository()
-    b_repository = BadgesRepository()
-    f_repository = FileUploadRepository()
-except Exception as e:
-    logger.error(f"Error establishing database connection: {e}")
-finally:
-    logger.info("Connection returned to pool in dependencies")
+t_repository = TenantsRepository()
+pd_repository = PersonalDataRepository()
+p_repository = PersonsRepository()
+pr_repository = ProfilesRepository()
+tp_repository = TenantProfilesRepository()
+m_repository = MeetingsRepository()
+gc_repository = GoogleCredsRepository()
+o_repository = OwnershipsRepository()
+h_repository = HobbiesRepository()
+c_repository = CompaniesRepository()
+s_repository = StatsRepository()
+b_repository = BadgesRepository()
+f_repository = FileUploadRepository()
 
 
 
