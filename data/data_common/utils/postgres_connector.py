@@ -67,7 +67,7 @@ def release_db_connection(conn):
     """Safely release the connection back to the pool."""
     if conn and not conn.closed:
         connection_pool.putconn(conn)
-        logger.debug("Connection released back to pool")
+        logger.info("Connection released back to pool")
     else:
         logger.warning("Attempted to release an already closed connection")
 
