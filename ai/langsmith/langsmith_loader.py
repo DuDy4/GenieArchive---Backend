@@ -297,3 +297,45 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
+    
+
+    async def get_work_history_summary(self, person, work_history):
+        logger.info("Running Langsmith prompt for work history summary")
+        prompt = hub.pull("work-history-summary")
+        arguments = {
+            "person_data": person,
+            "work_history": work_history
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)            
+            if response and response.content and isinstance(response.content, str):
+                response = response.content
+        except Exception as e:          
+            response = f"Error: {e}"
+        return response
+
+    
+    async def get_summary(self, data, max_words=50):
+        logger.info("Running Langsmith prompt for text summary")
+        prompt = hub.pull("whiteforest/chain-of-density-prompt")
+        arguments = {
+            "content": data,
+            "max_words": max_words,
+            "content_category" : "Overview",
+            "entity_range": "1-3",
+            "iterations" : "1"
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+            if response and response.content and isinstance(response.content, str):
+                summary_obj = json.loads(response.content)[0]
+                summary = summary_obj.get("denser_summary")
+                return summary
+            else:
+                return None
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+    

@@ -51,12 +51,24 @@ async def update_companies_with_missing_attributes(companies: list[CompanyDTO]):
             company_dto.domain = company.domain
         if company_dto.size == "0" or company_dto.size == 0:
             logger.error(f"Invalid company size: {company_dto.size}")
-
+        company_dto = company_consumer.fix_company_description(company_dto)
         companies_repository.save_company_without_news(company_dto)
 
         new_companies.append(company_dto)
     return new_companies
 
 
-company_data = asyncio.run(apollo_client.enrich_company("fiverr.com"))
-logger.info(f"Company data fetched from Apollo: {company_data}")
+# company_data = asyncio.run(apollo_client.enrich_company("fiverr.com"))
+# logger.info(f"Company data fetched from Apollo: {company_data}")
+
+async def check_and_fix_descriptions():
+    companies = companies_repository.get_all_companies()
+    for company in companies:
+        if company.description and len(company.description) > 300:
+            logger.info(f"Company description too long: {company.name}: {len(company.description)}")
+            company.description = await company_consumer.langsmith.get_summary(company.description)
+            logger.info(f"Updated description: {len(company.description)}")
+            companies_repository.save_company_without_news(company)
+
+# if __name__ == "__main__":
+#     asyncio.run(check_and_fix_descriptions())

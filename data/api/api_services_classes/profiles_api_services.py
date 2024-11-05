@@ -103,6 +103,7 @@ class ProfilesApiService:
             "company": company,
             "position": position,
             "social_media_links": SocialMediaLinksList.from_list(links).to_list() if links else [],
+            "work_history_summary": profile.work_history_summary,
         }
         logger.info(f"Attendee info: {profile}")
         return AttendeeInfo(**profile)

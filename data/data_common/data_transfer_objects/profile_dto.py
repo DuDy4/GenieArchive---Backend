@@ -158,6 +158,7 @@ class ProfileDTO(BaseModel):
     connections: Optional[List[Connection]] = []
     strengths: Optional[List[Strength]] = []
     hobbies: Optional[List[UUID]] = []
+    work_history_summary: Optional[str] = None
 
     @field_validator("name", "position")
     def not_empty(cls, value):
@@ -198,6 +199,7 @@ class ProfileDTO(BaseModel):
             "connections": [connection.to_dict() for connection in self.connections],
             "strengths": [strength.to_dict() for strength in self.strengths],
             "hobbies": [str(hobby) for hobby in self.hobbies],
+            "work_history_summary": self.work_history_summary,
         }
         return profile_dict
 
@@ -218,6 +220,7 @@ class ProfileDTO(BaseModel):
         Optional[List[Connection]],
         Optional[List[Strength]],
         Optional[List[UUID]],
+        Optional[str],
     ]:
         return (
             self.uuid,
@@ -230,6 +233,7 @@ class ProfileDTO(BaseModel):
             self.connections,
             self.strengths,
             self.hobbies,
+            self.work_history_summary,
         )
 
     @classmethod
@@ -246,6 +250,7 @@ class ProfileDTO(BaseModel):
             Optional[List[Connection]],
             Optional[List[Strength]],
             Optional[List[UUID]],
+            Optional[str],
         ],
     ) -> "ProfileDTO":
         return cls(
@@ -259,4 +264,5 @@ class ProfileDTO(BaseModel):
             connections=data[7],
             strengths=data[8],
             hobbies=data[9],
+            work_history_summary=data[10],
         )

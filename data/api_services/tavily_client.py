@@ -31,8 +31,9 @@ class Tavily:
         if not topic:
             logger.error("Topic is missing")
             return
-        query = f"What are the lates updates about the company {topic}? Only return answers with a score of 0.8 and above, make sure to include date field in the response."
-        response = tavily_client.search(query, topic="news", max_results=5)
+        query = f"What are the lates updates about the company with domain {topic}? The domain MUST be included in the news. Only return answers with a score of 85% and above that are directly involve the company."
+        # response = tavily_client.search(query, topic="news", max_results=5)
+        response = tavily_client.search(query, max_results=5)
 
         news_list = []
         results = response.get("results", [])
@@ -56,6 +57,18 @@ class Tavily:
         return news_list
 
 
-if __name__ == "__main__":
-    tavily = Tavily()
-    print(tavily.get_news("Databricks"))
+# from data.data_common.dependencies.dependencies import companies_repository
+
+# if __name__ == "__main__":
+#     company_repository = companies_repository()
+#     tavily = Tavily()
+#     companies = company_repository.get_all_companies()
+#     for company in companies:
+#         logger.info(f"Getting news for company: {company.name}")
+#         news = tavily.get_news(company.domain)
+#         if news:
+#             logger.info(f"Fetched News for company {company.name}")
+#             # company_repository.save_news(company.uuid, news)
+#         else:
+#             logger.info(f"No news found for company {company.name}")
+#     # print(tavily.get_news("Databricks"))

@@ -202,6 +202,11 @@ class LangsmithConsumer(GenieConsumer):
             logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
             profile_strength_and_get_to_know["tenant_get_to_know"] = response.get("get_to_know")
 
+        if email_address:
+            work_history = self.personal_data_repository.get_work_experience(email_address)
+            work_history_summary = await self.langsmith.get_work_history_summary(work_history, person)
+            profile_strength_and_get_to_know["work_history_summary"] = work_history_summary
+
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 

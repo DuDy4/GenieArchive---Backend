@@ -280,6 +280,39 @@ class PersonalDataRepository:
                 traceback.print_exc()
                 return None
 
+    def get_work_experience(self, email: str) -> Optional[List[dict]]:
+        """
+        Retrieve work experience associated with an email.
+
+        :param email: Unique email for the personalData.
+        :return: Work experience as a json if personalData exists, None otherwise.
+        """
+        select_query = """
+        SELECT 
+            COALESCE(pdl_personal_data->>'experience', apollo_personal_data->>'employment_history') AS work_history
+        FROM 
+            personaldata
+        WHERE 
+            email = %s
+            AND (
+            pdl_personal_data ? 'experience' 
+            OR apollo_personal_data ? 'employment_history');
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email,))
+                    work_experience = cursor.fetchone()
+                    if work_experience and work_experience[0]:
+                        return work_experience[0]
+                    else:
+                        logger.warning("Work experience was not found in db by email")
+                        return None
+            except Exception as e:
+                logger.error(f"Error retrieving work experience: {e}", e)
+                traceback.print_exc()
+                return None
+
     def get_pdl_personal_data_by_linkedin(self, linkedin_profile_url: str) -> Optional[dict]:
         """
         Retrieve personal data associated with an uuid.

@@ -226,6 +226,7 @@ class AttendeeInfo(BaseModel):
     company: str
     position: str
     social_media_links: Optional[List[SocialMediaLinks]] = []
+    work_history_summary: Optional[str] = None
 
 
 class ProfileResponse(BaseModel):

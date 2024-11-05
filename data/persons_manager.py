@@ -468,6 +468,7 @@ class PersonManager(GenieConsumer):
                 "get_to_know": profile.get("get_to_know", {}),
                 "summary": profile.get("summary", ""),
                 "picture_url": profile.get("picture_url", ""),
+                "work_history_summary": profile.get("work_history_summary", ""),
             }
         )
         profile_details = "\n".join(
