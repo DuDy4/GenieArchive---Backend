@@ -18,12 +18,14 @@ def run():
     meetings_to_send_reminders = meetings_repository.get_meetings_to_send_reminders()
     logger.info(f"Number of meetings to send reminders: {len(meetings_to_send_reminders)}")
 
-    next_meeting = meetings_repository.get_next_meeting()
+    next_meeting, next_meeting_reminder_time_utc = meetings_repository.get_next_meeting()
     if next_meeting:
         next_meeting_time = datetime.fromisoformat(next_meeting.start_time).replace(tzinfo=timezone.utc)
         next_meeting_time_utc = next_meeting_time.astimezone(timezone.utc)
-        logger.info(f"Next meeting: {next_meeting.subject}, start_time: {next_meeting.start_time}, classification: {next_meeting.classification.value}")
+        logger.info(f"Next meeting: {next_meeting.subject}, start_time: {next_meeting.start_time}")
         logger.info(f"Next meeting start time in UTC: {next_meeting_time_utc}")
+        logger.info(f"Next meeting reminder time in UTC: {next_meeting_reminder_time_utc}")
+
 
         # Check if the next meeting is due for a reminder
         if next_meeting_time_utc <= current_utc_time:
@@ -33,7 +35,7 @@ def run():
 
     for meeting in meetings_to_send_reminders:
         # Convert and log the reminder schedule to check if it matches the current time
-        reminder_schedule = meeting.reminder_schedule
+        reminder_schedule = next_meeting_reminder_time_utc
         reminder_schedule_utc = datetime.fromisoformat(reminder_schedule).replace(tzinfo=timezone.utc)
 
         logger.info(f"Evaluating meeting for reminder: {meeting.subject}, Start Time (UTC): {meeting.start_time}, "
