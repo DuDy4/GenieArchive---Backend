@@ -2,6 +2,7 @@ import traceback
 import psycopg2
 import json
 from common.genie_logger import GenieLogger
+from data.data_common.utils.postgres_connector import db_connection
 from typing import List, Optional
 from data.data_common.data_transfer_objects.badges_dto import (
     BadgeDTO,
@@ -14,13 +15,8 @@ logger = GenieLogger()
 
 
 class BadgesRepository:
-    def __init__(self, conn):
-        self.conn = conn
+    def __init__(self):
         self.create_tables_if_not_exists()
-
-    def __del__(self):
-        if self.conn:
-            self.conn.close()
 
     def create_tables_if_not_exists(self):
         badge_table_query = """
@@ -51,15 +47,16 @@ class BadgesRepository:
             PRIMARY KEY (email, badge_id)
         );
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(badge_table_query)
-                cursor.execute(user_badge_table_query)
-                cursor.execute(user_badge_progress_table_query)
-                self.conn.commit()
-        except Exception as error:
-            logger.error(f"Error creating tables: {error}")
-            traceback.print_exc()
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(badge_table_query)
+                    cursor.execute(user_badge_table_query)
+                    cursor.execute(user_badge_progress_table_query)
+                    conn.commit()
+            except Exception as error:
+                logger.error(f"Error creating tables: {error}")
+                traceback.print_exc()
 
     # Badge Methods
     def insert_badge(self, badge: BadgeDTO) -> Optional[str]:
@@ -71,46 +68,47 @@ class BadgesRepository:
         badge_data = badge.to_tuple()
 
         logger.info(f"About to insert badge data: {badge_data}")
-
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, badge_data)
-                self.conn.commit()
-                badge_id = cursor.fetchone()[0]
-                logger.info(f"Inserted badge into database. Badge ID: {badge_id}")
-                return badge_id
-        except psycopg2.Error as error:
-            logger.error(f"Error inserting badge: {error.pgerror}")
-            traceback.print_exc()
-            return None
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(insert_query, badge_data)
+                    conn.commit()
+                    badge_id = cursor.fetchone()[0]
+                    logger.info(f"Inserted badge into database. Badge ID: {badge_id}")
+                    return badge_id
+            except psycopg2.Error as error:
+                logger.error(f"Error inserting badge: {error.pgerror}")
+                traceback.print_exc()
+                return None
 
     def get_all_badges(self) -> List[BadgeDTO]:
         select_query = "SELECT * FROM badges;"
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
-                badges = cursor.fetchall()
-                return [BadgeDTO.from_tuple(badge) for badge in badges]
-        except psycopg2.Error as error:
-            logger.error(f"Error retrieving badges: {error}")
-            traceback.print_exc()
-            return []
-            return None
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    badges = cursor.fetchall()
+                    return [BadgeDTO.from_tuple(badge) for badge in badges]
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving badges: {error}")
+                traceback.print_exc()
+                return []
 
     def get_all_badges_by_type(self, type: str) -> List[BadgeDTO]:
         select_query = """
             SELECT * FROM badges
             WHERE criteria->>'type' = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (type,))
-                badges = cursor.fetchall()
-                return [BadgeDTO.from_tuple(badge) for badge in badges]
-        except psycopg2.Error as error:
-            logger.error(f"Error retrieving badges: {error}")
-            traceback.print_exc()
-            return []
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (type,))
+                    badges = cursor.fetchall()
+                    return [BadgeDTO.from_tuple(badge) for badge in badges]
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving badges: {error}")
+                traceback.print_exc()
+                return []
 
     # User Badge Methods
     def insert_user_badge(self, user_badge: UserBadgeDTO) -> Optional[str]:
@@ -123,29 +121,31 @@ class BadgesRepository:
 
         logger.info(f"About to insert user badge data: {user_badge_data}")
 
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, user_badge_data)
-                self.conn.commit()
-                user_badge_id = cursor.fetchone()[0]
-                logger.info(f"Inserted user badge into database. User Badge ID: {user_badge_id}")
-                return user_badge_id
-        except psycopg2.Error as error:
-            logger.error(f"Error inserting user badge: {error.pgerror}")
-            traceback.print_exc()
-            return None
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(insert_query, user_badge_data)
+                    conn.commit()
+                    user_badge_id = cursor.fetchone()[0]
+                    logger.info(f"Inserted user badge into database. User Badge ID: {user_badge_id}")
+                    return user_badge_id
+            except psycopg2.Error as error:
+                logger.error(f"Error inserting user badge: {error.pgerror}")
+                traceback.print_exc()
+                return None
 
     def get_user_badges(self, email: str) -> List[UserBadgeDTO]:
         select_query = "SELECT * FROM user_badges WHERE email = %s;"
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email,))
-                user_badges = cursor.fetchall()
-                return [UserBadgeDTO.from_tuple(badge) for badge in user_badges]
-        except psycopg2.Error as error:
-            logger.error(f"Error retrieving user badges: {error}")
-            traceback.print_exc()
-            return []
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email,))
+                    user_badges = cursor.fetchall()
+                    return [UserBadgeDTO.from_tuple(badge) for badge in user_badges]
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving user badges: {error}")
+                traceback.print_exc()
+                return []
 
     # User Badge Progress Methods
     def update_user_badge_progress(self, user_badge_progress: UserBadgeProgressDTO) -> bool:
@@ -164,22 +164,23 @@ class BadgesRepository:
         SET progress = EXCLUDED.progress,
             last_updated = EXCLUDED.last_updated;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    update_query,
-                    (
-                        user_badge_progress.email,
-                        str(user_badge_progress.badge_id),
-                        json.dumps(user_badge_progress.progress),
-                    ),
-                )
-                self.conn.commit()
-                return True
-        except psycopg2.Error as error:
-            logger.error(f"Error updating user badge progress: {error.pgerror}")
-            traceback.print_exc()
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            user_badge_progress.email,
+                            str(user_badge_progress.badge_id),
+                            json.dumps(user_badge_progress.progress),
+                        ),
+                    )
+                    conn.commit()
+                    return True
+            except psycopg2.Error as error:
+                logger.error(f"Error updating user badge progress: {error.pgerror}")
+                traceback.print_exc()
+                return False
 
     def get_user_badge_progress(self, email: str, badge_id: str) -> Optional[UserBadgeProgressDTO]:
         """
@@ -192,19 +193,20 @@ class BadgesRepository:
         select_query = (
             "SELECT progress, last_updated FROM user_badge_progress WHERE email = %s AND badge_id = %s;"
         )
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email, badge_id))
-                result = cursor.fetchone()
-                if result:
-                    return result  # Return the progress JSON
-                else:
-                    # If no progress exists, return an empty JSON object representing 0 progress
-                    return {}, None
-        except psycopg2.Error as error:
-            logger.error(f"Error retrieving user badge progress: {error}")
-            traceback.print_exc()
-            return {}
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email, badge_id))
+                    result = cursor.fetchone()
+                    if result:
+                        return result  # Return the progress JSON
+                    else:
+                        # If no progress exists, return an empty JSON object representing 0 progress
+                        return {}, None
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving user badge progress: {error}")
+                traceback.print_exc()
+                return {}
 
     def get_user_all_current_badges_progress(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
         """
@@ -219,22 +221,23 @@ class BadgesRepository:
         LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
                 AND email = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email,))
-                result = cursor.fetchall()
-                if result:
-                    formatted_results = []
-                    for bage_progress in result:
-                        if not bage_progress[0]:
-                            bage_progress_list = list(bage_progress)
-                            bage_progress_list[0] = email
-                            bage_progress = tuple(bage_progress_list)
-                        formatted_results.append(DetailedUserBadgeProgressDTO.from_tuple(bage_progress))
-                    return formatted_results
-                else:
-                    return []
-        except psycopg2.Error as error:
-            logger.error(f"Error retrieving user badge progress: {error}")
-            traceback.print_exc()
-            return []
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email,))
+                    result = cursor.fetchall()
+                    if result:
+                        formatted_results = []
+                        for badge_progress in result:
+                            if not badge_progress[0]:
+                                badge_progress_list = list(badge_progress)
+                                badge_progress_list[0] = email
+                                badge_progress = tuple(badge_progress_list)
+                            formatted_results.append(DetailedUserBadgeProgressDTO.from_tuple(badge_progress))
+                        return formatted_results
+                    else:
+                        return []
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving user badge progress: {error}")
+                traceback.print_exc()
+                return []

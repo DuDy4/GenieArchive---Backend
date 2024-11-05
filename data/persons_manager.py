@@ -64,6 +64,7 @@ class PersonManager(GenieConsumer):
                 Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA,
                 Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON,
                 Topic.NEW_PERSONAL_DATA,
+                Topic.FINISHED_NEW_PROFILE,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -115,6 +116,9 @@ class PersonManager(GenieConsumer):
             case Topic.NEW_PERSONAL_DATA:
                 logger.info("Handling linkedin scrape")
                 await self.handle_linkedin_scrape(event)
+            case Topic.FINISHED_NEW_PROFILE:
+                logger.info("Handling finished new profile")
+                await self.handle_finished_new_profile(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -483,8 +487,7 @@ class PersonManager(GenieConsumer):
             profile_dto.picture_url = get_profile_picture(person, social_media_links)
             self.profiles_repository.update_profile_picture(str(profile_dto.uuid), profile_dto.picture_url)
         logger.info(f"Profile picture url: {profile_dto.picture_url}")
-        json_profile = profile_dto.to_json()
-        event = GenieEvent(Topic.FINISHED_NEW_PROFILE, json_profile, "public")
+        event = GenieEvent(Topic.FINISHED_NEW_PROFILE, {"profile_uuid": str(profile_dto.uuid)})
         event.send()
         self.persons_repository.remove_last_sent_message(person.uuid)
         logger.info("Saved new processed data to profiles_repository")
@@ -698,6 +701,40 @@ class PersonManager(GenieConsumer):
                 person.company = company.name
 
         return person
+
+    async def handle_finished_new_profile(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        profile_uuid = event_body.get("profile_uuid")
+        if not profile_uuid:
+            logger.error("No profile UUID found in event body")
+            return {"error": "No profile UUID found in event body"}
+        profile = self.profiles_repository.get_profile_data(profile_uuid)
+        if not profile:
+            logger.error(f"Profile not found in database: {profile_uuid}")
+            return {"error": "Profile not found in database"}
+        person = self.persons_repository.get_person(profile_uuid)
+        if not person:
+            logger.error(f"Person not found in database: {profile_uuid}")
+            return {"error": "Person not found in database"}
+        if not person.linkedin:
+            person = self.validate_person(person)
+            if not person.linkedin:
+                logger.error(f"Person has no linkedin: {person}")
+                return {"error": "Person has no linkedin"}
+
+        if not profile.picture_url or str(profile.picture_url) == str(DEFAULT_PROFILE_PICTURE):
+            event = GenieEvent(Topic.FAILED_TO_GET_PROFILE_PICTURE, {"person": person.to_dict()})
+            event.send()
+            logger.info(f"Sent 'failed_to_get_profile_picture' event to the event queue for {person.email}")
+        else:
+            logger.info(f"Profile picture url: {profile.picture_url}")
+
+        return {"status": "failed"}
+
+
 
 
 if __name__ == "__main__":

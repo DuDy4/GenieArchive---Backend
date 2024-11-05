@@ -1,5 +1,3 @@
-from data.data_common.repositories.interactions_repository import InteractionsRepository
-
 from ..utils.postgres_connector import get_db_connection, connection_pool
 from ..repositories.personal_data_repository import PersonalDataRepository
 from ..repositories.persons_repository import PersonsRepository
@@ -18,183 +16,69 @@ from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 
+t_repository = TenantsRepository()
+pd_repository = PersonalDataRepository()
+p_repository = PersonsRepository()
+pr_repository = ProfilesRepository()
+tp_repository = TenantProfilesRepository()
+m_repository = MeetingsRepository()
+gc_repository = GoogleCredsRepository()
+o_repository = OwnershipsRepository()
+h_repository = HobbiesRepository()
+c_repository = CompaniesRepository()
+s_repository = StatsRepository()
+b_repository = BadgesRepository()
+f_repository = FileUploadRepository()
+
+
 
 def tenants_repository() -> TenantsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return TenantsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in tenants_repository")
+    return t_repository
 
 
 def stats_repository() -> StatsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return StatsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in stats_repository")
-
+    return s_repository
 
 def badges_repository() -> BadgesRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return BadgesRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in badges_repository")
-
-
-def interactions_repository() -> InteractionsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return InteractionsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in interactions_repository")
+    return b_repository
 
 
 def companies_repository() -> CompaniesRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return CompaniesRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in companies_repository")
+    return c_repository
 
 
 def personal_data_repository() -> PersonalDataRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return PersonalDataRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in personal_data_repository")
+    return pd_repository
 
 
 def profiles_repository() -> ProfilesRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return ProfilesRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in profiles_repository")
+    return pr_repository
+
 
 def tenant_profiles_repository() -> TenantProfilesRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return TenantProfilesRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in tenant_profiles_repository")
+    return tp_repository
 
 
 def persons_repository() -> PersonsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return PersonsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in persons_repository")
+    return p_repository
 
 
 def meetings_repository() -> MeetingsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return MeetingsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in meetings_repository")
+        return m_repository
 
 
 def google_creds_repository() -> GoogleCredsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return GoogleCredsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in google_creds_repository")
+    return gc_repository
 
 
 def ownerships_repository() -> OwnershipsRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return OwnershipsRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in ownerships_repository")
+    return o_repository
 
 
 def hobbies_repository() -> HobbiesRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return HobbiesRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in hobbies_repository")
+    return h_repository
 
 
 def file_upload_repository() -> FileUploadRepository:
-    conn = get_db_connection()  # Establish the database connection
-    try:
-        return FileUploadRepository(conn=conn)
-    except Exception as e:
-        logger.error(f"Error establishing database connection: {e}")
-        return None
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-            logger.debug("Connection returned to pool in file_upload_repository")
+    return f_repository
+

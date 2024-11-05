@@ -6,6 +6,8 @@ import time
 import traceback
 from datetime import timedelta, datetime
 
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
 
@@ -36,7 +38,8 @@ class SlackConsumer(GenieConsumer):
         super().__init__(
             topics=[
                 Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
-                Topic.APOLLO_FAILED_TO_ENRICH_EMAIL
+                Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
+                Topic.FAILED_TO_GET_PROFILE_PICTURE,
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -56,6 +59,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.APOLLO_FAILED_TO_ENRICH_EMAIL:
                 logger.info("Handling failed attempt to enrich email")
                 await self.handle_failed_to_get_personal_data(event)
+            case Topic.FAILED_TO_GET_PROFILE_PICTURE:
+                logger.info("Handling failed attempt to get profile picture")
+                await self.handle_failed_to_get_profile_picture(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -91,6 +97,33 @@ class SlackConsumer(GenieConsumer):
             """
         send_message(message)
         self.persons_repository.update_last_message_sent_at_by_email(email)
+        return {"status": "ok"}
+
+    async def handle_failed_to_get_profile_picture(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person = event_body.get("person")
+        person = PersonDTO.from_dict(person)
+        tenant_id = logger.get_tenant_id()
+
+        last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(person.email)
+        if last_message_sent_at:
+            time_period_delta = timedelta(seconds=TIME_PERIOD_TO_SENT_MESSAGE)
+
+            if last_message_sent_at + time_period_delta > datetime.now():
+                logger.info("Already sent message lately. Skipping...")
+                return {"status": "skipped", "message": "Already sent message lately. Skipping..."}
+        message = f"[CTX={logger.get_ctx_id()}] failed to get profile picture for person: {person.name} and linkedin: {person.linkedin}."
+        if tenant_id:
+            email = self.tenants_repository.get_tenant_email(tenant_id)
+            if email:
+                message += f"""
+                    Originating user: {email}.
+                    """
+        send_message(message)
+        self.persons_repository.update_last_message_sent_at_by_email(person.email)
         return {"status": "ok"}
 
 

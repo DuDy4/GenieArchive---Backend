@@ -2,6 +2,7 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    FAILED_TO_GET_PROFILE_PICTURE = "failed-to-get-profile-picture"  # PersonManager failed to get profile picture
     NEW_UPCOMING_MEETING = "new-upcoming-meeting"  # MeetingConsumer saved a new meeting
     NEW_NEWS_DATA = "new-news-data"  # News scrapper saved news data
     NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
