@@ -34,7 +34,7 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
 
 def create_database_if_not_exists():
     try:
-        # Connect to the PostgreSQL server without specifying the database
+        # Connect to the PostgresSQL server without specifying the database
         conn = psycopg2.connect(user=db_user, host=host, password=password, port=port, database="postgres")
         conn.autocommit = True  # Enable autocommit for creating the database
         with conn.cursor() as cursor:
@@ -65,9 +65,11 @@ def get_db_connection():
 
 def release_db_connection(conn):
     """Safely release the connection back to the pool."""
-    if conn:
+    if conn and not conn.closed:
         connection_pool.putconn(conn)
         logger.debug("Connection released back to pool")
+    else:
+        logger.warning("Attempted to release an already closed connection")
 
 
 @contextmanager
@@ -88,14 +90,30 @@ def db_connection():
     finally:
         if conn and not conn.closed:
             release_db_connection(conn)
+        elif conn and conn.closed:
+            # Log the closed connection and remove it from the pool
+            logger.warning("Connection was closed before releasing; removing from pool")
+            connection_pool.putconn(conn, close=True)  # Remove and close the invalid connection
 
 
 def check_db_connection():
-    with db_connection() as conn:
-        if conn:
-            logger.info("Connection is active")
+    max_connections = connection_pool.maxconn
+    closed_connections = 0
 
-            return True
-        else:
-            logger.error("Connection is not active")
-            return False
+    # Acquire and check each connection in the pool
+    for _ in range(max_connections):
+        conn = connection_pool.getconn()
+        try:
+            if conn.closed:
+                closed_connections += 1
+        finally:
+            # Always release the connection back to the pool
+            connection_pool.putconn(conn)
+    logger.info(f"Checked {max_connections} connections; {closed_connections} are closed")
+    # Check if more than half of the connections are closed
+    if closed_connections >= max_connections // 2:
+        logger.warning(f"More than half of the connections are closed ({closed_connections}/{max_connections}). Consider corrective action.")
+        return False
+    else:
+        logger.info("Connections are active.")
+        return True

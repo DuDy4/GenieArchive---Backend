@@ -6,18 +6,14 @@ import psycopg2
 from common.utils.str_utils import get_uuid4
 
 from common.genie_logger import GenieLogger
+from data.data_common.utils.postgres_connector import db_connection
 
 logger = GenieLogger()
 
 
 class GoogleCredsRepository:
-    def __init__(self, conn):
-        self.conn = conn
+    def __init__(self):
         self.create_table_if_not_exists()
-
-    def __del__(self):
-        if self.conn:
-            self.conn.close()
 
     def create_table_if_not_exists(self):
         create_table_query = """
@@ -31,13 +27,15 @@ class GoogleCredsRepository:
             last_fetch_meetings TIMESTAMP
         );
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(create_table_query)
-                self.conn.commit()
-        except Exception as error:
-            logger.error("Error creating table:", error)
-            # self.conn.rollback()
+        with db_connection() as conn:
+
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(create_table_query)
+                    conn.commit()
+            except Exception as error:
+                logger.error("Error creating table:", error)
+                # conn.rollback()
 
     def insert(self, creds: dict):
         insert_query = """
@@ -53,32 +51,37 @@ class GoogleCredsRepository:
             return
 
         uuid = get_uuid4()
-
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    insert_query,
-                    (
-                        uuid,
-                        creds.get("email"),
-                        creds.get("refreshToken"),
-                        creds.get("accessToken"),
-                    ),
-                )
-                self.conn.commit()
-        except Exception as error:
-            logger.error("Error inserting credentials:", error)
-            # self.conn.rollback()
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        insert_query,
+                        (
+                            uuid,
+                            creds.get("email"),
+                            creds.get("refreshToken"),
+                            creds.get("accessToken"),
+                        ),
+                    )
+                    conn.commit()
+            except Exception as error:
+                logger.error("Error inserting credentials:", error)
+                # conn.rollback()
 
     def exists(self, email: str) -> bool:
         query = """
         SELECT * FROM google_creds WHERE email = %s;
         """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, (email,))
-            result = cursor.fetchone()
-            logger.debug(f"Result: {result}")
-            return result is not None
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (email,))
+                    result = cursor.fetchone()
+                    logger.debug(f"Result: {result}")
+                    return result is not None
+            except psycopg2.Error as error:
+                logger.error(f"Error checking if email exists: {error}")
+                return False
 
     def get_creds(self, email: str) -> Union[dict, None]:
         query = """
@@ -86,19 +89,24 @@ class GoogleCredsRepository:
         FROM google_creds WHERE email = %s;
         """
         logger.debug(f"About to get creds for email: {email}")
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, (email,))
-            creds = cursor.fetchone()
-            if not creds:
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (email,))
+                    creds = cursor.fetchone()
+                    if not creds:
+                        return None
+                    creds_dict = {
+                        "uuid": creds[0],
+                        "email": creds[1],
+                        "refresh_token": creds[2],
+                        "access_token": creds[3],
+                        "last_fetch_meetings": creds[4],
+                    }
+                    return creds_dict if creds else None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting credentials: {error}")
                 return None
-            creds_dict = {
-                "uuid": creds[0],
-                "email": creds[1],
-                "refresh_token": creds[2],
-                "access_token": creds[3],
-                "last_fetch_meetings": creds[4],
-            }
-            return creds_dict if creds else None
 
     def has_google_creds(self, email: str) -> bool:
         google_creds = self.get_creds(email)
@@ -109,47 +117,49 @@ class GoogleCredsRepository:
         UPDATE google_creds SET refresh_token = %s, access_token = %s, last_update = CURRENT_TIMESTAMP
         WHERE email = %s
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    update_query,
-                    (
-                        creds.get("refreshToken") or creds.get("refresh_token"),
-                        creds.get("accessToken") or creds.get("access_token"),
-                        creds.get("email"),
-                    ),
-                )
-                self.conn.commit()
-                logger.info("Updated credentials in database")
-                return
-        except psycopg2.Error as error:
-            # self.conn.rollback()
-            logger.error(f"Error updating credentials, because: {error.pgerror}")
-            traceback.print_exc()
-        except Exception as e:
-            # self.conn.rollback()
-            logger.error(f"Unexpected error: {e}")
-            # traceback.print_exc()
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            creds.get("refreshToken") or creds.get("refresh_token"),
+                            creds.get("accessToken") or creds.get("access_token"),
+                            creds.get("email"),
+                        ),
+                    )
+                    conn.commit()
+                    logger.info("Updated credentials in database")
+                    return
+            except psycopg2.Error as error:
+                # conn.rollback()
+                logger.error(f"Error updating credentials, because: {error.pgerror}")
+                traceback.print_exc()
+            except Exception as e:
+                # conn.rollback()
+                logger.error(f"Unexpected error: {e}")
+                # traceback.print_exc()
 
     def update_google_creds(self, user_email, user_access_token, user_refresh_token):
         update_query = """
         UPDATE google_creds SET access_token = %s, refresh_token = %s, last_update = CURRENT_TIMESTAMP
         WHERE email = %s
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    update_query,
-                    (user_access_token, user_refresh_token, user_email),
-                )
-                self.conn.commit()
-                logger.info("Updated credentials in database")
-                return
-        except psycopg2.Error as error:
-            logger.error(f"Error updating credentials, because: {error.pgerror}")
-            traceback.print_exc()
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (user_access_token, user_refresh_token, user_email),
+                    )
+                    conn.commit()
+                    logger.info("Updated credentials in database")
+                    return
+            except psycopg2.Error as error:
+                logger.error(f"Error updating credentials, because: {error.pgerror}")
+                traceback.print_exc()
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
 
     def save_creds(self, user_email, user_access_token, user_refresh_token):
         if not self.exists(user_email):
@@ -168,14 +178,15 @@ class GoogleCredsRepository:
         UPDATE google_creds SET last_fetch_meetings = CURRENT_TIMESTAMP
         WHERE email = %s
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (email,))
-                self.conn.commit()
-                logger.info("Updated last fetch meetings in database")
-                return
-        except psycopg2.Error as error:
-            logger.error(f"Error updating last fetch meetings, because: {error.pgerror}")
-            traceback.print_exc()
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, (email,))
+                    conn.commit()
+                    logger.info("Updated last fetch meetings in database")
+                    return
+            except psycopg2.Error as error:
+                logger.error(f"Error updating last fetch meetings, because: {error.pgerror}")
+                traceback.print_exc()
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")

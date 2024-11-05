@@ -8,18 +8,13 @@ from common.utils.json_utils import clean_json
 from pydantic import AnyUrl, ValidationError
 from common.utils.str_utils import get_uuid4
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO, NewsData
-
+from data.data_common.utils.postgres_connector import db_connection
 logger = GenieLogger()
 
 
 class CompaniesRepository:
-    def __init__(self, conn):
-        self.conn = conn
+    def __init__(self):
         self.create_table_if_not_exists()
-
-    def __del__(self):
-        if self.conn:
-            self.conn.close()
 
     def create_table_if_not_exists(self):
         create_table_query = """
@@ -48,54 +43,57 @@ class CompaniesRepository:
             news_last_updated TIMESTAMP
         );
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(create_table_query)
-                self.conn.commit()
-        except Exception as error:
-            logger.error(f"Error creating table: {error}")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(create_table_query)
+                    conn.commit()
+            except Exception as error:
+                logger.error(f"Error creating table: {error}")
 
     def get_company(self, uuid: str) -> Optional[CompanyDTO]:
         select_query = """
         SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE uuid = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (uuid,))
-                company = cursor.fetchone()
-                if company:
-                    logger.info(f"Got company with uuid {uuid} and name {company[1]}")
-                    return CompanyDTO.from_tuple(company)
-                logger.info(f"Company with uuid {uuid} does not exist")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (uuid,))
+                    company = cursor.fetchone()
+                    if company:
+                        logger.info(f"Got company with uuid {uuid} and name {company[1]}")
+                        return CompanyDTO.from_tuple(company)
+                    logger.info(f"Company with uuid {uuid} does not exist")
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting company: {error}")
+                traceback.print_exc()
                 return None
-        except psycopg2.Error as error:
-            logger.error(f"Error getting company: {error}")
-            traceback.print_exc()
-            return None
 
     def get_company_from_domain(self, email_domain: str) -> Optional[CompanyDTO]:
         select_query = """
         SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE domain = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (email_domain,))
-                company = cursor.fetchone()
-                if company:
-                    logger.info(f"Got company with domain {email_domain}")
-                    return CompanyDTO.from_tuple(company)
-                logger.info(f"Company with domain {email_domain} does not exist")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email_domain,))
+                    company = cursor.fetchone()
+                    if company:
+                        logger.info(f"Got company with domain {email_domain}")
+                        return CompanyDTO.from_tuple(company)
+                    logger.info(f"Company with domain {email_domain} does not exist")
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting company: {error}")
+                traceback.print_exc()
                 return None
-        except psycopg2.Error as error:
-            logger.error(f"Error getting company: {error}")
-            traceback.print_exc()
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return None
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                traceback.print_exc()
+                return None
 
     def get_news_data_by_email(self, email):
         if "@" not in email:
@@ -106,31 +104,32 @@ class CompaniesRepository:
         query = """
         SELECT news FROM companies WHERE domain = %s;
         """
-        try:
-            with (self.conn.cursor() as cursor):
-                cursor.execute(query, (company_domain,))
-                news = cursor.fetchone()
-                if news is None:
-                    logger.error(f"No news data for email: {email}, and news is null instead of empty list")
-                    return []
-                logger.debug(f"News data by email: {news}")
-                if not news:
-                    news = []  # In case news is null
-                else:
-                    news = news[0]  # news is a tuple containing the news data
-                if len(news) > 2:
-                    news = news[:2]
-                res_news = self.process_news(news)
-                if not res_news:
-                    logger.warning(f"No news data for company with domain {company_domain}")
-                    return []
-                return res_news
-        except psycopg2.Error as error:
-            logger.error(f"Error getting news data by email: {error}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return None
+        with db_connection() as conn:
+            try:
+                with (conn.cursor() as cursor):
+                    cursor.execute(query, (company_domain,))
+                    news = cursor.fetchone()
+                    if news is None:
+                        logger.error(f"No news data for email: {email}, and news is null instead of empty list")
+                        return []
+                    logger.debug(f"News data by email: {news}")
+                    if not news:
+                        news = []  # In case news is null
+                    else:
+                        news = news[0]  # news is a tuple containing the news data
+                    if len(news) > 2:
+                        news = news[:2]
+                    res_news = self.process_news(news)
+                    if not res_news:
+                        logger.warning(f"No news data for company with domain {company_domain}")
+                        return []
+                    return res_news
+            except psycopg2.Error as error:
+                logger.error(f"Error getting news data by email: {error}")
+                return None
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return None
 
     def save_company_without_news(self, company: CompanyDTO):
         self.create_table_if_not_exists()
@@ -146,94 +145,98 @@ class CompaniesRepository:
         select_query = """
         SELECT news_last_updated FROM companies WHERE uuid = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query, (company_uuid,))
-                last_updated = cursor.fetchone()
-                if last_updated:
-                    return last_updated[0]
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (company_uuid,))
+                    last_updated = cursor.fetchone()
+                    if last_updated:
+                        return last_updated[0]
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting news last updated: {error}")
                 return None
-        except psycopg2.Error as error:
-            logger.error(f"Error getting news last updated: {error}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return None
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return None
 
     def get_all_companies(self):
         select_query = """
         SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
-                companies = cursor.fetchall()
-                if companies:
-                    logger.debug(f"Got {len(companies)} companies: {companies}")
-                    companies = [CompanyDTO.from_tuple(company) for company in companies]
-                    logger.debug(f"Companies: {companies}")
-                    return companies
-                logger.info(f"No companies found")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    companies = cursor.fetchall()
+                    if companies:
+                        logger.debug(f"Got {len(companies)} companies: {companies}")
+                        companies = [CompanyDTO.from_tuple(company) for company in companies]
+                        logger.debug(f"Companies: {companies}")
+                        return companies
+                    logger.info(f"No companies found")
+                    return []
+            except psycopg2.Error as error:
+                logger.error(f"Error getting companies: {error}")
+                traceback.print_exc()
                 return []
-        except psycopg2.Error as error:
-            logger.error(f"Error getting companies: {error}")
-            traceback.print_exc()
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                traceback.print_exc()
+                return []
 
     def get_all_companies_without_attributes(self):
         select_query = """
         SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE address IS NULL AND logo IS NULL AND founded_year IS NULL AND social_links IS NULL AND annual_revenue IS NULL;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
-                companies = cursor.fetchall()
-                if companies:
-                    logger.debug(f"Got {len(companies)} companies: {companies}")
-                    companies = [CompanyDTO.from_tuple(company) for company in companies]
-                    logger.debug(f"Companies: {companies}")
-                    return companies
-                logger.info(f"No companies found")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    companies = cursor.fetchall()
+                    if companies:
+                        logger.debug(f"Got {len(companies)} companies: {companies}")
+                        companies = [CompanyDTO.from_tuple(company) for company in companies]
+                        logger.debug(f"Companies: {companies}")
+                        return companies
+                    logger.info(f"No companies found")
+                    return []
+            except psycopg2.Error as error:
+                logger.error(f"Error getting companies: {error}")
+                traceback.print_exc()
                 return []
-        except psycopg2.Error as error:
-            logger.error(f"Error getting companies: {error}")
-            traceback.print_exc()
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                traceback.print_exc()
+                return []
 
     def get_all_companies_without_challenges(self):
         select_query = """
         SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
         FROM companies WHERE challenges IS NULL or challenges = '[]';
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(select_query)
-                companies = cursor.fetchall()
-                if companies:
-                    logger.debug(f"Got {len(companies)} companies: {companies}")
-                    companies = [CompanyDTO.from_tuple(company) for company in companies]
-                    logger.debug(f"Companies: {companies}")
-                    return companies
-                logger.info(f"No companies found")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    companies = cursor.fetchall()
+                    if companies:
+                        logger.debug(f"Got {len(companies)} companies: {companies}")
+                        companies = [CompanyDTO.from_tuple(company) for company in companies]
+                        logger.debug(f"Companies: {companies}")
+                        return companies
+                    logger.info(f"No companies found")
+                    return []
+            except psycopg2.Error as error:
+                logger.error(f"Error getting companies: {error}")
+                traceback.print_exc()
                 return []
-        except psycopg2.Error as error:
-            logger.error(f"Error getting companies: {error}")
-            traceback.print_exc()
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-            return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                traceback.print_exc()
+                return []
 
     def save_news(self, uuid, news: Union[List[NewsData], List[dict]]):
         self.create_table_if_not_exists()
@@ -247,16 +250,17 @@ class CompaniesRepository:
         SET news = %s, news_last_updated = CURRENT_TIMESTAMP
         WHERE uuid = %s
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, (clean_json(json.dumps(news_dicts)), uuid))
-                self.conn.commit()
-                logger.info(f"Updated news in database")
-        except psycopg2.Error as error:
-            raise Exception(f"Error updating news, because: {error.pgerror}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, (clean_json(json.dumps(news_dicts)), uuid))
+                    conn.commit()
+                    logger.info(f"Updated news in database")
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating news, because: {error.pgerror}")
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     def save_news_by_email(self, email, news):
         if "@" not in email:
@@ -272,64 +276,68 @@ class CompaniesRepository:
         SET news = %s, last_updated = CURRENT_TIMESTAMP
         WHERE domain = %s
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(query, (json.dumps(news), company_domain))
-                self.conn.commit()
-                logger.info(f"Updated news by email: {email}")
-        except psycopg2.Error as error:
-            logger.error(f"Error updating news by email: {error}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (json.dumps(news), company_domain))
+                    conn.commit()
+                    logger.info(f"Updated news by email: {email}")
+            except psycopg2.Error as error:
+                logger.error(f"Error updating news by email: {error}")
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     def exists(self, uuid: str) -> bool:
         logger.info(f"About to check if company exists with uuid: {uuid}")
         exists_query = "SELECT 1 FROM companies WHERE uuid = %s;"
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (uuid,))
-                result = cursor.fetchone() is not None
-                logger.info(f"{uuid} existence in database: {result}")
-                return result
-        except psycopg2.Error as error:
-            logger.error(f"Error checking existence of company {uuid}: {error}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(exists_query, (uuid,))
+                    result = cursor.fetchone() is not None
+                    logger.info(f"{uuid} existence in database: {result}")
+                    return result
+            except psycopg2.Error as error:
+                logger.error(f"Error checking existence of company {uuid}: {error}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     def exists_domain(self, domain: str) -> bool:
         logger.info(f"About to check if company exists with domain: {domain}")
         exists_query = "SELECT 1 FROM companies WHERE domain = %s;"
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(exists_query, (domain,))
-                result = cursor.fetchone() is not None
-                logger.info(f"{domain} existence in database: {result}")
-                return result
-        except psycopg2.Error as error:
-            logger.error(f"Error checking existence of domain {domain}: {error}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(exists_query, (domain,))
+                    result = cursor.fetchone() is not None
+                    logger.info(f"{domain} existence in database: {result}")
+                    return result
+            except psycopg2.Error as error:
+                logger.error(f"Error checking existence of domain {domain}: {error}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     def delete_company(self, uuid):
         delete_query = """
         DELETE FROM companies WHERE uuid = %s;
         """
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(delete_query, (uuid,))
-                self.conn.commit()
-                logger.info(f"Deleted company with uuid: {uuid}")
-        except psycopg2.Error as error:
-            logger.error(f"Error deleting company: {error}")
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(delete_query, (uuid,))
+                    conn.commit()
+                    logger.info(f"Deleted company with uuid: {uuid}")
+            except psycopg2.Error as error:
+                logger.error(f"Error deleting company: {error}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     def _insert(self, company_dto: CompanyDTO) -> Optional[int]:
         insert_query = """
@@ -368,18 +376,18 @@ class CompaniesRepository:
                 else None
             ),
         )
-
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(insert_query, company_values)
-                self.conn.commit()
-                company_id = cursor.fetchone()[0]
-                logger.info(f"Inserted company into database. Company id: {company_id}")
-                return company_id
-        except psycopg2.Error as error:
-            logger.error(f"Error inserting company: {error.pgerror}")
-            traceback.print_exc()
-            raise Exception(f"Error inserting company, because: {error.pgerror}")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(insert_query, company_values)
+                    conn.commit()
+                    company_id = cursor.fetchone()[0]
+                    logger.info(f"Inserted company into database. Company id: {company_id}")
+                    return company_id
+            except psycopg2.Error as error:
+                logger.error(f"Error inserting company: {error.pgerror}")
+                traceback.print_exc()
+                raise Exception(f"Error inserting company, because: {error.pgerror}")
 
     def _update(self, company_dto: CompanyDTO):
         if not company_dto:
@@ -417,18 +425,18 @@ class CompaniesRepository:
         SET {', '.join(fields)}
         WHERE uuid = %s
         """
-
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(update_query, tuple(values))
-                self.conn.commit()
-                logger.info(f"Updated company in database")
-            return True
-        except psycopg2.Error as error:
-            raise Exception(f"Error updating company, because: {error.pgerror}")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return False
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, tuple(values))
+                    conn.commit()
+                    logger.info(f"Updated company in database")
+                return True
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating company, because: {error.pgerror}")
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
 
     @staticmethod
     def serialize_news(news: Union[NewsData, dict]) -> dict[str]:
