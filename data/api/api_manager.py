@@ -13,8 +13,6 @@ from fastapi import HTTPException
 
 from data.api.base_models import *
 
-from data.data_common.utils.postgres_connector import get_db_connection
-
 from data.api.api_services_classes.meetings_api_services import MeetingsApiService
 from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
@@ -51,13 +49,6 @@ async def google_oauth_start():
     """Initiates the OAuth flow and returns an authorization URL."""
     auth_url = tenants_api_service.start_google_oauth()
     return RedirectResponse(auth_url)
-
-
-@v1_router.get("/close-db-connection")
-async def close_db_connection():
-    """Closes the database connection."""
-    conn = get_db_connection()
-    conn.close()
 
 
 @v1_router.get("/google-oauth/callback")
