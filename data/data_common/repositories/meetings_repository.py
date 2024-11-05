@@ -664,19 +664,36 @@ class MeetingsRepository:
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '15 minutes') 
+            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') 
                   AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '30 minutes')
               AND m.classification = %s 
               AND m.reminder_sent IS NULL
               AND t.reminder_subscription = TRUE;
         """
+        current_utc_time = datetime.now(timezone.utc)
+        logger.info(f"Fetching meetings to send reminders for at current UTC time: {current_utc_time}")
+
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
                     meetings = cursor.fetchall()
-                    logger.info(f"Got {len(meetings)} meetings to send reminders for")
-                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+
+                    # Log detailed info on each meeting for debugging purposes
+                    if meetings:
+                        logger.info(f"Got {len(meetings)} meetings to send reminders for")
+                        for meeting in meetings:
+                            meeting_uuid = meeting[0]
+                            reminder_schedule = meeting[-1]  # Assuming last field is `reminder_schedule`
+                            start_time = meeting[8]  # Assuming `start_time` is at index 8
+
+                            logger.debug(f"Meeting ID: {meeting_uuid}, Start Time: {start_time}, Reminder Schedule: {reminder_schedule}")
+
+                        return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+                    else:
+                        logger.info("No meetings found to send reminders for the current time range.")
+                        return []
+
             except psycopg2.Error as db_error:
                 logger.error(f"Database error fetching meetings to send reminders for: {db_error.pgerror}")
                 logger.debug(traceback.format_exc())  # Logs the traceback for detailed error analysis
@@ -689,7 +706,7 @@ class MeetingsRepository:
     def get_next_meeting(self):
         select_query = """
             SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
-                   subject, location, start_time, end_time, agenda, classification
+                   subject, location, start_time, end_time, agenda, classification, reminder_schedule AT TIME ZONE 'UTC'
             FROM meetings
             WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') and classification = %s
             ORDER BY start_time
@@ -702,7 +719,7 @@ class MeetingsRepository:
                     meeting = cursor.fetchone()
                     if meeting:
                         logger.info(f"Got next meeting: {meeting[0]}")
-                        return MeetingDTO.from_tuple(meeting)
+                        return MeetingDTO.from_tuple(meeting[:-1]), meeting[-1]
                     else:
                         logger.info("No upcoming meeting found")
                         return None
