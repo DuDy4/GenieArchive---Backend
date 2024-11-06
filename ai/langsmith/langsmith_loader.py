@@ -24,19 +24,19 @@ class Langsmith:
         self.model = ChatOpenAI(model="gpt-4o")
         self.embeddings_client = GenieEmbeddingsClient()
 
-    async def get_profile(self, person_data, company_data=None, seller_context=None):
+    async def get_profile(self, person_data, company_data=None, news_data=None, seller_context=None):
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
         logger.debug(f"Person data: {person_data.keys()}")
-        strengths = await self.run_prompt_strength(person_data)
+        strengths = await self.run_prompt_strength(person_data, news_data)
         logger.info(f"Strengths from Langsmith: {strengths}")
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
         person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
-        return await self.get_get_to_know(person_data, company_data, seller_context)
+        return await self.get_get_to_know(person_data, company_data, news_data, seller_context)
 
-    async def get_get_to_know(self, person_data, company_data=None, seller_context=None):
-        get_to_know = await self.run_prompt_get_to_know(person_data, company_data, seller_context)
+    async def get_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
+        get_to_know = await self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context)
         person_data["get_to_know"] = get_to_know
         return person_data
 
@@ -51,10 +51,10 @@ class Langsmith:
             response = response.get("news")
         return response
 
-    async def run_prompt_strength(self, person_data):
-        prompt = hub.pull("get_strengths")
+    async def run_prompt_strength(self, person_data, news_data=None):
+        prompt = hub.pull("get_strengths_with_social_media") if news_data else hub.pull("get_strengths")
         runnable = prompt | self.model
-        arguments = person_data
+        arguments = {"personal_data": person_data, "social_media_posts": news_data if news_data else None}
 
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
@@ -64,8 +64,8 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith: {response}")
         return response
 
-    async def run_prompt_get_to_know(self, person_data, company_data=None, seller_context=None):
-        prompt = hub.pull("dos_and_donts_w_context")
+    async def run_prompt_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
+        prompt = hub.pull("dos_and_donts_w_context_and_posts") if news_data else hub.pull("dos_and_donts_w_context")
         runnable = prompt | self.model
         arguments = {
             "personal_data": person_data.get("personal_data", "not found"),
@@ -75,6 +75,7 @@ class Langsmith:
             "news": company_data.get("news", "not found") if company_data else "not found",
             "product_data": person_data.get("product_data", "not found"),
             "company_data": company_data if company_data else "not found",
+            "personal_social_media_posts": news_data if news_data else "not found",
             "seller_context": seller_context if seller_context else "not found",
         }
         try:
