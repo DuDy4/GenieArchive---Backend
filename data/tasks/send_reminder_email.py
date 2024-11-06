@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from dateutil import parser
 from data.data_common.dependencies.dependencies import meetings_repository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -18,11 +19,15 @@ def run():
     meetings_to_send_reminders = meetings_repository.get_meetings_to_send_reminders()
     logger.info(f"Number of meetings to send reminders: {len(meetings_to_send_reminders)}")
 
-    next_meeting, next_meeting_reminder_time_utc = meetings_repository.get_next_meeting()
+    next_meeting, start_time_utc, next_meeting_reminder_time_utc = meetings_repository.get_next_meeting()
     if next_meeting:
-        next_meeting_time = datetime.fromisoformat(next_meeting.start_time).replace(tzinfo=timezone.utc)
+        # Parse `start_time` with its timezone info
+        next_meeting_time = parser.isoparse(next_meeting.start_time)
+
+        # Ensure conversion to UTC
         next_meeting_time_utc = next_meeting_time.astimezone(timezone.utc)
         logger.info(f"Next meeting: {next_meeting.subject}, start_time: {next_meeting.start_time}")
+        logger.info(f"Start time from db: {start_time_utc}")
         logger.info(f"Next meeting start time in UTC: {next_meeting_time_utc}")
         logger.info(f"Next meeting reminder time in UTC: {next_meeting_reminder_time_utc}")
 

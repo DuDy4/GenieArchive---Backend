@@ -664,8 +664,8 @@ class MeetingsRepository:
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') 
-                  AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '30 minutes')
+            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '25 minutes') 
+                  AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '5 minutes')
               AND m.classification = %s 
               AND m.reminder_sent IS NULL
               AND t.reminder_subscription = TRUE;
@@ -705,27 +705,38 @@ class MeetingsRepository:
 
     def get_next_meeting(self):
         select_query = """
-            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
-                   subject, location, start_time, end_time, agenda, classification, reminder_schedule AT TIME ZONE 'UTC'
-            FROM meetings
-            WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') and classification = %s
-            ORDER BY start_time
-            LIMIT 1;
+        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
+               subject, location, start_time,
+               end_time, agenda, classification, (start_time::timestamp AT TIME ZONE 'UTC') as start_time_utc, 
+               (reminder_schedule::timestamp AT TIME ZONE 'UTC') as reminder_schedule_utc
+        FROM meetings
+        WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          AND classification = %s
+        ORDER BY start_time
+        LIMIT 1;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
                     meeting = cursor.fetchone()
+
                     if meeting:
                         logger.info(f"Got next meeting: {meeting[0]}")
-                        return MeetingDTO.from_tuple(meeting[:-1]), meeting[-1]
+
+                        # Parse meeting data correctly
+                        meeting_dto = MeetingDTO.from_tuple(meeting[:-2])  # All fields except parsed `start_time_utc` and `reminder_schedule_utc`
+                        start_time_utc = meeting[-2]  # Parsed start_time in UTC
+                        reminder_schedule_utc = meeting[-1]  # Parsed reminder_schedule in UTC
+
+                        return meeting_dto, start_time_utc, reminder_schedule_utc
                     else:
                         logger.info("No upcoming meeting found")
                         return None
             except psycopg2.Error as db_error:
                 logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
                 logger.debug(traceback.format_exc())
+
 
 
     def get_all_meetings_without_reminders(self):
