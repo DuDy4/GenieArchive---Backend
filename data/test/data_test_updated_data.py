@@ -15,12 +15,12 @@ from data.data_common.events.topics import Topic
 
 def test_new_contact():
 
-    uuid = "98f0a054-36f7-4862-bfb2-23dd694940e0"
-    persons_repository = PersonsRepository(get_db_connection())
-    # personal_data_repository = PersonalDataRepository(get_db_connection())
+    uuid = "f38c9e22-b286-4868-9f12-bfb627041b59"
+    persons_repository = PersonsRepository()
+    personal_data_repository = PersonalDataRepository()
     person = persons_repository.get_person(uuid)
-    # personal_data = personal_data_repository.get_pdl_personal_data(uuid)
-    data_to_send = {"person": person.to_dict()}
+    personal_data = personal_data_repository.get_pdl_personal_data(uuid)
+    data_to_send = {"person": person.to_dict(), "personal_data": personal_data}
     event = GenieEvent(topic=Topic.NEW_PERSONAL_DATA, data=data_to_send)
     event.send()
 

@@ -559,6 +559,10 @@ class PersonManager(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
+        logger.info(f"Person: {person_dict}")
+        if not person_dict:
+            logger.error("No person data received in event")
+            return {"error": "No person data received in event"}
         person = PersonDTO.from_dict(person_dict)
         linkedin = person.linkedin
         uuid = person.uuid

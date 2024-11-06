@@ -118,6 +118,7 @@ class LangsmithConsumer(GenieConsumer):
         personal_data = event_body.get("personal_data")
         person_data = {"personal_data": personal_data}
         person = event_body.get("person")
+        news_data = event_body.get("new_data")
         if not person and not personal_data:
             person_uuid = event_body.get("person_uuid")
             if not person_uuid:
@@ -125,17 +126,26 @@ class LangsmithConsumer(GenieConsumer):
                 return
             else:
                 person = self.persons_repository.get_person(person_uuid)
+                person = person.to_dict()
                 personal_data = self.personal_data_repository.get_pdl_personal_data(person_uuid)
                 if not personal_data:
                     personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
                 person_data = {"personal_data": personal_data}
+                if not person and not personal_data:
+                    logger.error(f"No person data found for person {person_uuid}")
+                    return
+        if not news_data:
+            uuid = person.get("uuid")
+            news_data = self.personal_data_repository.get_news_data_by_uuid(uuid)
+        logger.info(f"Personal News data: {news_data}")
+
         email_address = person.get("email")
         profile = self.profiles_repository.get_profile_data_by_email(email_address)
         if profile and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
             return {"status": "success"}
         profile = self.profiles_repository.get_profile_data(person.get("uuid"))
-        if profile:
+        if profile and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
             return {"status": "success"}
         logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
@@ -158,7 +168,7 @@ class LangsmithConsumer(GenieConsumer):
         #     if seller_email:
         #         seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person_data)
 
-        response = await self.langsmith.get_profile(person_data, company_dict)
+        response = await self.langsmith.get_profile(person_data, company_dict, news_data)
         logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
 
         profile_strength_and_get_to_know = {
@@ -264,8 +274,8 @@ class LangsmithConsumer(GenieConsumer):
                 # Save to the database
                 self.personal_data_repository.update_news_to_db(uuid, news_item)
 
-                event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
-                event.send()
+        event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
+        event.send()
         return {"status": "success"}
 
 
