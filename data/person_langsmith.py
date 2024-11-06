@@ -19,7 +19,7 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     personal_data_repository,
     tenants_repository,
-    tenant_profiles_repository,
+    tenant_profiles_repository, persons_repository,
 )
 from common.genie_logger import GenieLogger
 
@@ -37,6 +37,7 @@ class LangsmithConsumer(GenieConsumer):
             topics=[Topic.NEW_PERSONAL_DATA, Topic.NEW_NEWS_DATA, Topic.NEW_BASE_PROFILE, Topic.NEW_PERSON_CONTEXT],
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
+
         self.langsmith = Langsmith()
         self.company_repository = companies_repository()
         self.profiles_repository = profiles_repository()
@@ -44,6 +45,7 @@ class LangsmithConsumer(GenieConsumer):
         self.personal_data_repository = personal_data_repository()
         self.tenant_profiles_repository = tenant_profiles_repository()
         self.embeddings_client = GenieEmbeddingsClient()
+        self.persons_repository = persons_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -116,9 +118,20 @@ class LangsmithConsumer(GenieConsumer):
         personal_data = event_body.get("personal_data")
         person_data = {"personal_data": personal_data}
         person = event_body.get("person")
+        if not person and not personal_data:
+            person_uuid = event_body.get("person_uuid")
+            if not person_uuid:
+                logger.error(f"No person data found for person {person_uuid}")
+                return
+            else:
+                person = self.persons_repository.get_person(person_uuid)
+                personal_data = self.personal_data_repository.get_pdl_personal_data(person_uuid)
+                if not personal_data:
+                    personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
+                person_data = {"personal_data": personal_data}
         email_address = person.get("email")
         profile = self.profiles_repository.get_profile_data_by_email(email_address)
-        if profile:
+        if profile and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
             return {"status": "success"}
         profile = self.profiles_repository.get_profile_data(person.get("uuid"))
@@ -250,6 +263,9 @@ class LangsmithConsumer(GenieConsumer):
 
                 # Save to the database
                 self.personal_data_repository.update_news_to_db(uuid, news_item)
+
+                event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
+                event.send()
         return {"status": "success"}
 
 
