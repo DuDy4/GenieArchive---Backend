@@ -664,7 +664,7 @@ class MeetingsRepository:
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '25 minutes') 
+            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '5 minutes') 
                   AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '25 minutes')
               AND m.classification = %s 
               AND m.reminder_sent IS NULL
@@ -732,7 +732,7 @@ class MeetingsRepository:
                         return meeting_dto, start_time_utc, reminder_schedule_utc
                     else:
                         logger.info("No upcoming meeting found")
-                        return None
+                        return None, None, None
             except psycopg2.Error as db_error:
                 logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
                 logger.debug(traceback.format_exc())
