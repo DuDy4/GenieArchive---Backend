@@ -19,6 +19,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
+from data.internal_services.azure_storage_picture_uploader import AzureProfilePictureUploader
 from data.data_common.utils.persons_utils import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
@@ -75,6 +76,7 @@ class PersonManager(GenieConsumer):
         self.meetings_repository = meetings_repository()
         self.companies_repository = companies_repository()
         self.tenant_profiles_repository = tenant_profiles_repository()
+        self.azure_profile_picture_uploader = AzureProfilePictureUploader()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -726,11 +728,21 @@ class PersonManager(GenieConsumer):
                 return {"error": "Person has no linkedin"}
 
         if not profile.picture_url or str(profile.picture_url) == str(DEFAULT_PROFILE_PICTURE):
+            self.profiles_repository.update_profile_picture(str(profile.uuid), DEFAULT_PROFILE_PICTURE)
             event = GenieEvent(Topic.FAILED_TO_GET_PROFILE_PICTURE, {"person": person.to_dict()})
             event.send()
             logger.info(f"Sent 'failed_to_get_profile_picture' event to the event queue for {person.email}")
         else:
             logger.info(f"Profile picture url: {profile.picture_url}")
+            result = self.azure_profile_picture_uploader.handle_profile_picture_upload(profile)
+            if result:
+                logger.info(f"Profile picture uploaded: {profile.picture_url}")
+            else:
+                logger.error(f"Failed to upload profile picture: {profile.picture_url}")
+                self.profiles_repository.update_profile_picture(str(profile.uuid), DEFAULT_PROFILE_PICTURE)
+                event = GenieEvent(Topic.FAILED_TO_GET_PROFILE_PICTURE, {"person": person.to_dict()})
+                event.send()
+                logger.info(f"Sent 'failed_to_upload_profile_picture' event to the event queue for {person.email}")
 
         return {"status": "failed"}
 
