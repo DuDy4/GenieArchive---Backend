@@ -664,8 +664,8 @@ class MeetingsRepository:
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
             INNER JOIN tenants t ON m.tenant_id = t.tenant_id
-            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '5 minutes') 
-                  AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '25 minutes')
+            WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '25 minutes') 
+                  AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '5 minutes')
               AND m.classification = %s 
               AND m.reminder_sent IS NULL
               AND t.reminder_subscription = TRUE;
