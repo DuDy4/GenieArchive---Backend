@@ -26,7 +26,15 @@ class SchedulerService:
         if immediate:
             self.scheduler.add_job(task_module.run, DateTrigger(run_date=datetime.now()))
 
-        cron_trigger = CronTrigger(minute=f"*/{interval_minutes}")
+        if interval_minutes == 15:
+            cron_trigger = CronTrigger(minute="*/15")
+        elif interval_minutes == 30:
+            cron_trigger = CronTrigger(minute="*/30")
+        elif interval_minutes == 60:
+            cron_trigger = CronTrigger(minute=0)
+        else:
+            raise ValueError("Unsupported interval_minutes. Use 15 or 30 or 60.")
+
         self.scheduler.add_job(task_module.run, cron_trigger, id=task_module.__name__, replace_existing=True)
 
         logger.info(f"Scheduled task '{task_module.__name__}' for every {interval_minutes} minutes.")
@@ -38,8 +46,7 @@ if __name__ == "__main__":
     scheduler_service = SchedulerService()
     # Add the send_reminder_email task with immediate start and a 15-minute interval
     scheduler_service.add_task(send_reminder_email, interval_minutes=15, immediate=True)
-
-    # Add the other_task to run every hour
+    # Add the upload_image to run every hour
     scheduler_service.add_task(upload_profile_picture_to_blob, interval_minutes=60, immediate=True)
 
     try:
