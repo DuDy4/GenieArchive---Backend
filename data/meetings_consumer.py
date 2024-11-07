@@ -160,7 +160,10 @@ class MeetingManager(GenieConsumer):
                 meeting.google_calendar_id
             )
             if meeting_in_database:
-                if self.check_same_meeting(meeting, meeting_in_database):
+                if tenant_id != meeting_in_database.tenant_id:
+                    logger.info(f"Meeting exists in another tenant: {meeting_in_database.tenant_id}")
+
+                elif self.check_same_meeting(meeting, meeting_in_database):
                     logger.info("Meeting already in database")
                     continue
             self.meetings_repository.save_meeting(meeting)
@@ -539,9 +542,6 @@ class MeetingManager(GenieConsumer):
             return False
         # logger.debug(f"Meeting links are the same")
         if meeting.participants_hash != meeting_in_database.participants_hash:
-            return False
-        # logger.debug(f"Meeting participants hashes are the same")
-        if meeting.tenant_id != meeting_in_database.tenant_id:
             return False
         return True
 

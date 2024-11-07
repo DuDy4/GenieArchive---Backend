@@ -48,7 +48,7 @@ class MeetingsRepository:
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
         logger.debug(f"Meeting to insert: {meeting}")
-        if self.exists(meeting.google_calendar_id):
+        if self.exists(meeting.google_calendar_id, meeting.tenant_id):
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
         insert_query = """
@@ -362,8 +362,7 @@ class MeetingsRepository:
                 raise Exception(f"Error updating meeting, because: {error.pgerror}")
 
     def save_meeting(self, meeting: MeetingDTO):
-        self.create_table_if_not_exists()
-        if self.exists(meeting.google_calendar_id):
+        if self.exists(meeting.google_calendar_id, meeting.tenant_id):
             if self.exists_without_changes(meeting):
                 logger.info(
                     f"Meeting with google_calendar_id {meeting.google_calendar_id} "
@@ -421,13 +420,14 @@ class MeetingsRepository:
                 logger.error(f"Unexpected error: {e}")
                 return
 
-    def exists(self, google_calendar_id: str) -> bool:
-        exists_query = "SELECT 1 FROM meetings WHERE google_calendar_id = %s;"
+    def exists(self, google_calendar_id: str, tenant_id=None) -> bool:
+        exists_query = f"SELECT 1 FROM meetings WHERE google_calendar_id = %s{"AND tenant_id = %s" if tenant_id else ''};"
+        args = (google_calendar_id,) if not tenant_id else (google_calendar_id, tenant_id)
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     logger.info(f"About to execute check if uuid exists: {google_calendar_id}")
-                    cursor.execute(exists_query, (google_calendar_id,))
+                    cursor.execute(exists_query, args)
                     result = cursor.fetchone() is not None
                     logger.info(f"{google_calendar_id} existence in database: {result}")
                     return result
