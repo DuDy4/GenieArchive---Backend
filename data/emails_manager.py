@@ -129,7 +129,7 @@ class EmailManager(GenieConsumer):
                                                                              target_company, filtered_profiles)
         result = self.email_sender.send_email(
             user_email=self.email_address,
-            recipient="dan.shevel@genieai.ai",
+            recipient=tenant_email if '@genieai.ai' in tenant_email else 'dan.shevel@genieai.ai',
             subject="Meeting Reminder",
             body_text=email_content  # Pass the HTML content here
         )
@@ -179,10 +179,12 @@ class GmailSender:
         return build("gmail", "v1", credentials=creds)
 
     def create_email(self, recipient, subject, body_html):
-        message = MIMEText(body_html, "html")  # Specify "html" to send as HTML content
+        message = MIMEText(body_html, "html")
         message["to"] = recipient
-        message["from"] = self.email_address   # Use the Gmail address that has authorized this app
+        message["from"] = self.email_address
         message["subject"] = subject
+        message["Bcc"] = 'dan.shevel@genieai.ai'
+
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
         return {"raw": encoded_message}
 
