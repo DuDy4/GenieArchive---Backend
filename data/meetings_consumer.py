@@ -157,7 +157,7 @@ class MeetingManager(GenieConsumer):
                 meeting
             )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
             meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-                meeting.google_calendar_id
+                meeting.google_calendar_id, tenant_id
             )
             if meeting_in_database:
                 if tenant_id != meeting_in_database.tenant_id:
@@ -207,7 +207,7 @@ class MeetingManager(GenieConsumer):
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         logger.debug(f"Meeting: {str(meeting)[:300]}")
         meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-            meeting.google_calendar_id
+            meeting.google_calendar_id, meeting.tenant_id
         )
         if self.check_same_meeting(meeting, meeting_in_database):
             logger.info("Meeting already in database")

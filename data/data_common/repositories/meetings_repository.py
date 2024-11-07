@@ -109,16 +109,16 @@ class MeetingsRepository:
                 traceback.print_exc()
             return None
 
-    def get_meeting_by_google_calendar_id(self, google_calendar_id: str) -> Optional[MeetingDTO]:
+    def get_meeting_by_google_calendar_id(self, google_calendar_id: str, tenant_id: str) -> Optional[MeetingDTO]:
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE google_calendar_id = %s AND classification != %s;
+        WHERE google_calendar_id = %s AND tenant_id = %s AND classification != %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (google_calendar_id, MeetingClassification.DELETED.value))
+                    cursor.execute(select_query, (google_calendar_id, tenant_id, MeetingClassification.DELETED.value))
                     row = cursor.fetchone()
                     if row:
                         logger.debug(f"Got meeting data {row[0]} from database")
