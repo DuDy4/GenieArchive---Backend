@@ -325,7 +325,7 @@ class MeetingsRepository:
         UPDATE meetings
         SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
         start_time = %s, end_time = %s, agenda = %s, classification = %s, reminder_schedule = %s
-        WHERE google_calendar_id = %s;
+        WHERE google_calendar_id = %s AND tenant_id = %s;
         """
 
         agenda = meeting.agenda
