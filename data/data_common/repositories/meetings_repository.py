@@ -323,7 +323,7 @@ class MeetingsRepository:
     def update(self, meeting: MeetingDTO):
         update_query = """
         UPDATE meetings
-        SET tenant_id = %s, participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
+        SET participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
         start_time = %s, end_time = %s, agenda = %s, classification = %s, reminder_schedule = %s
         WHERE google_calendar_id = %s AND tenant_id = %s;
         """
@@ -336,7 +336,6 @@ class MeetingsRepository:
         logger.info(f"Reminder schedule: {reminder_schedule}")
 
         meeting_data = (
-            meeting.tenant_id,
             json.dumps(meeting.participants_emails),
             meeting.participants_hash,
             meeting.link,
@@ -348,6 +347,7 @@ class MeetingsRepository:
             meeting.classification.value,
             reminder_schedule,
             meeting.google_calendar_id,
+            meeting.tenant_id,
         )
         logger.debug(f"About to update meeting data: {meeting_data}")
         with db_connection() as conn:
