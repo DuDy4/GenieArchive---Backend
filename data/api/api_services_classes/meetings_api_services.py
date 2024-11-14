@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from common.utils import email_utils
 from common.utils.str_utils import get_uuid4
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
@@ -39,8 +41,22 @@ class MeetingsApiService:
         if not tenant_id:
             logger.error("Tenant ID not provided")
             raise HTTPException(status_code=400, detail="Tenant ID not provided")
+        logger.info(f"About to get all meetings for tenant_id: {tenant_id}")
 
         meetings = self.meetings_repository.get_all_meetings_by_tenant_id(tenant_id)
+        dict_meetings = [meeting.to_dict() for meeting in meetings]
+        # sort by meeting.start_time
+        dict_meetings.sort(key=lambda x: x["start_time"])
+        logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
+        return dict_meetings
+
+    def get_all_meetings_with_selected_date(self, tenant_id, selected_datetime: datetime = datetime.now()):
+        if not tenant_id:
+            logger.error("Tenant ID not provided")
+            raise HTTPException(status_code=400, detail="Tenant ID not provided")
+        logger.info(f"About to get all meetings for tenant_id: {tenant_id}")
+
+        meetings = self.meetings_repository.get_all_meetings_by_tenant_id_in_datetime(tenant_id, selected_datetime)
         dict_meetings = [meeting.to_dict() for meeting in meetings]
         # sort by meeting.start_time
         dict_meetings.sort(key=lambda x: x["start_time"])
