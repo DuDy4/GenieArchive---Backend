@@ -484,7 +484,7 @@ class MeetingsRepository:
                 return False
 
     def get_all_meetings_by_tenant_id_that_should_be_imported(
-        self, number_of_imported_meetings: int
+        self, number_of_imported_meetings: int, tenant_id: str
     ) -> list[MeetingDTO]:
         ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
         cutoff_time = ten_hours_ago.isoformat()
@@ -494,7 +494,8 @@ class MeetingsRepository:
         FROM meetings
         WHERE classification != %s
         AND start_time > %s
-        ORDER BY start_time DESC
+        AND tenant_id = %s
+        ORDER BY start_time ASC
         {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
         """
         with db_connection() as conn:
@@ -503,10 +504,10 @@ class MeetingsRepository:
                     if number_of_imported_meetings > 0:
                         cursor.execute(
                             select_query,
-                            (MeetingClassification.DELETED.value, cutoff_time, number_of_imported_meetings),
+                            (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
                         )
                     else:
-                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time))
+                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
 
                     meetings = cursor.fetchall()
                     logger.info(f"Got {len(meetings)} meetings from database")

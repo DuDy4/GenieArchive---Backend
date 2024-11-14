@@ -199,7 +199,7 @@ class MeetingManager(GenieConsumer):
             )
             event.send()
 
-        self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion)
+        self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion, tenant_id)
         return {"status": "success"}
 
     async def handle_new_meeting(self, event):
@@ -545,7 +545,7 @@ class MeetingManager(GenieConsumer):
             return False
         return True
 
-    def handle_check_meetings_to_delete(self, meetings_imported: list[MeetingDTO]):
+    def handle_check_meetings_to_delete(self, meetings_imported: list[MeetingDTO], tenant_id: str):
         logger.info(f"Checking for meetings to delete")
         last_date_imported = meetings_imported[-1].start_time
         if not last_date_imported:
@@ -554,7 +554,7 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Last date imported: {last_date_imported}")
         meetings_from_database = (
             self.meetings_repository.get_all_meetings_by_tenant_id_that_should_be_imported(
-                len(meetings_imported)
+                len(meetings_imported), tenant_id
             )
         )
         if not meetings_from_database:
