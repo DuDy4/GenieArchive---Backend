@@ -228,7 +228,16 @@ class PDLConsumer(GenieConsumer):
                         )
                         personal_data = self.pdl_client.fetch_profile(person)
                         if personal_data:
-                            person = create_person_from_pdl_personal_data(existing_uuid)
+                            temp_person = PersonDTO(
+                                uuid=existing_uuid,
+                                name="",
+                                email=email,
+                                linkedin="",
+                                company="",
+                                position="",
+                                timezone="",
+                            )
+                            person = create_person_from_pdl_personal_data(temp_person)
                         result = self.pdl_client.handle_fetched_profile(person.email, personal_data, person)
                     logger.info(f"Already tried but failed for {email}, skipping...")
                     apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(
@@ -253,7 +262,16 @@ class PDLConsumer(GenieConsumer):
                     return {"status": "failed"}
 
                 # If it has up-to-date personal data, send event
-                person = create_person_from_pdl_personal_data(existing_uuid)
+                temp_person = PersonDTO(
+                    uuid=existing_uuid,
+                    name="",
+                    email=email,
+                    linkedin="",
+                    company="",
+                    position="",
+                    timezone="",
+                )
+                person = create_person_from_pdl_personal_data(temp_person)
                 logger.info(f"Person: {person}")
                 if not person:
                     logger.error(f"Failed to create person from personal data")
@@ -305,7 +323,16 @@ class PDLConsumer(GenieConsumer):
                     self.personal_data_repository.update_pdl_personal_data(
                         uuid=existing_uuid, personal_data=personal_data
                     )
-                person = create_person_from_pdl_personal_data(existing_uuid)
+                temp_person = PersonDTO(
+                    uuid=existing_uuid,
+                    name="",
+                    email=email,
+                    linkedin="",
+                    company="",
+                    position="",
+                    timezone="",
+                )
+                person = create_person_from_pdl_personal_data(temp_person)
                 self.send_event(person, personal_data, tenant_id)
                 return {"status": "success"}
             else:
@@ -594,7 +621,16 @@ class PDLClient:
 
     def handle_fetched_profile(self, email_address: str, personal_data: dict, person: PersonDTO = None):
         if not person:
-            person = create_person_from_pdl_personal_data(personal_data.get("uuid"))
+            temp_person = PersonDTO(
+                uuid=personal_data.get("uuid"),
+                name="",
+                email=email_address,
+                linkedin="",
+                company="",
+                position="",
+                timezone="",
+            )
+            person = create_person_from_pdl_personal_data(temp_person)
         if not personal_data:
             logger.error(f"Failed to fetch personal data for {person.name}")
             self.personal_data_repository.save_pdl_personal_data(
