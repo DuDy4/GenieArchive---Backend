@@ -170,6 +170,8 @@ class MeetingManager(GenieConsumer):
                 data={"tenant_id": tenant_id, "email": email},
             )
             event_batch.queue_event(event)
+        for event in event_batch.events:
+            logger.info(f"Event: {event}")
         await event_batch.send_batch()
         self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion, tenant_id)
         return {"status": "success"}
@@ -204,6 +206,7 @@ class MeetingManager(GenieConsumer):
             return
         emails_to_process = email_utils.filter_emails(self_email, participant_emails)
         logger.info(f"Emails to process: {emails_to_process}")
+        emails_to_send_events.extend(emails_to_process)
 
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
