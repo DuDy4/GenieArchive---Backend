@@ -1,11 +1,15 @@
+import asyncio
+
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
+from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.dependencies.dependencies import tenants_repository, google_creds_repository
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
 import datetime
@@ -146,6 +150,16 @@ class TenantsApiService:
             topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
         )
         event.send()
+        # meetings_batch = EventHubBatchManager()
+        # for meeting in meetings:
+        #     meeting_dto = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+        #     event = GenieEvent(
+        #         topic=Topic.NEW_MEETING,
+        #         data=meeting_dto.to_dict(),
+        #     )
+        #     meetings_batch.queue_event(event)
+        # asyncio.run(meetings_batch.send_batch())
+
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
