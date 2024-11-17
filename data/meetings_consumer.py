@@ -24,6 +24,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, Agend
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from data.api_services.embeddings import GenieEmbeddingsClient
 
 
@@ -149,26 +150,27 @@ class MeetingManager(GenieConsumer):
         meetings = sorted(meetings, key=lambda m: get_start_time(m) or datetime.max.replace(tzinfo=pytz.UTC))
         tasks = [self.handle_meeting_to_process(meeting, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id) for meeting in meetings]
         await asyncio.gather(*tasks)
+        event_batch = EventHubBatchManager()
 
         logger.info(f"Emails to send events: {emails_to_send_events}")
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": tenant_id, "email": self_email},
         )
-        event.send()
+        event_batch.queue_event(event)
 
         for email in emails_to_send_events:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": tenant_id, "email": email},
             )
-            event.send()
+            event_batch.queue_event(event)
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": tenant_id, "email": email},
             )
-            event.send()
-
+            event_batch.queue_event(event)
+        await event_batch.send_batch()
         self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion, tenant_id)
         return {"status": "success"}
 
