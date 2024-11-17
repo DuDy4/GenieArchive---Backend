@@ -232,7 +232,7 @@ async def get_all_meetings(
     request: Request,
     tenant_id: str,
     impersonate_tenant_id: Optional[str] = Query(None),
-    # name: str = Query(None, description="Partial text to search profile names"),
+    name: str = Query(None, description="Partial text to search profile names"),
 ) -> MeetingsListResponse | JSONResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
@@ -246,8 +246,42 @@ async def get_all_meetings(
     logger.info(f"Received get profiles request, with tenant: {tenant_id}")
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
-    logger.info(f"Getting profile for tenant ID: {tenant_id}")
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
     response = meetings_api_service.get_all_meetings(tenant_id)
+    return JSONResponse(content=response)
+
+
+@v1_router.get(
+    "/{tenant_id}/meetings/{selected_date}",
+    response_model=MeetingsListResponse,
+    summary="Gets all *meeting* that the tenant has profiles participants in",
+)
+async def get_all_meetings_with_selected_date(
+        request: Request,
+        tenant_id: str,
+        selected_date: str,
+        impersonate_tenant_id: Optional[str] = Query(None),
+) -> MeetingsListResponse | JSONResponse:
+    """
+    Gets all *meeting* that the tenant has profiles participants in.
+
+    Steps:
+    1. Get all persons for the tenant.
+    2. Get all emails for the persons with name that includes the search text.
+    3. Get all meetings with participants that have the emails.
+
+    """
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    if selected_date:
+        selected_datetime = datetime.fromisoformat(selected_date)
+        logger.info(f"Selected Date: {selected_datetime}, type: {type(selected_datetime)}")
+    else:
+        selected_datetime = datetime.utcnow()  # Default to current date/time
+    logger.info(f"Selected Date: {selected_datetime}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
+    response = meetings_api_service.get_all_meetings_with_selected_date(tenant_id, selected_datetime)
     return JSONResponse(content=response)
 
 
