@@ -1,3 +1,5 @@
+import asyncio
+
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
@@ -16,20 +18,36 @@ producer = EventHubProducerClient.from_connection_string(conn_str=connection_str
 class EventHubBatchManager:
     def __init__(self):
         self.producer = producer
+        self.events = []
         self.batch = None
+        self.batch_task = None  # Initialize batch_task as None
 
-    def start_batch(self):
-        """Start a new batch, replacing any existing batch."""
-        if self.batch is not None:
-            logger.warning("Batch already exists. Replacing it with a new one.")
-        self.batch = self.producer.create_batch()
-        logger.info("Batch created successfully.")
+        try:
+            # Safely get the running loop and start the batch task if a loop exists
+            loop = asyncio.get_running_loop()
+            self.batch_task = loop.create_task(self.start_batch())
+        except RuntimeError:
+            # No running loop; log and defer task creation
+            logger.warning("No running event loop. Batch task creation deferred.")
 
-    def add_event(self, event: GenieEvent):
-        """Add an event to the current batch."""
-        if not self.batch:
-            self.start_batch()
+    async def ensure_batch_task(self):
+        """Ensure the batch task is started."""
+        if not self.batch_task:
+            logger.info("Starting batch task now as it was previously deferred.")
+            self.batch_task = asyncio.create_task(self.start_batch())  # Create the task if not already created
+        await self.batch_task
 
+    async def start_batch(self):
+        """Start a new batch asynchronously."""
+        try:
+            self.batch = await asyncio.to_thread(self.producer.create_batch)
+            logger.info(f"Batch created successfully: {self.batch}")
+        except Exception as e:
+            logger.error(f"Failed to create batch: {e}")
+            raise
+
+    def queue_event(self, event: GenieEvent):
+        """Queue an event for eventual batch processing."""
         event_data = EventData(body=event.data)
         event_data.properties = {
             "topic": event.topic,
@@ -37,19 +55,32 @@ class EventHubBatchManager:
             "ctx_id": event.ctx_id,
             "tenant_id": event.tenant_id,
         }
+        self.events.append(event_data)
+        logger.info(f"Event queued [TOPIC={event.topic}]")
 
-        try:
-            self.batch.add(event_data)
-            logger.info(f"Event added to batch [TOPIC={event.topic}]")
-        except ValueError as e:
-            logger.error(f"Failed to add event to batch: {e}")
-            raise
+    async def add_events_to_batch(self):
+        """Wait for batch creation and add queued events."""
+        await self.ensure_batch_task()  # Ensure batch task is initialized and completed
 
-    def send_batch(self):
-        """Send the current batch."""
+        for event in self.events:
+            try:
+                self.batch.add(event)
+                logger.info(f"Event added to batch [TOPIC={event.properties.get('topic')}]")
+            except ValueError as e:
+                logger.error(f"Failed to add event to batch: {e}")
+                raise
+
+        # Clear the events list after adding to the batch
+        self.events = []
+
+    async def send_batch(self):
+        """Send the current batch after ensuring all events are added."""
+        await self.add_events_to_batch()
+
         if not self.batch:
-            raise RuntimeError("No batch to send. Call start_batch() and add events first.")
+            raise RuntimeError("No batch to send. Ensure batch creation succeeded.")
 
-        self.producer.send_batch(self.batch)
+        await asyncio.to_thread(self.producer.send_batch, self.batch)
         logger.info("Batch sent successfully.")
         self.batch = None
+        self.batch_task = None  # Reset for future batches
