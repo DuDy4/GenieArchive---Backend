@@ -62,6 +62,8 @@ def filter_email_objects(participants_emails) -> List:
             continue
         if "assistant." in email.get("email"):
             continue
+        if "noreply" in email.get("email") or "no-reply" in email.get("email"):
+            continue
         else:
             final_list.append(email)
     logger.info(f"Final list: {final_list}")
