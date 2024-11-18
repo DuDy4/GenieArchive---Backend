@@ -147,7 +147,10 @@ class ProfilesApiService:
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             for category, phrases in profile.get_to_know.items():
-                profile.get_to_know[category] = phrases[:2]  # Limit to only 2 phrases per category
+                if category == 'avoid':
+                    profile.get_to_know[category] = phrases[:1]
+                else:
+                    profile.get_to_know[category] = phrases[:2]
             formated_get_to_know = "".join(
                 [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
             )
