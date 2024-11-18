@@ -155,6 +155,35 @@ class MeetingsRepository:
                 traceback.print_exception(error)
                 return []
 
+    def get_all_meetings_by_tenant_id_in_datetime(self, tenant_id: str, selected_datetime: datetime) -> list[MeetingDTO]:
+        start_range = (selected_datetime - timedelta(weeks=2)).isoformat()
+        end_range = (selected_datetime + timedelta(weeks=2)).isoformat()
+
+        # SQL query to filter within the date range
+        select_query = """
+            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+            FROM meetings
+            WHERE tenant_id = %s 
+              AND classification != %s
+              AND to_timestamp(start_time, 'YYYY-MM-DD"T"HH24:MI:SS') AT TIME ZONE 'UTC' BETWEEN %s AND %s;
+            """
+        with db_connection() as conn:
+            try:
+                self.create_table_if_not_exists()
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (tenant_id, MeetingClassification.DELETED.value, start_range, end_range))
+                    meetings = cursor.fetchall()
+                    if meetings:
+                        logger.info(f"Got {len(meetings)} meetings from database")
+                        return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+                    else:
+                        logger.error(f"No meetings found for tenant_id: {tenant_id}")
+                        return []
+            except Exception as error:
+                logger.error("Error fetching meeting data by tenant_id:", error)
+                traceback.print_exception(error)
+                return []
+
     def get_all_future_meetings_for_tenant(self, tenant_id):
         select_query = """
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification

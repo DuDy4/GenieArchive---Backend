@@ -55,12 +55,17 @@ def filter_email_objects(participants_emails) -> List:
     host_domain = host_email.split("@")[1]
     logger.info(f"Host email: {host_email}")
     for email in participants_emails:
-        email_domain = email.get("email").split("@")[1]
+        email_address = email.get("email", "").strip().lower()  # Normalize the email
+        if not email_address:
+            continue
+        email_domain = email_address.split("@")[1]
         if email_domain == host_domain:
             continue
         elif email_domain in PUBLIC_DOMAIN:
             continue
-        if "assistant." in email.get("email"):
+        if "assistant." in email_address:
+            continue
+        if "noreply" in email_address or "no-reply" in email_address:
             continue
         else:
             final_list.append(email)

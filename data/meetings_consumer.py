@@ -24,6 +24,7 @@ from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, Agend
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
+from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from data.api_services.embeddings import GenieEmbeddingsClient
 
 
@@ -147,60 +148,63 @@ class MeetingManager(GenieConsumer):
 
         # Sort meetings by the start time
         meetings = sorted(meetings, key=lambda m: get_start_time(m) or datetime.max.replace(tzinfo=pytz.UTC))
-
-        for meeting in meetings:
-            logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
-            if isinstance(meeting, str):
-                meeting = json.loads(meeting)
-            meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-            meetings_dto_to_check_deletion.append(
-                meeting
-            )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
-            meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-                meeting.google_calendar_id, tenant_id
-            )
-            if meeting_in_database:
-                if tenant_id != meeting_in_database.tenant_id:
-                    logger.info(f"Meeting exists in another tenant: {meeting_in_database.tenant_id}")
-
-                elif self.check_same_meeting(meeting, meeting_in_database):
-                    logger.info("Meeting already in database")
-                    continue
-            self.meetings_repository.save_meeting(meeting)
-            if meeting.classification.value != MeetingClassification.EXTERNAL.value:
-                logger.info(f"Meeting is {meeting.classification.value}. skipping")
-                continue
-            participant_emails = meeting.participants_emails
-            try:
-                self_email = [email for email in participant_emails if email.get("self")][0].get("email")
-            except IndexError:
-                logger.error(f"Could not find self email in {participant_emails}")
-                continue
-            emails_to_process = email_utils.filter_emails(self_email, participant_emails)
-            logger.info(f"Emails to process: {emails_to_process}")
-            emails_to_send_events = list(set(emails_to_send_events + emails_to_process))
+        tasks = [self.handle_meeting_to_process(meeting, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id) for meeting in meetings]
+        await asyncio.gather(*tasks)
+        event_batch = EventHubBatchManager()
 
         logger.info(f"Emails to send events: {emails_to_send_events}")
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
             data={"tenant_id": tenant_id, "email": self_email},
         )
-        event.send()
+        event_batch.queue_event(event)
 
         for email in emails_to_send_events:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"tenant_id": tenant_id, "email": email},
             )
-            event.send()
+            event_batch.queue_event(event)
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
                 data={"tenant_id": tenant_id, "email": email},
             )
-            event.send()
-
+            event_batch.queue_event(event)
+        await event_batch.send_batch()
         self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion, tenant_id)
         return {"status": "success"}
+
+    async def handle_meeting_to_process(self, meeting: MeetingDTO, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id):
+        logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
+        if isinstance(meeting, str):
+            meeting = json.loads(meeting)
+        meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
+        meetings_dto_to_check_deletion.append(
+            meeting
+        )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
+        meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
+            meeting.google_calendar_id, tenant_id
+        )
+        if meeting_in_database:
+            if tenant_id != meeting_in_database.tenant_id:
+                logger.info(f"Meeting exists in another tenant: {meeting_in_database.tenant_id}")
+
+            elif self.check_same_meeting(meeting, meeting_in_database):
+                logger.info("Meeting already in database")
+                return
+        self.meetings_repository.save_meeting(meeting)
+        if meeting.classification.value != MeetingClassification.EXTERNAL.value:
+            logger.info(f"Meeting is {meeting.classification.value}. skipping")
+            return
+        participant_emails = meeting.participants_emails
+        try:
+            self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+        except IndexError:
+            logger.error(f"Could not find self email in {participant_emails}")
+            return
+        emails_to_process = email_utils.filter_emails(self_email, participant_emails)
+        logger.info(f"Emails to process: {emails_to_process}")
+        emails_to_send_events.extend(emails_to_process)
 
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
