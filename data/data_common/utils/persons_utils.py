@@ -87,7 +87,9 @@ def determine_profile_category(strengths_scores):
 
     # Select the profile with the lowest total score
     best_profile = min(profile_scores, key=profile_scores.get)
-    return ProfileCategory(category=best_profile, scores=profile_scores)
+
+    return ProfileCategory(category=best_profile, scores=profile_scores,
+                           description=profiles_description.get(best_profile, ""))
 
 
 
