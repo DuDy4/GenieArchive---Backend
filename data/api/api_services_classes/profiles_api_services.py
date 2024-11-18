@@ -1,6 +1,7 @@
 from common.utils import email_utils
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
+from data.data_common.utils.persons_utils import determine_profile_category
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     tenant_profiles_repository,
@@ -108,16 +109,27 @@ class ProfilesApiService:
         logger.info(f"Attendee info: {profile}")
         return AttendeeInfo(**profile)
 
+
+    def determine_profile_category(self, strengths_scores):
+        return determine_profile_category(strengths_scores)
+        # return profile_scores, best_profile
+
+
     def get_profile_strengths(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
-            raise HTTPException(status_code=404, detail="Profile not found under this tenant")
+            email = self.tenants_repository.get_tenant_email(tenant_id)
+            if email and email_utils.is_genie_admin(email):
+                logger.info(f"Genie admin has access to profile with uuid: {uuid}")
+            else:
+                logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+                raise HTTPException(status_code=404, detail="Profile not found under this tenant")
 
         profile = self.profiles_repository.get_profile_data(uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
-            return StrengthsListResponse(strengths=profile.strengths)
+            category = self.determine_profile_category(profile.strengths)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
@@ -134,6 +146,8 @@ class ProfilesApiService:
             profile.get_to_know = tenant_specific_get_to_know   
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
+            for category, phrases in profile.get_to_know.items():
+                profile.get_to_know[category] = phrases[:2]  # Limit to only 2 phrases per category
             formated_get_to_know = "".join(
                 [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
             )

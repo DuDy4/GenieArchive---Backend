@@ -67,6 +67,10 @@ class Phrase(BaseModel):
         return cls(**data)
 
 
+class ProfileCategory(BaseModel):
+    category: str
+    scores: dict
+
 class Strength(BaseModel):
     strength_name: str
     reasoning: str
