@@ -9,6 +9,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Connection,
     Phrase,
     Strength,
+    ProfileCategory,
 )
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import (
@@ -170,6 +171,7 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
+    profile_category: ProfileCategory
 
 
 class Hobby(BaseModel):

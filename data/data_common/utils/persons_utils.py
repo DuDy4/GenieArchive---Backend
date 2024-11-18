@@ -2,6 +2,7 @@ from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
+from data.data_common.data_transfer_objects.profile_dto import ProfileCategory
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -13,6 +14,71 @@ personal_data_repository = personal_data_repository()
 companies_repository = companies_repository()
 
 logger = GenieLogger()
+
+
+profiles = ["The Analytical", "The Amiable", "The Driver", "The Expressive", "The Skeptic", "The Pragmatist", "The Curious"]
+
+strengths_mapping = {
+    # "Achiever": [4, 6, 1, 3, 7, 2, 5],
+    "Achiever": [7, 7, 7, 7, 7, 7, 7],
+    "Activator": [5, 7, 2, 1, 6, 3, 4],
+    "Adaptability": [6, 2, 5, 1, 7, 4, 3],
+    "Analytical": [1, 10, 4, 6, 2, 5, 3],
+    "Arranger": [5, 4, 3, 7, 1, 6, 2],
+    "Belief": [7, 1, 6, 2, 4, 3, 5],
+    "Command": [6, 3, 2, 5, 7, 1, 4],
+    "Communication": [6, 1, 5, 2, 10, 4, 3],
+    "Competition": [5, 7, 2, 4, 10, 1, 3],
+    "Connectedness": [7, 5, 4, 1, 6, 3, 2],
+    "Consistency": [2, 1, 3, 10, 6, 4, 5],
+    "Context": [2, 10, 1, 10, 3, 5, 4],
+    "Deliberative": [2, 6, 3, 7, 1, 4, 5],
+    "Developer": [10, 1, 4, 2, 3, 10, 10],
+    "Discipline": [4, 10, 2, 6, 5, 1, 3],
+    "Empathy": [10, 1, 10, 2, 10, 10, 10],
+    "Focus": [3, 10, 2, 10, 5, 1, 4],
+    "Futuristic": [10, 3, 10, 1, 10, 6, 2],
+    "Harmony": [10, 2, 10, 10, 1, 10, 10],
+    "Ideation": [10, 10, 3, 1, 10, 10, 2],
+    "Includer": [10, 1, 10, 10, 10, 2, 10],
+    "Individualization": [3, 1, 2, 10, 10, 5, 4],
+    "Input": [1, 7, 5, 3, 4, 6, 2],
+    "Intellection": [4, 3, 5, 2, 7, 6, 1],
+    "Learner": [3, 7, 4, 2, 5, 6, 1],
+    "Maximizer": [4, 1, 3, 10, 10, 2, 5],
+    "Positivity": [10, 1, 10, 2, 10, 10, 10],
+    "Relator": [10, 1, 10, 10, 10, 10, 10],
+    "Responsibility": [3, 6, 1, 10, 4, 2, 5],
+    "Restorative": [5, 7, 3, 2, 4, 6, 1],
+    "Self-Assurance": [3, 10, 2, 10, 7, 1, 10],
+    "Significance": [6, 7, 4, 3, 5, 1, 2],
+    "Strategic": [6, 7, 3, 4, 5, 2, 1],
+    "Woo": [5, 1, 4, 3, 10, 2, 10],
+}
+
+# Function to calculate the best profile
+def determine_profile_category(strengths_scores):
+    total_strength_score = 0
+    for i, strength  in enumerate(strengths_scores):
+        total_strength_score += strength.score
+    normalized_strengths = {}
+    for i, strength  in enumerate(strengths_scores):
+        normalized_strengths[strength.strength_name] = strength.score / total_strength_score            
+
+    # Initialize profile scores
+    profile_scores = {profile: 0 for profile in profiles}
+
+    for strength, normalized_weight in normalized_strengths.items():
+        if strength in strengths_mapping:
+            for i, profile in enumerate(profiles):
+                score = strengths_mapping[strength][i]
+                if score != 10:  # Ignore irrelevant scores
+                    profile_scores[profile] += normalized_weight * score
+
+    # Select the profile with the lowest total score
+    best_profile = min(profile_scores, key=profile_scores.get)
+    return ProfileCategory(category=best_profile, scores=profile_scores)
+
 
 
 def fix_linkedin_url(linkedin_url: str) -> str:
