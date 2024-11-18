@@ -69,7 +69,7 @@ class TenantsApiService:
             logger.error(f"Error updating reminder subscription: {str(e)}")
             raise HTTPException(status_code=500, detail="Error updating reminder subscription")
 
-    def fetch_google_meetings(self, user_email):
+    def fetch_google_meetings(self, user_email, meetings_num=30):
         logger.info(f"Received Google meetings request for tenant: {user_email}")
 
         google_credentials = self.google_creds_repository.get_creds(user_email)
@@ -118,12 +118,13 @@ class TenantsApiService:
                 .list(
                     calendarId="primary",
                     timeMin=now_minus_10_hours,
-                    maxResults=30,
+                    maxResults=meetings_num,
                     singleEvents=True,
                     orderBy="startTime",
                 )
                 .execute()
             )
+            logger.info(f"Events result: {len(events_result)} events")
         except Exception as e:
             error_message = str(e)
             if "invalid_grant" in error_message:
@@ -149,6 +150,7 @@ class TenantsApiService:
         event = GenieEvent(
             topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
         )
+        logger.info(f"Sending {len(meetings)} meetings to the processing queue")
         event.send()
         # meetings_batch = EventHubBatchManager()
         # for meeting in meetings:
@@ -221,11 +223,11 @@ class TenantsApiService:
             logger.error(f"Error during login event: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-    def import_google_meetings(self, tenant_id):
+    def import_google_meetings(self, tenant_id, meetings_num=30):
         tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
         if not tenant_email:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        return self.fetch_google_meetings(tenant_email)
+        return self.fetch_google_meetings(tenant_email, meetings_num)
 
     def start_google_oauth(self):
         """Initiates the OAuth flow and returns an authorization URL."""
