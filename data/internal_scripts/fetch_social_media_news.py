@@ -85,6 +85,3 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
         except Exception as e:
             logger.error(f"Error sending event for {uuid}: {e}")
             continue
-
-all_uuids = ["e5d5726a-4293-49c5-ae5b-4b146a539e8b"]
-result = fetch_linkedin_posts(all_uuids)
