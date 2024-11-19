@@ -80,7 +80,8 @@ class ProfileCategory(BaseModel):
             category=data["category"],
             scores=data["scores"],
             description=data["description"],
-            icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", None) + f"{'-'.join(data["category"].lower().split(' '))}.png"
+            icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
+                 (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else '')
         )
 
 class Strength(BaseModel):
