@@ -494,3 +494,28 @@ class CompaniesRepository:
         if isinstance(obj, AnyUrl):
             return str(obj)
         raise TypeError(f"Type {type(obj)} not serializable")
+
+    def get_additional_domains(self, company_domain: str) -> List[str]:
+        query = """
+            SELECT ARRAY_AGG(c2.domain) AS related_domains
+            FROM companies c1
+            JOIN companies c2 ON c1.name = c2.name AND c1.address = c2.address
+            WHERE c1.domain = %s AND c1.domain != c2.domain;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (company_domain,))
+                    domains = cursor.fetchall()
+                    if domains:
+                        domains = [domain[0] for domain in domains]
+                        logger.debug(f"Additional domains: {domains}")
+                        return domains
+                    logger.info(f"No additional domains found")
+                    return []
+            except psycopg2.Error as error:
+                logger.error(f"Error getting additional domains: {error}")
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return []

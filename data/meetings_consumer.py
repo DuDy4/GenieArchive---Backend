@@ -202,6 +202,7 @@ class MeetingManager(GenieConsumer):
         except IndexError:
             logger.error(f"Could not find self email in {participant_emails}")
             return
+        additional_domains = self.companies_repository.get_additional_domains(self_email)
         emails_to_process = email_utils.filter_emails(self_email, participant_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         emails_to_send_events.extend(emails_to_process)
