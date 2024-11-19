@@ -113,11 +113,6 @@ class ProfilesApiService:
         return AttendeeInfo(**profile)
 
 
-    def determine_profile_category(self, strengths_scores):
-        return determine_profile_category(strengths_scores)
-        # return profile_scores, best_profile
-
-
     def get_profile_strengths(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
             email = self.tenants_repository.get_tenant_email(tenant_id)
@@ -131,7 +126,7 @@ class ProfilesApiService:
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
-            category = self.determine_profile_category(profile.strengths)
+            category = determine_profile_category(profile.strengths)
             return StrengthsListResponse(strengths=profile.strengths, profile_category=category)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
