@@ -100,10 +100,7 @@ class EmailManager(GenieConsumer):
         if not filtered_profiles:
             logger.error("No profiles found for filtered emails")
             return {"status": "error", "message": "No profiles found for filtered emails"}
-        target_companies = [
-            self.companies_repository.get_company_from_domain(email.split("@")[1])
-            for email in filtered_emails
-        ]
+        target_companies = self.companies_repository.get_companies_from_domains([email.split("@")[1] for email in filtered_emails])
         if not target_companies:
             logger.error("No target companies found for filtered emails")
             return {"status": "error", "message": "No target companies found for filtered emails"}
@@ -148,36 +145,21 @@ class GmailSender:
     SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
     def __init__(self):
-        self.google_creds_repo = google_creds_repository()
         self.email_address = SENDER_EMAIL_ADDRESS
+        self.google_creds = json.loads(base64.b64decode(os.getenv('GOOGLE_SERVICE_JSON')).decode('utf-8'))
 
     def authenticate_gmail(self, user_email):
         """Authenticate with Gmail API using stored credentials from google_creds table."""
-        google_credentials = self.google_creds_repo.get_creds(user_email)
-        if not google_credentials:
+        if not self.google_creds:
             raise Exception("Google credentials not found for user.")
 
+        credentials = service_account.Credentials.from_service_account_info(self.google_creds, scopes=self.SCOPES)
+        delegated_credentials = credentials.with_subject(self.email_address)
 
-        creds = Credentials(
-            token=google_credentials.get("access_token"),
-            refresh_token=google_credentials.get("refresh_token"),
-            client_id=env_utils.get("EMAIL_GOOGLE_CLIENT_ID"),
-            client_secret=env_utils.get("EMAIL_GOOGLE_CLIENT_SECRET"),
-            token_uri="https://oauth2.googleapis.com/token",
-        )
+        # Build the Gmail service
+        service = build('gmail', 'v1', credentials=delegated_credentials)
 
-
-        if creds.expired and creds.refresh_token:
-            logger.info("Credentials expired, refreshing")
-            creds.refresh(Request())
-            # Update tokens in the database after refreshing
-            self.google_creds_repo.update_google_creds(
-                user_email=user_email,
-                user_access_token=creds.token,
-                user_refresh_token=creds.refresh_token,
-            )
-
-        return build("gmail", "v1", credentials=creds)
+        return service
 
     def create_email(self, recipient, subject, body_html):
         message = MIMEText(body_html, "html")
@@ -334,4 +316,3 @@ class GmailSender:
 if __name__ == "__main__":
     email_manager = EmailManager()
     asyncio.run(email_manager.start())
-    # email_manager.email_sender.send_email(user_email="hello@genieai.ai", recipient="dan.shevel@genieai.ai", subject="Test", body_text="Test")

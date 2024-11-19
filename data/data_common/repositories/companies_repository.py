@@ -95,6 +95,30 @@ class CompaniesRepository:
                 traceback.print_exc()
                 return None
 
+    def get_companies_from_domains(self, domains: List[str]) -> List[CompanyDTO]:
+        select_query = """
+        SELECT uuid, name, domain, address, country, logo, founded_year, size, industry, description, overview, challenges, technologies, employees, social_links, annual_revenue, total_funding, funding_rounds, news
+        FROM companies WHERE domain = ANY(%s);
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (domains,))
+                    companies = cursor.fetchall()
+                    if companies:
+                        logger.info(f"Got companies with domains {domains}")
+                        return [CompanyDTO.from_tuple(company) for company in companies]
+                    logger.info(f"No companies found with domains {domains}")
+                    return []
+            except psycopg2.Error as error:
+                logger.error(f"Error getting companies: {error}")
+                traceback.print_exc()
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                traceback.print_exc()
+                return []
+
     def get_news_data_by_email(self, email):
         if "@" not in email:
             logger.error(f"Invalid email: {email}")
