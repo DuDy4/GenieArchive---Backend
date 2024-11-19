@@ -25,6 +25,7 @@ from data.data_common.dependencies.dependencies import (
 )
 from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_consumer import GenieConsumer
+from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
 from common.utils import env_utils
@@ -198,6 +199,11 @@ class GmailSender:
             return result
         except Exception as e:
             logger.error(f"An error occurred while sending email: {e}")
+            event = GenieEvent(
+                topic=Topic.EMAIL_SENDING_FAILED,
+                data=json.dumps({"recipient": recipient, "subject": subject, "error": str(e)}),
+            )
+            event.send()
             traceback.print_exc()
 
     def create_meeting_reminder_email_body(self, meeting: MeetingDTO, meeting_summary: dict, company: CompanyDTO, profiles: list):
