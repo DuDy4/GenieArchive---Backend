@@ -66,9 +66,9 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
                 if post_dict.get("image_urls"):
                     post_dict["images"] = post_dict["image_urls"]
                 news_data_objects.append(post_dict)
-                # self.personal_data_repository.update_news_to_db(
-                #     uuid, post_dict, PersonalDataRepository.FETCHED
-                # )
+                personal_data_repository.update_news_to_db(
+                    uuid, post_dict, PersonalDataRepository.FETCHED
+                )
             if news_data_objects:
                 event = GenieEvent(
                     Topic.NEW_NEWS_DATA,
@@ -85,3 +85,6 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
         except Exception as e:
             logger.error(f"Error sending event for {uuid}: {e}")
             continue
+
+all_uuids = ["384d4dc7-c173-4e7d-8864-f6c092803f9b"]
+result = fetch_linkedin_posts(all_uuids)

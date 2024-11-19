@@ -70,6 +70,8 @@ class Phrase(BaseModel):
 class ProfileCategory(BaseModel):
     category: str
     scores: dict
+    description: str
+    icon: HttpUrl | None = "https://img.icons8.com/color/48/trollface.png"
 
 class Strength(BaseModel):
     strength_name: str
