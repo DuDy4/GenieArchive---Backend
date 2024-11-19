@@ -13,17 +13,20 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 
 BOT_TOKEN = env_utils.get("SLACK_BOT_TOKEN")
-CHANNEL = env_utils.get("SLACK_CHANNEL")
+PROFILE_CHANNEL = env_utils.get("SLACK_PROFILE_CHANNEL")
+EMAIL_CHANNEL = env_utils.get("SLACK_EMAIL_CHANNEL")
 if not BOT_TOKEN:
     raise ValueError("SLACK_BOT_TOKEN is not set in the environment variables")
 client = WebClient(token=BOT_TOKEN)
 
 
-def send_message(message, channel=CHANNEL):
+def send_message(message, channel=PROFILE_CHANNEL):
     logger.info(f"Sending message: {message}")
     if not channel:
         logger.error("SLACK_CHANNEL is not set in the environment variables")
         return
+    if channel == "email":
+        channel = EMAIL_CHANNEL
     try:
         response = client.chat_postMessage(channel=channel, text=message)
         logger.info(f"Message sent: {response}")
