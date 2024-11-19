@@ -12,6 +12,7 @@ from ..repositories.companies_repository import CompaniesRepository
 from ..repositories.stats_repository import StatsRepository
 from ..repositories.badges_repository import BadgesRepository
 from ..repositories.file_upload_repository import FileUploadRepository
+from ..repositories.deals_repository import DealsRepository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -29,6 +30,7 @@ c_repository = CompaniesRepository()
 s_repository = StatsRepository()
 b_repository = BadgesRepository()
 f_repository = FileUploadRepository()
+d_repository = DealsRepository()
 
 
 
@@ -45,6 +47,10 @@ def badges_repository() -> BadgesRepository:
 
 def companies_repository() -> CompaniesRepository:
     return c_repository
+
+
+def deals_repository() -> DealsRepository:
+    return d_repository
 
 
 def personal_data_repository() -> PersonalDataRepository:

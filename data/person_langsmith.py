@@ -19,7 +19,9 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     personal_data_repository,
     tenants_repository,
-    tenant_profiles_repository, persons_repository,
+    tenant_profiles_repository, 
+    persons_repository,
+    deals_repository,
 )
 from common.genie_logger import GenieLogger
 
@@ -46,6 +48,7 @@ class LangsmithConsumer(GenieConsumer):
         self.tenant_profiles_repository = tenant_profiles_repository()
         self.embeddings_client = GenieEmbeddingsClient()
         self.persons_repository = persons_repository()
+        self.deals_repository = deals_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -229,6 +232,14 @@ class LangsmithConsumer(GenieConsumer):
             work_history = self.personal_data_repository.get_work_experience(email_address)
             work_history_summary = await self.langsmith.get_work_history_summary(work_history, person)
             profile_strength_and_get_to_know["work_history_summary"] = work_history_summary
+
+
+        deal = self.deals_repository.get_deal(seller_tenant_id, company_data.uuid)
+        if not deal:
+            self.deals_repository.insert_deal(seller_tenant_id, company_data.uuid)
+            deal = self.deals_repository.get_deal(seller_tenant_id, company_data.uuid)
+        if not deal.criterias:
+            per
 
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}

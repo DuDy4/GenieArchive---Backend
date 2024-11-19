@@ -2,7 +2,7 @@ from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileCategory
+from data.data_common.data_transfer_objects.profile_dto import ProfileCategory, ProfileDTO
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -55,6 +55,21 @@ strengths_mapping = {
     "Strategic": [6, 7, 3, 4, 5, 2, 1],
     "Woo": [5, 1, 4, 3, 10, 2, 10],
 }
+
+def determing_deal_sales_criteria(company_uuid: list[str]) -> str:
+    company_profiles = companies_repository.get_company_profiles(company_uuid)
+    list_of_profiles_strengths = [profile.strengths for profile in company_profiles]
+    if not list_of_profiles_strengths:
+        return None
+    for profile_strengths in list_of_profiles_strengths:
+        if not profile_strengths:
+            continue
+        profile_strengths = [strength for strength in profile_strengths if strength.strength_name in strengths_mapping]
+        if not profile_strengths:
+            continue
+        profile_category = determine_profile_category(profile_strengths)
+        if profile_category:
+            return profile_category.category
 
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
