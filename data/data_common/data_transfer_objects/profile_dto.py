@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Tuple
 from uuid import UUID
 from data.data_common.utils.str_utils import to_custom_title_case
+from common.utils import env_utils
 
 
 class Hobby(BaseModel):
@@ -71,7 +72,16 @@ class ProfileCategory(BaseModel):
     category: str
     scores: dict
     description: str
-    icon: HttpUrl | None = "https://img.icons8.com/color/48/trollface.png"
+    icon: HttpUrl | None = '/images/image9.png'
+
+    @staticmethod
+    def from_dict(data: dict) -> "ProfileCategory":
+        return ProfileCategory(
+            category=data["category"],
+            scores=data["scores"],
+            description=data["description"],
+            icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", None) + f"{'-'.join(data["category"].lower().split(' '))}.png"
+        )
 
 class Strength(BaseModel):
     strength_name: str
