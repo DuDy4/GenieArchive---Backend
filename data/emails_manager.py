@@ -11,8 +11,8 @@ from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-
-from common.utils.email_utils import filter_email_objects, filter_emails
+from google.oauth2 import service_account
+from common.utils.email_utils import filter_emails_with_additional_domains
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, MeetingClassification
 from ai.langsmith.langsmith_loader import Langsmith
@@ -93,8 +93,8 @@ class EmailManager(GenieConsumer):
         if not tenant_email:
             logger.error(f"Tenant email not found for tenant ID {tenant_id}")
             return {"status": "error", "message": f"Tenant email not found for tenant ID {tenant_id}"}
-
-        filtered_emails = filter_emails(tenant_email, meeting.participants_emails)
+        additional_domains = self.companies_repository.get_additional_domains(tenant_id)
+        filtered_emails = filter_emails_with_additional_domains(tenant_email, meeting.participants_emails, additional_domains)
         logger.info(f"Filtered emails: {filtered_emails}")
         filtered_profiles = self.profiles_repository.get_profiles_dto_by_email_list(filtered_emails)
         if not filtered_profiles:

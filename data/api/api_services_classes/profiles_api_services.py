@@ -1,5 +1,5 @@
 from common.utils import email_utils
-from common.utils.email_utils import additional_domains
+from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
 from data.data_common.utils.persons_utils import determine_profile_category
@@ -47,32 +47,11 @@ class ProfilesApiService:
         logger.info(f"Tenant email: {tenant_email}")
         participants_emails = meeting.participants_emails
         logger.debug(f"Participants emails: {participants_emails}")
-
-        filtered_participants_emails = email_utils.filter_emails(
-            host_email=tenant_email, participants_emails=participants_emails
-        )
-        logger.info(f"Filtered participants emails: {filtered_participants_emails}")
         tenant_domain = tenant_email.split("@")[1]
+
+        # Get additional domains in case the same company has multiple domains (or old ones)
         additional_domains = self.companies_repository.get_additional_domains(tenant_domain)
-        if additional_domains:
-            logger.info(f"Got additional domains: {additional_domains}")
-        for domain in additional_domains:
-            # Ensure `domain` is a string
-            if isinstance(domain, list):
-                domain = domain[0]
-            host_email = f"host@{domain}"
-            logger.info(f"Filtering with host email: {host_email}")
-
-            # Filter emails for the current domain
-            additional_filtered_participants_emails = email_utils.filter_emails(
-                host_email=host_email, participants_emails=participants_emails
-            )
-            logger.info(f"Additional filtered participants emails: {additional_filtered_participants_emails}")
-
-            # Strict intersection of filtered participants
-            filtered_participants_emails = list(set(filtered_participants_emails).intersection(set(additional_filtered_participants_emails)))
-            logger.info(f"Filtered participants emails after intersection: {filtered_participants_emails}")
-
+        filtered_participants_emails = filter_emails_with_additional_domains(tenant_email, participants_emails, additional_domains)
         logger.info(f"Filtered participants emails: {filtered_participants_emails}")
         filtered_emails = filtered_participants_emails
         logger.info(f"Filtered emails: {filtered_emails}")
