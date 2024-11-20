@@ -1,7 +1,4 @@
-def migrate_db()
-    print ("hello")
+def migrate_db():
+    print("hello world")
 
 migrate_db()
-
-
-
