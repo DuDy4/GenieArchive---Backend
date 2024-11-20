@@ -102,6 +102,24 @@ def filter_emails(host_email: str, participants_emails: List):
     logger.info(f"Final list: {final_list}")
     return final_list
 
+def filter_emails_with_additional_domains(host_email: str, participants_emails: List, additional_domains: List):
+    filtered_emails = filter_emails(host_email, participants_emails)
+    for domain in additional_domains:
+        if isinstance(domain, list):
+            domain = domain[0]
+        host_email = f"host@{domain}"
+        logger.info(f"Filtering with host email: {host_email}")
+
+        # Filter emails for the current domain
+        additional_filtered_participants_emails = filter_emails(
+            host_email=host_email, participants_emails=participants_emails
+        )
+        logger.info(f"Additional filtered participants emails: {additional_filtered_participants_emails}")
+
+        # Strict intersection of filtered participants
+        filtered_emails = list(set(filtered_emails).intersection(set(additional_filtered_participants_emails)))
+        logger.info(f"Filtered participants emails after intersection: {filtered_emails}")
+    return filtered_emails
 
 def is_genie_admin(email: str):
     return email and email.lower().endswith("@genieai.ai")

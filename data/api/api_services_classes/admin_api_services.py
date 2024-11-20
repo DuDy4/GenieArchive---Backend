@@ -155,7 +155,12 @@ class AdminApiService:
         except IndexError:
             logger.error(f"Could not find self email in {participant_emails}")
             return
-        emails_to_process = email_utils.filter_emails(self_email, participant_emails)
+        self_domain = self_email.split("@")[1] if "@" in self_email else None
+        if self_domain:
+            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+            emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
+        else:
+            emails_to_process = email_utils.filter_emails(self_email, participant_emails)
         logger.info(f"Emails to process: {emails_to_process}")
         for email in emails_to_process:
             event = GenieEvent(
@@ -265,7 +270,12 @@ class AdminApiService:
 
     def handle_meeting_with_goals(self, meeting: MeetingDTO, self_email: str, goals: list):
         participant_emails = meeting.participants_emails
-        emails = email_utils.filter_emails(self_email, participant_emails)
+        self_domain = self_email.split("@")[1] if "@" in self_email else None
+        if self_domain:
+            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+            emails = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
+        else:
+            emails = email_utils.filter_emails(self_email, participant_emails)
         profiles = self.profiles_repository.get_profiles_by_email_list(emails)
         if not profiles:
             logger.error(f"No strengths found for any participant for meeting: {meeting.uuid}")

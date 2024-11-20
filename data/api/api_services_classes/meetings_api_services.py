@@ -200,9 +200,13 @@ class MeetingsApiService:
     def handle_participants_overview(self, participants_emails):
         participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
         host_email_list = [email.email_address for email in participants if email.self]
-        host_email = host_email_list[0] if host_email_list else None
-        logger.debug(f"Host email: {host_email}")
-        filtered_participants_emails = email_utils.filter_emails(host_email, participants)
+        self_email = host_email_list[0] if host_email_list else None
+        self_domain = self_email.split("@")[1] if "@" in self_email else None
+        if self_domain:
+            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+            filtered_participants_emails = email_utils.filter_emails_with_additional_domains(self_email, participants_emails, additional_domains)
+        else:
+            filtered_participants_emails = email_utils.filter_emails(self_email, participants_emails)
         logger.info(f"Filtered participants: {filtered_participants_emails}")
 
         domain_emails = [email.split("@")[1] for email in filtered_participants_emails]

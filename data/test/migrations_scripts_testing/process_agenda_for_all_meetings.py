@@ -10,17 +10,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, AgendaItem, Guidelines
-from data.data_common.repositories.meetings_repository import MeetingsRepository
 from data.data_common.dependencies.dependencies import (
-    get_db_connection,
-    tenants_repository,
     meetings_repository,
-    ownerships_repository,
+    companies_repository
 )
 
 logger = GenieLogger()
 
 meetings_repository = meetings_repository()
+companies_repository = companies_repository()
 
 
 def process_meeting_from_scratch(meeting: MeetingDTO):
@@ -30,7 +28,12 @@ def process_meeting_from_scratch(meeting: MeetingDTO):
     except IndexError:
         logger.error(f"Could not find self email in {participant_emails}")
         return
-    emails_to_process = email_utils.filter_emails(self_email, participant_emails)
+    self_domain = self_email.split("@")[1] if "@" in self_email else None
+    if self_domain:
+        additional_domains = companies_repository.get_additional_domains(self_email.split("@")[1])
+        emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
+    else:
+        emails_to_process = email_utils.filter_emails(self_email, participant_emails)
     logger.info(f"Emails to process: {emails_to_process}")
     for email in emails_to_process:
         event = GenieEvent(

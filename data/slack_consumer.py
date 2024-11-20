@@ -40,6 +40,7 @@ class SlackConsumer(GenieConsumer):
                 Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
                 Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
+                Topic.EMAIL_SENDING_FAILED
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -62,6 +63,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.FAILED_TO_GET_PROFILE_PICTURE:
                 logger.info("Handling failed attempt to get profile picture")
                 await self.handle_failed_to_get_profile_picture(event)
+            case Topic.EMAIL_SENDING_FAILED:
+                logger.info("Handling failed email sending")
+                await self.handle_email_sender_failed(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -125,6 +129,27 @@ class SlackConsumer(GenieConsumer):
         send_message(message)
         self.persons_repository.update_last_message_sent_at_by_email(person.email)
         return {"status": "ok"}
+
+    async def handle_email_sender_failed(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        error = event_body.get("error")
+        recipient = event_body.get("recipient")
+        subject = event_body.get("subject")
+        tenant_id = logger.get_tenant_id()
+
+        message = f"[CTX={logger.get_ctx_id()}] failed to send email to: {recipient} with subject: {subject}. Error: {error}."
+        if tenant_id:
+            email = self.tenants_repository.get_tenant_email(tenant_id)
+            if email:
+                message += f"""
+                    Originating user: {email}.
+                    """
+        send_message(message, channel="email")
+        return {"status": "ok"}
+
 
 
 if __name__ == "__main__":

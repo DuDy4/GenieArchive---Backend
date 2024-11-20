@@ -676,13 +676,14 @@ def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str
 )
 def import_google_meetings(
     tenant_id: str,
+    meetings_number: Optional[int] = Query(30, description="Number of meetings to fetch"),
 ) -> JSONResponse:
     """
     Fetches all Google Calendar meetings for a given tenant.
     """
-
+    logger.info(f"Meeting number: {meetings_number}")
     logger.info(f"Received Google meetings request for tenant: {tenant_id}")
-    response = tenants_api_service.import_google_meetings(tenant_id)
+    response = tenants_api_service.import_google_meetings(tenant_id, meetings_number)
     logger.info(f"Finished fetching meetings")
     return JSONResponse(content=response)
 

@@ -16,7 +16,7 @@ companies_repository = companies_repository()
 logger = GenieLogger()
 
 
-profiles = ["The Analytical", "The Amiable", "The Driver", "The Expressive", "The Skeptic", "The Pragmatist", "The Curious"]
+profiles = ["The Analytical", "The Friend", "The Driver", "The Innovator", "The Skeptic", "The Practical", "The Curious"]
 
 strengths_mapping = {
     # "Achiever": [4, 6, 1, 3, 7, 2, 5],
@@ -56,6 +56,16 @@ strengths_mapping = {
     "Woo": [5, 1, 4, 3, 10, 2, 10],
 }
 
+profiles_description = {
+    "The Analytical": "Seeks in-depth understanding and relies on data, facts, and logic. They value detailed explanations and proof over generalities.",
+    "The Friend": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
+    "The Driver": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
+    "The Innovator": "Innovation-driven and creative. They value novelty, inspiration, and products that bring unique advantages or change the market landscape.",
+    "The Skeptic": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
+    "The Practical": "Highly focused on results and efficiency. They want to see how the product improves their situation, saves time, or reduces costs with tangible evidence.",
+    "The Curious": "Enthusiastic about exploring and learning. They are interested in technological innovations, seeking a deep understanding of how the product works and its added value.",
+}
+
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
@@ -77,7 +87,14 @@ def determine_profile_category(strengths_scores):
 
     # Select the profile with the lowest total score
     best_profile = min(profile_scores, key=profile_scores.get)
-    return ProfileCategory(category=best_profile, scores=profile_scores)
+
+    profile_category_dict = {
+        "category": best_profile,
+        "scores": profile_scores,
+        "description": profiles_description.get(best_profile, "")
+    }
+
+    return ProfileCategory.from_dict(profile_category_dict)
 
 
 
