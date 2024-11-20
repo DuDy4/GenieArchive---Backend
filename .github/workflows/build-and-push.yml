@@ -75,7 +75,6 @@ jobs:
           context: .
           file: Dockerfile.root
           tags: ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.tag }}
-          load: true
           cache-from: type=gha,scope=start-api-cache
           cache-to: type=gha,mode=max,scope=start-api-cache
           push: true
