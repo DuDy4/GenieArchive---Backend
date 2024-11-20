@@ -165,7 +165,7 @@ def handle_shutdown_signal(signal, frame):
 signal.signal(signal.SIGINT, handle_shutdown_signal)
 signal.signal(signal.SIGTERM, handle_shutdown_signal)
 
-logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}")
+logger.info(f"Starting API on port {PORT} with HTTPS: {use_https}. GO Genie GO!!")
 
 if __name__ == "__main__":
     uvicorn.run(
