@@ -59,7 +59,7 @@ jobs:
             echo "tag=$fallback_tag" >> $GITHUB_OUTPUT
           fi
 
-     - name: Build temp cache image
+      - name: Build temp cache image
         uses: docker/build-push-action@v6.9.0
         with:
           context: .
