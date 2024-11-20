@@ -65,7 +65,6 @@ jobs:
           context: .
           file: Dockerfile.temp
           tags: temp-cache-image:latest
-          load: true
           cache-from: type=gha,scope=temp-dockerfile-cache
           cache-to: type=gha,mode=max,scope=temp-dockerfile-cache
           
