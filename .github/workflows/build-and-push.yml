@@ -86,8 +86,9 @@ jobs:
           context: .
           file: Dockerfile.dbupdater
           tags: ${{ secrets.ACR_LOGIN_SERVER }}/db_updater:${{ steps.get_version.outputs.tag }}
-          push: true    
-
+          push: true
+          cache-from: type=gha,scope=dbupdater-cache
+          cache-to: type=gha,mode=max,scope=dbupdater-cache
       
       - name: Build and push data services
         run: |
