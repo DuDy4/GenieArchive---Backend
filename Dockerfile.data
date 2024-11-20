@@ -1,26 +1,11 @@
-#  Dockerfile.data      
-FROM python:3.12-slim
-WORKDIR /app
+FROM temp-cache-image
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
-# Copy necessary files and folders
-COPY data/${SERVICE_NAME}.py .
-COPY data ./data
-COPY common ./common
-COPY ai ./ai
-COPY start_consumers.py . 
-COPY pyproject.toml .
-COPY uv.lock .
-RUN apt-get update && \
-    apt-get install -y git libpq-dev gcc build-essential && \
-    rm -rf /var/lib/apt/lists/*
 RUN if [ "$SERVICE_NAME" = "sales_material_consumer" ]; then \
     echo "deb http://deb.debian.org/debian/ bookworm main universe" > /etc/apt/sources.list && \
     apt-get update && \
-    apt-get install -y tesseract-ocr; \
+    apt-get install -y tesseract-ocr; \ 
     fi
-
-RUN pip install uv
-RUN uv sync
+COPY data/${SERVICE_NAME}.py .
 ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
 CMD ["sh", "-c", "python /app/${SERVICE_NAME}.py"]
