@@ -329,7 +329,8 @@ class PersonsRepository:
                OR (TRIM(p.name) IS NULL OR TRIM(p.name) = '')
                OR (TRIM(p.company) IS NULL OR TRIM(p.company) = '')
                OR (TRIM(p.position) IS NULL OR TRIM(p.position) = ''))
-          AND (pd.pdl_status = 'FETCHED' OR pd.apollo_status = 'FETCHED');
+          AND (pd.pdl_status = 'FETCHED' OR pd.apollo_status = 'FETCHED')
+        order by p.id desc
         """
         with db_connection() as conn:
             try:
