@@ -248,6 +248,12 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
     linkedin_url = row_dict.get("linkedin_url")
     if not linkedin_url:
         logger.error(f"LinkedIn URL not found for {person.uuid}")
+        linkedin_url = personal_data.get("linkedin_url")
+        if not linkedin_url:
+            logger.error(f"No LinkedIn URL found in apollo personal data for {person.uuid}")
+        else:
+            linkedin_url = fix_linkedin_url(linkedin_url)
+
     else:
         linkedin_url = fix_linkedin_url(linkedin_url)
     logger.debug(f"Linkedin URL: {linkedin_url}")
