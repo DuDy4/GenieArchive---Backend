@@ -450,7 +450,8 @@ class ProfilesRepository:
         FROM profiles
         WHERE picture_url IS NULL OR picture_url = ''
          OR picture_url = '{DEFAULT_PROFILE_PICTURE}'
-         OR picture_url ILIKE 'https://static.licdn.com%';
+         OR picture_url ILIKE 'https://static.licdn.com%'
+         order by id desc;         
         """
         with db_connection() as conn:
             try:
