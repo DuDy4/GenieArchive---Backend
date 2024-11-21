@@ -68,10 +68,25 @@ class Phrase(BaseModel):
         return cls(**data)
 
 
+class ProfileCategoryExplanation(BaseModel):
+    characteristics: str
+    needs: str
+    recommendations: str
+
+    @staticmethod
+    def from_dict(data: dict) -> "ProfileCategoryExplanation":
+        return ProfileCategoryExplanation(
+            characteristics=data.get("characteristics"),
+            needs=data.get("needs"),
+            recommendations=data.get("recommendations"),
+        )
+
+
 class ProfileCategory(BaseModel):
     category: str
     scores: dict
     description: str
+    explanation: Optional[ProfileCategoryExplanation] = None
     icon: HttpUrl | None = '/images/image9.png'
 
     @staticmethod
@@ -80,6 +95,7 @@ class ProfileCategory(BaseModel):
             category=data["category"],
             scores=data["scores"],
             description=data["description"],
+            explanation=ProfileCategoryExplanation.from_dict(data["explanation"]) if data.get("explanation") else None,
             icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
                  (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else '')
         )
