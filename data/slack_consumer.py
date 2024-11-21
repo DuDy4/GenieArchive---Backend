@@ -110,6 +110,15 @@ class SlackConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         person = event_body.get("person")
         person = PersonDTO.from_dict(person)
+        if not person:
+            message = f"[CTX={logger.get_ctx_id()}] failed to get profile picture - person not found."
+            send_message(message)
+            return {"status": "failed", "message": "Person not found."}
+        if not person.linkedin:
+            message = (f"[CTX={logger.get_ctx_id()}] failed to get profile picture - person linkedin not found."
+                       f"Person: {person.name}, email: {person.email}.")
+            send_message(message)
+            return {"status": "failed", "message": "Person linkedin not found."}
         tenant_id = logger.get_tenant_id()
 
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(person.email)
