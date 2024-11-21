@@ -1,0 +1,3 @@
+FROM temp-cache-image
+COPY run_migrations.py .
+CMD ["python", "run_migrations.py"]
