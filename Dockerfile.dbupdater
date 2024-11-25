@@ -1,4 +1,5 @@
 FROM temp-cache-image
 COPY run_migrations.py .
+COPY uv.lock .
 RUN uv sync
 CMD ["python", "run_migrations.py"]
