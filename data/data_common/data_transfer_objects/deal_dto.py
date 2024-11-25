@@ -6,67 +6,74 @@ from datetime import datetime
 from typing import Tuple, Dict, Any
 
 
+class DealStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    CLOSED = "closed"
+    SUCCESSFUL = "successful"
 
+    @staticmethod
+    def from_str(label: str) -> 'DealStatus':
+        label = label.lower()
+        if label in ("active", "inactive", "closed", "successful"):
+            return DealStatus[label.upper()]
+        else:
+            raise ValueError(f"Invalid classification: {label}")
 
 
 class DealDTO(BaseModel):
-    deal_id: UUID
+    uuid: UUID
     name: str
     description: str
     criterias: list[SalesCriteria]  
     tenant_id: str
-    compani_id: str
-    created_at: datetime
-    last_updated: datetime
+    company_id: str
+    status: DealStatus = "active"
 
     def to_tuple(self) -> Tuple:
         return (
-            str(self.deal_id),
+            str(self.uuid),
             self.name,
             self.description,
             self.criterias,
             self.tenant_id,
             self.company_id,
-            self.created_at,
-            self.last_updated
+            self.status.value
         )
     
     @classmethod
     def from_tuple(cls, data: Tuple) -> 'DealDTO':
         return cls(
-            deal_id=data[0],
+            uuid=data[0],
             name=data[1],
             description=data[2],
             criterias=data[3],
             tenant_id=data[4],
             company_id=data[5],
-            created_at=data[6],
-            last_updated=data[7]
+            status=DealStatus.from_str(data[7])
         )
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'DealDTO':
         return cls(
-            deal_id=data['deal_id'],
+            uuid=data['uuid'],
             name=data['name'],
             description=data['description'],
             criterias=data['criterias'],
             tenant_id=data['tenant_id'],
             company_id=data['company_id'],
-            created_at=data['created_at'],
-            last_updated=data['last_updated']
+            status=DealStatus.from_str(data.get('status', 'active'))
         )
     
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'deal_id': self.deal_id,
+            'uuid': self.uuid,
             'name': self.name,
             'description': self.description,
             'criterias': self.criterias,
             'tenant_id': self.tenant_id,
             'company_id': self.company_id,
-            'created_at': self.created_at,
-            'last_updated': self.last_updated
+            'status': self.status.value
         }
 
 

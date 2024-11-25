@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Tuple
 from uuid import UUID
 from data.data_common.utils.str_utils import to_custom_title_case
+from common.utils import env_utils
 
 class SalesCriteriaType(str, Enum):
     BUDGET = "BUDGET"
@@ -78,9 +79,37 @@ class Phrase(BaseModel):
         return cls(**data)
 
 
+class ProfileCategoryExplanation(BaseModel):
+    characteristics: str
+    needs: str
+    recommendations: str
+
+    @staticmethod
+    def from_dict(data: dict) -> "ProfileCategoryExplanation":
+        return ProfileCategoryExplanation(
+            characteristics=data.get("characteristics"),
+            needs=data.get("needs"),
+            recommendations=data.get("recommendations"),
+        )
+
+
 class ProfileCategory(BaseModel):
     category: str
     scores: dict
+    description: str
+    explanation: Optional[ProfileCategoryExplanation] = None
+    icon: HttpUrl | None = '/images/image9.png'
+
+    @staticmethod
+    def from_dict(data: dict) -> "ProfileCategory":
+        return ProfileCategory(
+            category=data["category"],
+            scores=data["scores"],
+            description=data["description"],
+            explanation=ProfileCategoryExplanation.from_dict(data["explanation"]) if data.get("explanation") else None,
+            icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
+                 (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else '')
+        )
 
 class SalesCriteria(BaseModel):
     criteria: SalesCriteriaType

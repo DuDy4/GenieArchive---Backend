@@ -1,7 +1,8 @@
 from common.utils import email_utils
+from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
+from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria, profiles_description
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     tenant_profiles_repository,
@@ -46,9 +47,11 @@ class ProfilesApiService:
         logger.info(f"Tenant email: {tenant_email}")
         participants_emails = meeting.participants_emails
         logger.debug(f"Participants emails: {participants_emails}")
-        filtered_participants_emails = email_utils.filter_emails(
-            host_email=tenant_email, participants_emails=participants_emails
-        )
+        tenant_domain = tenant_email.split("@")[1]
+
+        # Get additional domains in case the same company has multiple domains (or old ones)
+        additional_domains = self.companies_repository.get_additional_domains(tenant_domain)
+        filtered_participants_emails = filter_emails_with_additional_domains(tenant_email, participants_emails, additional_domains)
         logger.info(f"Filtered participants emails: {filtered_participants_emails}")
         filtered_emails = filtered_participants_emails
         logger.info(f"Filtered emails: {filtered_emails}")
@@ -148,7 +151,10 @@ class ProfilesApiService:
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             for category, phrases in profile.get_to_know.items():
-                profile.get_to_know[category] = phrases[:2]  # Limit to only 2 phrases per category
+                if category == 'avoid':
+                    profile.get_to_know[category] = phrases[:1]
+                else:
+                    profile.get_to_know[category] = phrases[:2]
             formated_get_to_know = "".join(
                 [(f"\n{key}: {value}\n") for key, value in profile.get_to_know.items()]
             )

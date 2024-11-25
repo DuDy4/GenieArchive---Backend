@@ -66,9 +66,9 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
                 if post_dict.get("image_urls"):
                     post_dict["images"] = post_dict["image_urls"]
                 news_data_objects.append(post_dict)
-                # self.personal_data_repository.update_news_to_db(
-                #     uuid, post_dict, PersonalDataRepository.FETCHED
-                # )
+                personal_data_repository.update_news_to_db(
+                    uuid, post_dict, PersonalDataRepository.FETCHED
+                )
             if news_data_objects:
                 event = GenieEvent(
                     Topic.NEW_NEWS_DATA,

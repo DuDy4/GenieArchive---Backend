@@ -39,40 +39,6 @@ def extract_email_from_url(url: str) -> str:
         return None
 
 
-def filter_email_objects(participants_emails) -> List:
-    """
-    Filter emails of:
-    1. is the organizer.
-    2. has the same domain as the organizer.
-    3. has a public domain.
-    """
-    final_list = []
-
-    host_email_list = [email.get("email") for email in participants_emails if email.get("self")]
-    host_email = host_email_list[0] if host_email_list else None
-    if not host_email:
-        return final_list
-    host_domain = host_email.split("@")[1]
-    logger.info(f"Host email: {host_email}")
-    for email in participants_emails:
-        email_address = email.get("email", "").strip().lower()  # Normalize the email
-        if not email_address:
-            continue
-        email_domain = email_address.split("@")[1]
-        if email_domain == host_domain:
-            continue
-        elif email_domain in PUBLIC_DOMAIN:
-            continue
-        if "assistant." in email_address:
-            continue
-        if "noreply" in email_address or "no-reply" in email_address:
-            continue
-        else:
-            final_list.append(email)
-    logger.info(f"Final list: {final_list}")
-    return final_list
-
-
 def filter_emails(host_email: str, participants_emails: List):
     """
     Filter emails of:
@@ -97,11 +63,33 @@ def filter_emails(host_email: str, participants_emails: List):
             continue
         elif email_domain in PUBLIC_DOMAIN:
             continue
+        if "noreply" in email_domain or "no-reply" in email_domain:
+            continue
+        if "assistant." in email_domain:
+            continue
         else:
             final_list.append(email)
     logger.info(f"Final list: {final_list}")
     return final_list
 
+def filter_emails_with_additional_domains(host_email: str, participants_emails: List, additional_domains: List):
+    filtered_emails = filter_emails(host_email, participants_emails)
+    for domain in additional_domains:
+        if isinstance(domain, list):
+            domain = domain[0]
+        host_email = f"host@{domain}"
+        logger.info(f"Filtering with host email: {host_email}")
+
+        # Filter emails for the current domain
+        additional_filtered_participants_emails = filter_emails(
+            host_email=host_email, participants_emails=participants_emails
+        )
+        logger.info(f"Additional filtered participants emails: {additional_filtered_participants_emails}")
+
+        # Strict intersection of filtered participants
+        filtered_emails = list(set(filtered_emails).intersection(set(additional_filtered_participants_emails)))
+        logger.info(f"Filtered participants emails after intersection: {filtered_emails}")
+    return filtered_emails
 
 def is_genie_admin(email: str):
     return email and email.lower().endswith("@genieai.ai")

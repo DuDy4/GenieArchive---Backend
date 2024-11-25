@@ -9,6 +9,7 @@ on:
     types:
       - completed
   workflow_dispatch:  # Allows manual triggering
+
 jobs:
   build-and-push:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
@@ -24,18 +25,24 @@ jobs:
           echo "GitHub Workspace: ${{ github.workspace }}"
 
       - name: Checkout the code
-        uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        continue-on-error: true
+        uses: actions/checkout@v4.2.2
 
       - name: Login to Azure Container Registry
-        uses: azure/docker-login@v1
+        uses: azure/docker-login@v2
         with:
           login-server: ${{ secrets.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.7.1
+        with:
+            driver: docker-container
+            driver-opts: |
+              image=moby/buildkit:latest
+        continue-on-error: true
+        
 
       - name: Get version from pyproject.toml
         id: get_version
@@ -52,11 +59,30 @@ jobs:
             echo "tag=$fallback_tag" >> $GITHUB_OUTPUT
           fi
 
+      - name: Build temp cache image
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          file: Dockerfile.temp
+          tags: temp-cache-image:latest
+          load: true
+          cache-from: type=gha,scope=temp-dockerfile-cache
+          cache-to: type=gha,mode=max,scope=temp-dockerfile-cache
+          
       - name: Build and push start_api
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          file: Dockerfile.root
+          tags: ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.tag }}
+          cache-from: type=gha,scope=start-api-cache
+          cache-to: type=gha,mode=max,scope=start-api-cache
+          push: true
+
+      - name: Build and push DBUpdater
         run: |
-          docker build -f Dockerfile.root -t ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.tag }} . || exit 1
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/start_api:${{ steps.get_version.outputs.tag }} || exit 1
-        continue-on-error: true
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/db_updater:${{ steps.get_version.outputs.tag }} -f Dockerfile.dbupdater .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/db_updater:${{ steps.get_version.outputs.tag }}
 
       - name: Build and push data services
         run: |
@@ -64,11 +90,14 @@ jobs:
           for service in "${services[@]}"
           do
             if docker build -f Dockerfile.data --build-arg SERVICE_NAME=$service -t ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.tag }} .; then
-              docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.tag }} || echo "Failed to push $service"
+                docker push ${{ secrets.ACR_LOGIN_SERVER }}/$service:${{ steps.get_version.outputs.tag }} || echo "Failed to push $service"
+            echo "done"
             else
               echo "Failed to build $service"
             fi
           done
+
+
 
       - name: Print job status
         if: always()
@@ -88,7 +117,10 @@ jobs:
         run: |
           cd genie-chart/genie-chart/genie-chart
           #sed -i 's/tag: .*/tag: ${{ steps.get_version.outputs.tag }}/' values.yaml
-          sed -i '0,/tag: .*/s/tag: .*/tag: ${{ steps.get_version.outputs.tag }}/' values.yaml
+          #sed -i '0,/tag: .*/s/tag: .*/tag: ${{ steps.get_version.outputs.tag }}/' values.yaml
+          sed -i -e '0,/tag: .*/s/tag: .*/tag: ${{ steps.get_version.outputs.tag }}/' \
+          -e 's|db_updater:.*|db_updater:${{ steps.get_version.outputs.tag }}|' \
+          values.yaml
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add values.yaml

@@ -11,8 +11,8 @@ from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-
-from common.utils.email_utils import filter_email_objects, filter_emails
+from google.oauth2 import service_account
+from common.utils.email_utils import filter_emails_with_additional_domains
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, MeetingClassification
 from ai.langsmith.langsmith_loader import Langsmith
@@ -25,6 +25,7 @@ from data.data_common.dependencies.dependencies import (
 )
 from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_consumer import GenieConsumer
+from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
 from common.utils import env_utils
@@ -92,17 +93,14 @@ class EmailManager(GenieConsumer):
         if not tenant_email:
             logger.error(f"Tenant email not found for tenant ID {tenant_id}")
             return {"status": "error", "message": f"Tenant email not found for tenant ID {tenant_id}"}
-
-        filtered_emails = filter_emails(tenant_email, meeting.participants_emails)
+        additional_domains = self.companies_repository.get_additional_domains(tenant_id)
+        filtered_emails = filter_emails_with_additional_domains(tenant_email, meeting.participants_emails, additional_domains)
         logger.info(f"Filtered emails: {filtered_emails}")
         filtered_profiles = self.profiles_repository.get_profiles_dto_by_email_list(filtered_emails)
         if not filtered_profiles:
             logger.error("No profiles found for filtered emails")
             return {"status": "error", "message": "No profiles found for filtered emails"}
-        target_companies = [
-            self.companies_repository.get_company_from_domain(email.split("@")[1])
-            for email in filtered_emails
-        ]
+        target_companies = self.companies_repository.get_companies_from_domains([email.split("@")[1] for email in filtered_emails])
         if not target_companies:
             logger.error("No target companies found for filtered emails")
             return {"status": "error", "message": "No target companies found for filtered emails"}
@@ -147,36 +145,21 @@ class GmailSender:
     SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
     def __init__(self):
-        self.google_creds_repo = google_creds_repository()
         self.email_address = SENDER_EMAIL_ADDRESS
+        self.google_creds = json.loads(base64.b64decode(os.getenv('GOOGLE_SERVICE_JSON')).decode('utf-8'))
 
     def authenticate_gmail(self, user_email):
         """Authenticate with Gmail API using stored credentials from google_creds table."""
-        google_credentials = self.google_creds_repo.get_creds(user_email)
-        if not google_credentials:
+        if not self.google_creds:
             raise Exception("Google credentials not found for user.")
 
+        credentials = service_account.Credentials.from_service_account_info(self.google_creds, scopes=self.SCOPES)
+        delegated_credentials = credentials.with_subject(self.email_address)
 
-        creds = Credentials(
-            token=google_credentials.get("access_token"),
-            refresh_token=google_credentials.get("refresh_token"),
-            client_id=env_utils.get("EMAIL_GOOGLE_CLIENT_ID"),
-            client_secret=env_utils.get("EMAIL_GOOGLE_CLIENT_SECRET"),
-            token_uri="https://oauth2.googleapis.com/token",
-        )
+        # Build the Gmail service
+        service = build('gmail', 'v1', credentials=delegated_credentials)
 
-
-        if creds.expired and creds.refresh_token:
-            logger.info("Credentials expired, refreshing")
-            creds.refresh(Request())
-            # Update tokens in the database after refreshing
-            self.google_creds_repo.update_google_creds(
-                user_email=user_email,
-                user_access_token=creds.token,
-                user_refresh_token=creds.refresh_token,
-            )
-
-        return build("gmail", "v1", credentials=creds)
+        return service
 
     def create_email(self, recipient, subject, body_html):
         message = MIMEText(body_html, "html")
@@ -198,6 +181,11 @@ class GmailSender:
             return result
         except Exception as e:
             logger.error(f"An error occurred while sending email: {e}")
+            event = GenieEvent(
+                topic=Topic.EMAIL_SENDING_FAILED,
+                data=json.dumps({"recipient": recipient, "subject": subject, "error": str(e)}),
+            )
+            event.send()
             traceback.print_exc()
 
     def create_meeting_reminder_email_body(self, meeting: MeetingDTO, meeting_summary: dict, company: CompanyDTO, profiles: list):
@@ -334,4 +322,3 @@ class GmailSender:
 if __name__ == "__main__":
     email_manager = EmailManager()
     asyncio.run(email_manager.start())
-    # email_manager.email_sender.send_email(user_email="hello@genieai.ai", recipient="dan.shevel@genieai.ai", subject="Test", body_text="Test")

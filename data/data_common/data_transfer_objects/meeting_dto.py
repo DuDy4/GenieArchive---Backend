@@ -9,12 +9,14 @@ from typing import List, Dict, Any, Optional
 from zoneinfo import ZoneInfo
 
 from data.data_common.utils.str_utils import get_uuid4
-from common.utils.email_utils import filter_email_objects
+from common.utils.email_utils import filter_emails_with_additional_domains
 from pydantic import BaseModel, field_validator
 from common.genie_logger import GenieLogger
 
+from data.data_common.repositories.companies_repository import CompaniesRepository
 logger = GenieLogger()
 
+companies_repository = CompaniesRepository()
 
 class MeetingClassification(Enum):
     EXTERNAL = "external"
@@ -209,7 +211,7 @@ class MeetingDTO:
             uuid=event.get("uuid", get_uuid4()),
             google_calendar_id=event.get("id", ""),
             tenant_id=tenant_id,
-            participants_emails=event.get("attendees", []),
+            participants_emails=participants,
             participants_hash=event.get("participants_hash", hash_participants(event.get("attendees", []))),
             link=extract_meeting_links(event),
             subject=event.get("summary", ""),
@@ -265,11 +267,20 @@ class MeetingDTO:
             return None
 
 
-def evaluate_meeting_classification(participants_emails: List[str]) -> MeetingClassification:
+def evaluate_meeting_classification(participants_emails: List[dict]) -> MeetingClassification:
     if len(participants_emails) <= 1:
         logger.info(f"Classifying meeting as PRIVATE with participants {participants_emails}")
         return MeetingClassification.PRIVATE
-    if len(filter_email_objects(participants_emails)) >= 1:
+    self_email = [email.get("email") for email in participants_emails if email.get("self")]
+    if not self_email:
+        logger.error(f"Self email not found in participants {participants_emails}")
+        return MeetingClassification.PRIVATE
+    self_domain = self_email[0].split("@")[1] if self_email and '@' in self_email[0] else ''
+    if not self_domain:
+        logger.error(f"Self domain not found in email {self_email[0]}")
+        return MeetingClassification.PRIVATE
+    additional_domains = companies_repository.get_additional_domains(self_domain)
+    if len(filter_emails_with_additional_domains(self_email[0], participants_emails, additional_domains)) >= 1:
         logger.info(f"Classifying meeting as EXTERNAL with participants {participants_emails}")
         return MeetingClassification.EXTERNAL
     logger.info(f"Classifying meeting as INTERNAL with participants {participants_emails}")
