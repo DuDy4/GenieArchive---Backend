@@ -2,7 +2,7 @@ from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileCategory
+from data.data_common.data_transfer_objects.profile_dto import ProfileCategory, ProfileDTO, SalesCriteriaType, SalesCriteria
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -15,8 +15,52 @@ companies_repository = companies_repository()
 
 logger = GenieLogger()
 
-
 profiles = ["The Analytical", "The Friend", "The Driver", "The Innovator", "The Skeptic", "The Practical", "The Curious"]
+
+sales_criteria_mapping = {
+    profiles[0]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+    profiles[1]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=30),],
+    profiles[2]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=15),
+        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
+    profiles[3]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+    profiles[4]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=15),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=40),],
+    profiles[5]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
+    profiles[6]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=25),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=35),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+}
 
 strengths_mapping = {
     # "Achiever": [4, 6, 1, 3, 7, 2, 5],
@@ -104,14 +148,78 @@ profiles_explanation = {
     },
 }
 
+profiles_description = {
+    "The Analytical": "Seeks in-depth understanding and relies on data, facts, and logic. They value detailed explanations and proof over generalities.",
+    "The Friend": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
+    "The Driver": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
+    "The Innovator": "Innovation-driven and creative. They value novelty, inspiration, and products that bring unique advantages or change the market landscape.",
+    "The Skeptic": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
+    "The Practical": "Highly focused on results and efficiency. They want to see how the product improves their situation, saves time, or reduces costs with tangible evidence.",
+    "The Curious": "Enthusiastic about exploring and learning. They are interested in technological innovations, seeking a deep understanding of how the product works and its added value.",
+}
+
+profiles_explanation = {
+    "The Analytical": {
+        "characteristics": "Seeks in-depth understanding of the product, looks for data, facts, proof, and logic",
+        "needs": "Requires precise details and answers to technical questions.",
+        "recommendations": "Provide presentations with numerical data, examples or proof of the product's success, detailed explanations, and structured answers to complex questions. This customer values time for thinking and drawing conclusions, and will not make decisions quickly.",
+    },
+    "The Friend": {
+        "characteristics": "Looks for personal connection and trustworthy relationships, wants to feel comfortable and heard.",
+        "needs": "Requires personalized attention and trust throughout the process.",
+        "recommendations": "Approach them personally, take time to understand their specific needs, emphasize post-sale support and service, and create a warm, empathetic conversation. This customer responds well to confidence and a sense of care."
+    },
+    "The Driver": {
+        "characteristics": "Focused on results, aims to make decisions quickly, and prefers to maintain control in the process.",
+        "needs": "Wants to see how the product solves immediate problems and seeks a clear business advantage.",
+        "recommendations": "Be direct, clear, and to the point. Highlight the product’s value and results, showcase competitive advantages, and avoid unnecessary details. Allow them to feel in control, but provide a clear picture of how the product will help achieve their goals."
+    },
+    "The Innovator": {
+        "characteristics": "Values innovation, creative ideas, and products that offer added value and uniqueness.",
+        "needs": "Craves inspiration, creative ideas, and excitement about the product.",
+        "recommendations": "Share innovative ideas and the unique benefits of the product, demonstrate its ability to change the market, and provide examples of diverse uses. This customer will respond well to a captivating, inspiring presentation and the impact the product will have on the future."
+    },
+    "The Skeptic": {
+        "characteristics": "Tends to be cautious, looks for problems or flaws in the product, and needs reassurance.",
+        "needs": "Requires proof and guarantees that the product will meet their expectations.",
+        "recommendations": "Provide testimonials, reviews, previous successes, and demonstrations. Be prepared to answer numerous questions and allow for open, detailed conversations. This customer wants to ensure they’re not taking unnecessary risks and will need a realistic and transparent guarantee of the product’s value."
+    },
+    "The Practical": {
+        "characteristics": "Goal-oriented, wants to know how the product will improve their situation or save time and money.",
+        "needs": "Needs proof that the product delivers significant added value.",
+        "recommendations": "Focus on the practical solutions the product provides and the economic advantages, showing how the product leads to improvement or savings. This customer is interested in the practical and functional value, so highlight how the product contributes to their business goals."
+    },
+    "The Curious": {
+        "characteristics": "Interested in technological innovations, seeks to understand the product deeply, and enjoys exploring.",
+        "needs": "Wants to know how the product works and what its added value is beyond the basic functions.",
+        "recommendations": "Provide detailed explanations of the technology and innovation behind the product, demonstrate how it applies advanced technologies, and answer in-depth questions about the product. This customer wants to know how the product is different and more advanced than others."
+    },
+}
+
+def determing_deal_sales_criteria(company_uuid: list[str]) -> str:
+    company_profiles = companies_repository.get_company_profiles(company_uuid)
+    list_of_profiles_strengths = [profile.strengths for profile in company_profiles]
+    if not list_of_profiles_strengths:
+        return None
+    for profile_strengths in list_of_profiles_strengths:
+        if not profile_strengths:
+            continue
+        profile_strengths = [strength for strength in profile_strengths if strength.strength_name in strengths_mapping]
+        if not profile_strengths:
+            continue
+        profile_category = determine_profile_category(profile_strengths)
+        if profile_category:
+            return profile_category.category
+
+
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
-    for i, strength  in enumerate(strengths_scores):
-        total_strength_score += strength.score
+    for strength in strengths_scores:
+        total_strength_score += strength['score']
     normalized_strengths = {}
-    for i, strength  in enumerate(strengths_scores):
-        normalized_strengths[strength.strength_name] = strength.score / total_strength_score            
+    for strength  in strengths_scores:
+        normalized_strengths[strength['strength_name']] = strength['score'] / total_strength_score            
 
     # Initialize profile scores
     profile_scores = {profile: 0 for profile in profiles}
@@ -125,7 +233,6 @@ def determine_profile_category(strengths_scores):
 
     # Select the profile with the lowest total score
     best_profile = min(profile_scores, key=profile_scores.get)
-
     profile_category_dict = {
         "category": best_profile,
         "scores": profile_scores,
@@ -135,6 +242,8 @@ def determine_profile_category(strengths_scores):
 
     return ProfileCategory.from_dict(profile_category_dict)
 
+def get_default_individual_sales_criteria(profile_category: str) -> list[SalesCriteria]:
+    return sales_criteria_mapping[profile_category]
 
 
 def fix_linkedin_url(linkedin_url: str) -> str:

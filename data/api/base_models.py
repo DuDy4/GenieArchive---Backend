@@ -8,6 +8,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Connection,
     Phrase,
+    SalesCriteria,
     Strength,
     ProfileCategory,
 )
@@ -172,6 +173,7 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
     profile_category: ProfileCategory
+    sales_criteria: Optional[list[SalesCriteria]]
 
 
 class Hobby(BaseModel):

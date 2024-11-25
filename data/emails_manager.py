@@ -235,6 +235,12 @@ class GmailSender:
                 <p style="font-size: 20px; font-weight: bold; color: #004080; text-align: center">
                     Subject: {meeting_subject}
                 </p>
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="{self.create_meeting_link(meeting)}" style="display: inline-block; padding: 12px 24px; font-size: 16px; color: #ffffff; background-color: #7A5CFA; border-radius: 5px; text-decoration: none; margin-top: 10px;">
+                        Full Genie Report
+                    </a>
+                </div>
     
                 <div style="margin-top: 20px;">
                     <h3 style="font-size: 22px; color: #004080; border-bottom: 2px solid #E0E0E0; padding-bottom: 8px; font-weight: 700;">Company Overview</h3>
@@ -271,7 +277,7 @@ class GmailSender:
     
                 <div style="margin-top: 20px; text-align: center;">
                     <a href="{self.create_meeting_link(meeting)}" style="display: inline-block; padding: 12px 24px; font-size: 16px; color: #ffffff; background-color: #7A5CFA; border-radius: 5px; text-decoration: none; margin-top: 10px;">
-                        View More Meeting Details
+                        Full Genie Report
                     </a>
                 </div>
     

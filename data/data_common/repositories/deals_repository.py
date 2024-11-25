@@ -5,7 +5,6 @@ from data.data_common.utils.postgres_connector import db_connection
 from typing import List, Optional
 from data.data_common.data_transfer_objects.deal_dto import (
     DealDTO,
-    DealCriteriaDTO
 )
 
 logger = GenieLogger()
