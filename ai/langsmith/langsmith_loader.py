@@ -166,7 +166,8 @@ class Langsmith:
             response = f"Error: {e}"
         finally:
             logger.info(f"Got meeting goals from Langsmith: {response}")
-            while True:
+            for i in range(5):
+                logger.info(f"TRY #{i}: Trying to parse meeting goals from Langsmith: {response}")
                 if isinstance(response, dict) and (response.get("goals") or response.get("")):
                     response = response.get("goals") or response.get("")
                 if isinstance(response, str):

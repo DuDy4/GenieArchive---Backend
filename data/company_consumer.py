@@ -19,8 +19,9 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 
+from data.data_common.repositories.deals_repository import DealsRepository
 from data.data_common.repositories.companies_repository import CompaniesRepository
-from data.data_common.dependencies.dependencies import companies_repository
+from data.data_common.dependencies.dependencies import companies_repository, deals_repository
 from common.genie_logger import GenieLogger
 
 load_dotenv()
@@ -44,6 +45,7 @@ class CompanyConsumer(GenieConsumer):
         self.langsmith = Langsmith()
         self.tavily_client = Tavily()
         self.companies_repository: CompaniesRepository = companies_repository()
+        self.deals_repository: DealsRepository = deals_repository()
 
     async def process_event(self, event):
         logger.info(f"Company consumer processing event: {str(event)[:300]}")
@@ -99,6 +101,7 @@ class CompanyConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email_address = event_body.get("email")
+        tenant_id = event_body.get("tenant_id")
         if not email_address:
             logger.error(f"Email address not found in event: {event_body}")
             return
@@ -113,6 +116,9 @@ class CompanyConsumer(GenieConsumer):
                 event.send()
                 return
         logger.info(f"Company: {company}")
+        # deal = self.deals_repository.get_deal(tenant_id, company.uuid)
+        # if not deal:
+        #     self.deals_repository.insert_deal(tenant_id, company.uuid)
 
         if not company.overview or not company.challenges:
             response = self.langsmith.run_prompt_company_overview_challenges(
