@@ -109,11 +109,11 @@ class TenantProfilesRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (uuid, tenant_id))
                     row = cursor.fetchone()
-                    if row:
+                    if row and row[0]:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
                         return sales_criteria
                     else:
-                        logger.error(f"Error with getting sales criteria for {uuid}")
+                        logger.error(f"Couldn't find sales criteria for {uuid}")
                         traceback.print_exc()
             except Exception as error:
                 logger.error(f"Error fetching sales criteria by uuid: {error}")
