@@ -78,12 +78,7 @@ jobs:
           cache-from: type=gha,scope=start-api-cache
           cache-to: type=gha,mode=max,scope=start-api-cache
           push: true
-
-      - name: Build and push DBUpdater
-        run: |
-          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/db_updater:${{ steps.get_version.outputs.tag }} -f Dockerfile.dbupdater .
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/db_updater:${{ steps.get_version.outputs.tag }}
-
+          
       - name: Build and push data services
         run: |
           services=("meetings_consumer" "pdl_consumer" "person_langsmith" "persons_manager" "slack_consumer" "apollo_consumer" "company_consumer" "sales_material_consumer" "emails_manager" "tasks_manager")
