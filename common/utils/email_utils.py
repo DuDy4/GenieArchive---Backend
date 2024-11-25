@@ -63,7 +63,7 @@ def filter_emails(host_email: str, participants_emails: List):
             continue
         elif email_domain in PUBLIC_DOMAIN:
             continue
-        if "noreply" in email_domain or "no-reply" in email_domain:
+        if "noreply" in email or "no-reply" in email:
             continue
         if "assistant." in email_domain:
             continue
