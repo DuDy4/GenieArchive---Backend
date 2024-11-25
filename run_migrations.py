@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from data.data_common.utils.postgres_connector import db_connection
 from common.genie_logger import GenieLogger
 
