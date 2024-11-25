@@ -18,7 +18,7 @@ class DealsRepository:
         deal_table_query = """
         CREATE TABLE IF NOT EXISTS deals (
             id SERIAL PRIMARY KEY,
-            uuid UUID PRIMARY KEY,
+            uuid UUID,
             name VARCHAR NOT NULL,
             description TEXT,
             tenant_id VARCHAR,
