@@ -1,5 +1,9 @@
 import os
 from data.data_common.utils.postgres_connector import db_connection
+from common.genie_logger import GenieLogger
+
+
+logger = GenieLogger()
 
 MIGRATIONS_DIR = "migrations"
 
@@ -30,6 +34,7 @@ def apply_migration(migration_file):
     mark_migration_as_applied(migration_name)
 
 def run_migrations():
+    logger.info("Running migrations")
     applied_migrations = get_applied_migrations()
     all_migrations = sorted(os.listdir(MIGRATIONS_DIR))
 
