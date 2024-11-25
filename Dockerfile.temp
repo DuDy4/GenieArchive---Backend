@@ -8,7 +8,8 @@ RUN apt-get update && \
 COPY data ./data
 COPY common ./common
 COPY ai ./ai
-COPY start_consumers.py . 
+COPY start_consumers.py .
+COPY run_migrations.py .
 COPY pyproject.toml .
 COPY uv.lock .
 RUN uv sync
