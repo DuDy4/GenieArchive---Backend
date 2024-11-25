@@ -9,6 +9,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
     Connection,
     Phrase,
+    SalesCriteria,
 )
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
@@ -43,7 +44,7 @@ class TenantProfilesRepository:
 
     def exists(self, profile_uuid: str, tenant_id: str) -> bool:
         logger.info(f"About to check if uuid exists: {profile_uuid}")
-        exists_query = "SELECT 1 FROM tenant_profiles WHERE uuid = %s AND tenant_id = %s;"
+        exists_query = "SELECT 1 FROM tenant_profiles WHERE profile_uuid = %s AND tenant_id = %s;"
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
@@ -95,52 +96,55 @@ class TenantProfilesRepository:
                 traceback.print_exception(error)
         return None
 
-    def get_connections_by_email(self, email: str) -> list:
-        if not email:
-            return None
+
+    def get_sales_criteria(self, uuid: str, tenant_id: str) -> list[SalesCriteria]:
         select_query = """
-            SELECT connections FROM tenant_profiles
-            JOIN persons on persons.uuid = tenant_profiles.profile_uuid
-            WHERE persons.email = %s;
+            SELECT sales_criteria
+            FROM tenant_profiles
+            WHERE profile_uuid = %s
+            AND tenant_id = %s;
             """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (email,))
+                    cursor.execute(select_query, (uuid, tenant_id))
                     row = cursor.fetchone()
                     if row:
-                        logger.info(f"Got connections from database: {row[0]}")
-                        connections = [Connection.from_dict(conn) for conn in row[0]]
-                        return connections
+                        sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
+                        return sales_criteria
                     else:
-                        logger.info(f"Could not find connection for {email}")
-                        return None
+                        logger.error(f"Error with getting sales criteria for {uuid}")
+                        traceback.print_exc()
             except Exception as error:
-                logger.error(f"Error fetching connections by email: {error}")
-                traceback.print_exc()
-                return None
-
-    def update_connections_by_email(self, email: str, connections: list[Connection]):
+                logger.error(f"Error fetching sales criteria by uuid: {error}")
+                traceback.print_exception(error)
+        return None
+            
+    def update_sales_criteria(self, uuid: str, tenant_id, sales_criteria: list[SalesCriteria]):
         update_query = """
             UPDATE tenant_profiles
-            SET connections = %s
+            SET sales_criteria = %s
             FROM persons
-            WHERE tenant_profiles.profile_uuid = persons.uuid AND persons.email = %s;
+            WHERE tenant_profiles.profile_uuid = %s AND tenant_profiles.tenant_id = %s;
             """
         with db_connection() as conn:
             try:
+                if not self.exists(uuid, tenant_id):
+                    self._insert(uuid, tenant_id)
                 with conn.cursor() as cursor:
                     cursor.execute(
                         update_query,
                         (
-                            json.dumps([con.to_dict() for con in connections]),
-                            email,
+                            json.dumps([sc.to_dict() for sc in sales_criteria]),
+                            uuid,
+                            tenant_id,
                         ),
                     )
                     conn.commit()
-                    logger.info(f"Updated connections for {email}")
+                    logger.info(f"Updated sales criteria for {uuid}")
             except psycopg2.Error as error:
-                raise Exception(f"Error updating connections, because: {error.pgerror}")
+                raise Exception(f"Error updating sales criteria, because: {error.pgerror}")
+
 
     def update_get_to_know(self, uuid, get_to_know, tenant_id):
         update_query = """
@@ -181,7 +185,7 @@ class TenantProfilesRepository:
     def _update(self, profile: ProfileDTO, tenant_id: str):
         update_query = """
             UPDATE tenant_profiles
-            SET connections = %s, get_to_know = %s
+            SET connections = %s, get_to_know = %s, sales_criteria = %s
             WHERE profile_uuid = %s
             AND tenant_id = %s;
             """
@@ -189,6 +193,7 @@ class TenantProfilesRepository:
         profile_data = (
             json.dumps([c if isinstance(c, dict) else c.to_dict() for c in profile_dict["connections"]]),
             json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["get_to_know"].items()}),
+            json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["sales_criteria"].items()}),
             str(profile_dict["uuid"]),
             tenant_id
         )

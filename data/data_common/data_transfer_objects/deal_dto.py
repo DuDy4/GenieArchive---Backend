@@ -1,31 +1,19 @@
+from data.data_common.data_transfer_objects.profile_dto import SalesCriteria
 from pydantic import BaseModel, EmailStr
 from uuid import UUID
 from enum import Enum
 from datetime import datetime
 from typing import Tuple, Dict, Any
 
-class DealCriteriaType(str, Enum):
-    BUDGET = "BUDGET"
-    TRUST = "TRUST"
-    TECHNICAL_FIT = "TECHNICAL_FIT"
-    BUSINESS_FIT = "BUSINESS_FIT"
-    VALUE_PROPOSITION = "VALUE_PROPOSITION"
-    INNOVATION = "INNOVATION"
-    REPUTATION = "REPUTATION"
-    LONG_TERM_PROFESSIONAL_ADVISOR = "LONG_TERM_PROFESSIONAL_ADVISOR"
-    RESPONSIVENESS = "RESPONSIVENESS"
 
-class DealCriteriaDTO(BaseModel):
-    type: DealCriteriaType
-    score: int = 0
-    progress_score: int = 0
+
 
 
 class DealDTO(BaseModel):
     deal_id: UUID
     name: str
     description: str
-    criterias: list[DealCriteriaDTO]  
+    criterias: list[SalesCriteria]  
     tenant_id: str
     compani_id: str
     created_at: datetime

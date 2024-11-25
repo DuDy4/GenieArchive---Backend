@@ -5,10 +5,8 @@ import psycopg2
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
 from typing import List, Optional
-from data.data_common.data_transfer_objects.deal_dto import (
-    DealDTO,
-    DealCriteriaDTO
-)
+from data.data_common.data_transfer_objects.profile_dto import SalesCriteria
+from data.data_common.data_transfer_objects.deal_dto import DealDTO
 
 logger = GenieLogger()
 
@@ -109,7 +107,7 @@ class DealsRepository:
                 traceback.print_exc()
                 return None
             
-    def update_deal_criteria(self, tenant_id: str, company_id: str, criterias: List[DealCriteriaDTO]) -> bool:
+    def update_deal_criteria(self, tenant_id: str, company_id: str, criterias: List[SalesCriteria]) -> bool:
         update_query = """
         UPDATE deals
         SET criterias = %s

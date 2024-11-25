@@ -1,7 +1,7 @@
 from common.utils import email_utils
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category
+from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     tenant_profiles_repository,
@@ -111,7 +111,7 @@ class ProfilesApiService:
 
 
     def determine_profile_category(self, strengths_scores):
-        return determine_profile_category(strengths_scores)
+        return determine_profile_category([sc.to_dict() for sc in strengths_scores])
         # return profile_scores, best_profile
 
 
@@ -129,7 +129,8 @@ class ProfilesApiService:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = self.determine_profile_category(profile.strengths)
-            return StrengthsListResponse(strengths=profile.strengths, profile_category=category)
+            sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
@@ -204,6 +205,17 @@ class ProfilesApiService:
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
+    
+    def calculate_individual_sales_criteria(self, tenant_id, profile_uuid):
+        strengths = self.get_profile_strengths(tenant_id, profile_uuid)
+        if not strengths:
+            return None
+        profile_category = determine_profile_category(strengths.strengths)
+        if not profile_category:
+            return None
+        sales_criteria = get_default_individual_sales_criteria(profile_category)
+        return sales_criteria
+
 
     def get_work_experience(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):

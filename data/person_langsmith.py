@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
-
+from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
 from ai.langsmith.langsmith_loader import Langsmith
 from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_event import GenieEvent
@@ -234,12 +234,9 @@ class LangsmithConsumer(GenieConsumer):
             profile_strength_and_get_to_know["work_history_summary"] = work_history_summary
 
 
-        deal = self.deals_repository.get_deal(seller_tenant_id, company_data.uuid)
-        if not deal:
-            self.deals_repository.insert_deal(seller_tenant_id, company_data.uuid)
-            deal = self.deals_repository.get_deal(seller_tenant_id, company_data.uuid)
-        if not deal.criterias:
-            per
+        profile_category = determine_profile_category(strengths)
+        sales_criteria = get_default_individual_sales_criteria(profile_category.category)
+        self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criteria)
 
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}

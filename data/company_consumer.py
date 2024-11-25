@@ -116,9 +116,9 @@ class CompanyConsumer(GenieConsumer):
                 event.send()
                 return
         logger.info(f"Company: {company}")
-        deal = self.deals_repository.get_deal(tenant_id, company.uuid)
-        if not deal:
-            self.deals_repository.insert_deal(tenant_id, company.uuid)
+        # deal = self.deals_repository.get_deal(tenant_id, company.uuid)
+        # if not deal:
+        #     self.deals_repository.insert_deal(tenant_id, company.uuid)
 
         if not company.overview or not company.challenges:
             response = self.langsmith.run_prompt_company_overview_challenges(

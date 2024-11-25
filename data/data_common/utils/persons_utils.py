@@ -2,7 +2,7 @@ from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileCategory, ProfileDTO
+from data.data_common.data_transfer_objects.profile_dto import ProfileCategory, ProfileDTO, SalesCriteriaType, SalesCriteria
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,
@@ -15,8 +15,53 @@ companies_repository = companies_repository()
 
 logger = GenieLogger()
 
-
 profiles = ["The Analytical", "The Amiable", "The Driver", "The Expressive", "The Skeptic", "The Pragmatist", "The Curious"]
+
+
+sales_criteria_mapping = {
+    profiles[0]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+    profiles[1]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=30),],
+    profiles[2]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=15),
+        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
+    profiles[3]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+    profiles[4]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=15),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=40),],
+    profiles[5]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40), 
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
+        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
+    profiles[6]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10), 
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=20), 
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=25),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=35),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+}
 
 strengths_mapping = {
     # "Achiever": [4, 6, 1, 3, 7, 2, 5],
@@ -74,11 +119,11 @@ def determing_deal_sales_criteria(company_uuid: list[str]) -> str:
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
-    for i, strength  in enumerate(strengths_scores):
-        total_strength_score += strength.score
+    for strength in strengths_scores:
+        total_strength_score += strength['score']
     normalized_strengths = {}
-    for i, strength  in enumerate(strengths_scores):
-        normalized_strengths[strength.strength_name] = strength.score / total_strength_score            
+    for strength  in strengths_scores:
+        normalized_strengths[strength['strength_name']] = strength['score'] / total_strength_score            
 
     # Initialize profile scores
     profile_scores = {profile: 0 for profile in profiles}
@@ -94,6 +139,8 @@ def determine_profile_category(strengths_scores):
     best_profile = min(profile_scores, key=profile_scores.get)
     return ProfileCategory(category=best_profile, scores=profile_scores)
 
+def get_default_individual_sales_criteria(profile_category: str) -> list[SalesCriteria]:
+    return sales_criteria_mapping[profile_category]
 
 
 def fix_linkedin_url(linkedin_url: str) -> str:

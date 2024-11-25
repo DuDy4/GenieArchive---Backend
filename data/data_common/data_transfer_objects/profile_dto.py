@@ -1,9 +1,20 @@
+from enum import Enum
 import json
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Tuple
 from uuid import UUID
 from data.data_common.utils.str_utils import to_custom_title_case
 
+class SalesCriteriaType(str, Enum):
+    BUDGET = "BUDGET"
+    TRUST = "TRUST"
+    TECHNICAL_FIT = "TECHNICAL_FIT"
+    BUSINESS_FIT = "BUSINESS_FIT"
+    VALUE_PROPOSITION = "VALUE_PROPOSITION"
+    INNOVATION = "INNOVATION"
+    REPUTATION = "REPUTATION"
+    LONG_TERM_PROFESSIONAL_ADVISOR = "LONG_TERM_PROFESSIONAL_ADVISOR"
+    RESPONSIVENESS = "RESPONSIVENESS"
 
 class Hobby(BaseModel):
     hobby_name: str
@@ -70,6 +81,33 @@ class Phrase(BaseModel):
 class ProfileCategory(BaseModel):
     category: str
     scores: dict
+
+class SalesCriteria(BaseModel):
+    criteria: SalesCriteriaType
+    score: int = Field(0, ge=0, le=100)
+    target_score: int = Field(100, ge=0, le=100)
+
+    @field_validator("criteria")
+    def validate_criteria(cls, value):
+        if value not in SalesCriteriaType:
+            raise ValueError(f"Invalid criteria: {value}")
+        return value
+    
+    def to_dict(self) -> Dict[str, any]:
+        return {
+            "criteria": str(self.criteria.value),
+            "score": int(self.score),
+            "target_score": int(self.target_score),
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, any]) -> "SalesCriteria":
+        return cls(**data)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> "SalesCriteria":
+        return cls.parse_raw(json_str)
+    
 
 class Strength(BaseModel):
     strength_name: str
@@ -163,6 +201,7 @@ class ProfileDTO(BaseModel):
     strengths: Optional[List[Strength]] = []
     hobbies: Optional[List[UUID]] = []
     work_history_summary: Optional[str] = None
+    sales_criteria: Optional[List[SalesCriteria]] = []
 
     @field_validator("name", "position")
     def not_empty(cls, value):
@@ -204,6 +243,7 @@ class ProfileDTO(BaseModel):
             "strengths": [strength.to_dict() for strength in self.strengths],
             "hobbies": [str(hobby) for hobby in self.hobbies],
             "work_history_summary": self.work_history_summary,
+            "sales_criteria": [criteria.to_dict() for criteria in self.sales_criteria],
         }
         return profile_dict
 
