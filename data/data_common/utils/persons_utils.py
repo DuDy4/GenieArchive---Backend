@@ -66,6 +66,49 @@ profiles_description = {
     "The Curious": "Enthusiastic about exploring and learning. They are interested in technological innovations, seeking a deep understanding of how the product works and its added value.",
 }
 
+profiles_extended_description = {
+    "The Analytical": (
+        "An Analytical profile is characterized by a deep need for understanding, "
+        "grounded in facts, data, and logic. Individuals with this profile are driven by "
+        "precision and clarity, seeking in-depth, evidence-based insights to evaluate options "
+        "and make decisions. They appreciate structured, well-supported arguments and take time "
+        "to analyze all available information."
+    ),
+    "The Friend": (
+        "A Friend profile is defined by a strong focus on building personal connections and "
+        "fostering trust. These individuals value relationships and seek meaningful, empathetic "
+        "interactions. They prefer working with those who take the time to understand their unique "
+        "needs, creating a sense of comfort and confidence in the process."
+    ),
+    "The Driver": (
+        "A Driver profile is characterized by a results-oriented mindset and a preference for decisive, "
+        "quick actions. These individuals focus on achieving tangible outcomes and maintaining control "
+        "throughout the process. They value efficiency, clarity, and directness, seeking clear paths to "
+        "solve immediate problems and reach their goals."
+    ),
+    "The Innovator": (
+        "An Innovator profile is marked by a fascination with creativity, unique solutions, and forward-thinking "
+        "ideas. These individuals are drawn to products or concepts that stand out, offer added value, and push boundaries. "
+        "They thrive on inspiration and enjoy exploring the transformative potential of innovative approaches."
+    ),
+    "The Skeptic": (
+        "A Skeptic profile is defined by a cautious and discerning approach, emphasizing risk assessment and reliability. "
+        "These individuals tend to question assumptions, look for flaws, and require reassurance before committing to decisions. "
+        "They value transparency, realistic guarantees, and thorough validation of a product's capabilities."
+    ),
+    "The Practical": (
+        "A Practical profile is characterized by a goal-oriented and pragmatic outlook, with a focus on achieving efficiency "
+        "and tangible benefits. These individuals prioritize solutions that save time, reduce costs, or directly improve their situation. "
+        "They prefer straightforward, functional approaches that align closely with their objectives."
+    ),
+    "The Curious": (
+        "A Curious profile is defined by an intrinsic interest in technology, innovation, and exploration. "
+        "These individuals are eager to delve deeply into how products work, what makes them unique, and how they advance "
+        "beyond existing solutions. They thrive on learning and appreciate detailed explanations of a product's advanced features and capabilities."
+    ),
+}
+
+
 profiles_explanation = {
     "The Analytical": {
         "characteristics": "Seeks in-depth understanding of the product, looks for data, facts, proof, and logic",
@@ -104,6 +147,16 @@ profiles_explanation = {
     },
 }
 
+profiles_colors = {
+    "The Analytical": "#FFCC00",  # Yellow
+    "The Friend": "#0000FF",      # Blue
+    "The Driver": "#FF0000",      # Red
+    "The Innovator": "#008000",   # Green
+    "The Skeptic": "#000000",     # Black
+    "The Practical": "#808080",   # Gray
+    "The Curious": "#FFA500"      # Orange
+}
+
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
@@ -130,7 +183,9 @@ def determine_profile_category(strengths_scores):
         "category": best_profile,
         "scores": profile_scores,
         "description": profiles_description.get(best_profile, ""),
-        "explanation": profiles_explanation.get(best_profile, {})
+        "extended_description": profiles_extended_description.get(best_profile, ""),
+        "explanation": profiles_explanation.get(best_profile, {}),
+        "color": profiles_colors.get(best_profile, "")
     }
 
     return ProfileCategory.from_dict(profile_category_dict)
