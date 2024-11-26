@@ -214,12 +214,12 @@ class ProfilesApiService:
         sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
         if not sales_criteria:
             logger.info(f"No tenant's sales criteria found for {uuid}, getting profile's default sales criteria")
-            sales_criteria = self.profiles_repository.get_sales_criteria(uuid)
-            if not sales_criteria:
-                logger.error(f"No profile's sales criteria found for {uuid}, getting default sales criteria")
-                profile_dto = self.profiles_repository.get_profile_data(uuid)
-                sales_criteria = profile_dto.sales_criteria
+            profile_dto = self.profiles_repository.get_profile_data(uuid)
+            sales_criteria = profile_dto.sales_criteria
+            if sales_criteria:
                 self.profiles_repository.save_profile(profile_dto)
+            else:
+                logger.error(f"ERROR: No sales criteria found for {uuid}")
         logger.info(f"Got sales criteria: {sales_criteria}")
         if not sales_criteria:
             return SalesCriteriaResponse.from_list([])
