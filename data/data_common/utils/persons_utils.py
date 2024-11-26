@@ -12,7 +12,7 @@ companies_repository = CompaniesRepository()
 
 logger = GenieLogger()
 
-profiles = ["The Analytical", "The Friend", "The Driver", "The Innovator", "The Skeptic", "The Practical", "The Curious"]
+profiles = ["The Analytical", "The connector", "The Driver", "The Innovator", "The Skeptic", "The Practical", "The Curious"]
 
 sales_criteria_mapping = {
     profiles[0]: [
@@ -99,7 +99,7 @@ strengths_mapping = {
 
 profiles_description = {
     "The Analytical": "Seeks in-depth understanding and relies on data, facts, and logic. They value detailed explanations and proof over generalities.",
-    "The Friend": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
+    "The connector": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
     "The Driver": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
     "The Innovator": "Innovation-driven and creative. They value novelty, inspiration, and products that bring unique advantages or change the market landscape.",
     "The Skeptic": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
@@ -115,7 +115,7 @@ profiles_extended_description = {
         "and make decisions. They appreciate structured, well-supported arguments and take time "
         "to analyze all available information."
     ),
-    "The Friend": (
+    "The connector": (
         "A Friend profile is defined by a strong focus on building personal connections and "
         "fostering trust. These individuals value relationships and seek meaningful, empathetic "
         "interactions. They prefer working with those who take the time to understand their unique "
@@ -155,7 +155,7 @@ profiles_explanation = {
         "needs": "Requires precise details and answers to technical questions.",
         "recommendations": "Provide presentations with numerical data, examples or proof of the product's success, detailed explanations, and structured answers to complex questions. This customer values time for thinking and drawing conclusions, and will not make decisions quickly.",
     },
-    "The Friend": {
+    "The connector": {
         "characteristics": "Looks for personal connection and trustworthy relationships, wants to feel comfortable and heard.",
         "needs": "Requires personalized attention and trust throughout the process.",
         "recommendations": "Approach them personally, take time to understand their specific needs, emphasize post-sale support and service, and create a warm, empathetic conversation. This customer responds well to confidence and a sense of care."
@@ -205,7 +205,7 @@ profiles_explanation = {
 
 profiles_colors = {
     "The Analytical": "#fed101",  # Yellow
-    "The Friend": "#2b75de",      # Blue
+    "The connector": "#2b75de",      # Blue
     "The Driver": "#e47253",      # Red
     "The Innovator": "#57cc99",   # Green
     "The Skeptic": "#444c5f",     # Black
@@ -215,7 +215,7 @@ profiles_colors = {
 
 profile_font_color = {
     "The Analytical": "#333333",  # Very dark gray for yellow background
-    "The Friend": "#f0f0f0",      # Almost white for blue background
+    "The connector": "#f0f0f0",      # Almost white for blue background
     "The Driver": "#2e2e2e",      # Darker gray for red background
     "The Innovator": "#2f2f2f",   # Dark gray for green background
     "The Skeptic": "#cfcfcf",     # Light gray for black background
