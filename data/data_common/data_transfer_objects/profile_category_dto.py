@@ -7,15 +7,15 @@ from common.utils import env_utils
 
 
 class SalesCriteriaType(str, Enum):
-    BUDGET = "BUDGET"
-    TRUST = "TRUST"
-    TECHNICAL_FIT = "TECHNICAL_FIT"
-    BUSINESS_FIT = "BUSINESS_FIT"
-    VALUE_PROPOSITION = "VALUE_PROPOSITION"
-    INNOVATION = "INNOVATION"
-    REPUTATION = "REPUTATION"
-    LONG_TERM_PROFESSIONAL_ADVISOR = "LONG_TERM_PROFESSIONAL_ADVISOR"
-    RESPONSIVENESS = "RESPONSIVENESS"
+    BUDGET = "budget"
+    TRUST = "trust"
+    TECHNICAL_FIT = "technical_fit"
+    BUSINESS_FIT = "business_fit"
+    VALUE_PROPOSITION = "value_proposition"
+    INNOVATION = "innovation"
+    REPUTATION = "reputation"
+    LONG_TERM_PROFESSIONAL_ADVISOR = "long_term_professional_advisor"
+    RESPONSIVENESS = "responsiveness"
 
 
 class ProfileCategoryExplanation(BaseModel):

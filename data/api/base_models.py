@@ -247,6 +247,14 @@ class Challenge(BaseModel):
     score: int = Field(..., ge=0, le=100)
 
 
+class SalesCriteriaResponse(BaseModel):
+    sales_criteria: List[SalesCriteria]
+
+    @classmethod
+    def from_list(cls, data: List[SalesCriteria]):
+        return cls(sales_criteria=data)
+
+
 class CompanyResponse(BaseModel):
     uuid: str
     name: str

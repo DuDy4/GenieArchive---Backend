@@ -112,12 +112,6 @@ class ProfilesApiService:
         logger.info(f"Attendee info: {profile}")
         return AttendeeInfo(**profile)
 
-
-    def determine_profile_category(self, strengths_scores):
-        return determine_profile_category(strengths_scores)
-        # return profile_scores, best_profile
-
-
     def get_profile_strengths(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
             email = self.tenants_repository.get_tenant_email(tenant_id)
@@ -131,7 +125,7 @@ class ProfilesApiService:
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
-            category = self.determine_profile_category(profile.strengths)
+            category = determine_profile_category(profile.strengths)
             sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
             return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
@@ -211,6 +205,25 @@ class ProfilesApiService:
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
+
+    def get_sales_criteria(self, tenant_id, uuid):
+        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
+            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+            raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
+
+        sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+        if not sales_criteria:
+            logger.info(f"No tenant's sales criteria found for {uuid}, getting profile's default sales criteria")
+            sales_criteria = self.profiles_repository.get_sales_criteria(uuid)
+            if not sales_criteria:
+                logger.error(f"No profile's sales criteria found for {uuid}, getting default sales criteria")
+                profile_dto = self.profiles_repository.get_profile_data(uuid)
+                sales_criteria = profile_dto.sales_criteria
+                self.profiles_repository.save_profile(profile_dto)
+        logger.info(f"Got sales criteria: {sales_criteria}")
+        if not sales_criteria:
+            return SalesCriteriaResponse.from_list([])
+        return SalesCriteriaResponse.from_list(sales_criteria)
 
     def get_work_experience(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):

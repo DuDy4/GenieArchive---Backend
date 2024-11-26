@@ -810,10 +810,11 @@ class ProfilesRepository:
     def _update(self, profile: ProfileDTO):
         update_query = """
         UPDATE profiles
-        SET name = %s, company = %s, position = %s, strengths = %s, hobbies = %s, connections = %s, get_to_know = %s, summary = %s, picture_url = %s, work_history_summary = %s
+        SET name = %s, company = %s, position = %s, strengths = %s, hobbies = %s, connections = %s, get_to_know = %s, summary = %s, picture_url = %s, work_history_summary = %s, sales_criteria = %s
         WHERE uuid = %s;
         """
         profile_dict = profile.to_dict()
+        logger.info(f"About to update profile: {profile_dict}")
         profile_data = (
             profile_dict["name"],
             profile_dict["company"],
@@ -829,9 +830,10 @@ class ProfilesRepository:
             ),
             profile_dict["summary"],
             str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
-            str(profile_dict["uuid"]),
             profile_dict["work_history_summary"] if profile_dict["work_history_summary"] else None,
-        )
+            json.dumps([(criteria.to_dict() if isinstance(criteria, SalesCriteria) else criteria) for criteria in profile_dict["sales_criteria"]]) if profile_dict["sales_criteria"] else None,
+            str(profile_dict["uuid"]),
+            )
 
         logger.info(f"Persisting profile data {profile_data}")
         with db_connection() as conn:
@@ -889,3 +891,25 @@ class ProfilesRepository:
                 logger.error(f"Error fetching profile pictures: {error}")
                 traceback.print_exc()
                 return []
+
+    def get_sales_criteria(self, uuid):
+        select_query = """
+        SELECT sales_criteria
+        FROM profiles
+        WHERE uuid = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (uuid,))
+                    row = cursor.fetchone()
+                    if row:
+                        logger.info(f"Got {row[0]} from database")
+                        return [SalesCriteria.from_tuple(criteria) for criteria in row[0]] if row[0] else None
+                    else:
+                        logger.error(f"Error with getting sales criteria for {uuid}")
+                        return None
+            except Exception as error:
+                logger.error(f"Error fetching sales criteria by uuid: {error}")
+                traceback.print_exc()
+                return None
