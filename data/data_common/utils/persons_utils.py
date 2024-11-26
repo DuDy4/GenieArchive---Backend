@@ -2,16 +2,13 @@ from common.genie_logger import GenieLogger
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
-from data.data_common.data_transfer_objects.profile_dto import ProfileCategory, ProfileDTO, SalesCriteriaType, SalesCriteria
-from data.data_common.dependencies.dependencies import (
-    persons_repository,
-    personal_data_repository,
-    companies_repository,
-)
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory, SalesCriteriaType, SalesCriteria
 
-persons_repository = persons_repository()
-personal_data_repository = personal_data_repository()
-companies_repository = companies_repository()
+from data.data_common.repositories.companies_repository import CompaniesRepository
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+
+personal_data_repository = CompaniesRepository()
+companies_repository = PersonalDataRepository()
 
 logger = GenieLogger()
 
@@ -196,7 +193,7 @@ profiles_explanation = {
     },
 }
 
-def determing_deal_sales_criteria(company_uuid: list[str]) -> str:
+def determining_deal_sales_criteria(company_uuid: list[str]) -> str:
     company_profiles = companies_repository.get_company_profiles(company_uuid)
     list_of_profiles_strengths = [profile.strengths for profile in company_profiles]
     if not list_of_profiles_strengths:
@@ -216,10 +213,10 @@ def determing_deal_sales_criteria(company_uuid: list[str]) -> str:
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
     for strength in strengths_scores:
-        total_strength_score += strength['score']
+        total_strength_score += strength.score
     normalized_strengths = {}
-    for strength  in strengths_scores:
-        normalized_strengths[strength['strength_name']] = strength['score'] / total_strength_score            
+    for strength in strengths_scores:
+        normalized_strengths[strength.strength_name] = strength.score / total_strength_score
 
     # Initialize profile scores
     profile_scores = {profile: 0 for profile in profiles}
@@ -242,8 +239,8 @@ def determine_profile_category(strengths_scores):
 
     return ProfileCategory.from_dict(profile_category_dict)
 
-def get_default_individual_sales_criteria(profile_category: str) -> list[SalesCriteria]:
-    return sales_criteria_mapping[profile_category]
+def get_default_individual_sales_criteria(profile_category: ProfileCategory) -> list[SalesCriteria]:
+    return sales_criteria_mapping[profile_category.category]
 
 
 def fix_linkedin_url(linkedin_url: str) -> str:

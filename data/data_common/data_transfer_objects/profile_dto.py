@@ -1,21 +1,11 @@
-from enum import Enum
-import json
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import List, Optional, Dict, Tuple
 from uuid import UUID
-from data.data_common.utils.str_utils import to_custom_title_case
-from common.utils import env_utils
 
-class SalesCriteriaType(str, Enum):
-    BUDGET = "BUDGET"
-    TRUST = "TRUST"
-    TECHNICAL_FIT = "TECHNICAL_FIT"
-    BUSINESS_FIT = "BUSINESS_FIT"
-    VALUE_PROPOSITION = "VALUE_PROPOSITION"
-    INNOVATION = "INNOVATION"
-    REPUTATION = "REPUTATION"
-    LONG_TERM_PROFESSIONAL_ADVISOR = "LONG_TERM_PROFESSIONAL_ADVISOR"
-    RESPONSIVENESS = "RESPONSIVENESS"
+from data.data_common.data_transfer_objects.profile_category_dto import SalesCriteria
+from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
+from data.data_common.utils.str_utils import to_custom_title_case
+
 
 class Hobby(BaseModel):
     hobby_name: str
@@ -79,64 +69,7 @@ class Phrase(BaseModel):
         return cls(**data)
 
 
-class ProfileCategoryExplanation(BaseModel):
-    characteristics: str
-    needs: str
-    recommendations: str
 
-    @staticmethod
-    def from_dict(data: dict) -> "ProfileCategoryExplanation":
-        return ProfileCategoryExplanation(
-            characteristics=data.get("characteristics"),
-            needs=data.get("needs"),
-            recommendations=data.get("recommendations"),
-        )
-
-
-class ProfileCategory(BaseModel):
-    category: str
-    scores: dict
-    description: str
-    explanation: Optional[ProfileCategoryExplanation] = None
-    icon: HttpUrl | None = '/images/image9.png'
-
-    @staticmethod
-    def from_dict(data: dict) -> "ProfileCategory":
-        return ProfileCategory(
-            category=data["category"],
-            scores=data["scores"],
-            description=data["description"],
-            explanation=ProfileCategoryExplanation.from_dict(data["explanation"]) if data.get("explanation") else None,
-            icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
-                 (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else '')
-        )
-
-class SalesCriteria(BaseModel):
-    criteria: SalesCriteriaType
-    score: int = Field(0, ge=0, le=100)
-    target_score: int = Field(100, ge=0, le=100)
-
-    @field_validator("criteria")
-    def validate_criteria(cls, value):
-        if value not in SalesCriteriaType:
-            raise ValueError(f"Invalid criteria: {value}")
-        return value
-    
-    def to_dict(self) -> Dict[str, any]:
-        return {
-            "criteria": str(self.criteria.value),
-            "score": int(self.score),
-            "target_score": int(self.target_score),
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> "SalesCriteria":
-        return cls(**data)
-    
-    @classmethod
-    def from_json(cls, json_str: str) -> "SalesCriteria":
-        return cls.parse_raw(json_str)
-    
 
 class Strength(BaseModel):
     strength_name: str
@@ -278,7 +211,22 @@ class ProfileDTO(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict) -> "ProfileDTO":
-        return cls.parse_obj(data)
+        return ProfileDTO(
+            uuid=UUID(data["uuid"]),
+            name=data["name"],
+            company=data["company"],
+            position=data["position"],
+            summary=data["summary"],
+            picture_url=data["picture_url"],
+            get_to_know={
+                key: [Phrase.from_dict(phrase) for phrase in phrases] for key, phrases in data["get_to_know"].items()
+            },
+            connections=[Connection.from_dict(connection) for connection in data["connections"]],
+            strengths=[Strength.from_dict(strength) for strength in data["strengths"]],
+            hobbies=[UUID(hobby) for hobby in data["hobbies"]],
+            work_history_summary=data["work_history_summary"],
+            sales_criteria=[SalesCriteria.from_dict(criteria) for criteria in (data["sales_criteria"] if data.get("sales_criteria") else ProfileDTO.calculate_individual_sales_criteria(data["strengths"]))],
+        )
 
     def to_tuple(
         self,
@@ -294,6 +242,7 @@ class ProfileDTO(BaseModel):
         Optional[List[Strength]],
         Optional[List[UUID]],
         Optional[str],
+        Optional[List[dict]],
     ]:
         return (
             self.uuid,
@@ -307,6 +256,7 @@ class ProfileDTO(BaseModel):
             self.strengths,
             self.hobbies,
             self.work_history_summary,
+            (SalesCriteria.to_dict(criteria) for criteria in self.sales_criteria) if self.sales_criteria else None,
         )
 
     @classmethod
@@ -324,6 +274,7 @@ class ProfileDTO(BaseModel):
             Optional[List[Strength]],
             Optional[List[UUID]],
             Optional[str],
+            Optional[List[Dict | SalesCriteria]],
         ],
     ) -> "ProfileDTO":
         return cls(
@@ -338,4 +289,16 @@ class ProfileDTO(BaseModel):
             strengths=data[8],
             hobbies=data[9],
             work_history_summary=data[10],
+            sales_criteria=[(SalesCriteria.from_dict(criteria) if isinstance(criteria, dict) else criteria)
+                            for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]))],
         )
+
+    @staticmethod
+    def calculate_individual_sales_criteria(strengths: List[Strength]) -> List[SalesCriteria] | None:
+        if not strengths:
+            return None
+        profile_category = determine_profile_category(strengths)
+        if not profile_category:
+            return None
+        sales_criteria = get_default_individual_sales_criteria(profile_category)
+        return sales_criteria

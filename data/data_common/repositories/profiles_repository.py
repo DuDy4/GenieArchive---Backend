@@ -16,6 +16,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Hobby,
     UUID,
 )
+from data.data_common.data_transfer_objects.profile_category_dto import SalesCriteria
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
 
@@ -42,7 +43,8 @@ class ProfilesRepository:
             get_to_know JSONB,
             summary TEXT,
             picture_url VARCHAR,
-            work_history_summary VARCHAR
+            work_history_summary VARCHAR,
+            sales_criteria JSONB
         );
         """
         with db_connection() as conn:
@@ -128,7 +130,7 @@ class ProfilesRepository:
 
     def get_profile_data(self, uuid: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary
+        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary, sales_criteria
         FROM profiles
         WHERE uuid = %s;
         """
@@ -150,6 +152,7 @@ class ProfilesRepository:
                         connections = [Connection.from_dict(item) for item in row[6]]
                         get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
                         work_history_summary = row[10] if row[10] else None
+                        sales_criteria = (SalesCriteria.from_tuple(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
                             uuid,
                             name,
@@ -162,6 +165,7 @@ class ProfilesRepository:
                             strengths,
                             hobbies,
                             work_history_summary,
+                            sales_criteria
                         )
                         return ProfileDTO.from_tuple(profile_data)
                     else:
@@ -201,7 +205,7 @@ class ProfilesRepository:
                 with conn.cursor() as cursor:
                     if search:
                         select_query = """
-                        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary
+                        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary, sales_criteria
                         FROM profiles
                         WHERE uuid = ANY(%s) AND name ILIKE %s;
                         """
@@ -209,7 +213,7 @@ class ProfilesRepository:
                         cursor.execute(select_query, (uuids, search_pattern))
                     else:
                         select_query = """
-                        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary
+                        SELECT uuid, name, company, position, strengths, hobbies, connections, get_to_know, summary, picture_url, work_history_summary, sales_criteria
                         FROM profiles
                         WHERE uuid = ANY(%s);
                         """
@@ -280,6 +284,8 @@ class ProfilesRepository:
 
                         work_history_summary = row[10] if row[10] else None
 
+                        sales_criteria = (SalesCriteria.from_tuple(criteria) for criteria in row[11]) if row[11] else None
+
                         logger.info(f"About to create ProfileDTO from tuple: {row}")
 
                         profile_data = (
@@ -294,6 +300,7 @@ class ProfilesRepository:
                             strengths,
                             hobbies,
                             work_history_summary,
+                            sales_criteria
                         )
                         profiles.append(ProfileDTO.from_tuple(profile_data))
                     return profiles
@@ -304,7 +311,7 @@ class ProfilesRepository:
 
     def get_profile_data_by_email(self, email: str) -> Union[ProfileDTO, None]:
         select_query = """
-        SELECT profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url, profiles.work_history_summary
+        SELECT profiles.uuid, profiles.name, profiles.company, profiles.position, profiles.strengths, profiles.hobbies, profiles.connections, profiles.get_to_know, profiles.summary, profiles.picture_url, profiles.work_history_summary, profiles.sales_criteria
         FROM profiles
         JOIN persons on persons.uuid = profiles.uuid
         WHERE persons.email = %s;
@@ -327,6 +334,7 @@ class ProfilesRepository:
                         connections = [Connection.from_dict(item) for item in row[6]]
                         get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
                         work_history_summary = row[10] if row[10] else None
+                        sales_criteria = (SalesCriteria.from_tuple(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
                             uuid,
                             name,

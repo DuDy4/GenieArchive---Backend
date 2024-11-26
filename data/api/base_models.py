@@ -10,8 +10,8 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Phrase,
     SalesCriteria,
     Strength,
-    ProfileCategory,
 )
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,

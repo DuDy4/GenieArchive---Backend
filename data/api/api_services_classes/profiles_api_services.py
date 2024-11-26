@@ -114,7 +114,7 @@ class ProfilesApiService:
 
 
     def determine_profile_category(self, strengths_scores):
-        return determine_profile_category([sc.to_dict() for sc in strengths_scores])
+        return determine_profile_category(strengths_scores)
         # return profile_scores, best_profile
 
 
@@ -211,17 +211,6 @@ class ProfilesApiService:
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
-    
-    def calculate_individual_sales_criteria(self, tenant_id, profile_uuid):
-        strengths = self.get_profile_strengths(tenant_id, profile_uuid)
-        if not strengths:
-            return None
-        profile_category = determine_profile_category(strengths.strengths)
-        if not profile_category:
-            return None
-        sales_criteria = get_default_individual_sales_criteria(profile_category)
-        return sales_criteria
-
 
     def get_work_experience(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
