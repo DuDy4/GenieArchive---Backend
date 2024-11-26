@@ -112,12 +112,6 @@ class ProfilesApiService:
         logger.info(f"Attendee info: {profile}")
         return AttendeeInfo(**profile)
 
-
-    def determine_profile_category(self, strengths_scores):
-        return determine_profile_category([sc.to_dict() for sc in strengths_scores])
-        # return profile_scores, best_profile
-
-
     def get_profile_strengths(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
             email = self.tenants_repository.get_tenant_email(tenant_id)
@@ -131,7 +125,7 @@ class ProfilesApiService:
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
-            category = self.determine_profile_category(profile.strengths)
+            category = determine_profile_category(profile.strengths)
             sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
             return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
@@ -177,7 +171,6 @@ class ProfilesApiService:
             if not news:
                 logger.info(f"No personal news found for {uuid}, getting company news")
                 news = []
-            logger.info(f"Got news: {news}")
 
             hobbies_uuid = profile.hobbies
             logger.info(f"Got hobbies: {hobbies_uuid}")
@@ -201,7 +194,7 @@ class ProfilesApiService:
                 "hobbies": hobbies,
                 "connections": connections,
             }
-            formatted_good_to_know = "".join([f"\n{key}: {value}\n" for key, value in good_to_know.items()])
+            formatted_good_to_know = "".join([f"\n{key}: {str(value)[:300]}\n" for key, value in good_to_know.items()])
             logger.info(f"Good to know: {formatted_good_to_know}")
             return GoodToKnowResponse(
                 news=news if news else [],
@@ -211,17 +204,25 @@ class ProfilesApiService:
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
-    
-    def calculate_individual_sales_criteria(self, tenant_id, profile_uuid):
-        strengths = self.get_profile_strengths(tenant_id, profile_uuid)
-        if not strengths:
-            return None
-        profile_category = determine_profile_category(strengths.strengths)
-        if not profile_category:
-            return None
-        sales_criteria = get_default_individual_sales_criteria(profile_category)
-        return sales_criteria
 
+    def get_sales_criteria(self, tenant_id, uuid):
+        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
+            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+            raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
+
+        sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+        if not sales_criteria:
+            logger.info(f"No tenant's sales criteria found for {uuid}, getting profile's default sales criteria")
+            profile_dto = self.profiles_repository.get_profile_data(uuid)
+            sales_criteria = profile_dto.sales_criteria
+            if sales_criteria:
+                self.profiles_repository.save_profile(profile_dto)
+            else:
+                logger.error(f"ERROR: No sales criteria found for {uuid}")
+        logger.info(f"Got sales criteria: {sales_criteria}")
+        if not sales_criteria:
+            return SalesCriteriaResponse.from_list([])
+        return SalesCriteriaResponse.from_list(sales_criteria)
 
     def get_work_experience(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):

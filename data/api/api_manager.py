@@ -411,9 +411,30 @@ def get_profile_good_to_know(
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     response = profiles_api_service.get_profile_good_to_know(tenant_id, uuid)
-    logger.info(f"About to send response: {response}")
     if not allowed_impersonate_tenant_id:
         background_tasks.add_task(stats_api_service.view_profile_event, tenant_id=tenant_id, profile_id=uuid)
+    return response
+
+
+@v1_router.get("/{tenant_id}/profiles/{uuid}/sales-criteria", response_model=SalesCriteriaResponse)
+def get_profile_sales_criteria(
+    request: Request,
+    uuid: str,
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> SalesCriteriaResponse:
+    """
+    Get the sales criteria of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got sales criteria request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_sales_criteria(tenant_id, uuid)
+    logger.info(f"About to send response: {response}")
     return response
 
 

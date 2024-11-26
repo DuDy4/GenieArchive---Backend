@@ -10,8 +10,8 @@ from data.data_common.data_transfer_objects.profile_dto import (
     Phrase,
     SalesCriteria,
     Strength,
-    ProfileCategory,
 )
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,
@@ -245,6 +245,14 @@ class Challenge(BaseModel):
     challenge_name: str
     reasoning: str
     score: int = Field(..., ge=0, le=100)
+
+
+class SalesCriteriaResponse(BaseModel):
+    sales_criteria: List[SalesCriteria]
+
+    @classmethod
+    def from_list(cls, data: List[SalesCriteria]):
+        return cls(sales_criteria=data)
 
 
 class CompanyResponse(BaseModel):

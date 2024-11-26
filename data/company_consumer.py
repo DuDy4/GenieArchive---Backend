@@ -185,7 +185,7 @@ class CompanyConsumer(GenieConsumer):
     
     def fix_company_description(self, company_dto: CompanyDTO):
         description = company_dto.description
-        if len(description) > 300:
+        if not description or len(description) > 300:
             description_summary = self.langsmith.get_summary(description)
             if description_summary:
                 company_dto.description = description_summary
