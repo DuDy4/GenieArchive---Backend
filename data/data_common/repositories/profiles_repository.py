@@ -821,8 +821,8 @@ class ProfilesRepository:
             ),
             profile_dict["summary"],
             str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
-            str(profile_dict["uuid"]),
             profile_dict["work_history_summary"] if profile_dict["work_history_summary"] else None,
+            str(profile_dict["uuid"]),
         )
 
         logger.info(f"Persisting profile data {profile_data}")
