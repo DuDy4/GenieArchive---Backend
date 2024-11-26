@@ -411,7 +411,6 @@ def get_profile_good_to_know(
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     response = profiles_api_service.get_profile_good_to_know(tenant_id, uuid)
-    logger.info(f"About to send response: {response}")
     if not allowed_impersonate_tenant_id:
         background_tasks.add_task(stats_api_service.view_profile_event, tenant_id=tenant_id, profile_id=uuid)
     return response

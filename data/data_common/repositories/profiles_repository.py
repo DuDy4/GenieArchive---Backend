@@ -348,7 +348,8 @@ class ProfilesRepository:
                             connections,
                             strengths,
                             hobbies,
-                            work_history_summary
+                            work_history_summary,
+                            sales_criteria
                         )
                         return ProfileDTO.from_tuple(profile_data)
                     else:

@@ -36,8 +36,11 @@ class ProfileCategory(BaseModel):
     category: str
     scores: dict
     description: str
+    extended_description: Optional[str] = None
     explanation: Optional[ProfileCategoryExplanation] = None
     icon: HttpUrl | None = '/images/image9.png'
+    color: str = "#000000"
+    font_color: str = "#FFFFFF"
 
     @staticmethod
     def from_dict(data: dict) -> "ProfileCategory":
@@ -45,9 +48,12 @@ class ProfileCategory(BaseModel):
             category=data["category"],
             scores=data["scores"],
             description=data["description"],
+            extended_description=data.get("extended_description"),
             explanation=ProfileCategoryExplanation.from_dict(data["explanation"]) if data.get("explanation") else None,
             icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
-                 (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else '')
+                 (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else ''),
+            color=data.get("color", "#000000"),
+            font_color=data.get("font_color", "#FFFFFF"),
         )
 
 class SalesCriteria(BaseModel):

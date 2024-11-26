@@ -171,7 +171,6 @@ class ProfilesApiService:
             if not news:
                 logger.info(f"No personal news found for {uuid}, getting company news")
                 news = []
-            logger.info(f"Got news: {news}")
 
             hobbies_uuid = profile.hobbies
             logger.info(f"Got hobbies: {hobbies_uuid}")
@@ -195,7 +194,7 @@ class ProfilesApiService:
                 "hobbies": hobbies,
                 "connections": connections,
             }
-            formatted_good_to_know = "".join([f"\n{key}: {value}\n" for key, value in good_to_know.items()])
+            formatted_good_to_know = "".join([f"\n{key}: {str(value)[:300]}\n" for key, value in good_to_know.items()])
             logger.info(f"Good to know: {formatted_good_to_know}")
             return GoodToKnowResponse(
                 news=news if news else [],
