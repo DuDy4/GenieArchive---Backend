@@ -1,4 +1,4 @@
-from common.utils import email_utils
+from common.utils import email_utils, env_utils
 from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.api.base_models import *
@@ -270,3 +270,39 @@ class ProfilesApiService:
         raise HTTPException(
             status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {tenant_id}"}
         )
+
+    def get_action_items(self, tenant_id, uuid):
+        frontendBlobUrl = env_utils.get("BLOB_FRONTEND_PROFILE_ICONS_URL", 'https://img.icons8.com/color/48/checked-checkbox.png')
+        return ActionItemsResponse.from_dict({
+            "kpi": "Schedule another in-person meeting",
+            "action_items": [
+            {
+                "title": "Building Trust - Creating a Personal Connection",
+                "description": "Mention she’s a Barcelona fan and surfs weekends, ask follow-up questions to show genuine interest.",
+                "percentage": "+7%",
+                "criteria": "TRUST",
+                "icon": frontendBlobUrl + 'building-trust.png'
+            },
+            {
+                "title": "Emphasizing Support - Support After Sale",
+                "description": "Explain 24/7 service and assign a dedicated account manager.",
+                "percentage": "+18%",
+                "criteria": "LONG_TERM_PROFESSIONAL_ADVISOR",
+                "icon": frontendBlobUrl + 'collaboration.png'
+            },
+            {
+                "title": "Strengthening Credibility - Sharing Success Stories",
+                "description": "Share the JPMorgan case where support resolved an issue at 3 a.m.",
+                "percentage": "+2%",
+                "criteria": "REPUTATION",
+                "icon": frontendBlobUrl + 'credibility.png'
+            },
+            {
+                "title": "Encouraging Collaboration - Involving Them",
+                "description": "Invite the client to co-create a solution or review the demo.",
+                "percentage": "+3%",
+                "criteria": "BUSINESS_FIT",
+                "icon": frontendBlobUrl + 'support.png'
+            }
+        ]
+        })

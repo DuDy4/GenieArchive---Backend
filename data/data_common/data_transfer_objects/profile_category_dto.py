@@ -7,15 +7,15 @@ from common.utils import env_utils
 
 
 class SalesCriteriaType(str, Enum):
-    BUDGET = "budget"
-    TRUST = "trust"
-    TECHNICAL_FIT = "technical_fit"
-    BUSINESS_FIT = "business_fit"
-    VALUE_PROPOSITION = "value_proposition"
-    INNOVATION = "innovation"
-    REPUTATION = "reputation"
-    LONG_TERM_PROFESSIONAL_ADVISOR = "long_term_professional_advisor"
-    RESPONSIVENESS = "responsiveness"
+    BUDGET = "BUDGET"
+    TRUST = "TRUST"
+    TECHNICAL_FIT = "TECHNICAL_FIT"
+    BUSINESS_FIT = "BUSINESS_FIT"
+    VALUE_PROPOSITION = "VALUE_PROPOSITION"
+    INNOVATION = "INNOVATION"
+    REPUTATION = "REPUTATION"
+    LONG_TERM_PROFESSIONAL_ADVISOR = "LONG_TERM_PROFESSIONAL_ADVISOR"
+    RESPONSIVENESS = "RESPONSIVENESS"
 
 
 class ProfileCategoryExplanation(BaseModel):
@@ -81,5 +81,39 @@ class SalesCriteria(BaseModel):
     @classmethod
     def from_json(cls, json_str: str) -> "SalesCriteria":
         return cls.parse_raw(json_str)
+
+
+class ActionItem(BaseModel):
+    icon: str
+    title: str
+    description: str
+    percentage: str
+    criteria: SalesCriteriaType
+
+    @staticmethod
+    def from_dict(data: dict) -> "ActionItem":
+        return ActionItem(
+            icon=data["icon"],
+            title=data["title"],
+            description=data["description"],
+            percentage=data["percentage"],
+            criteria=SalesCriteriaType(data["criteria"]),
+        )
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            "icon": self.icon,
+            "title": self.title,
+            "description": self.description,
+            "percentage": self.percentage,
+            "criteria": self.criteria.value,
+        }
+
+    @classmethod
+    def from_tuple(cls, data: tuple) -> "ActionItem":
+        return cls(icon=data[0], title=data[1], description=data[2], percentage=data[3], criteria=SalesCriteriaType(data[4]))
+
+    def to_tuple(self) -> tuple:
+        return self.icon, self.title, self.description, self.percentage, self.criteria.value
 
 
