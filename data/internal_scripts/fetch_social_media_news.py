@@ -27,7 +27,6 @@ def get_all_uuids_that_should_try_posts():
 def fetch_linkedin_posts(uuids: list, scrap_num=5):
     for uuid in uuids[:scrap_num]:
         try:
-
             linkedin_url = personal_data_repository.get_linkedin_url(uuid)
             if not linkedin_url:
                 logger.error(f"Person with uuid {uuid} has no linkedin_url")
@@ -66,9 +65,7 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
                 if post_dict.get("image_urls"):
                     post_dict["images"] = post_dict["image_urls"]
                 news_data_objects.append(post_dict)
-                personal_data_repository.update_news_to_db(
-                    uuid, post_dict, PersonalDataRepository.FETCHED
-                )
+            news_data_objects = list(set(news_in_database.extend(news_data_objects)))
             if news_data_objects:
                 event = GenieEvent(
                     Topic.NEW_NEWS_DATA,
@@ -85,3 +82,18 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
         except Exception as e:
             logger.error(f"Error sending event for {uuid}: {e}")
             continue
+
+def create_summary_to_existing_posts(uuids: list):
+    for uuid in uuids:
+        news_data_objects = personal_data_repository.get_news_data_by_uuid(uuid)
+        if not news_data_objects:
+            logger.error(f"No news data found for uuid: {uuid}")
+            continue
+        news_data_objects = [news.to_dict() if not news.summary else None for news in news_data_objects]
+        news_data_objects = [news for news in news_data_objects if news]
+        event = GenieEvent(
+            Topic.NEW_NEWS_DATA,
+            data={"uuid": uuid, "news_data": news_data_objects},
+        )
+        event.send()
+        logger.info(f"Successfully sent event for {uuid}")

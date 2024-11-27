@@ -5,6 +5,8 @@ import asyncio
 
 from dotenv import load_dotenv
 
+from data.data_common.data_transfer_objects.profile_dto import Strength
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
 from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
@@ -234,7 +236,7 @@ class LangsmithConsumer(GenieConsumer):
             profile_strength_and_get_to_know["work_history_summary"] = work_history_summary
 
 
-        profile_category = determine_profile_category(strengths)
+        profile_category = determine_profile_category(Strength.from_dict(strength) for strength in strengths)
         sales_criteria = get_default_individual_sales_criteria(profile_category.category)
         self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criteria)
 
