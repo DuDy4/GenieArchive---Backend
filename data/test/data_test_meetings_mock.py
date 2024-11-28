@@ -19,7 +19,7 @@ logger = GenieLogger()
 
 TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
 SELLER_EMAIL = 'asaf@genieai.ai'
-EMAIL = "amit.svarzenberg@microsoft.com"
+EMAIL = "asaf.savich@trywonder.ai"
 GOOGLE_CALENDAR_ID = "d02e2941"
 
 def test_meetings():

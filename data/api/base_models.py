@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict
 
@@ -169,7 +170,9 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
             persons=[MiniPersonResponse.from_person_dto(person) for person in persons] if persons else None,
         )
 
-
+class ActionItemsResponse(BaseModel):
+    action_items: List[SalesActionItem]
+    
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]

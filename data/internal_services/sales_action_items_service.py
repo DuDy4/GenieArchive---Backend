@@ -9,6 +9,8 @@ from google.oauth2 import service_account
 # Load environment variables from .env file
 load_dotenv()
 
+from data.data_common.dependencies.dependencies import tenant_profiles_repository
+
 class SalesActionItemsService:
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
@@ -35,6 +37,7 @@ class SalesActionItemsService:
         self.credentials = None
         self.service = None
         self.refresh_credentials()
+        self.tenant_profiles_repository = tenant_profiles_repository()
 
     def refresh_credentials(self):
         """
@@ -116,6 +119,28 @@ class SalesActionItemsService:
         ]
 
         return random.choice(suggestions) if suggestions else None
+    
+    def get_or_create_action_items(uuid, tenant_id):
+        existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
+        if not existing_action_items:
+            action_items = []
+            for sales_criteria in sales_criterias:
+                try:
+                    action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
+                except Exception as e:
+                    logger.error(f"Error getting action items for {sales_criteria}: {e}")
+                    continue
+                if action_item_text:
+                    action_item = SalesActionItem(
+                        criteria=sales_criteria.criteria.value, 
+                        action_item=action_item_text, 
+                        detailed_action_item=detailed_action_item_text, 
+                        score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
+                    )
+                    action_items.append(action_item)
+            if action_items:
+                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
+
 
 
 if __name__ == "__main__":
