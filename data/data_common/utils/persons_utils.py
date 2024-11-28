@@ -227,10 +227,17 @@ profile_font_color = {
 def determine_profile_category(strengths_scores):
     total_strength_score = 0
     for strength in strengths_scores:
-        total_strength_score += strength.score
+        if isinstance(strength, dict):
+            total_strength_score += strength.get("score", 0)
+        else:
+            total_strength_score += strength.score
+        
     normalized_strengths = {}
     for strength in strengths_scores:
-        normalized_strengths[strength.strength_name] = strength.score / total_strength_score
+        score = strength.get("score", 0) if isinstance(strength, dict) else strength.score
+        name = strength.get("strength_name", None) if isinstance(strength, dict) else strength.strength_name
+        if name:
+            normalized_strengths[name] = score / total_strength_score
 
     # Initialize profile scores
     profile_scores = {profile: 0 for profile in profiles}

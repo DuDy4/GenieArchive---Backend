@@ -158,6 +158,27 @@ class ProfilesApiService:
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
 
+    def get_profile_action_items(self, tenant_id, uuid):
+        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
+            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+            raise HTTPException(status_code=404, detail="Profile not found under this tenant")
+
+        profile = self.profiles_repository.get_profile_data(uuid)
+        action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
+        if action_items:
+            logger.info(f"Got action items: {str(profile)[:300]}")
+            return ActionItemsResponse(action_items=action_items)
+        # else:
+        #     logger.info(f"No tenant specific action items found for {uuid}, getting default action items")
+        #     sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+        #     if sales_criteria:
+        #         action_items = self.
+        #         logger.info(f"Got default action items: {action_items}")
+        #         return ActionItemsResponse(action_items=action_items)
+
+        logger.error(f"Could not find profile action items with uuid: {uuid}")
+        raise HTTPException(status_code=404, detail="Could not find profile action items")
+
     def get_profile_good_to_know(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
             logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")

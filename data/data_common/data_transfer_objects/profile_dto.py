@@ -225,7 +225,7 @@ class ProfileDTO(BaseModel):
             strengths=[Strength.from_dict(strength) for strength in data["strengths"]],
             hobbies=[UUID(hobby) for hobby in data["hobbies"]],
             work_history_summary=data["work_history_summary"],
-            sales_criteria=[SalesCriteria.from_dict(criteria) for criteria in (data["sales_criteria"] if data.get("sales_criteria") else ProfileDTO.calculate_individual_sales_criteria(data["strengths"]))],
+            sales_criteria=[SalesCriteria.from_dict(criteria) for criteria in (data["sales_criteria"] if data.get("sales_criteria") else ProfileDTO.calculate_individual_sales_criteria(data["strengths"]))] if data.get("sales_criteria") else [],
         )
 
     def to_tuple(

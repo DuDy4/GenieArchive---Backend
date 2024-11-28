@@ -2,6 +2,7 @@ import json
 import traceback
 from typing import Union
 
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 import psycopg2
 
 from common.utils.str_utils import get_uuid4
@@ -30,7 +31,9 @@ class TenantProfilesRepository:
                 profile_uuid VARCHAR UNIQUE NOT NULL,
                 tenant_id VARCHAR NOT NULL,
                 connections JSONB default '[]',
-                get_to_know JSONB default '{}'
+                get_to_know JSONB default '{}',
+                sales_criteria JSONB default '[]',
+                action_items JSONB default '[]'
             );
             """
         with db_connection() as conn:
@@ -144,6 +147,55 @@ class TenantProfilesRepository:
                     logger.info(f"Updated sales criteria for {uuid}")
             except psycopg2.Error as error:
                 raise Exception(f"Error updating sales criteria, because: {error.pgerror}")
+            
+
+    def get_sales_action_items(self, uuid: str, tenant_id: str) -> list[SalesActionItem]:
+        select_query = """
+            SELECT action_items
+            FROM tenant_profiles
+            WHERE profile_uuid = %s
+            AND tenant_id = %s;
+            """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (uuid, tenant_id))
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        action_items = [SalesActionItem.from_dict(item) for item in row[0]]
+                        return action_items
+                    else:
+                        logger.error(f"Couldn't find action items for {uuid}")
+                        traceback.print_exc()
+            except Exception as error:
+                logger.error(f"Error fetching action items by uuid: {error}")
+                traceback.print_exception(error)
+        return None
+    
+    def update_sales_action_items(self, uuid: str, tenant_id: str, action_items: list[SalesActionItem]):
+        update_query = """
+            UPDATE tenant_profiles
+            SET action_items = %s
+            WHERE profile_uuid = %s
+            AND tenant_id = %s;
+            """
+        with db_connection() as conn:
+            try:
+                if not self.exists(uuid, tenant_id):
+                    self._insert(uuid, tenant_id)
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            json.dumps([action_item.to_dict() for action_item in action_items]),
+                            uuid,
+                            tenant_id,
+                        ),
+                    )
+                    conn.commit()
+                    logger.info(f"Updated action items for {uuid}")
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating action items, because: {error.pgerror}")
 
 
     def update_get_to_know(self, uuid, get_to_know, tenant_id):
