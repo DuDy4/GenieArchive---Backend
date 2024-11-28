@@ -3,7 +3,7 @@ from datetime import datetime
 from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict
-
+from data.data_common.utils.persons_utils import criteria_icon_mapping
 from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO, MeetingClassification
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
@@ -170,6 +170,21 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
             persons=[MiniPersonResponse.from_person_dto(person) for person in persons] if persons else None,
         )
 
+class ActionItemsResponse(BaseModel):
+    action_items: List
+    kpi: Optional[str] = None
+
+
+    @classmethod
+    def from_action_items_list(cls, action_items: List[SalesActionItem]):
+        result = []
+        for action_item in action_items:
+            action_dict = action_item.to_dict()
+            action_dict['icon'] = criteria_icon_mapping.get(action_item.criteria)
+            result.append(action_dict)
+        return cls(action_items=result)
+
+
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
@@ -187,6 +202,8 @@ class Hobby(BaseModel):
             hobby_name=data["hobby_name"],
             icon_url=data["icon_url"],
         )
+
+
 
 
 class GoodToKnowResponse(BaseModel):
@@ -232,18 +249,6 @@ class AttendeeInfo(BaseModel):
     position: str
     social_media_links: Optional[List[SocialMediaLinks]] = []
     work_history_summary: Optional[str] = None
-
-
-class ActionItemsResponse(BaseModel):
-    action_items: List[SalesActionItem]
-    kpi: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict):
-        return cls(
-            action_items=[SalesActionItem.from_dict(item) if isinstance(item, dict) else item for item in data.get("action_items", [])],
-            kpi=data.get("kpi", None),
-        )
 
 
 class ProfileResponse(BaseModel):

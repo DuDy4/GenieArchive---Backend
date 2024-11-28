@@ -266,7 +266,6 @@ class LangsmithConsumer(GenieConsumer):
             if action_items:
                 self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
 
-
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 
         logger.info(f"About to send event's data: {data_to_send}")

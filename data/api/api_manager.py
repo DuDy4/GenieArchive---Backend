@@ -392,6 +392,32 @@ def get_profile_get_to_know(
     return response
 
 
+@v1_router.get(
+    "/{tenant_id}/profiles/{uuid}/action-items",
+    response_model=ActionItemsResponse,
+    summary="Fetches action items information of a profile",
+)
+def get_profile_action_items(
+    request: Request,
+    uuid: str,
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> ActionItemsResponse:
+    """
+    Get the action items information of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got action items request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_action_items(tenant_id, uuid)
+    logger.info(f"About to send response: {response}")
+    return response
+
+
 @v1_router.get("/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
 def get_profile_good_to_know(
     background_tasks: BackgroundTasks,
