@@ -1,15 +1,15 @@
-import os
 import json
 import base64
 import random
-from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-# Load environment variables from .env file
-load_dotenv()
-
+from common.utils import env_utils
+from common.genie_logger import GenieLogger
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 from data.data_common.dependencies.dependencies import tenant_profiles_repository
+
+logger = GenieLogger()
 
 class SalesActionItemsService:
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
@@ -26,7 +26,7 @@ class SalesActionItemsService:
         Initialize the service, setting up credentials and the Sheets API service.
         """
         # Load Google Service Account credentials
-        encoded_creds = os.getenv("GOOGLE_SERVICE_JSON")
+        encoded_creds = env_utils.get("GOOGLE_SERVICE_JSON")
         if not encoded_creds:
             raise Exception("Environment variable 'GOOGLE_SERVICE_JSON' is not set or is empty.")
 
@@ -120,27 +120,27 @@ class SalesActionItemsService:
 
         return random.choice(suggestions) if suggestions else None
     
-    def get_or_create_action_items(uuid, tenant_id):
-        existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
-        if not existing_action_items:
-            action_items = []
-            for sales_criteria in sales_criterias:
-                try:
-                    action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
-                except Exception as e:
-                    logger.error(f"Error getting action items for {sales_criteria}: {e}")
-                    continue
-                if action_item_text:
-                    action_item = SalesActionItem(
-                        criteria=sales_criteria.criteria.value, 
-                        action_item=action_item_text, 
-                        detailed_action_item=detailed_action_item_text, 
-                        score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
-                    )
-                    action_items.append(action_item)
-            if action_items:
-                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
-
+    # def get_or_create_action_items(self, uuid, tenant_id):
+    #     existing_action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
+    #     if not existing_action_items:
+    #         action_items = []
+    #         for sales_criteria in sales_criterias:
+    #             try:
+    #                 action_item_text, detailed_action_item_text = self.get_action_items(sales_criteria)
+    #             except Exception as e:
+    #                 logger.error(f"Error getting action items for {sales_criteria}: {e}")
+    #                 continue
+    #             if action_item_text:
+    #                 action_item = SalesActionItem(
+    #                     criteria=sales_criteria.criteria.value,
+    #                     action_item=action_item_text,
+    #                     detailed_action_item=detailed_action_item_text,
+    #                     score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
+    #                 )
+    #                 action_items.append(action_item)
+    #         if action_items:
+    #             self.tenant_profiles_repository.update_sales_action_items(uuid, tenant_id, action_items)
+    #
 
 
 if __name__ == "__main__":

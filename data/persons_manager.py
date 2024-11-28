@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
 
+from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.news_data_dto import NewsData
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
@@ -604,10 +605,12 @@ class PersonManager(GenieConsumer):
                 post_dict = post.to_dict() if isinstance(post, NewsData) else post
                 if post_dict.get("image_urls"):
                     post_dict["images"] = post_dict["image_urls"]
-                news_data_objects.append(post_dict)
+                news_data_objects.append(SocialMediaLinks.from_dict(post_dict))
                 # self.personal_data_repository.update_news_to_db(
                 #     uuid, post_dict, PersonalDataRepository.FETCHED
                 # )
+            final_news_data_list = list(set(news_data_objects + news_in_database))
+            self.personal_data_repository.update_news_list_to_db(uuid, final_news_data_list, PersonalDataRepository.FETCHED)
             if news_data_objects:
                 event = GenieEvent(
                     Topic.NEW_NEWS_DATA,

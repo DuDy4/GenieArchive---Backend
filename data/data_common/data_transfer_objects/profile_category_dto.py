@@ -69,13 +69,15 @@ class SalesCriteria(BaseModel):
 
     def to_dict(self) -> Dict[str, str | int]:
         return {
-            "criteria": str(self.criteria.value),
+            "criteria": str(self.criteria.value).upper(),
             "score": int(self.score),
             "target_score": int(self.target_score),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "SalesCriteria":
+        if data.get("criteria") and isinstance(data["criteria"], str):
+            data["criteria"] = SalesCriteriaType(data["criteria"].upper())
         return cls(**data)
 
     @classmethod
@@ -83,37 +85,37 @@ class SalesCriteria(BaseModel):
         return cls.parse_raw(json_str)
 
 
-class ActionItem(BaseModel):
-    icon: str
-    title: str
-    description: str
-    percentage: str
-    criteria: SalesCriteriaType
-
-    @staticmethod
-    def from_dict(data: dict) -> "ActionItem":
-        return ActionItem(
-            icon=data["icon"],
-            title=data["title"],
-            description=data["description"],
-            percentage=data["percentage"],
-            criteria=SalesCriteriaType(data["criteria"]),
-        )
-
-    def to_dict(self) -> Dict[str, str]:
-        return {
-            "icon": self.icon,
-            "title": self.title,
-            "description": self.description,
-            "percentage": self.percentage,
-            "criteria": self.criteria.value,
-        }
-
-    @classmethod
-    def from_tuple(cls, data: tuple) -> "ActionItem":
-        return cls(icon=data[0], title=data[1], description=data[2], percentage=data[3], criteria=SalesCriteriaType(data[4]))
-
-    def to_tuple(self) -> tuple:
-        return self.icon, self.title, self.description, self.percentage, self.criteria.value
-
-
+# class ActionItem(BaseModel):
+#     icon: str
+#     title: str
+#     description: str
+#     percentage: str
+#     criteria: SalesCriteriaType
+#
+#     @staticmethod
+#     def from_dict(data: dict) -> "ActionItem":
+#         return ActionItem(
+#             icon=data["icon"],
+#             title=data["title"],
+#             description=data["description"],
+#             percentage=data["percentage"],
+#             criteria=SalesCriteriaType(data["criteria"]),
+#         )
+#
+#     def to_dict(self) -> Dict[str, str]:
+#         return {
+#             "icon": self.icon,
+#             "title": self.title,
+#             "description": self.description,
+#             "percentage": self.percentage,
+#             "criteria": self.criteria.value,
+#         }
+#
+#     @classmethod
+#     def from_tuple(cls, data: tuple) -> "ActionItem":
+#         return cls(icon=data[0], title=data[1], description=data[2], percentage=data[3], criteria=SalesCriteriaType(data[4]))
+#
+#     def to_tuple(self) -> tuple:
+#         return self.icon, self.title, self.description, self.percentage, self.criteria.value
+#
+#

@@ -112,6 +112,7 @@ class TenantProfilesRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (uuid, tenant_id))
                     row = cursor.fetchone()
+                    logger.info(f"Row: {row}")
                     if row and row[0]:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
                         return sales_criteria

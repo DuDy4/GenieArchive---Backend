@@ -166,7 +166,7 @@ class ProfilesApiService:
         profile = self.profiles_repository.get_profile_data(uuid)
         action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
         if action_items:
-            logger.info(f"Got action items: {str(profile)[:300]}")
+            logger.info(f"Got action items: {str(action_items)[:300]}")
             return ActionItemsResponse(action_items=action_items)
         # else:
         #     logger.info(f"No tenant specific action items found for {uuid}, getting default action items")

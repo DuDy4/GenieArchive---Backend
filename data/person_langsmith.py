@@ -144,7 +144,7 @@ class LangsmithConsumer(GenieConsumer):
         if not news_data:
             uuid = person.get("uuid")
             news_data = self.personal_data_repository.get_news_data_by_uuid(uuid)
-        logger.info(f"Personal News data: {news_data}")
+        logger.info(f"Personal News data: {str(news_data)[:300]}")
 
         email_address = person.get("email")
         profile = self.profiles_repository.get_profile_data_by_email(email_address)
@@ -239,7 +239,7 @@ class LangsmithConsumer(GenieConsumer):
 
 
         existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
-        profile_category = determine_profile_category(Strength.from_dict(strength) for strength in strengths)
+        profile_category = determine_profile_category(strengths)
         if not existing_sales_criteria:
             sales_criterias = get_default_individual_sales_criteria(profile_category)
             self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criterias)
@@ -289,31 +289,8 @@ class LangsmithConsumer(GenieConsumer):
         for news_item in news_data:
             if isinstance(news_item, str):
                 news_item = json.loads(news_item)
-            logger.info(f"News item: {news_item}")
-            response = await self.langsmith.get_news(news_item)
-            logger.info(f"Response: {response}")
 
-            if response:
-                # Ensure response is handled correctly
-                if hasattr(response, "content"):
-                    summary = response.content
-                elif isinstance(response, dict):
-                    summary = response.get("content", "")
-                else:
-                    summary = str(response)
-
-                # Clean the summary if it's a string
-                if isinstance(summary, str):
-                    summary = summary.strip('"')
-
-                logger.info(f"Summary: {summary}")
-
-                # Update the news item with the summary
-                news_item["summary"] = summary
-                logger.info(f"News item with summary: {news_item}")
-
-                # Save to the database
-                self.personal_data_repository.update_news_to_db(uuid, news_item)
+            self.personal_data_repository.update_news_to_db(uuid, news_item)
 
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
         event.send()

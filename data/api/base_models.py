@@ -12,7 +12,7 @@ from data.data_common.data_transfer_objects.profile_dto import (
     SalesCriteria,
     Strength,
 )
-from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory, ActionItem
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.company_dto import (
     CompanyDTO,
@@ -170,9 +170,6 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
             persons=[MiniPersonResponse.from_person_dto(person) for person in persons] if persons else None,
         )
 
-class ActionItemsResponse(BaseModel):
-    action_items: List[SalesActionItem]
-    
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
@@ -238,13 +235,13 @@ class AttendeeInfo(BaseModel):
 
 
 class ActionItemsResponse(BaseModel):
-    action_items: List[ActionItem]
+    action_items: List[SalesActionItem]
     kpi: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
-            action_items=[ActionItem.from_dict(item) if isinstance(item, dict) else item for item in data.get("action_items", [])],
+            action_items=[SalesActionItem.from_dict(item) if isinstance(item, dict) else item for item in data.get("action_items", [])],
             kpi=data.get("kpi", None),
         )
 
