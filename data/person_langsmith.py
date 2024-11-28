@@ -5,6 +5,8 @@ import asyncio
 
 from dotenv import load_dotenv
 
+from data.data_common.data_transfer_objects.profile_dto import Strength
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
 from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria
@@ -263,7 +265,6 @@ class LangsmithConsumer(GenieConsumer):
                     action_items.append(action_item)
             if action_items:
                 self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
-
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 
