@@ -170,6 +170,7 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
         )
 
 
+
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
     profile_category: ProfileCategory

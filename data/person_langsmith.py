@@ -13,7 +13,8 @@ from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
-from data.data_common.utils.persons_utils import create_person_from_pdl_personal_data, create_person_from_apollo_personal_data
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
+from data.internal_services.sales_action_items_service import SalesActionItemsService
 from data.data_common.dependencies.dependencies import (
     companies_repository,
     profiles_repository,
@@ -49,6 +50,7 @@ class LangsmithConsumer(GenieConsumer):
         self.embeddings_client = GenieEmbeddingsClient()
         self.persons_repository = persons_repository()
         self.deals_repository = deals_repository()
+        self.sales_action_items_service = SalesActionItemsService()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -234,9 +236,33 @@ class LangsmithConsumer(GenieConsumer):
             profile_strength_and_get_to_know["work_history_summary"] = work_history_summary
 
 
+        existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
         profile_category = determine_profile_category(strengths)
-        sales_criteria = get_default_individual_sales_criteria(profile_category.category)
-        self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criteria)
+        if not existing_sales_criteria:
+            sales_criterias = get_default_individual_sales_criteria(profile_category)
+            self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criterias)
+        else:
+            sales_criterias = existing_sales_criteria
+
+        existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
+        if not existing_action_items:
+            action_items = []
+            for sales_criteria in sales_criterias:
+                try:
+                    action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
+                except Exception as e:
+                    logger.error(f"Error getting action items for {sales_criteria}: {e}")
+                    continue
+                if action_item_text:
+                    action_item = SalesActionItem(
+                        criteria=sales_criteria.criteria.value, 
+                        action_item=action_item_text, 
+                        detailed_action_item=detailed_action_item_text, 
+                        score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
+                    )
+                    action_items.append(action_item)
+            if action_items:
+                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
 
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
