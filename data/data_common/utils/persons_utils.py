@@ -59,6 +59,18 @@ sales_criteria_mapping = {
         SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
 }
 
+criteria_icon_mapping = {
+    SalesCriteriaType.BUDGET: "https://img.icons8.com/ios/50/money-box--v1.png",
+    SalesCriteriaType.TRUST: "https://img.icons8.com/ios/50/handshake--v1.png",
+    SalesCriteriaType.TECHNICAL_FIT: "https://img.icons8.com/ios/50/gears--v1.png",
+    SalesCriteriaType.BUSINESS_FIT: "https://img.icons8.com/ios/50/puzzle-matching.png",
+    SalesCriteriaType.VALUE_PROPOSITION: "https://img.icons8.com/ios/50/diamond-care-1.png",
+    SalesCriteriaType.INNOVATION: "https://img.icons8.com/ios/50/light-on--v1.png",
+    SalesCriteriaType.REPUTATION: "https://img.icons8.com/external-bearicons-detailed-outline-bearicons/64/external-reputation-reputation-bearicons-detailed-outline-bearicons.png",
+    SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR: "https://img.icons8.com/ios/50/education.png",
+    SalesCriteriaType.RESPONSIVENESS: "https://img.icons8.com/dotty/80/running.png",
+}
+
 strengths_mapping = {
     # "Achiever": [4, 6, 1, 3, 7, 2, 5],
     "Achiever": [7, 7, 7, 7, 7, 7, 7],

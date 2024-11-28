@@ -3,7 +3,7 @@ from datetime import datetime
 from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict
-
+from data.data_common.utils.persons_utils import criteria_icon_mapping
 from data.data_common.data_transfer_objects.meeting_dto import AgendaItem, MeetingDTO, MeetingClassification
 from data.data_common.data_transfer_objects.profile_dto import (
     ProfileDTO,
@@ -171,7 +171,17 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
         )
 
 class ActionItemsResponse(BaseModel):
-    action_items: List[SalesActionItem]
+    action_items: List
+
+    @classmethod
+    def from_action_items_list(cls, action_items: List[SalesActionItem]):
+        result = []
+        for action_item in action_items:
+            action_dict = action_item.to_dict()
+            action_dict['icon'] = criteria_icon_mapping.get(action_item.criteria)
+            result.append(action_dict)
+        return cls(action_items=result)
+
     
 
 class StrengthsListResponse(BaseModel):
