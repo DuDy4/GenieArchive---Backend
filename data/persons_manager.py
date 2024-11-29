@@ -598,6 +598,8 @@ class PersonManager(GenieConsumer):
             news_data_objects = []
 
             for post in scraped_posts:
+                if not post:
+                    continue
                 if news_in_database and post in news_in_database:
                     logger.info(f"Post already in database: {post}")
                     continue
