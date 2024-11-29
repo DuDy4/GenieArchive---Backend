@@ -102,8 +102,7 @@ class MeetingsRepository:
                         logger.info(f"Got meeting data {row[0]} from database")
                         return MeetingDTO.from_tuple(row)
                     else:
-                        logger.error(f"Meeting not found for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Meeting not found for {uuid}")
             except Exception as error:
                 logger.error("Error fetching meeting data by uuid:", error)
                 traceback.print_exc()
@@ -124,8 +123,7 @@ class MeetingsRepository:
                         logger.debug(f"Got meeting data {row[0]} from database")
                         return MeetingDTO.from_tuple(row)
                     else:
-                        logger.error(f"Meeting not found for {google_calendar_id}")
-                        traceback.print_exc()
+                        logger.warning(f"Meeting not found for {google_calendar_id}")
             except Exception as error:
                 logger.error("Error fetching meeting data by google_calendar_id:", error)
                 traceback.print_exception(error)

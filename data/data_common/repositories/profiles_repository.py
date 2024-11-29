@@ -169,8 +169,7 @@ class ProfilesRepository:
                         )
                         return ProfileDTO.from_tuple(profile_data)
                     else:
-                        logger.error(f"Error with getting profile data for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Error with getting profile data for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching profile data by uuid: {error}")
                 traceback.print_exception(error)
@@ -353,8 +352,7 @@ class ProfilesRepository:
                         )
                         return ProfileDTO.from_tuple(profile_data)
                     else:
-                        logger.error(f"Error with getting profile data for {email}")
-                        traceback.print_exc()
+                        logger.warning(f"Error with getting profile data for {email}")
             except Exception as error:
                 logger.error(f"Error fetching profile data by email: {error}")
                 traceback.print_exc()
