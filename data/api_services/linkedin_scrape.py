@@ -54,7 +54,7 @@ class HandleLinkedinScrape:
                         "date": datetime.strptime(post.get("posted"), "%Y-%m-%d %H:%M:%S").date(),
                         "link": post.get("post_url"),
                         "media": "LinkedIn",
-                        "title": post.get("text", "")[:100],
+                        "title": post.get("article_title") or post.get("text", "")[:100],
                         "text": post.get("text", None),
                         "reshared": post.get("poster_linkedin_url")
                         if post.get("poster_linkedin_url") != linkedin_url
