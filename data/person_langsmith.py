@@ -144,7 +144,6 @@ class LangsmithConsumer(GenieConsumer):
         if not news_data:
             uuid = person.get("uuid")
             news_data = self.personal_data_repository.get_news_data_by_uuid(uuid)
-        logger.info(f"Personal News data: {news_data}")
 
         email_address = person.get("email")
         profile = self.profiles_repository.get_profile_data_by_email(email_address)

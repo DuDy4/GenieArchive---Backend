@@ -28,7 +28,7 @@ class TenantProfilesRepository:
             CREATE TABLE IF NOT EXISTS tenant_profiles (
                 id SERIAL PRIMARY KEY,
                 uuid VARCHAR UNIQUE NOT NULL,
-                profile_uuid VARCHAR UNIQUE NOT NULL,
+                profile_uuid VARCHAR NOT NULL,
                 tenant_id VARCHAR NOT NULL,
                 connections JSONB default '[]',
                 get_to_know JSONB default '{}',
@@ -92,8 +92,7 @@ class TenantProfilesRepository:
                         get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[0].items()}
                         return get_to_know
                     else:
-                        logger.error(f"Error with getting get to know for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Error with getting get to know for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching get to know by uuid: {error}")
                 traceback.print_exception(error)
@@ -116,8 +115,7 @@ class TenantProfilesRepository:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
                         return sales_criteria
                     else:
-                        logger.error(f"Couldn't find sales criteria for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Couldn't find sales criteria for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching sales criteria by uuid: {error}")
                 traceback.print_exception(error)
@@ -165,8 +163,7 @@ class TenantProfilesRepository:
                         action_items = [SalesActionItem.from_dict(item) for item in row[0]]
                         return action_items
                     else:
-                        logger.error(f"Couldn't find action items for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Couldn't find action items for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching action items by uuid: {error}")
                 traceback.print_exception(error)
