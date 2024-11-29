@@ -126,7 +126,7 @@ class ProfilesApiService:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
-            sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+            sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id) or profile.sales_criteria
             return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
