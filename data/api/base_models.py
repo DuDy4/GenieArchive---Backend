@@ -172,6 +172,8 @@ class MiniProfilesAndPersonsListResponse(BaseModel):
 
 class ActionItemsResponse(BaseModel):
     action_items: List
+    kpi: Optional[str] = None
+
 
     @classmethod
     def from_action_items_list(cls, action_items: List[SalesActionItem]):
@@ -182,7 +184,7 @@ class ActionItemsResponse(BaseModel):
             result.append(action_dict)
         return cls(action_items=result)
 
-    
+
 
 class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
@@ -200,6 +202,8 @@ class Hobby(BaseModel):
             hobby_name=data["hobby_name"],
             icon_url=data["icon_url"],
         )
+
+
 
 
 class GoodToKnowResponse(BaseModel):

@@ -111,6 +111,7 @@ class TenantProfilesRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (uuid, tenant_id))
                     row = cursor.fetchone()
+                    logger.info(f"Row: {row}")
                     if row and row[0]:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
                         return sales_criteria
@@ -168,6 +169,32 @@ class TenantProfilesRepository:
                 logger.error(f"Error fetching action items by uuid: {error}")
                 traceback.print_exception(error)
         return None
+
+    def get_all_uuids_and_tenants_id_without_action_items(self, forced: bool = False):
+        select_query = f"""
+            SELECT o.person_uuid, o.tenant_id FROM ownerships o
+            join tenants t on t.tenant_id = o.tenant_id
+            join persons p on p.uuid = o.person_uuid
+            join profiles pr on pr.uuid = p.uuid
+            left join tenant_profiles tp on p.uuid = tp.profile_uuid AND o.tenant_id = tp.tenant_id
+            {f"WHERE tp.action_items = '[]' OR tp.action_items IS NULL" if not forced else ""}
+            ORDER BY o.id desc;            
+            """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    rows = cursor.fetchall()
+                    result_object_list = []
+                    for row in rows:
+                        result_object_list.append({
+                            "profile_uuid": row[0],
+                            "tenant_id": row[1]
+                        })
+                    return result_object_list
+            except psycopg2.Error as error:
+                raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
+
     
     def update_sales_action_items(self, uuid: str, tenant_id: str, action_items: list[SalesActionItem]):
         update_query = """

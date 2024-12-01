@@ -1265,3 +1265,45 @@ class PersonalDataRepository:
                 logger.error(f"Error retrieving hobbies: {e}", e)
                 traceback.format_exc()
                 return None
+
+    def update_news_list_to_db(self, uuid, final_news_data_list, FETCHED):
+        """
+        Update news data in the personaldata table in the database.
+
+        :param uuid: Unique identifier for the personalData (required).
+        :param final_news_data_list: A list containing the news data.
+        """
+        update_query = """
+        UPDATE personalData
+        SET news = %s::jsonb,
+            news_status = %s,
+            news_last_updated = %s
+        WHERE uuid = %s
+        """
+        with db_connection() as conn:
+            try:
+                news_last_updated = datetime.now()
+                json_news_data = json.dumps(final_news_data_list) if final_news_data_list else None
+
+                logger.debug(
+                    f"Updating news in DB, UUID: {uuid}, status: {FETCHED}, news_data: {str(json_news_data)[:100]}"
+                )
+
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            json_news_data,  # Update the news column by appending new data to the existing data
+                            FETCHED,  # Update the news status
+                            news_last_updated,  # Update the last updated timestamp
+                            uuid,  # Use the UUID to find the correct row
+                        ),
+                    )
+                    conn.commit()
+
+                logger.info(f"Successfully updated news with UUID: {uuid} and status: {FETCHED}")
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error updating news in the database: {e}")
+                raise

@@ -19,6 +19,8 @@ from data.internal_scripts.fetch_social_media_news import (
     get_all_uuids_that_should_try_posts,
 )
 
+from data.internal_scripts.create_action_items import sync_action_items
+
 from data.data_common.dependencies.dependencies import (
     tenants_repository,
     google_creds_repository,
@@ -277,6 +279,10 @@ class AdminApiService:
             return self.handle_meeting_with_goals(meeting, self_email, goals)
         else:
             return self.handle_meeting_without_goals(meeting, self_email)
+
+    def sync_action_items(self, num_sync=5, forced_refresh=False):
+        result = sync_action_items(num_sync, forced_refresh)
+        return result
 
     def handle_meeting_with_goals(self, meeting: MeetingDTO, self_email: str, goals: list):
         participant_emails = meeting.participants_emails

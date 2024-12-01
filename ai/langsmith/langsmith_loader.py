@@ -91,7 +91,7 @@ class Langsmith:
             "person_background": person_data.get("background", "not found"),
             "strengths": person_data.get("strengths", "not found"),
             "hobbies": person_data.get("hobbies", "not found"),
-            "news": company_data.get("news", "not found") if company_data else "not found",
+            "news": person_data.get("news") if person_data.get("news") else (company_data.get("news", "not found") if company_data else "not found"),
             "product_data": person_data.get("product_data", "not found"),
             "company_data": company_data if company_data else "not found",
             "personal_social_media_posts": news_data if news_data else "not found",

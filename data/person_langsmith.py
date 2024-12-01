@@ -144,6 +144,7 @@ class LangsmithConsumer(GenieConsumer):
         if not news_data:
             uuid = person.get("uuid")
             news_data = self.personal_data_repository.get_news_data_by_uuid(uuid)
+        logger.info(f"Personal News data: {str(news_data)[:300]}")
 
         email_address = person.get("email")
         profile = self.profiles_repository.get_profile_data_by_email(email_address)
@@ -201,6 +202,7 @@ class LangsmithConsumer(GenieConsumer):
         original_get_to_know = personal_data.get("get_to_know")
         person = event_body.get("person")
         email_address = person.get("email")
+        forced_refresh = event_body.get("force_refresh")
         
         company_data = None
         company_dict = {}
@@ -226,10 +228,13 @@ class LangsmithConsumer(GenieConsumer):
             if seller_email:
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person)
 
-        if seller_context:
-            response = await self.langsmith.get_get_to_know(person, company_dict, seller_context)
-            logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
-            profile_strength_and_get_to_know["tenant_get_to_know"] = response.get("get_to_know")
+        personal_news = self.personal_data_repository.get_news_data_by_uuid(person['uuid'])
+        person['news'] = personal_news
+
+        # if seller_context:
+        #     response = await self.langsmith.get_get_to_know(person, company_dict, seller_context)
+        #     logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
+        #     profile_strength_and_get_to_know["tenant_get_to_know"] = response.get("get_to_know")
 
         if email_address:
             work_history = self.personal_data_repository.get_work_experience(email_address)
@@ -239,29 +244,15 @@ class LangsmithConsumer(GenieConsumer):
 
         existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
         profile_category = determine_profile_category(strengths)
-        if not existing_sales_criteria:
+        if not existing_sales_criteria or forced_refresh:
             sales_criterias = get_default_individual_sales_criteria(profile_category)
             self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criterias)
         else:
             sales_criterias = existing_sales_criteria
 
         existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
-        if not existing_action_items:
-            action_items = []
-            for sales_criteria in sales_criterias:
-                try:
-                    action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
-                except Exception as e:
-                    logger.error(f"Error getting action items for {sales_criteria}: {e}")
-                    continue
-                if action_item_text:
-                    action_item = SalesActionItem(
-                        criteria=sales_criteria.criteria.value, 
-                        action_item=action_item_text, 
-                        detailed_action_item=detailed_action_item_text, 
-                        score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
-                    )
-                    action_items.append(action_item)
+        if not existing_action_items or forced_refresh:
+            action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:
                 specific_action_items = []
                 for action_item in action_items:
@@ -276,9 +267,9 @@ class LangsmithConsumer(GenieConsumer):
                     action_items = specific_action_items
                 else:  
                     logger.warning(f"Failed to get specific action items for all action items for prospect: {person['name']}")
-                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, specific_action_items)
+                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
         
-
+        person.pop("news")
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 
         logger.info(f"About to send event's data: {data_to_send}")
@@ -301,31 +292,8 @@ class LangsmithConsumer(GenieConsumer):
         for news_item in news_data:
             if isinstance(news_item, str):
                 news_item = json.loads(news_item)
-            logger.info(f"News item: {news_item}")
-            response = await self.langsmith.get_news(news_item)
-            logger.info(f"Response: {response}")
 
-            if response:
-                # Ensure response is handled correctly
-                if hasattr(response, "content"):
-                    summary = response.content
-                elif isinstance(response, dict):
-                    summary = response.get("content", "")
-                else:
-                    summary = str(response)
-
-                # Clean the summary if it's a string
-                if isinstance(summary, str):
-                    summary = summary.strip('"')
-
-                logger.info(f"Summary: {summary}")
-
-                # Update the news item with the summary
-                news_item["summary"] = summary
-                logger.info(f"News item with summary: {news_item}")
-
-                # Save to the database
-                self.personal_data_repository.update_news_to_db(uuid, news_item)
+            self.personal_data_repository.update_news_to_db(uuid, news_item)
 
         event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
         event.send()

@@ -464,6 +464,27 @@ def get_profile_sales_criteria(
     return response
 
 
+@v1_router.get("/{tenant_id}/profiles/{uuid}/action-items", response_model=ActionItemsResponse)
+def get_profile_action_items(
+    request: Request,
+    uuid: str,
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> ActionItemsResponse:
+    """
+    Get the action items of a profile - Mock version.
+
+    - **tenant_id**: Tenant ID
+    - **uuid**: Profile UUID
+    """
+    logger.info(f"Got action items request for profile: {uuid}")
+
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_action_items(tenant_id, uuid)
+    logger.info(f"About to send response: {response}")
+    return response
+
 @v1_router.get(
     "/{tenant_id}/profiles/{uuid}/work-experience",
     response_model=WorkExperienceResponse,
@@ -676,6 +697,18 @@ def process_meetings_classification(api_key: str) -> JSONResponse:
     logger.info(f"Processing all meetings classification")
     response = admin_api_service.process_new_classification_to_all_meetings()
     return JSONResponse(content=response)
+
+
+@v1_router.get("/internal/sync-action-items")
+def process_action_items(background_tasks: BackgroundTasks, api_key: str,
+                         num_sync: int = 5,
+                         force_refresh: bool = False) -> JSONResponse:
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing {num_sync} action items")
+    background_tasks.add_task(admin_api_service.sync_action_items, num_sync, force_refresh)
+    return JSONResponse(content={"status": "success", "message": "Processing action items"})
 
 
 @v1_router.get("/internal/sync-personal-news")
