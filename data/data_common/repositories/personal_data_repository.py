@@ -1266,7 +1266,7 @@ class PersonalDataRepository:
                 traceback.format_exc()
                 return None
 
-    def update_news_list_to_db(self, uuid, final_news_data_list, FETCHED):
+    def update_news_list_to_db(self, uuid, final_news_data_list, status=FETCHED):
         """
         Update news data in the personaldata table in the database.
 
@@ -1280,13 +1280,16 @@ class PersonalDataRepository:
             news_last_updated = %s
         WHERE uuid = %s
         """
+
+        news_list = [news.to_dict() for news in final_news_data_list]
+
         with db_connection() as conn:
             try:
                 news_last_updated = datetime.now()
-                json_news_data = json.dumps(final_news_data_list) if final_news_data_list else None
+                json_news_data = json.dumps(news_list) if final_news_data_list else None
 
                 logger.debug(
-                    f"Updating news in DB, UUID: {uuid}, status: {FETCHED}, news_data: {str(json_news_data)[:100]}"
+                    f"Updating news in DB, UUID: {uuid}, status: {status}, news_data: {str(json_news_data)[:100]}"
                 )
 
                 with conn.cursor() as cursor:
@@ -1294,14 +1297,14 @@ class PersonalDataRepository:
                         update_query,
                         (
                             json_news_data,  # Update the news column by appending new data to the existing data
-                            FETCHED,  # Update the news status
+                            status,  # Update the news status
                             news_last_updated,  # Update the last updated timestamp
                             uuid,  # Use the UUID to find the correct row
                         ),
                     )
                     conn.commit()
 
-                logger.info(f"Successfully updated news with UUID: {uuid} and status: {FETCHED}")
+                logger.info(f"Successfully updated news with UUID: {uuid} and status: {status}")
 
             except Exception as e:
                 conn.rollback()

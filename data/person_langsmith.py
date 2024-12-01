@@ -277,27 +277,27 @@ class LangsmithConsumer(GenieConsumer):
         event = GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public")
         event.send()
         return {"status": "success"}
-
-    async def handle_new_news_data(self, event):
-        event_body = event.body_as_str()
-        logger.info(f"Event body: {str(event_body)[:300]}")
-        event_body = json.loads(event_body)
-        if isinstance(event_body, str):
-            event_body = json.loads(event_body)
-        news_data = event_body.get("news_data")
-        if isinstance(news_data, str):
-            news_data = json.loads(news_data)
-        logger.info(f"News data: {news_data}, type: {type(news_data)}")
-        uuid = event_body.get("uuid")
-        for news_item in news_data:
-            if isinstance(news_item, str):
-                news_item = json.loads(news_item)
-
-            self.personal_data_repository.update_news_to_db(uuid, news_item)
-
-        event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
-        event.send()
-        return {"status": "success"}
+    #
+    # async def handle_new_news_data(self, event):
+    #     event_body = event.body_as_str()
+    #     logger.info(f"Event body: {str(event_body)[:300]}")
+    #     event_body = json.loads(event_body)
+    #     if isinstance(event_body, str):
+    #         event_body = json.loads(event_body)
+    #     news_data = event_body.get("news_data")
+    #     if isinstance(news_data, str):
+    #         news_data = json.loads(news_data)
+    #     logger.info(f"News data: {news_data}, type: {type(news_data)}")
+    #     uuid = event_body.get("uuid")
+    #     for news_item in news_data:
+    #         if isinstance(news_item, str):
+    #             news_item = json.loads(news_item)
+    #
+    #         self.personal_data_repository.update_news_to_db(uuid, news_item)
+    #
+    #     event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
+    #     event.send()
+    #     return {"status": "success"}
 
 
 if __name__ == "__main__":
