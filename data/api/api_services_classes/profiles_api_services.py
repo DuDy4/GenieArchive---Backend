@@ -291,3 +291,28 @@ class ProfilesApiService:
         raise HTTPException(
             status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {tenant_id}"}
         )
+    
+    def get_profile_category_stats(self):
+        profiles = self.profiles_repository.get_all_profiles()
+        categories_count = {}
+        strengths_count = {}
+        for profile in profiles:
+            for strength in profile.strengths:
+                if strength.strength_name in strengths_count:
+                    strengths_count[strength.strength_name] += 1
+                else:
+                    strengths_count[strength.strength_name] = 1
+            profile_category = determine_profile_category(profile.strengths)
+            if profile_category.category in categories_count:
+                categories_count[profile_category.category] += 1
+            else:
+                categories_count[profile_category.category] = 1
+
+        logger.info(f"Profile strengths count: {strengths_count}")
+        logger.info(f"Profile categories count: {categories_count}")
+        for key, value in categories_count.items():
+            print(f"{key} - {value}")
+
+if __name__ == "__main__":
+    profiles_api_service = ProfilesApiService()
+    profiles_api_service.get_profile_category_stats()
