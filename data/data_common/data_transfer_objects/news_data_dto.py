@@ -126,6 +126,14 @@ class SocialMediaPost(NewsData):
         )
         return base_dict
 
+    def __hash__(self):
+        return hash((self.link, self.date))
+
+    def __eq__(self, other):
+        if not isinstance(other, SocialMediaPost):
+            return False
+        return self.link == other.link and self.date == other.date
+
     def __str__(self):
         """
         Custom string representation of the SocialMediaPost object, including inherited fields.

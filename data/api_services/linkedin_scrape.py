@@ -2,15 +2,14 @@ from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import NewsData
 import requests
 import os
-from loguru import logger
-from dotenv import load_dotenv
 from typing import List, Dict, Any
 from pydantic import ValidationError, HttpUrl
 from datetime import datetime, timedelta
 
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
+from common.genie_logger import GenieLogger
 
-load_dotenv()
+logger = GenieLogger()
 
 RAPID_API_KEY = env_utils.get("RAPID_API_KEY")
 
@@ -41,7 +40,7 @@ class HandleLinkedinScrape:
             response.raise_for_status()  # Raise exception for HTTP errors
             data = response.json()
             latest_posts = data.get("data", [])[:num_posts]
-            logger.success(f"Successfully fetched {len(latest_posts)} posts from {linkedin_url}")
+            logger.info(f"Successfully fetched {len(latest_posts)} posts from {linkedin_url}")
 
             processed_posts = []
             for post in latest_posts:
@@ -67,6 +66,7 @@ class HandleLinkedinScrape:
                         ),
                         "images": image_urls,
                     }
+                    logger.info(f"Data dict: {data_dict}")
                     try:
                         news_data = SocialMediaPost.from_dict(data_dict)
                     except ValidationError as e:
@@ -77,9 +77,7 @@ class HandleLinkedinScrape:
                             logger.error(f"Validation error for post {post.get('post_url')}: {e}")
                             continue
                     processed_posts.append(news_data)
-
-                except ValidationError as e:
-                    logger.error(f"Validation error for post {post.get('post_url')}: {e}")
+                    logger.info(f"Processed post: {news_data}")
                 except Exception as e:
                     logger.error(f"Error processing post {post.get('post_url')}: {e}")
 

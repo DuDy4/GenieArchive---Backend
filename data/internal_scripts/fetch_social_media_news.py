@@ -61,17 +61,14 @@ def fetch_linkedin_posts(uuids: list, scrap_num=5):
                 if news_in_database and post in news_in_database:
                     logger.info(f"Post already in database: {post}")
                     continue
-                post_dict = post.to_dict() if isinstance(post, NewsData) else post
-                if post_dict.get("image_urls"):
-                    post_dict["images"] = post_dict["image_urls"]
-                news_data_objects.append(post_dict)
-            news_data_objects = list(set(news_in_database.extend(news_data_objects)))
+                news_data_objects.append(post)
+            final_news_data_list = list(set(news_data_objects + news_in_database))
+            if final_news_data_list:
+                personal_data_repository.update_news_list_to_db(uuid, final_news_data_list, PersonalDataRepository.FETCHED)
             if news_data_objects:
-                event = GenieEvent(
-                    Topic.NEW_NEWS_DATA,
-                    data={"uuid": uuid, "news_data": news_data_objects},
-                )
+                event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
                 event.send()
+            return {"posts": news_data_objects}
         except requests.exceptions.HTTPError as http_err:
             logger.error(f"HTTP error occurred: {http_err}")
             news_in_db = personal_data_repository.get_news_data_by_uuid(uuid)
