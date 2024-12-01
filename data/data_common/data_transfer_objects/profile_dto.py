@@ -290,7 +290,7 @@ class ProfileDTO(BaseModel):
             hobbies=data[9],
             work_history_summary=data[10],
             sales_criteria=[(SalesCriteria.from_dict(criteria) if isinstance(criteria, dict) else criteria)
-                            for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]))],
+                            for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]))] if data[11] else [],
         )
 
     @staticmethod
