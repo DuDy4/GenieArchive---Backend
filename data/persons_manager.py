@@ -449,8 +449,11 @@ class PersonManager(GenieConsumer):
 
         # This is a test to get profile picture from social media links
         social_media_links = self.personal_data_repository.get_social_media_links(uuid)
-        picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
+        picture_url = self.profiles_repository.get_profile_picture(uuid)
+        if not picture_url:
+            picture_url = self.personal_data_repository.get_profile_picture_url(uuid)
         profile["picture_url"] = picture_url if picture_url else DEFAULT_PROFILE_PICTURE
+
 
         if profile.get("strengths") and isinstance(profile["strengths"], dict):
             logger.warning("Strengths is a dict again...")
@@ -742,6 +745,9 @@ class PersonManager(GenieConsumer):
             event = GenieEvent(Topic.FAILED_TO_GET_PROFILE_PICTURE, {"person": person.to_dict()})
             event.send()
             logger.info(f"Sent 'failed_to_get_profile_picture' event to the event queue for {person.email}")
+        elif 'profile-picture' in str(profile.picture_url):
+            logger.info(f'Profile picture already uploaded: {str(profile.picture_url)}')
+            return {"status": "success"}
         else:
             logger.info(f"Profile picture url: {profile.picture_url}")
             result = self.azure_profile_picture_uploader.handle_profile_picture_upload(profile)

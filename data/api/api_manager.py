@@ -699,6 +699,18 @@ def process_meetings_classification(api_key: str) -> JSONResponse:
     return JSONResponse(content=response)
 
 
+@v1_router.get("/internal/sync-action-items")
+def process_action_items(background_tasks: BackgroundTasks, api_key: str,
+                         num_sync: int = 5,
+                         force_refresh: bool = False) -> JSONResponse:
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    logger.info(f"Processing {num_sync} action items")
+    background_tasks.add_task(admin_api_service.sync_action_items, num_sync, force_refresh)
+    return JSONResponse(content={"status": "success", "message": "Processing action items"})
+
+
 @v1_router.get("/internal/sync-personal-news")
 def process_personal_news(background_tasks: BackgroundTasks, api_key: str, num: str = "5") -> JSONResponse:
     """

@@ -170,45 +170,15 @@ class TenantProfilesRepository:
                 traceback.print_exception(error)
         return None
 
-    def get_all_uuids_and_tenants_id_without_action_items(self):
-        select_query = """
-            WITH profiles_with_missing_tenant_relations AS (
-                SELECT
-                    o.person_uuid AS profile_uuid,
-                    o.tenant_id
-                FROM
-                    ownerships o
-                INNER JOIN
-                    profiles p
-                ON
-                    o.person_uuid = p.uuid
-                LEFT JOIN
-                    tenant_profiles tp
-                ON
-                    o.person_uuid = tp.profile_uuid
-                WHERE
-                    tp.profile_uuid IS NULL
-            ),
-            tenant_profiles_with_empty_action_items AS (
-                SELECT
-                    tp.profile_uuid AS profile_uuid,
-                    tp.tenant_id
-                FROM
-                    tenant_profiles tp
-                WHERE
-                    tp.action_items IS NULL OR tp.action_items = '[]'::jsonb
-            )
-            SELECT 
-                profile_uuid, 
-                tenant_id
-            FROM 
-                profiles_with_missing_tenant_relations
-            UNION
-            SELECT 
-                profile_uuid, 
-                tenant_id
-            FROM 
-                tenant_profiles_with_empty_action_items;
+    def get_all_uuids_and_tenants_id_without_action_items(self, forced: bool = False):
+        select_query = f"""
+            SELECT o.person_uuid, o.tenant_id FROM ownerships o
+            join tenants t on t.tenant_id = o.tenant_id
+            join persons p on p.uuid = o.person_uuid
+            join profiles pr on pr.uuid = p.uuid
+            left join tenant_profiles tp on p.uuid = tp.profile_uuid AND o.tenant_id = tp.tenant_id
+            {f"WHERE tp.action_items = '[]' OR tp.action_items IS NULL" if not forced else ""}
+            ORDER BY o.id desc;            
             """
         with db_connection() as conn:
             try:
