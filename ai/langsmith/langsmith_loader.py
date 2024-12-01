@@ -64,6 +64,25 @@ class Langsmith:
         logger.debug(f"Got strengths from Langsmith: {response}")
         return response
 
+    async def run_prompt_action_items(self, person_data, action_item, action_item_criteria, company_data=None, seller_context=None):
+        prompt = hub.pull("specific-action-item") 
+        runnable = prompt | self.model
+        arguments = {
+            "sales_action_item": action_item, 
+            "action_item_criteria": action_item_criteria,
+            "prospect_company_data": company_data if company_data else None, 
+            "prospect_data": person_data, 
+            "seller_company_data": seller_context
+        }
+
+        try:
+            response = await self._run_prompt_with_retry(runnable, arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+
+        logger.debug(f"Got specific action item from Langsmith: {response}")
+        return response
+
     async def run_prompt_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
         prompt = hub.pull("dos_and_donts_w_context_and_posts") if news_data else hub.pull("dos_and_donts_w_context")
         runnable = prompt | self.model

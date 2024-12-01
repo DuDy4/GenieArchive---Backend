@@ -265,7 +265,21 @@ class LangsmithConsumer(GenieConsumer):
             #         action_items.append(action_item)
             action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:
-                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
+                specific_action_items = []
+                for action_item in action_items:
+                    logger.info(f"Action item: {action_item.to_dict()}")
+                    response = await self.langsmith.run_prompt_action_items(person, action_item.action_item, action_item.criteria.value, company_data, seller_context)
+                    if response and response.content:
+                        output_action_item = response.content
+                        if output_action_item:
+                            action_item.action_item = output_action_item
+                            specific_action_items.append(action_item)
+                if specific_action_items and len(specific_action_items) == len(action_items):
+                    action_items = specific_action_items
+                else:  
+                    logger.warning(f"Failed to get specific action items for all action items for prospect: {person['name']}")
+                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, specific_action_items)
+        
 
         data_to_send = {"person": person, "profile": profile_strength_and_get_to_know}
 
