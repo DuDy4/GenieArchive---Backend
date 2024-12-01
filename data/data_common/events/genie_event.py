@@ -23,7 +23,7 @@ class GenieEvent:
         self.scope = scope
         ctx_id = ctx_id if ctx_id else logger.get_ctx_id()
         self.ctx_id = ctx_id
-        self.tenant_id = logger.get_tenant_id()
+        self.tenant_id = logger.get_tenant_id() or data.get("tenant_id")
 
     def send(self):
         event_data_batch = producer.create_batch()

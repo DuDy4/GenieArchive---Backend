@@ -110,8 +110,18 @@ class AdminApiService:
             return {"error": "Person not found"}
         logger.info(f"Got person: {person}")
         if person.linkedin:
-            event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person.to_json(), "public")
-            event.send()
+            all_tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+            logger.info(f"Got tenants: {all_tenants}")
+            if not all_tenants or len(all_tenants) == 0:
+                logger.error(f"Person does not have any tenants: {person_uuid}")
+                return {"error": "Person does not have any tenants"}
+            for tenant in all_tenants:
+                data_to_send ={
+                    "tenant_id": tenant,
+                    "person": person.to_dict(),
+                }
+                event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, data_to_send, "public")
+                event.send()
         else:
             logger.error(f"Person does not have a LinkedIn URL")
             return {"error": "Person does not have a LinkedIn URL"}
@@ -128,12 +138,12 @@ class AdminApiService:
         if not tenants or len(tenants) == 0:
             logger.error(f"Person does not have any tenants: {person_uuid}")
             return {"error": "Person does not have any tenants"}
-        logger.set_tenant_id(tenants[0])
-        event = GenieEvent(
-            topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-            data=json.dumps({"tenant_id": tenants[0], "email": person.email}),
-        )
-        event.send()
+        for tenant_id in tenants:
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+                data=json.dumps({"tenant_id": tenant_id, "email": person.email}),
+            )
+            event.send()
         return {"message": "Email sync initiated for " + person.email}
 
     def validate_uuid(self, uuid_string):

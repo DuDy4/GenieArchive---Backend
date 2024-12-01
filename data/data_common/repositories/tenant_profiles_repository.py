@@ -28,7 +28,7 @@ class TenantProfilesRepository:
             CREATE TABLE IF NOT EXISTS tenant_profiles (
                 id SERIAL PRIMARY KEY,
                 uuid VARCHAR UNIQUE NOT NULL,
-                profile_uuid VARCHAR UNIQUE NOT NULL,
+                profile_uuid VARCHAR NOT NULL,
                 tenant_id VARCHAR NOT NULL,
                 connections JSONB default '[]',
                 get_to_know JSONB default '{}',
@@ -92,8 +92,7 @@ class TenantProfilesRepository:
                         get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[0].items()}
                         return get_to_know
                     else:
-                        logger.error(f"Error with getting get to know for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Error with getting get to know for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching get to know by uuid: {error}")
                 traceback.print_exception(error)
@@ -117,8 +116,7 @@ class TenantProfilesRepository:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
                         return sales_criteria
                     else:
-                        logger.error(f"Couldn't find sales criteria for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Couldn't find sales criteria for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching sales criteria by uuid: {error}")
                 traceback.print_exception(error)
@@ -166,12 +164,67 @@ class TenantProfilesRepository:
                         action_items = [SalesActionItem.from_dict(item) for item in row[0]]
                         return action_items
                     else:
-                        logger.error(f"Couldn't find action items for {uuid}")
-                        traceback.print_exc()
+                        logger.warning(f"Couldn't find action items for {uuid}")
             except Exception as error:
                 logger.error(f"Error fetching action items by uuid: {error}")
                 traceback.print_exception(error)
         return None
+
+    def get_all_uuids_and_tenants_id_without_action_items(self):
+        select_query = """
+            WITH profiles_with_missing_tenant_relations AS (
+                SELECT
+                    o.person_uuid AS uuid,
+                    o.tenant_id
+                FROM
+                    ownerships o
+                INNER JOIN
+                    profiles p
+                ON
+                    o.person_uuid = p.uuid
+                LEFT JOIN
+                    tenant_profiles tp
+                ON
+                    o.person_uuid = tp.profile_uuid
+                WHERE
+                    tp.profile_uuid IS NULL
+            ),
+            tenant_profiles_with_empty_action_items AS (
+                SELECT
+                    tp.uuid AS uuid,
+                    tp.tenant_id
+                FROM
+                    tenant_profiles tp
+                WHERE
+                    tp.action_items IS NULL OR tp.action_items = '[]'::jsonb
+            )
+            SELECT 
+                uuid, 
+                tenant_id
+            FROM 
+                profiles_with_missing_tenant_relations
+            UNION
+            SELECT 
+                uuid, 
+                tenant_id
+            FROM 
+                tenant_profiles_with_empty_action_items;
+            """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    rows = cursor.fetchall()
+                    result_object_list = []
+                    for row in rows:
+                        result_object_list.append({
+                            "profile_uuid": row[0],
+                            "tenant_id": row[1]
+                        })
+                    return result_object_list
+            except psycopg2.Error as error:
+                raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
+
     
     def update_sales_action_items(self, uuid: str, tenant_id: str, action_items: list[SalesActionItem]):
         update_query = """
