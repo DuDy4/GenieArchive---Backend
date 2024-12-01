@@ -174,7 +174,7 @@ class TenantProfilesRepository:
         select_query = """
             WITH profiles_with_missing_tenant_relations AS (
                 SELECT
-                    o.person_uuid AS uuid,
+                    o.person_uuid AS profile_uuid,
                     o.tenant_id
                 FROM
                     ownerships o
@@ -191,7 +191,7 @@ class TenantProfilesRepository:
             ),
             tenant_profiles_with_empty_action_items AS (
                 SELECT
-                    tp.uuid AS uuid,
+                    tp.profile_uuid AS profile_uuid,
                     tp.tenant_id
                 FROM
                     tenant_profiles tp
@@ -199,13 +199,13 @@ class TenantProfilesRepository:
                     tp.action_items IS NULL OR tp.action_items = '[]'::jsonb
             )
             SELECT 
-                uuid, 
+                profile_uuid, 
                 tenant_id
             FROM 
                 profiles_with_missing_tenant_relations
             UNION
             SELECT 
-                uuid, 
+                profile_uuid, 
                 tenant_id
             FROM 
                 tenant_profiles_with_empty_action_items;

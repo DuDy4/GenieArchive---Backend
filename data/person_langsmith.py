@@ -248,21 +248,22 @@ class LangsmithConsumer(GenieConsumer):
 
         existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
         if not existing_action_items:
-            action_items = []
-            for sales_criteria in sales_criterias:
-                try:
-                    action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
-                except Exception as e:
-                    logger.error(f"Error getting action items for {sales_criteria}: {e}")
-                    continue
-                if action_item_text:
-                    action_item = SalesActionItem(
-                        criteria=sales_criteria.criteria.value,
-                        action_item=action_item_text,
-                        detailed_action_item=detailed_action_item_text,
-                        score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
-                    )
-                    action_items.append(action_item)
+            # action_items = []
+            # for sales_criteria in sales_criterias:
+            #     try:
+            #         action_item_text, detailed_action_item_text = self.sales_action_items_service.get_action_items(sales_criteria)
+            #     except Exception as e:
+            #         logger.error(f"Error getting action items for {sales_criteria}: {e}")
+            #         continue
+            #     if action_item_text:
+            #         action_item = SalesActionItem(
+            #             criteria=sales_criteria.criteria.value,
+            #             action_item=action_item_text,
+            #             detailed_action_item=detailed_action_item_text,
+            #             score=int(sales_criteria.target_score * 0.25) # Placeholder - 25% of the target score
+            #         )
+            #         action_items.append(action_item)
+            action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:
                 self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
 

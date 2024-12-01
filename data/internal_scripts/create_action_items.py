@@ -55,26 +55,20 @@ def get_sales_criteria_for_profile(profile_uuid, tenant_id):
 
 def create_action_items(ownership_relation: List[Ownership]):
     res = []
-    for ownership in ownership_relation[:2]:
+    for ownership in ownership_relation:
         try:
             sales_criteria = get_sales_criteria_for_profile(ownership.profile_uuid, ownership.tenant_id)
             logger.info(f"Sales criteria for {ownership.profile_uuid} in tenant {ownership.tenant_id}: {sales_criteria}")
-            suggestion = sales_service.get_action_items(sales_criteria)
-            if suggestion:
-                action_item, detailed_item = suggestion
-                logger.info(f"Suggestion for '{sales_criteria}':")
-                logger.info(f"- Action Item: {action_item}")
-                logger.info(f"- Detailed Action Item: {detailed_item}")
-                res.append({
-                    "profile_uuid": ownership.profile_uuid,
-                    "tenant_id": ownership.tenant_id,
-                    "action_item": action_item,
-                    "detailed_action_item": detailed_item
-                })
-            else:
-                logger.info(f"No suggestion for '{sales_criteria}'")
+            action_items = sales_service.get_action_items(sales_criteria)
+            tenant_profiles_repository.update_sales_action_items(ownership.profile_uuid, ownership.tenant_id, action_items)
+            res.append({
+                "tenant_id": ownership.tenant_id,
+                "profile_uuid": ownership.profile_uuid,
+                "action_items": action_items
+            })
         except Exception as e:
             logger.error(f"Error getting action items for {ownership.profile_uuid}: {e}")
+    return res
 
 
 if __name__ == "__main__":
