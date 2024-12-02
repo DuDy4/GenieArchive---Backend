@@ -100,9 +100,9 @@ def create_summary_to_existing_posts(uuids: list):
         logger.info(f"Successfully sent event for {uuid}")
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # all_uuids = get_all_uuids_that_should_try_posts()
-    uuids = get_all_future_uuids_that_should_try_posts()
-    logger.info(f"Fetching posts for {len(uuids)} profiles")
-    posts = fetch_linkedin_posts(uuids, 13)
+    # uuids = get_all_future_uuids_that_should_try_posts()
+    # logger.info(f"Fetching posts for {len(uuids)} profiles")
+    # posts = fetch_linkedin_posts(uuids, 13)
     # create_summary_to_existing_posts(uuids)
