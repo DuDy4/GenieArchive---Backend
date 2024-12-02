@@ -151,7 +151,7 @@ class CompanyConsumer(GenieConsumer):
         if company_data:
             company = CompanyDTO.from_apollo_object(company_data.get("organization") or company_data)
             company = self.validate_company_data(company, email_domain)
-            company = self.fix_company_description(company)
+            company = await self.fix_company_description(company)
             logger.info(f"Company data fetched from Apollo: {str(company)[:300]}")
             self.companies_repository.save_company_without_news(company)
             return company
@@ -159,7 +159,7 @@ class CompanyConsumer(GenieConsumer):
         company_data = await self.hunter_client.get_domain_info(email_domain)
         company = CompanyDTO.from_hunter_object(company_data["data"])
         company = self.validate_company_data(company, email_domain)
-        company = self.fix_company_description(company)
+        company = await self.fix_company_description(company)
         logger.info(f"Company data fetched from Hunter: {str(company)[:300]}")
         self.companies_repository.save_company_without_news(company)
         return company
@@ -183,10 +183,10 @@ class CompanyConsumer(GenieConsumer):
             company_dto.size = None
         return company_dto
     
-    def fix_company_description(self, company_dto: CompanyDTO):
+    async def fix_company_description(self, company_dto: CompanyDTO):
         description = company_dto.description
         if not description or len(description) > 300:
-            description_summary = asyncio.run(self.langsmith.get_summary(description))
+            description_summary = await self.langsmith.get_summary(description)
             if description_summary:
                 company_dto.description = description_summary
         return company_dto
