@@ -53,8 +53,8 @@ class MeetingsRepository:
             return None
         insert_query = """
         INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link,
-         subject, location, start_time, end_time, classification, reminder_schedule)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         subject, location, start_time, end_time, classification, reminder_schedule, fake)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
@@ -71,6 +71,7 @@ class MeetingsRepository:
             meeting.end_time,
             meeting.classification.value,  # Convert enum to string for DB
             meeting.calculate_reminder_schedule(meeting.start_time) if meeting.classification == MeetingClassification.EXTERNAL else None,
+            meeting.fake,
         )
         logger.info(f"About to insert meeting data: {meeting_data}")
         with db_connection() as conn:
@@ -519,7 +520,8 @@ class MeetingsRepository:
         select_query = f"""
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE classification NOT IN (%s, %s)
+        WHERE classification NOT IN (%s)
+        AND fake = FALSE
         AND start_time > %s
         AND tenant_id = %s
         ORDER BY start_time ASC
@@ -531,10 +533,10 @@ class MeetingsRepository:
                     if number_of_imported_meetings > 0:
                         cursor.execute(
                             select_query,
-                            (MeetingClassification.DELETED.value, MeetingClassification.FAKE.value, cutoff_time, tenant_id, number_of_imported_meetings),
+                            (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
                         )
                     else:
-                        cursor.execute(select_query, (MeetingClassification.DELETED.value, MeetingClassification.FAKE.value, cutoff_time, tenant_id))
+                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
 
                     meetings = cursor.fetchall()
                     logger.info(f"Got {len(meetings)} meetings from database")

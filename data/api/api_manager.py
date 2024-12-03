@@ -565,19 +565,20 @@ def delete_meeting(
     logger.info(f"About to send response: {response}")
     return JSONResponse(content=response)
 
-@v1_router.post("/{tenant_id}/fake-meeting")
-async def create_fake_meeting(request: Request, tenant_id: str) -> JSONResponse:
+@v1_router.post("/fake-meeting")
+async def create_fake_meeting(request: Request) -> JSONResponse:
     """
     Create a fake meeting for testing purposes.
 
-    - **tenant_id**: Tenant ID
     """
     if (
         request.state
         and hasattr(request.state, "user_email")
+        and hasattr(request.state, "tenant_id")
         and email_utils.is_genie_admin(request.state.user_email)
     ):
         body = await request.json()
+        tenant_id = request.state.tenant_id
         emails = body.get("emails")
         logger.info(f"Creating fake meeting for tenant: {tenant_id} and emails: {emails}")
         response = meetings_api_service.create_fake_meeting(tenant_id, emails)
