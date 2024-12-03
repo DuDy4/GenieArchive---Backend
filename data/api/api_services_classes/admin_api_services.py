@@ -143,7 +143,7 @@ class AdminApiService:
         for tenant_id in tenants:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data=json.dumps({"tenant_id": tenant_id, "email": person.email}),
+                data={"tenant_id": tenant_id, "email": person.email},
             )
             event.send()
         return {"message": "Email sync initiated for " + person.email}
@@ -318,7 +318,7 @@ class AdminApiService:
         self.meetings_repository.save_meeting(meeting)
         event = GenieEvent(
             topic=Topic.UPDATED_AGENDA_FOR_MEETING,
-            data=json.dumps(meeting.to_dict()),
+            data={"meeting": meeting.to_dict()},
         )
         event.send()
         return {"status": f"Created Agenda for meeting {meeting.uuid}"}

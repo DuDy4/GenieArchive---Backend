@@ -183,7 +183,7 @@ class GmailSender:
             logger.error(f"An error occurred while sending email: {e}")
             event = GenieEvent(
                 topic=Topic.EMAIL_SENDING_FAILED,
-                data=json.dumps({"recipient": recipient, "subject": subject, "error": str(e)}),
+                data={"recipient": recipient, "subject": subject, "error": str(e)},
             )
             event.send()
             traceback.print_exc()
