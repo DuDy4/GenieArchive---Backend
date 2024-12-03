@@ -6,7 +6,6 @@ from enum import Enum
 from datetime import datetime, timedelta, timezone
 
 from typing import List, Dict, Any, Optional
-from zoneinfo import ZoneInfo
 
 from data.data_common.utils.str_utils import get_uuid4
 from common.utils.email_utils import filter_emails_with_additional_domains
@@ -23,7 +22,6 @@ class MeetingClassification(Enum):
     INTERNAL = "internal"
     PRIVATE = "private"
     DELETED = "deleted"
-    FAKE = "fake"
 
     @staticmethod
     def from_str(label: str):
@@ -103,6 +101,7 @@ class MeetingDTO:
         end_time: str,
         agenda: List[AgendaItem] = None,
         classification: MeetingClassification = MeetingClassification.PRIVATE,  # New field
+        fake: bool = False,
     ):
         self.uuid = uuid
         self.google_calendar_id = google_calendar_id
@@ -118,6 +117,7 @@ class MeetingDTO:
         self.end_time = end_time
         self.agenda = agenda
         self.classification = classification  # Enum field
+        self.fake = fake
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -133,6 +133,7 @@ class MeetingDTO:
             "end_time": self.end_time,
             "agenda": [agenda_item.to_dict() for agenda_item in self.agenda] if self.agenda else None,
             "classification": self.classification.value,  # Convert enum to string
+            "fake": self.fake,
         }
 
     @staticmethod
@@ -158,6 +159,7 @@ class MeetingDTO:
             else evaluate_meeting_classification(
                 data.get("participants_emails", []) or MeetingClassification.EXTERNAL
             ),
+            fake=data.get("fake", False),
         )
 
     def to_tuple(self) -> tuple:
@@ -174,6 +176,7 @@ class MeetingDTO:
             self.end_time,
             self.agenda,
             self.classification.value,  # Convert enum to string for DB
+            self.fake,
         )
 
     @staticmethod
@@ -221,6 +224,7 @@ class MeetingDTO:
             end_time=event.get("end", "").get("dateTime", "") or event.get("end", "").get("date", ""),
             agenda=None,
             classification=evaluate_meeting_classification(participants),
+            fake=event.get("fake", False),
         )
 
     def __str__(self):
@@ -228,7 +232,7 @@ class MeetingDTO:
             f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id}, tenant_id={self.tenant_id}, "
             f"participants_emails={self.participants_emails}, link={self.link}, "
             f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time}"
-            f"agenda={self.agenda}), classification={self.classification}"
+            f"agenda={self.agenda}), classification={self.classification}, fake={self.fake}"
         )
 
     @staticmethod

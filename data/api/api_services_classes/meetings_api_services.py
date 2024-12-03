@@ -96,9 +96,6 @@ class MeetingsApiService:
         if meeting.classification.value == MeetingClassification.INTERNAL.value:
             return self.handle_internal_meeting_overview(meeting)
 
-        if meeting.classification.value == MeetingClassification.FAKE.value:
-            meeting.classification = MeetingClassification.EXTERNAL
-
         if meeting.classification.value == MeetingClassification.EXTERNAL.value:
             return self.handle_external_meeting_overview(meeting)
 
@@ -282,7 +279,8 @@ class MeetingsApiService:
             participants_hash=None,
             start_time=(current_time + timedelta(hours=24)).isoformat(),
             end_time=(current_time + timedelta(hours=25)).isoformat(),
-            classification=MeetingClassification.FAKE,
+            classification=MeetingClassification.EXTERNAL,
+            fake=True,
         )
         self.meetings_repository.save_meeting(meeting)
         for email in emails:
