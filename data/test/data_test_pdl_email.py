@@ -28,7 +28,7 @@ pdl_key = env_utils.get("PDL_API_KEY")
 
 event = GenieEvent(
     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-    data=json.dumps({"tenant_id": "13eb2df3-0ae9-404c-b888-f20b1bf468b1", "email": "asaf@genieai.ai"}),
+    data={"tenant_id": "13eb2df3-0ae9-404c-b888-f20b1bf468b1", "email": "asaf@genieai.ai"},
 )
 event.send()
 

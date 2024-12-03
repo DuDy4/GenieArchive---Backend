@@ -396,13 +396,11 @@ class MeetingManager(GenieConsumer):
                 logger.info(f"Meeting goals saved for {meeting.uuid}")
                 event = GenieEvent(
                     topic=Topic.NEW_MEETING_GOALS,
-                    data=json.dumps(
-                        {
+                    data= {
                             "meeting_uuid": meeting.uuid,
                             "seller_context": seller_context,
                             "force_refresh_agenda": force_refresh_goals,
-                        }
-                    ),
+                    }
                 )
                 event.send()
                 break  # Only process one email per meeting - need to implement couple attendees in the future
@@ -466,7 +464,7 @@ class MeetingManager(GenieConsumer):
             self.meetings_repository.save_meeting(meeting)
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
-                data=json.dumps(meeting.to_dict()),
+                data={"meeting": meeting.to_dict()},
             )
             event.send()
         logger.info(f"Finished processing meetings for new profile: {person.get('email')}")
@@ -537,7 +535,7 @@ class MeetingManager(GenieConsumer):
             self.meetings_repository.save_meeting(meeting)
             event = GenieEvent(
                 topic=Topic.UPDATED_AGENDA_FOR_MEETING,
-                data=json.dumps(meeting.to_dict()),
+                data={"meeting": meeting.to_dict()},
             )
             event.send()
             break

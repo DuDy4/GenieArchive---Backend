@@ -285,12 +285,31 @@ async def get_all_meetings_with_selected_date(
     return JSONResponse(content=response)
 
 
-@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
-def get_all_profiles_for_meeting(
-    request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
-) -> Union[List[MiniProfileResponse], JSONResponse]:
+# @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
+# def get_all_profiles_for_meeting(
+#     request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
+# ) -> Union[List[MiniProfileResponse], JSONResponse]:
+#     """
+#     Get all profile IDs and names for a specific meeting.
+#
+#     - **tenant_id**: Tenant ID - the right one is 'abcde'
+#     - **meeting_id**: Meeting ID
+#     """
+#     logger.info(f"Received profiles request for meeting: {meeting_id}")
+#     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+#     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+#     logger.info(f"Getting profile for tenant ID: {tenant_id}")
+#     response = profiles_api_service.get_profiles_for_meeting(tenant_id, meeting_id)
+#     logger.info(f"About to send response: {response}")
+#     return response
+
+
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesAndPersonsListResponse)
+def get_all_profiles_and_persons_for_meeting(
+        request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
+                                             ):
     """
-    Get all profile IDs and names for a specific meeting.
+    Get all profile IDs and persons (without profiles) for a specific meeting.
 
     - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
@@ -299,9 +318,10 @@ def get_all_profiles_for_meeting(
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     logger.info(f"Getting profile for tenant ID: {tenant_id}")
-    response = profiles_api_service.get_profiles_for_meeting(tenant_id, meeting_id)
+    response = profiles_api_service.get_profiles_and_persons_for_meeting(tenant_id, meeting_id)
     logger.info(f"About to send response: {response}")
     return response
+
 
 
 @v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
