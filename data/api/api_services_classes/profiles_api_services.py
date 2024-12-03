@@ -67,8 +67,71 @@ class ProfilesApiService:
             logger.info(f"Got profile: {str(profile)[:300]}")
             if profile:
                 profiles.append(profile)
+        persons_to_send = [person for person in persons if person.uuid not in [profile.uuid for profile in profiles]]
         logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
         return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
+
+    def get_profiles_and_persons_for_meeting(self, tenant_id, meeting_id):
+        meeting = self.meetings_repository.get_meeting_data(meeting_id)
+        if not meeting:
+            logger.error(f"Meeting not found for meeting_id: {meeting_id}")
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        if meeting.tenant_id != tenant_id:
+            logger.error(f"Tenant mismatch for meeting_id: {meeting_id}, tenant_id: {tenant_id}")
+            raise HTTPException(status_code=403, detail="Tenant mismatch")
+        participants_emails = meeting.participants_emails
+        participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
+        host_email_list = [email.email_address for email in participants if email.self]
+        self_email = host_email_list[0] if host_email_list else None
+        self_domain = self_email.split("@")[1] if "@" in self_email else None
+        if self_domain:
+            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+            filtered_participants_emails = email_utils.filter_emails_with_additional_domains(self_email, participants_emails, additional_domains)
+        else:
+            filtered_participants_emails = email_utils.filter_emails(self_email, participants_emails)
+        logger.info(f"Filtered participants: {filtered_participants_emails}")
+
+        domain_emails = [email.split("@")[1] for email in filtered_participants_emails]
+        domain_emails = list(set(domain_emails))
+        logger.info(f"Domain emails: {domain_emails}")
+
+        mini_profiles = []
+        mini_persons = []
+
+        for participant in filtered_participants_emails:
+            profile = self.profiles_repository.get_profile_data_by_email(participant)
+            if profile:
+                person = PersonDTO.from_dict({"email": participant})
+                person.uuid = profile.uuid
+                logger.info(f"Person: {person}")
+                profile_response = MiniProfileResponse.from_profile_dto(profile, person)
+                logger.info(f"Profile: {profile_response}")
+                if profile_response:
+                    mini_profiles.append(profile_response)
+            else:
+                person = self.persons_repository.find_person_by_email(participant)
+                logger.info(f"Person: {person}")
+                if person:
+                    person_response = MiniPersonResponse.from_person_dto(person)
+                    logger.info(f"Person response: {person_response}")
+                else:
+                    person = PersonDTO.from_dict({"email": participant})
+                    person_response = MiniPersonResponse.from_dict(person.to_dict())
+                logger.debug(f"Person: {person_response}")
+                mini_persons.append(person_response)
+
+        if not mini_profiles and not mini_persons:
+            logger.error("No profiles found in this meeting")
+            raise HTTPException(
+                status_code=404,
+                detail="No profiles found in this meeting. Might be that we are still processing the data.",
+            )
+
+        mini_participants = {
+            "profiles": mini_profiles,
+            "persons": mini_persons,
+        }
+        return mini_participants
 
     def get_profile_info(self, tenant_id, uuid):
         if not self.ownerships_repository.check_ownership(tenant_id, uuid):
