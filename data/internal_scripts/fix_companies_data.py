@@ -51,7 +51,7 @@ async def update_companies_with_missing_attributes(companies: list[CompanyDTO]):
             company_dto.domain = company.domain
         if company_dto.size == "0" or company_dto.size == 0:
             logger.error(f"Invalid company size: {company_dto.size}")
-        company_dto = company_consumer.fix_company_description(company_dto)
+        company_dto = await company_consumer.fix_company_description(company_dto)
         companies_repository.save_company_without_news(company_dto)
 
         new_companies.append(company_dto)

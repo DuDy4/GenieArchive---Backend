@@ -7,6 +7,7 @@ from datetime import datetime
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.meeting_dto import MeetingClassification
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
@@ -1244,6 +1245,40 @@ class PersonalDataRepository:
             except Exception as e:
                 logger.error("Unexpected error during LinkedIn posts lookup check: %s", e)
                 return False
+
+    def get_future_profiles_without_news(self) -> list[str]:
+        """
+        This method will return the profiles uuid in all the future meetings
+        """
+        select_query = """
+        WITH expanded_emails AS (
+          SELECT
+            jsonb_array_elements(participants_emails) AS participant
+          FROM meetings
+          WHERE start_time::timestamp AT TIME ZONE 'UTC' > CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+            AND classification = 'external'
+        )
+        SELECT DISTINCT 
+          pd.uuid
+        FROM expanded_emails ee
+        JOIN personalData pd ON pd.email = ee.participant->>'email'
+        WHERE (pd.pdl_status = 'FETCHED' OR pd.apollo_status = 'FETCHED') and (news_status = 'TRIED_BUT_FAILED' OR news_status IS NULL);
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
+                    profiles = cursor.fetchall()
+                    logger.info(f"Got {len(profiles)} future profiles")
+                    return [profile[0] for profile in profiles]
+            except psycopg2.Error as db_error:
+                logger.error(f"Database error fetching future profiles: {db_error.pgerror}")
+                logger.debug(traceback.format_exc())
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                logger.debug(traceback.format_exc())
+                return []
 
     def get_hobbies_by_email(self, profile_email):
         query = """
