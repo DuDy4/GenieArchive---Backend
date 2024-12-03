@@ -579,6 +579,7 @@ async def create_fake_meeting(request: Request, tenant_id: str) -> JSONResponse:
     ):
         body = await request.json()
         emails = body.get("emails")
+        logger.info(f"Creating fake meeting for tenant: {tenant_id} and emails: {emails}")
         response = meetings_api_service.create_fake_meeting(tenant_id, emails)
         return JSONResponse(content=response)
     else:
