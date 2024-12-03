@@ -92,7 +92,7 @@ def filter_emails_with_additional_domains(host_email: str, participants_emails: 
     return filtered_emails
 
 def is_genie_admin(email: str):
-    return email and email.lower().endswith("@genieai.ai")
+    return email and (email.lower().endswith("@genieai.ai") or email.lower().endswith("genietest6@gmail.com"))
 
 
 def get_domain(email: str):
