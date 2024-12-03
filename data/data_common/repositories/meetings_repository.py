@@ -519,7 +519,7 @@ class MeetingsRepository:
         select_query = f"""
         SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE classification != %s
+        WHERE classification NOT IN (%s, %s)
         AND start_time > %s
         AND tenant_id = %s
         ORDER BY start_time ASC
@@ -531,10 +531,10 @@ class MeetingsRepository:
                     if number_of_imported_meetings > 0:
                         cursor.execute(
                             select_query,
-                            (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
+                            (MeetingClassification.DELETED.value, MeetingClassification.FAKE.value, cutoff_time, tenant_id, number_of_imported_meetings),
                         )
                     else:
-                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
+                        cursor.execute(select_query, (MeetingClassification.DELETED.value, MeetingClassification.FAKE.value, cutoff_time, tenant_id))
 
                     meetings = cursor.fetchall()
                     logger.info(f"Got {len(meetings)} meetings from database")

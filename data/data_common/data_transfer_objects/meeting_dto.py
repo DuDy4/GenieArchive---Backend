@@ -23,6 +23,7 @@ class MeetingClassification(Enum):
     INTERNAL = "internal"
     PRIVATE = "private"
     DELETED = "deleted"
+    FAKE = "fake"
 
     @staticmethod
     def from_str(label: str):

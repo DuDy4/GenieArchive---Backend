@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import hashlib
 
 from common.utils import email_utils
 from common.utils.str_utils import get_uuid4
@@ -10,6 +11,7 @@ from data.data_common.dependencies.dependencies import (
     persons_repository,
     companies_repository,
     profiles_repository,
+    tenants_repository,
 )
 from data.api.base_models import (
     MiniMeeting,
@@ -22,6 +24,8 @@ from data.api.base_models import (
     MiniMeetingOverviewResponse,
     InternalMiniPersonResponse,
 )
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
 from pydantic import HttpUrl
 from fastapi import HTTPException
 from common.genie_logger import GenieLogger
@@ -36,6 +40,7 @@ class MeetingsApiService:
         self.persons_repository = persons_repository()
         self.profiles_repository = profiles_repository()
         self.companies_repository = companies_repository()
+        self.tenants_repository = tenants_repository()
 
     def get_all_meetings(self, tenant_id):
         if not tenant_id:
@@ -90,6 +95,9 @@ class MeetingsApiService:
 
         if meeting.classification.value == MeetingClassification.INTERNAL.value:
             return self.handle_internal_meeting_overview(meeting)
+
+        if meeting.classification.value == MeetingClassification.FAKE.value:
+            meeting.classification = MeetingClassification.EXTERNAL
 
         if meeting.classification.value == MeetingClassification.EXTERNAL.value:
             return self.handle_external_meeting_overview(meeting)
@@ -250,3 +258,41 @@ class MeetingsApiService:
             "persons": mini_persons,
         }
         return mini_participants, domain_emails
+    
+    
+    def create_fake_meeting(self, tenant_id: str, emails: list[str]):
+        # template_meeting = {'kind': 'calendar#event', 'id': '4mbrg4t0ri1e20dd09339446rp_20241202T070000Z', 'status': 'confirmed', 'created': '2024-11-25T12:52:39.000Z', 'updated': '2024-12-02T09:15:58.731Z', 'summary': 'My Genie Meeting', 'creator': {'email': 'asaf@genieai.ai'}, 'organizer': {'email': 'asaf@genieai.ai'}, 'start': {'dateTime': '2024-12-02T09:00:00+02:00', 'timeZone': 'Asia/Jerusalem'}, 'end': {'dateTime': '2024-12-02T10:00:00+02:00', 'timeZone': 'Asia/Jerusalem'}, 'recurringEventId': '4mbrg4t0ri1e20dd09339446rp', 'originalStartTime': {'dateTime': '2024-12-02T09:00:00+02:00', 'timeZone': 'Asia/Jerusalem'}, 'hangoutLink': 'https://dino-chrome.com/', 'eventType': 'default'}
+        attendee_template = "{'email': '%s', 'responseStatus': 'accepted'}"
+        self_attendee_template = "{'email': '%s', 'responseStatus': 'accepted', 'self': True}"
+        self_email = self.tenants_repository.get_tenant_email(tenant_id)
+        combined = tenant_id + "|" + "|".join(sorted(emails))
+        hash = hashlib.sha256(combined.encode()).hexdigest()
+        attendees = [eval(attendee_template % email) for email in emails]
+        attendees.append(eval(self_attendee_template % self_email))
+        current_time = datetime.now().replace(minute=0, second=0, microsecond=0)
+
+        meeting = MeetingDTO(
+            uuid=get_uuid4(),
+            google_calendar_id=hash,
+            tenant_id=tenant_id,
+            link="https://dino-chrome.com",
+            location="https://dino-chrome.com",
+            subject="My Genie Meeting",
+            participants_emails=attendees,
+            participants_hash=None,
+            start_time=(current_time + timedelta(hours=24)).isoformat(),
+            end_time=(current_time + timedelta(hours=25)).isoformat(),
+            classification=MeetingClassification.FAKE,
+        )
+        self.meetings_repository.save_meeting(meeting)
+        for email in emails:
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+                data={"tenant_id": tenant_id, "email": email},
+            )
+            event.send()
+            event = GenieEvent(
+                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+                data={"tenant_id": tenant_id, "email": email},
+            )
+            event.send()

@@ -565,6 +565,25 @@ def delete_meeting(
     logger.info(f"About to send response: {response}")
     return JSONResponse(content=response)
 
+@v1_router.post("/{tenant_id}/fake-meeting")
+async def create_fake_meeting(request: Request, tenant_id: str) -> JSONResponse:
+    """
+    Create a fake meeting for testing purposes.
+
+    - **tenant_id**: Tenant ID
+    """
+    if (
+        request.state
+        and hasattr(request.state, "user_email")
+        and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        body = await request.json()
+        emails = body.get("emails")
+        response = meetings_api_service.create_fake_meeting(tenant_id, emails)
+        return JSONResponse(content=response)
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden endpoint")
+
 
 @v1_router.get("/internal/sync-profile/{person_uuid}")
 def sync_profile(person_uuid: str, api_key: str) -> JSONResponse:
