@@ -46,7 +46,7 @@ class TenantProfilesRepository:
                 traceback.print_exc()
 
     def exists(self, profile_uuid: str, tenant_id: str) -> bool:
-        logger.info(f"About to check if uuid exists: {profile_uuid}")
+        logger.info(f"About to check if exists uuid: {profile_uuid} and tenant_id: {tenant_id}")
         exists_query = "SELECT 1 FROM tenant_profiles WHERE profile_uuid = %s AND tenant_id = %s;"
         with db_connection() as conn:
             try:

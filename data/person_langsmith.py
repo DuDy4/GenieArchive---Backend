@@ -108,13 +108,40 @@ class LangsmithConsumer(GenieConsumer):
             seller_email = self.tenants_repository.get_tenant_email(tenant_id)
             if seller_email:
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person_data)
+        # if seller_context:
+        #     response = await self.langsmith.get_get_to_know(person_data_dict, company_data.to_dict(), seller_context)
+        # if response:
+        #     get_to_know = response.get("get_to_know")
+        #     if get_to_know:
+        #         logger.info(f"Updating get to know for person {person_id}")
+        #         self.tenant_profiles_repository.update_get_to_know(person_id, get_to_know, tenant_id)
         if seller_context:
-            response = await self.langsmith.get_get_to_know(person_data_dict, company_data.to_dict(), seller_context)
-        if response:
-            get_to_know = response.get("get_to_know")
-            if get_to_know:
-                logger.info(f"Updating get to know for person {person_id}")
-                self.tenant_profiles_repository.update_get_to_know(person_id, get_to_know, tenant_id)
+            db_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person_id, tenant_id)
+            if not db_sales_criteria:
+                logger.info(f"Calculating sales criteria for person {person_data.name} under user {user_email}")
+                profile_category = determine_profile_category(person_data.strengths)
+                sales_criterias = get_default_individual_sales_criteria(profile_category)
+                self.tenant_profiles_repository.update_sales_criteria(person_id, tenant_id, sales_criterias)
+            else:
+                sales_criterias = db_sales_criteria
+
+            generic_action_items = self.sales_action_items_service.get_action_items(sales_criterias)
+            if generic_action_items:
+                specific_action_items = []
+                for action_item in generic_action_items:
+                    logger.info(f"Action item: {action_item.to_dict()}")
+                    response = await self.langsmith.run_prompt_action_items(person_data_dict, action_item.action_item, action_item.criteria.value, company_data, seller_context)
+                    if response and response.content:
+                        output_action_item = response.content
+                        if output_action_item:
+                            action_item.action_item = output_action_item
+                            specific_action_items.append(action_item)
+                if specific_action_items and len(specific_action_items) == len(generic_action_items):
+                    generic_action_items = specific_action_items
+                else:  
+                    logger.warning(f"Failed to get specific action items for all action items for prospect: {person_data.name} under user {user_email}")
+                self.tenant_profiles_repository.update_sales_action_items(person_id, tenant_id, generic_action_items)
+
 
     async def handle_new_personal_data(self, event):
         event_body = event.body_as_str()
