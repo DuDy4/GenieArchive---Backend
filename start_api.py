@@ -98,7 +98,7 @@ class GenieContextMiddleware(BaseHTTPMiddleware):
 
 # Initialize FastAPI app and middleware
 app = FastAPI(
-    title="Profile Management API",
+    title="Genie Management API",
     description="This is the official Genie AI API",
     version="1.0.0",
     docs_url="/docs",
