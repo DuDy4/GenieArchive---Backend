@@ -42,10 +42,22 @@ class BadgesApiService:
                         "goal": badge.criteria["count"],
                     },
                     "icon_url": badge.badge_icon_url,
+                    "seen": badge.seen,
                 }
             )
         logger.info(f"User {email} has {len(formatted_badges)} badges")
         return formatted_badges
+    
+    def mark_badges_as_seen(self, tenant_id: str):
+        """
+        Marks a badge as seen by the user.
+
+        :param tenant_id: The ID of the tenant/user.
+        :param badge_id: The ID of the badge to mark as seen.
+        """
+        email = self.tenants_repository.get_tenant_email(tenant_id)
+        if self.badges_repository.mark_badges_as_seen(email):
+            logger.info(f"Marked badges as seen for user {email}")
 
     def handle_event(self, email: str, action: str, entity: str, entity_id: str):
         """
@@ -168,7 +180,7 @@ class BadgesApiService:
 
         # Award the badge
         user_badge_dto = UserBadgeDTO(
-            user_badge_id=get_uuid4(), email=email, badge_id=badge_id, earned_at=datetime.datetime.utcnow()
+            user_badge_id=get_uuid4(), email=email, badge_id=badge_id, earned_at=datetime.datetime.utcnow(), seen=False
         )
         self.badges_repository.insert_user_badge(user_badge_dto)
         logger.info(f"Awarded badge {badge_id} to user {email}")

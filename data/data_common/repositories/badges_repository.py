@@ -113,8 +113,8 @@ class BadgesRepository:
     # User Badge Methods
     def insert_user_badge(self, user_badge: UserBadgeDTO) -> Optional[str]:
         insert_query = """
-        INSERT INTO user_badges (user_badge_id, email, badge_id, earned_at)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO user_badges (user_badge_id, email, badge_id, earned_at, seen)
+        VALUES (%s, %s, %s, %s, %s)
         RETURNING user_badge_id;
         """
         user_badge_data = user_badge.to_tuple()
@@ -207,6 +207,29 @@ class BadgesRepository:
                 logger.error(f"Error retrieving user badge progress: {error}")
                 traceback.print_exc()
                 return {}
+            
+    def mark_badges_as_seen(self, email: str) -> bool:
+        """
+        Mark a user badge as seen.
+
+        :param email: The user's ID.
+        :return: True if the update was successful, False otherwise.
+        """
+        update_query = """
+        UPDATE user_badges
+        SET seen = TRUE
+        WHERE email = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, (email,))
+                    conn.commit()
+                    return True
+            except psycopg2.Error as error:
+                logger.error(f"Error marking badge as seen: {error}")
+                traceback.print_exc()
+                return False
 
     def get_user_all_current_badges_progress(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
         """
@@ -216,8 +239,9 @@ class BadgesRepository:
         :return: A dictionary representing the user's progress (defaults to empty if not found).
         """
         select_query = """
-        SELECT ubp.email, b.badge_id, ubp.progress, ubp.last_updated, b.name, b.description, b.icon_url, b.criteria
+        SELECT ubp.email, b.badge_id, ubp.progress, ubp.last_updated, b.name, b.description, b.icon_url, b.criteria, ub.seen
         FROM badges b
+        LEFT JOIN user_badges ub ON ub.badge_id = b.badge_id
         LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
                 AND email = %s;
         """

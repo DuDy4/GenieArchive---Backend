@@ -147,6 +147,15 @@ async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str]
     badges_progress = badges_api_service.get_user_badges_status(tenant_id=tenant_id)
     return JSONResponse(content=badges_progress)
 
+@v1_router.post("/badge-seen")
+def mark_badge_as_seen(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"""
+        )
+    badges_api_service.mark_badges_as_seen(tenant_id)
+    return JSONResponse(content={"status": "success", "message": "Badge marked as seen"})
 
 @v1_router.post("/successful-login")
 async def post_successful_login(

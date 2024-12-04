@@ -9,9 +9,9 @@ def upgrade():
                         IF NOT EXISTS (
                             SELECT 1
                             FROM information_schema.columns
-                            WHERE table_name = 'meetings' AND column_name = 'fake'
+                            WHERE table_name = 'user_badges' AND column_name = 'seen'
                         ) THEN
-                            ALTER TABLE meetings ADD COLUMN fake BOOLEAN DEFAULT FALSE;
+                            ALTER TABLE user_badges ADD COLUMN seen BOOLEAN DEFAULT FALSE;
                         END IF;
                     END $$;
             """)
@@ -21,6 +21,6 @@ def downgrade():
     with db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("""
-                ALTER TABLE meetings DROP COLUMN fake;
+                ALTER TABLE user_badges DROP COLUMN seen;
             """)
             conn.commit()

@@ -56,22 +56,25 @@ class UserBadgeDTO(BaseModel):
     email: EmailStr
     badge_id: UUID
     earned_at: datetime
+    seen: bool = False
 
-    def to_tuple(self) -> Tuple[UUID, EmailStr, UUID, datetime]:
+    def to_tuple(self) -> Tuple[UUID, EmailStr, UUID, datetime, bool]:
         return (
             str(self.user_badge_id),
             self.email,
             str(self.badge_id),
             self.earned_at,
+            self.seen,
         )
 
     @classmethod
-    def from_tuple(cls, data: Tuple[UUID, EmailStr, UUID, datetime]) -> "UserBadgeDTO":
+    def from_tuple(cls, data: Tuple[UUID, EmailStr, UUID, datetime, bool]) -> "UserBadgeDTO":
         return cls(
             user_badge_id=data[0],
             email=data[1],
             badge_id=data[2],
             earned_at=data[3],
+            seen=data[4],
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -122,6 +125,7 @@ class DetailedUserBadgeProgressDTO(BaseModel):
     badge_description: str
     badge_icon_url: str
     criteria: Dict[str, Any]
+    seen: bool = False
 
     def to_tuple(self) -> Tuple[EmailStr, UUID, Dict[str, Any], datetime, str, str, str, Dict[str, Any]]:
         return (
@@ -133,6 +137,7 @@ class DetailedUserBadgeProgressDTO(BaseModel):
             self.badge_description,
             self.badge_icon_url,
             self.criteria,
+            self.seen,
         )
 
     @classmethod
@@ -146,6 +151,7 @@ class DetailedUserBadgeProgressDTO(BaseModel):
             badge_description=data[5],
             badge_icon_url=data[6],
             criteria=data[7],
+            seen=data[8] if data[8] else False,
         )
 
     def to_dict(self) -> Dict[str, Any]:
