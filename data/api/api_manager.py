@@ -6,7 +6,6 @@ from fastapi import Request, Query, BackgroundTasks, Depends
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 
-from common.genie_logger import tenant_id
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse, RedirectResponse
 from fastapi import HTTPException

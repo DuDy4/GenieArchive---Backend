@@ -81,5 +81,5 @@ def clean_persons():
 
 
 # clean_persons()
-test_meetings()
+# test_meetings()
 

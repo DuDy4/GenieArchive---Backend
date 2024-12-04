@@ -5,7 +5,6 @@ import random
 
 from common.utils import env_utils
 
-# from ..models import Models
 from langchain import hub
 from langchain_openai import ChatOpenAI
 from langsmith.utils import LangSmithConnectionError
@@ -27,17 +26,26 @@ class Langsmith:
     async def get_profile(self, person_data, company_data=None, news_data=None, seller_context=None):
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
-        logger.debug(f"Person data: {person_data.keys()}")
-        strengths = await self.run_prompt_strength(person_data, news_data)
+        # strengths = await self.run_prompt_strength(person_data, news_data)
+        strengths_task = asyncio.create_task(self.run_prompt_strength(person_data, news_data))
+        work_history_summary_task = asyncio.create_task(self.get_work_history_summary(person_data, person_data.get("work_history", [])))
+        strengths = await strengths_task
         logger.info(f"Strengths from Langsmith: {strengths}")
+
+        person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
+        get_to_know_task = asyncio.create_task(self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context))
+
+        work_history = await work_history_summary_task
+        logger.info(f"Work history from Langsmith: {work_history}")
+        person_data["work_history_summary"] = work_history
+
+        get_to_know = await get_to_know_task
+        logger.info(f"Get to know from Langsmith: {get_to_know}")
+        person_data["get_to_know"] = get_to_know
+
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
-        person_data["strengths"] = strengths.get("strengths") if strengths.get("strengths") else strengths
-        return await self.get_get_to_know(person_data, company_data, news_data, seller_context)
-
-    async def get_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
-        get_to_know = await self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context)
-        person_data["get_to_know"] = get_to_know
+        logger.info(f"Profile from Langsmith: {person_data}")
         return person_data
 
     def run_prompt_profile_person(self, person_data):
@@ -52,6 +60,7 @@ class Langsmith:
         return response
 
     async def run_prompt_strength(self, person_data, news_data=None):
+        logger.info("Running Langsmith prompt for strengths")
         prompt = hub.pull("get_strengths_with_social_media") if news_data else hub.pull("get_strengths")
         runnable = prompt | self.model
         arguments = {"personal_data": person_data, "social_media_posts": news_data if news_data else None}
@@ -60,8 +69,6 @@ class Langsmith:
             response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
-
-        logger.debug(f"Got strengths from Langsmith: {response}")
         return response
 
     async def run_prompt_action_items(self, person_data, action_item, action_item_criteria, company_data=None, seller_context=None):
@@ -359,4 +366,8 @@ class Langsmith:
         except Exception as e:
             response = f"Error: {e}"
         return response
-    
+
+    async def get_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
+        get_to_know = await self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context)
+        person_data["get_to_know"] = get_to_know
+        return person_data

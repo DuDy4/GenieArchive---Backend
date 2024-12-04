@@ -4,12 +4,8 @@ import sys
 import asyncio
 
 from data.api_services.linkedin_scrape import HandleLinkedinScrape
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urlunparse
 from pydantic import ValidationError
 
-from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
@@ -136,11 +132,8 @@ class PersonManager(GenieConsumer):
         logger.debug(f"Person: {person_dict}")
         person = PersonDTO.from_dict(person_dict)
         person.uuid = self.persons_repository.save_person(person)
-
-        person_json = person.to_json()
-        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, person_json, "public")
+        event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, {"person": person.to_dict()})
         event.send()
-        logger.info("Sent 'pdl' event to the event queue")
         return {"status": "success"}
 
     async def handle_email_address(self, event):
@@ -148,14 +141,15 @@ class PersonManager(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             try:
-                logger.info(f"Event body is string")
                 event_body = json.loads(event_body)
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON: {event_body}")
                 return {"error": "Invalid JSON"}
-
         email = event_body.get("email")
         tenant_id = event_body.get("tenant_id")
+        checked_tenant_id = logger.get_tenant_id()
+        Logger.info(f"tenant_id: {tenant_id}, logger_tenant_id: {checked_tenant_id}")
+        Logger.info(f"tenant_id: {tenant_id}, logger_tenant_id: {checked_tenant_id}")
         logger.info(f"Got data from event: Tenant: {tenant_id}, Email: {email}")
 
         person = self.persons_repository.find_person_by_email(email)
@@ -165,7 +159,7 @@ class PersonManager(GenieConsumer):
             pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
             apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
             if pdl_personal_data or apollo_personal_data:
-                logger.info(f"Person already has pdl personal data: {person}")
+                logger.info(f"Person already has personal data: {person}")
                 self.ownerships_repository.save_ownership(person.uuid, tenant_id)
                 check_profile = await self.check_profile_data_from_person(person)
                 return {"status": "success"}
@@ -173,7 +167,7 @@ class PersonManager(GenieConsumer):
             logger.info(f"Person found: {person}")
             event = GenieEvent(
                 Topic.PDL_NEW_PERSON_TO_ENRICH,
-                person.to_json(),
+                {"person": person.to_dict(), "tenant_id": tenant_id},
                 "public",
             )
             event.send()
@@ -623,7 +617,12 @@ class PersonManager(GenieConsumer):
             if final_news_data_list:
                 self.personal_data_repository.update_news_list_to_db(uuid, final_news_data_list, PersonalDataRepository.FETCHED)
             if news_data_objects:
-                event = GenieEvent(Topic.NEW_PERSONAL_DATA, {"person_uuid": uuid, "force": True}, "public")
+                event = GenieEvent(Topic.NEW_PERSONAL_NEWS, {"person_uuid": uuid, "force": True})
+                event.send()
+            else:
+                logger.info(f"No new posts found for {uuid}")
+                event = GenieEvent(Topic.FAILED_TO_GET_PERSONAL_NEWS,
+                   {"person_uuid": uuid})
                 event.send()
             return {"posts": news_data_objects}
         else:
@@ -631,10 +630,10 @@ class PersonManager(GenieConsumer):
             return {"error": "No need to scrape LinkedIn posts"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):
+        logger.info(f"Checking profile data for person: {person}")
         if not person:
             logger.error(f"Invalid person data: {person}")
             return {"error": "Invalid person data"}
-        logger.debug(f"Person: {person}")
         pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         fetched_personal_data = None
@@ -646,10 +645,19 @@ class PersonManager(GenieConsumer):
             fetched_personal_data = apollo_personal_data
             new_person = create_person_from_apollo_personal_data(person)
             person = new_person if new_person else person
-        logger.debug(f"Person after verification: {person}")
         self.persons_repository.save_person(person)
+
+        logger.info(f"About to check profile data for person: {person}")
         profile_exists = self.profiles_repository.exists(person.uuid)
-        if not profile_exists:
+        if profile_exists:
+            tenant_id = logger.get_tenant_id()
+            logger.info(f"person_uuid: {person.uuid}, tenant_id: {tenant_id}")
+            sales_criteria, action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person.uuid, tenant_id)
+            if not sales_criteria or not action_items:
+                event = GenieEvent(Topic.NEW_PERSONAL_DATA,
+                                   {"person": person.to_dict(), "personal_data": fetched_personal_data})
+                event.send()
+        else:
             logger.warning("Profile does not exist in database")
             event = GenieEvent(
                 Topic.NEW_PERSONAL_DATA,
