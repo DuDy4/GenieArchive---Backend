@@ -2,8 +2,6 @@ import json
 import traceback
 from typing import Union
 
-from select import select
-
 from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
 import psycopg2
 

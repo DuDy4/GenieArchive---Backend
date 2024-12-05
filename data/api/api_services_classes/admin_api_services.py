@@ -32,7 +32,7 @@ from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     tenant_profiles_repository,
 )
-from common.genie_logger import GenieLogger, tenant_id
+from common.genie_logger import GenieLogger
 import uuid
 from fastapi import HTTPException
 

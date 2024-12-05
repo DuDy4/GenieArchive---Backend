@@ -20,6 +20,8 @@ from data.api.api_services_classes.user_materials_services import UserMaterialSe
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 
+from common.genie_logger import GenieLogger
+
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
