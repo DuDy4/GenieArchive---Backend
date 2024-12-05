@@ -153,7 +153,7 @@ class FileUploadRepository:
                                 email=file[5],
                                 tenant_id=file[6],
                                 status=file[7],
-                                categories=file[8]
+                                categories=file[8] if file[8] else [],
                             )
                             for file in files
                         ]

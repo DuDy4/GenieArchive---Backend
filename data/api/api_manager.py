@@ -600,8 +600,8 @@ async def create_fake_meeting(request: Request) -> JSONResponse:
         tenant_id = request.state.tenant_id
         emails = body.get("emails")
         logger.info(f"Creating fake meeting for tenant: {tenant_id} and emails: {emails}")
-        response = meetings_api_service.create_fake_meeting(tenant_id, emails)
-        return JSONResponse(content=response)
+        meetings_api_service.create_fake_meeting(tenant_id, emails)
+        return JSONResponse(content={"status": "success", "message": "Fake meeting created"})
     else:
         raise HTTPException(status_code=403, detail="Forbidden endpoint")
 

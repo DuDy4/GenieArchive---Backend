@@ -2,7 +2,6 @@ import json
 import sys
 import os
 import asyncio
-from os.path import exists
 
 from dotenv import load_dotenv
 

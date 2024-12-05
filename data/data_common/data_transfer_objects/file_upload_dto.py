@@ -36,7 +36,7 @@ class FileUploadDTO(BaseModel):
     email: EmailStr
     tenant_id: str
     status: FileStatusEnum
-    categories: Optional[List[FileCategoryEnum]] = None
+    categories: List[FileCategoryEnum] = []
 
     @field_validator("file_name", "email", "tenant_id")
     def not_empty(cls, value):
@@ -70,7 +70,7 @@ class FileUploadDTO(BaseModel):
             email=data[5],
             tenant_id=data[6],
             status=FileStatusEnum(data[7]),
-            categories=data[8],
+            categories=data[8] if data[8] else [],
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -83,7 +83,7 @@ class FileUploadDTO(BaseModel):
             "email": self.email,
             "tenant_id": self.tenant_id,
             "status": self.status,
-            "categories": self.categories,
+            "categories": self.categories if self.categories else [],
         }
 
     @classmethod
