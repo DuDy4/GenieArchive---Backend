@@ -2,8 +2,11 @@ import json
 import sys
 import os
 import asyncio
+from os.path import exists
 
 from dotenv import load_dotenv
+
+from data.data_common.data_transfer_objects.profile_dto import Phrase
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
@@ -38,7 +41,11 @@ CONSUMER_GROUP_LANGSMITH = "langsmithconsumergroup"
 class LangsmithConsumer(GenieConsumer):
     def __init__(self):
         super().__init__(
-            topics=[Topic.NEW_PERSONAL_NEWS, Topic.FAILED_TO_GET_PERSONAL_NEWS, Topic.NEW_BASE_PROFILE, Topic.NEW_PERSON_CONTEXT],
+            topics=[Topic.NEW_PERSONAL_NEWS,
+                    Topic.FAILED_TO_GET_PERSONAL_NEWS,
+                    Topic.NEW_BASE_PROFILE,
+                    Topic.NEW_PERSON_CONTEXT,
+                    Topic.PERSONAL_NEWS_ARE_UP_TO_DATE],
             consumer_group=CONSUMER_GROUP_LANGSMITH,
         )
 
@@ -64,6 +71,9 @@ class LangsmithConsumer(GenieConsumer):
                 await self.handle_new_personal_data(event)
             case Topic.FAILED_TO_GET_PERSONAL_NEWS:
                 logger.info("Failed to get personal news")
+                await self.handle_new_personal_data(event)
+            case Topic.PERSONAL_NEWS_ARE_UP_TO_DATE:
+                logger.info("Personal news are up to date")
                 await self.handle_new_personal_data(event)
             case Topic.NEW_BASE_PROFILE:
                 logger.info("Handling new base profile")
@@ -160,7 +170,14 @@ class LangsmithConsumer(GenieConsumer):
             tenant_sales_criteria, tenant_sales_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person_uuid, tenant_id)
             if not tenant_sales_criteria or not tenant_sales_action_items:
                 logger.info(f"Creating event NEW_BASE_PROFILE for person {person_uuid}")
-                event = GenieEvent(Topic.NEW_BASE_PROFILE, event_body, "public")
+                person = self.persons_repository.get_person(person_uuid)
+                profile_to_send = {
+                    "strengths": [strength.to_dict() for strength in profile.strengths],
+                    "get_to_know": { key: [phrase.to_dict() for phrase in phrases] for key, phrases in profile.get_to_know.items()},
+                    "work_history_summary": profile.work_history_summary,
+                }
+                data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
+                event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
                 event.send()
             logger.info(f"Profile {person_uuid} has tenant sales criteria and action items under tenant {tenant_id}")
             return {"status": "success"}
@@ -219,7 +236,7 @@ class LangsmithConsumer(GenieConsumer):
             "work_history_summary": response.get("work_history_summary"),
         }
 
-        data_to_send = {"person": person.to_dict(), "profile": profile_strengths_get_to_know_work_history_summary}
+        data_to_send = {"person": person.to_dict(), "profile": profile_strengths_get_to_know_work_history_summary, "force_refresh": event_body.get("force")}
 
         logger.info(f"About to send event's data: {data_to_send}")
 
@@ -249,8 +266,14 @@ class LangsmithConsumer(GenieConsumer):
         person = event_body.get("person")
         email_address = person.get("email")
         forced_refresh = event_body.get("force_refresh")
-        
+        seller_tenant_id = logger.get_tenant_id()
+
         company_data = None
+
+        existing_sales_criteria, existing_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person['uuid'], seller_tenant_id)
+        if existing_action_items and existing_sales_criteria and not forced_refresh:
+            logger.info(f"Sales criteria and action items already exist for person {person['uuid']} and tenant {seller_tenant_id}")
+            return {"status": "success"}
 
         if email_address and isinstance(email_address, str) and "@" in email_address:
             company_data = self.company_repository.get_company_from_domain(email_address.split("@")[1])
@@ -268,7 +291,7 @@ class LangsmithConsumer(GenieConsumer):
         }
 
         seller_context = None
-        seller_tenant_id = logger.get_tenant_id()
+        # seller_tenant_id = logger.get_tenant_id()
         if seller_tenant_id:
             seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
             if seller_email:
@@ -278,7 +301,7 @@ class LangsmithConsumer(GenieConsumer):
         person['news'] = personal_news
 
         # Get/create sales criteria
-        existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
+        # existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
         profile_category = determine_profile_category(strengths)
         if not existing_sales_criteria or forced_refresh:
             sales_criterias = get_default_individual_sales_criteria(profile_category)
@@ -287,7 +310,7 @@ class LangsmithConsumer(GenieConsumer):
             sales_criterias = existing_sales_criteria
 
         # Get/create sales action items
-        existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
+        # existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
         if not existing_action_items or forced_refresh:
             action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:

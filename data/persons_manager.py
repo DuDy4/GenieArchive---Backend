@@ -148,8 +148,13 @@ class PersonManager(GenieConsumer):
         email = event_body.get("email")
         tenant_id = event_body.get("tenant_id")
         checked_tenant_id = logger.get_tenant_id()
-        Logger.info(f"tenant_id: {tenant_id}, logger_tenant_id: {checked_tenant_id}")
-        Logger.info(f"tenant_id: {tenant_id}, logger_tenant_id: {checked_tenant_id}")
+        if tenant_id != checked_tenant_id:
+            logger.error(f"Tenant id mismatch: {tenant_id} != {checked_tenant_id}")
+            event = GenieEvent(
+                Topic.BUG_IN_TENANT_ID,
+                {"email": email, "tenant_id": tenant_id},
+                "public",
+            )
         logger.info(f"Got data from event: Tenant: {tenant_id}, Email: {email}")
 
         person = self.persons_repository.find_person_by_email(email)
@@ -627,6 +632,9 @@ class PersonManager(GenieConsumer):
             return {"posts": news_data_objects}
         else:
             logger.info(f"No need to scrape LinkedIn posts for {uuid} as it was scraped recently or never")
+            event = GenieEvent(Topic.PERSONAL_NEWS_ARE_UP_TO_DATE,
+                {"person_uuid": uuid})
+            event.send()
             return {"error": "No need to scrape LinkedIn posts"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):
@@ -648,8 +656,8 @@ class PersonManager(GenieConsumer):
         self.persons_repository.save_person(person)
 
         logger.info(f"About to check profile data for person: {person}")
-        profile_exists = self.profiles_repository.exists(person.uuid)
-        if profile_exists:
+        existing_profile = self.profiles_repository.get_profile_data(person.uuid)
+        if existing_profile: # If there is a profile, check for tenant profile, check if the profile is full - and fix person
             tenant_id = logger.get_tenant_id()
             logger.info(f"person_uuid: {person.uuid}, tenant_id: {tenant_id}")
             sales_criteria, action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person.uuid, tenant_id)
@@ -657,7 +665,25 @@ class PersonManager(GenieConsumer):
                 event = GenieEvent(Topic.NEW_PERSONAL_DATA,
                                    {"person": person.to_dict(), "personal_data": fetched_personal_data})
                 event.send()
-        else:
+            logger.info(f"Has tenant profile for person: {person}")
+            if not existing_profile.strengths or not existing_profile.work_history_summary:
+                logger.info(f"Profile does not have strengths, sending event to langsmith. Email: {person.email}")
+                data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
+                event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send)
+                event.send()
+            # person = create_person_from_apollo_personal_data(person)
+            # if not person:
+            #     logger.error(f"Failed to create person from apollo personal data: {person}")
+            #     return {"error": "Failed to create person from apollo personal data"}
+            # self.persons_repository.save_person(person)
+            # existing_profile.name = person.name
+            # existing_profile.company = person.company
+            # existing_profile.position = person.position
+            # existing_profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
+            # logger.info(f"Profile: {existing_profile}")
+            # self.profiles_repository.save_profile(existing_profile)
+            return {"status": "success"}
+        else: # If there is no profile, create a new one
             logger.warning("Profile does not exist in database")
             event = GenieEvent(
                 Topic.NEW_PERSONAL_DATA,
@@ -670,33 +696,7 @@ class PersonManager(GenieConsumer):
                 " but need to think about a way to do it only if there is no langsmith in progress"
             )
             # self.profiles_repository.save_new_profile_from_person(person)
-            return {"status": "success"}
 
-        try:
-            profile = self.profiles_repository.get_profile_data(person.uuid)
-            if not profile.picture_url:
-                profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
-                logger.info(f"Updated profile picture url: {profile.picture_url}")
-            if not profile.strengths and fetched_personal_data:
-                logger.info(
-                    f"Profile does not have strengths, sending event to langsmith. Email: {person.email}"
-                )
-                data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
-                GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send, "public").send()
-            return {"status": "success"}
-        except ValidationError as e:
-            person = create_person_from_apollo_personal_data(person)
-            if not person:
-                logger.error(f"Failed to create person from apollo personal data: {person}")
-                return {"error": "Failed to create person from apollo personal data"}
-            self.persons_repository.save_person(person)
-            profile.name = person.name
-            profile.company = person.company
-            profile.position = person.position
-            profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
-            logger.info(f"Profile: {profile}")
-            self.profiles_repository.save_profile(profile)
-            return {"status": "success"}
 
     def validate_person(self, person: PersonDTO) -> PersonDTO:
         """

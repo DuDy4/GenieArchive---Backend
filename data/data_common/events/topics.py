@@ -2,6 +2,8 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    PERSONAL_NEWS_ARE_UP_TO_DATE = "personal-news-are-up-to-date"  # News scrapper already has the latest news
+    BUG_IN_TENANT_ID = "bug-in-tenant-id"  # TenantManager found a bug in tenant_id
     NEW_TENANT_PROFILE = "new-tenant-profile"  # TenantManager saved a new tenant profile
     FAILED_TO_GET_PERSONAL_NEWS = "failed-to-get-personal-news"  # News scrapper failed to get news
     NEW_PERSONAL_NEWS = "new-personal-news"  # News scrapper saved news data

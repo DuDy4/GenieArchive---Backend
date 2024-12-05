@@ -146,7 +146,8 @@ class TenantProfilesRepository:
                 traceback.print_exception(error)
         return None
 
-    def get_sales_criteria_and_action_items(self, uuid: str, tenant_id: str) -> tuple[list[SalesCriteria], list[SalesActionItem]]:
+    def get_sales_criteria_and_action_items(self, uuid: str, tenant_id: str) -> (
+            tuple)[list[SalesCriteria] | None, list[SalesActionItem] | None]:
         select_query = """
             SELECT sales_criteria, action_items
             FROM tenant_profiles
@@ -163,6 +164,7 @@ class TenantProfilesRepository:
                         return sales_criteria, action_items
                     else:
                         logger.warning(f"Couldn't find sales criteria and action items for {uuid}")
+                        return None, None
             except Exception as error:
                 logger.error(f"Error fetching sales criteria and action items by uuid: {error}")
                 traceback.print_exception(error)

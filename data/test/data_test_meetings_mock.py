@@ -17,7 +17,7 @@ from data.data_common.dependencies.dependencies import (
 from common.genie_logger import GenieLogger
 logger = GenieLogger()
 
-TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
+# TENANT_ID = 'org_RPLWQRTI8t7EWU1L'
 SELLER_EMAIL = 'asaf@genieai.ai'
 EMAIL = "asaf.savich@trywonder.ai"
 GOOGLE_CALENDAR_ID = "d02e2941"
