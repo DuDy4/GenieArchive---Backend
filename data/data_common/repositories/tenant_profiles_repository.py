@@ -121,32 +121,6 @@ class TenantProfilesRepository:
                 logger.error(f"Error fetching sales criteria by uuid: {error}")
                 traceback.print_exception(error)
         return None
-            
-    def update_sales_criteria(self, uuid: str, tenant_id, sales_criteria: list[SalesCriteria]):
-        update_query = """
-            UPDATE tenant_profiles
-            SET sales_criteria = %s
-            FROM persons
-            WHERE tenant_profiles.profile_uuid = %s AND tenant_profiles.tenant_id = %s;
-            """
-        with db_connection() as conn:
-            try:
-                if not self.exists(uuid, tenant_id):
-                    self._insert(uuid, tenant_id)
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        update_query,
-                        (
-                            json.dumps([sc.to_dict() for sc in sales_criteria]),
-                            uuid,
-                            tenant_id,
-                        ),
-                    )
-                    conn.commit()
-                    logger.info(f"Updated sales criteria for {uuid}")
-            except psycopg2.Error as error:
-                raise Exception(f"Error updating sales criteria, because: {error.pgerror}")
-            
 
     def get_sales_action_items(self, uuid: str, tenant_id: str) -> list[SalesActionItem]:
         select_query = """
@@ -169,6 +143,29 @@ class TenantProfilesRepository:
                 logger.error(f"Error fetching action items by uuid: {error}")
                 traceback.print_exception(error)
         return None
+
+    def get_sales_criteria_and_action_items(self, uuid: str, tenant_id: str) -> (
+            tuple)[list[SalesCriteria] | None, list[SalesActionItem] | None]:
+        select_query = """
+            SELECT sales_criteria, action_items
+            FROM tenant_profiles
+            WHERE profile_uuid = %s AND tenant_id = %s;
+            """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (uuid, tenant_id))
+                    row = cursor.fetchone()
+                    if row:
+                        sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
+                        action_items = [SalesActionItem.from_dict(item) for item in row[1]]
+                        return sales_criteria, action_items
+                    else:
+                        logger.warning(f"Couldn't find sales criteria and action items for {uuid}")
+                        return None, None
+            except Exception as error:
+                logger.error(f"Error fetching sales criteria and action items by uuid: {error}")
+                traceback.print_exception(error)
 
     def get_all_uuids_and_tenants_id_without_action_items(self, forced: bool = False):
         select_query = f"""
@@ -195,7 +192,32 @@ class TenantProfilesRepository:
             except psycopg2.Error as error:
                 raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
 
-    
+    def update_sales_criteria(self, uuid: str, tenant_id, sales_criteria: list[SalesCriteria]):
+        update_query = """
+                UPDATE tenant_profiles
+                SET sales_criteria = %s
+                FROM persons
+                WHERE tenant_profiles.profile_uuid = %s AND tenant_profiles.tenant_id = %s;
+                """
+        with db_connection() as conn:
+            try:
+                if not self.exists(uuid, tenant_id):
+                    self._insert(uuid, tenant_id)
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            json.dumps([sc.to_dict() for sc in sales_criteria]),
+                            uuid,
+                            tenant_id,
+                        ),
+                    )
+                    conn.commit()
+                    logger.info(f"Updated sales criteria for {uuid}")
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating sales criteria, because: {error.pgerror}")
+
+
     def update_sales_action_items(self, uuid: str, tenant_id: str, action_items: list[SalesActionItem]):
         update_query = """
             UPDATE tenant_profiles

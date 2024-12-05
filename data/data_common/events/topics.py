@@ -2,10 +2,14 @@ class Topic:
     # Events that notify about new objects in the system
 
     # New objects events
+    PERSONAL_NEWS_ARE_UP_TO_DATE = "personal-news-are-up-to-date"  # News scrapper already has the latest news
+    BUG_IN_TENANT_ID = "bug-in-tenant-id"  # TenantManager found a bug in tenant_id
+    NEW_TENANT_PROFILE = "new-tenant-profile"  # TenantManager saved a new tenant profile
+    FAILED_TO_GET_PERSONAL_NEWS = "failed-to-get-personal-news"  # News scrapper failed to get news
+    NEW_PERSONAL_NEWS = "new-personal-news"  # News scrapper saved news data
     EMAIL_SENDING_FAILED = "email-sending-failed"  # Email sending failed
     FAILED_TO_GET_PROFILE_PICTURE = "failed-to-get-profile-picture"  # PersonManager failed to get profile picture
     NEW_UPCOMING_MEETING = "new-upcoming-meeting"  # MeetingConsumer saved a new meeting
-    NEW_NEWS_DATA = "new-news-data"  # News scrapper saved news data
     NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
     NEW_PERSON_CONTEXT = "new-person-context"
     NEW_MEETING_GOALS = (

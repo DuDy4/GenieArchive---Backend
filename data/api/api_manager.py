@@ -8,7 +8,6 @@ from deep_translator import GoogleTranslator
 from sse_starlette.sse import EventSourceResponse
 
 
-from common.genie_logger import tenant_id
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse, RedirectResponse
 from fastapi import HTTPException
@@ -22,6 +21,8 @@ from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
+
+from common.genie_logger import GenieLogger
 
 
 logger = GenieLogger()

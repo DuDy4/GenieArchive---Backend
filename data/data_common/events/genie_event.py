@@ -29,7 +29,7 @@ class GenieEvent:
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
         event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id, "tenant_id" : self.tenant_id}
-        logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope}]")
+        logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope};TENANT_ID={self.tenant_id}]")
         event_data_batch.add(event)
 
         # Send the batch
