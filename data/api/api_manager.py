@@ -1,3 +1,4 @@
+import json
 from typing import Union
 
 import requests
@@ -190,10 +191,7 @@ async def badge_notifications_stream(request: Request):
             unseen_badge_ids = badges_api_service.get_unseen_badges(tenant_id)
 
             if unseen_badge_ids:
-                yield {
-                    "event": "unseen-badges",
-                    "data": unseen_badge_ids,
-                }
+                yield json.dumps(unseen_badge_ids)
 
             await asyncio.sleep(2)
 
