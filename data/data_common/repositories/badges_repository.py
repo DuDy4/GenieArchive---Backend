@@ -230,6 +230,30 @@ class BadgesRepository:
                 logger.error(f"Error marking badge as seen: {error}")
                 traceback.print_exc()
                 return False
+            
+
+    def get_unseen_badges(self, email: str) -> list[str]:
+        """
+        Returns for a user has any unseen badges.
+
+        :param email: The user's ID.
+        :return: list of unseend badges
+        """
+        select_query = """
+        SELECT badge_id FROM user_badges
+        WHERE email = %s
+        AND seen = FALSE;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email,))
+                    result = cursor.fetchall()
+                    return [badge[0] for badge in result] if result else []
+            except psycopg2.Error as error:
+                logger.error(f"Error checking for unseen badges: {error}")
+                traceback.print_exc()
+                return False
 
     def get_user_all_current_badges_progress(self, email: str) -> list[DetailedUserBadgeProgressDTO]:
         """
@@ -243,7 +267,7 @@ class BadgesRepository:
         FROM badges b
         LEFT JOIN user_badges ub ON ub.badge_id = b.badge_id
         LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
-                AND email = %s;
+                AND ubp.email = %s;
         """
         with db_connection() as conn:
             try:

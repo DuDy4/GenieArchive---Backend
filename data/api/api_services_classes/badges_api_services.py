@@ -59,6 +59,17 @@ class BadgesApiService:
         if self.badges_repository.mark_badges_as_seen(email):
             logger.info(f"Marked badges as seen for user {email}")
 
+
+    def get_unseen_badges(self, tenant_id: str) -> list[str]:
+        """
+        Returns any unseen badges for a user.
+
+        :param tenant_id: The ID of the tenant/user.
+        :return: list of unseen badges
+        """
+        email = self.tenants_repository.get_tenant_email(tenant_id)
+        return self.badges_repository.get_unseen_badges(email)
+
     def handle_event(self, email: str, action: str, entity: str, entity_id: str):
         """
         Handles various user events (e.g., profile view, meeting view, login) and updates badge progress.

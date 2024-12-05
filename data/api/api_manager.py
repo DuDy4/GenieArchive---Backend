@@ -1,10 +1,12 @@
 from typing import Union
 
 import requests
-
-from fastapi import Request, Query, BackgroundTasks, Depends
+import asyncio
+from fastapi import Request, Query, BackgroundTasks
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
+from sse_starlette.sse import EventSourceResponse
+
 
 from common.genie_logger import tenant_id
 from common.utils import env_utils, email_utils
@@ -169,6 +171,33 @@ async def post_successful_login(
     logger.info(f"Received auth data: {auth_data}")
     response = tenants_api_service.post_successful_login(auth_data)
     return {"verdict": "allow", "response": response}
+
+@v1_router.get("/notifications/badges")
+async def badge_notifications_stream(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail="Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"
+        )
+
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            logger.info("SSE Request Triggered. Fetching unseen badges")
+            unseen_badge_ids = badges_api_service.get_unseen_badges(tenant_id)
+
+            if unseen_badge_ids:
+                yield {
+                    "event": "unseen-badges",
+                    "data": unseen_badge_ids,
+                }
+
+            await asyncio.sleep(2)
+
+    return EventSourceResponse(event_generator())
+
 
 
 @v1_router.post("/users/login-event")
