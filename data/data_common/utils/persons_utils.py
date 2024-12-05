@@ -199,22 +199,6 @@ profiles_explanation = {
     },
 }
 
-# def determining_deal_sales_criteria(company_uuid: list[str]) -> str:
-#     company_profiles = companies_repository.get_company_profiles(company_uuid)
-#     list_of_profiles_strengths = [profile.strengths for profile in company_profiles]
-#     if not list_of_profiles_strengths:
-#         return None
-#     for profile_strengths in list_of_profiles_strengths:
-#         if not profile_strengths:
-#             continue
-#         profile_strengths = [strength for strength in profile_strengths if strength.strength_name in strengths_mapping]
-#         if not profile_strengths:
-#             continue
-#         profile_category = determine_profile_category(profile_strengths)
-#         if profile_category:
-#             return profile_category.category
-
-
 profiles_colors = {
     "The Analytical": "#fed101",  # Yellow
     "The connector": "#2b75de",      # Blue

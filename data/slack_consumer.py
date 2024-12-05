@@ -40,7 +40,8 @@ class SlackConsumer(GenieConsumer):
                 Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
                 Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
-                Topic.EMAIL_SENDING_FAILED
+                Topic.EMAIL_SENDING_FAILED,
+                Topic.BUG_IN_TENANT_ID
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -66,6 +67,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.EMAIL_SENDING_FAILED:
                 logger.info("Handling failed email sending")
                 await self.handle_email_sender_failed(event)
+            case Topic.BUG_IN_TENANT_ID:
+                logger.info("Handling bug in tenant id")
+                await self.handle_bug_in_tenant_id(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -159,6 +163,16 @@ class SlackConsumer(GenieConsumer):
         send_message(message, channel="email")
         return {"status": "ok"}
 
+    async def handle_bug_in_tenant_id(self, event):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        tenant_id = event_body.get("tenant_id")
+        logger_tenant_id = logger.get_tenant_id()
+        message = f"[CTX={logger.get_ctx_id()}] found a bug in tenant_id: {tenant_id} and logger_tenant_id: {logger_tenant_id}."
+        send_message(message)
+        return {"status": "ok"}
 
 
 if __name__ == "__main__":

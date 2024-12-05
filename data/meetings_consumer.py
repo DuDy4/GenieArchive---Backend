@@ -443,9 +443,7 @@ class MeetingManager(GenieConsumer):
             seller_context = None
             if tenant_id:
                 seller_email = self.tenant_repository.get_tenant_email(tenant_id)
-                seller_context = self.embeddings_client.search_materials_by_prospect_data(
-                    seller_email, profile
-                )
+                seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, profile)
                 seller_context = " || ".join(seller_context) if seller_context else None
             logger.info("About to run ask langsmith for guidelines")
             agendas = await self.langsmith.run_prompt_get_meeting_guidelines(
