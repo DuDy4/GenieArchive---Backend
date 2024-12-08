@@ -3,7 +3,7 @@ import psycopg2
 import json
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
-from typing import List, Optional
+from typing import List, Optional, Any
 from data.data_common.data_transfer_objects.badges_dto import (
     BadgeDTO,
     UserBadgeDTO,
@@ -35,7 +35,9 @@ class BadgesRepository:
             user_badge_id UUID PRIMARY KEY,
             email VARCHAR NOT NULL,
             badge_id UUID NOT NULL,
-            earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            first_earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            seen BOOLEAN DEFAULT FALSE
         );
         """
         user_badge_progress_table_query = """
@@ -110,11 +112,27 @@ class BadgesRepository:
                 traceback.print_exc()
                 return []
 
+    def exist_user_badge(self, email: str, badge_id: str) -> bool:
+        select_query = """
+        SELECT * FROM user_badges
+        WHERE email = %s
+        AND badge_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email, badge_id))
+                    return bool(cursor.fetchone())
+            except psycopg2.Error as error:
+                logger.error(f"Error checking for user badge: {error}")
+                traceback.print_exc()
+                return False
+
     # User Badge Methods
     def insert_user_badge(self, user_badge: UserBadgeDTO) -> Optional[str]:
         insert_query = """
-        INSERT INTO user_badges (user_badge_id, email, badge_id, earned_at, seen)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO user_badges (user_badge_id, email, badge_id, first_earned_at, last_earned_at, seen)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING user_badge_id;
         """
         user_badge_data = user_badge.to_tuple()
@@ -134,8 +152,54 @@ class BadgesRepository:
                 traceback.print_exc()
                 return None
 
+    def save_user_badge(self, user_badges: UserBadgeDTO) -> str | None | Any:
+        if self.exist_user_badge(str(user_badges.email), str(user_badges.badge_id)):
+            return self.update_user_badge(user_badges)
+        else:
+            return self.insert_user_badge(user_badges)
+
+    def update_user_badge(self, user_badge: UserBadgeDTO) -> Optional[str]:
+        update_query = """
+        UPDATE user_badges
+        SET last_earned_at = %s, seen = %s
+        WHERE email = %s AND badge_id = %s
+        RETURNING user_badge_id;
+        """
+        user_badge_data = (user_badge.last_earned_at, user_badge.seen, str(user_badge.email), str(user_badge.badge_id))
+
+        logger.info(f"About to update user badge data: {user_badge_data}")
+
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, user_badge_data)
+                    conn.commit()
+                    user_badge_id = cursor.fetchone()[0]
+                    logger.info(f"Updated user badge in database. User Badge ID: {user_badge_id}")
+                    return user_badge_id
+            except psycopg2.Error as error:
+                logger.error(f"Error updating user badge: {error.pgerror}")
+                return None
+
+    def get_user_badge(self, email: str, badge_id: str) -> Optional[UserBadgeDTO]:
+        select_query = """
+        SELECT user_badge_id, email, badge_id, first_earned_at, last_earned_at, seen
+        FROM user_badges WHERE email = %s AND badge_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (email, badge_id))
+                    user_badge = cursor.fetchone()
+                    return UserBadgeDTO.from_tuple(user_badge) if user_badge else None
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving user badge: {error}")
+                traceback.print_exc()
+                return None
+
     def get_user_badges(self, email: str) -> List[UserBadgeDTO]:
-        select_query = "SELECT * FROM user_badges WHERE email = %s;"
+        select_query = """SELECT user_badge_id, email, badge_id, first_earned_at, last_earned_at, seen
+         FROM user_badges WHERE email = %s;"""
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
@@ -265,14 +329,14 @@ class BadgesRepository:
         select_query = """
         SELECT ubp.email, b.badge_id, ubp.progress, ubp.last_updated, b.name, b.description, b.icon_url, b.criteria, ub.seen
         FROM badges b
-        LEFT JOIN user_badges ub ON ub.badge_id = b.badge_id
+        LEFT JOIN user_badges ub ON ub.badge_id = b.badge_id AND ub.email = %s
         LEFT JOIN user_badge_progress ubp ON ubp.badge_id = b.badge_id
-                AND ubp.email = %s;
+		AND ubp.email = %s
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (email,))
+                    cursor.execute(select_query, (email, email))
                     result = cursor.fetchall()
                     if result:
                         formatted_results = []
@@ -289,3 +353,21 @@ class BadgesRepository:
                 logger.error(f"Error retrieving user badge progress: {error}")
                 traceback.print_exc()
                 return []
+
+    def get_last_earned_at(self, email: str, badge_id: str) -> bool:
+        query = f"""
+            SELECT last_earned_at FROM user_badges
+            WHERE email = %s AND badge_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (email, badge_id))
+                    result = cursor.fetchone()
+                    return result[0] if result else None
+            except psycopg2.Error as error:
+                logger.error(f"Error retrieving last earned at: {error}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return False
