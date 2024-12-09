@@ -42,10 +42,33 @@ class BadgesApiService:
                         "goal": badge.criteria["count"],
                     },
                     "icon_url": badge.badge_icon_url,
+                    "seen": badge.seen,
                 }
             )
         logger.info(f"User {email} has {len(formatted_badges)} badges")
         return formatted_badges
+    
+    def mark_badges_as_seen(self, tenant_id: str):
+        """
+        Marks a badge as seen by the user.
+
+        :param tenant_id: The ID of the tenant/user.
+        :param badge_id: The ID of the badge to mark as seen.
+        """
+        email = self.tenants_repository.get_tenant_email(tenant_id)
+        if self.badges_repository.mark_badges_as_seen(email):
+            logger.info(f"Marked badges as seen for user {email}")
+
+
+    def get_unseen_badges(self, tenant_id: str) -> list[str]:
+        """
+        Returns any unseen badges for a user.
+
+        :param tenant_id: The ID of the tenant/user.
+        :return: list of unseen badges
+        """
+        email = self.tenants_repository.get_tenant_email(tenant_id)
+        return self.badges_repository.get_unseen_badges(email)
 
     def handle_event(self, email: str, action: str, entity: str, entity_id: str):
         """
@@ -114,10 +137,10 @@ class BadgesApiService:
         if badge.criteria["type"] == event_type:
             count = current_progress.get("count", 0) + 1
             new_progress = {"count": count}
-
             # Check if the new progress meets the badge criteria
             if count >= badge.criteria["count"]:
-                self.award_badge(email, badge.badge_id)
+                logger.info(f"Badge {badge.badge_id} criteria met")
+                self.award_badge(email, str(badge.badge_id), badge.criteria["frequency"])
 
             # Update progress in the database
             progress_dto = UserBadgeProgressDTO(
@@ -154,21 +177,43 @@ class BadgesApiService:
             reset_time -= datetime.timedelta(days=7)
         return last_updated >= reset_time
 
-    def award_badge(self, email: str, badge_id: str):
+    def award_badge(self, email: str, badge_id: str, frequency: str):
         """
         Awards a badge to the user if the progress criteria are met.
 
         :param email: The email of the tenant/user.
         :param badge_id: The ID of the badge to award.
+        :param frequency: The frequency of the badge (e.g., "daily", "weekly").
         """
         # Check if the user already has this badge
-        user_badges = self.badges_repository.get_user_badges(email)
-        if badge_id in [badge.badge_id for badge in user_badges]:
-            return  # User already has this badge
+        # user_badges = self.badges_repository.get_user_badges(email)
+        # if badge_id in [badge.badge_id for badge in user_badges]:
+        #     logger.info(f"User {email} already has badge {badge_id}")
+        #     return
+
+
+        user_badge_in_db = self.badges_repository.get_user_badge(email, badge_id)
+
+        if user_badge_in_db and user_badge_in_db.last_earned_at:
+            if frequency == "daily" and self.is_within_daily_window(user_badge_in_db.last_earned_at, datetime.datetime.utcnow()):
+                logger.info(f"User {email} already has badge {badge_id}")
+                return
+            elif frequency == "weekly" and self.is_within_weekly_window(user_badge_in_db.last_earned_at, datetime.datetime.utcnow()):
+                logger.info(f"User {email} already has badge {badge_id}")
+                return
+            elif frequency == "alltime":
+                logger.info(f"User {email} already has badge {badge_id}")
+                return
 
         # Award the badge
         user_badge_dto = UserBadgeDTO(
-            user_badge_id=get_uuid4(), email=email, badge_id=badge_id, earned_at=datetime.datetime.utcnow()
+            user_badge_id=get_uuid4(),
+            email=email,
+            badge_id=badge_id,
+            first_earned_at=datetime.datetime.utcnow(),
+            last_earned_at=datetime.datetime.utcnow(),
         )
-        self.badges_repository.insert_user_badge(user_badge_dto)
+        logger.info(f"Awarding badge: {user_badge_dto}")
+        # self.badges_repository.insert_user_badge(user_badge_dto)
+        self.badges_repository.save_user_badge(user_badge_dto)
         logger.info(f"Awarded badge {badge_id} to user {email}")
