@@ -6,7 +6,7 @@ import random
 from common.utils import env_utils
 
 from langchain import hub
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langsmith.utils import LangSmithConnectionError
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
@@ -21,7 +21,9 @@ class Langsmith:
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = env_utils.get("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
         self.model = ChatOpenAI(model="gpt-4o")
+        self.azure_model = AzureChatOpenAI()
         self.embeddings_client = GenieEmbeddingsClient()
+        
 
     async def get_profile(self, person_data, company_data=None, news_data=None, seller_context=None):
         # Run the two prompts concurrently
@@ -371,3 +373,7 @@ class Langsmith:
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context)
         person_data["get_to_know"] = get_to_know
         return person_data
+
+
+
+    
