@@ -203,6 +203,9 @@ class BadgesApiService:
             elif frequency == "weekly" and self.is_within_weekly_window(user_badge_in_db.last_earned_at, datetime.datetime.utcnow()):
                 logger.info(f"User {email} already has badge {badge_id}")
                 return
+            elif frequency == "alltime":
+                logger.info(f"User {email} already has badge {badge_id}")
+                return
 
         # Award the badge
         user_badge_dto = UserBadgeDTO(
