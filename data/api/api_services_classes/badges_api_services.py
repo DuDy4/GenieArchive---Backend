@@ -137,8 +137,6 @@ class BadgesApiService:
         if badge.criteria["type"] == event_type:
             count = current_progress.get("count", 0) + 1
             new_progress = {"count": count}
-
-            logger.info(f"New progress for badge {badge.badge_id}: {new_progress}")
             # Check if the new progress meets the badge criteria
             if count >= badge.criteria["count"]:
                 logger.info(f"Badge {badge.badge_id} criteria met")
