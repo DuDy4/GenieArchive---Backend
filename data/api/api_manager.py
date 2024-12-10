@@ -110,13 +110,17 @@ async def unsubscribe(tenant_id: str):
 
 
 @v1_router.post("/generate-upload-url")
-async def get_file_upload_url(request: Request):
+async def get_file_upload_url(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
         raise HTTPException(
             status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
         )
-
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        logger.info(f"Impersonating tenant: {allowed_impersonate_tenant_id}")
+        tenant_id = allowed_impersonate_tenant_id
+    logger.info(f"Generating upload URL for tenant: {tenant_id}")
     body = await request.json()
     if not body or not body["file_name"]:
         raise HTTPException(status_code=401, detail=f"""Missing filename""")
@@ -126,12 +130,15 @@ async def get_file_upload_url(request: Request):
 
 
 @v1_router.get("/uploaded-files")
-async def get_file_upload_url(request: Request):
+async def get_file_upload_url(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
         raise HTTPException(
             status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
         )
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        tenant_id = allowed_impersonate_tenant_id
     uploaded_files = user_materials_service.get_all_files(tenant_id)
     if not uploaded_files:
         return JSONResponse(content=[])
