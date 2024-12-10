@@ -12,6 +12,7 @@ COPY uv.lock .
 COPY .python-version .
 COPY data ./data
 COPY ai ./ai
+COPY templates ./templates
 
 RUN uv sync
 ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
