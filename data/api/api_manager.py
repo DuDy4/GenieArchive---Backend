@@ -1,12 +1,15 @@
+import json
 from typing import Union
 
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import requests
-
-from fastapi import Form, Request, Query, BackgroundTasks, Depends
+import asyncio
+from fastapi import Form, Request, Query, BackgroundTasks
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
+from sse_starlette.sse import EventSourceResponse
+
 
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse, RedirectResponse
@@ -111,13 +114,17 @@ async def unsubscribe(tenant_id: str):
 
 
 @v1_router.post("/generate-upload-url")
-async def get_file_upload_url(request: Request):
+async def get_file_upload_url(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
         raise HTTPException(
             status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
         )
-
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        logger.info(f"Impersonating tenant: {allowed_impersonate_tenant_id}")
+        tenant_id = allowed_impersonate_tenant_id
+    logger.info(f"Generating upload URL for tenant: {tenant_id}")
     body = await request.json()
     if not body or not body["file_name"]:
         raise HTTPException(status_code=401, detail=f"""Missing filename""")
@@ -127,12 +134,15 @@ async def get_file_upload_url(request: Request):
 
 
 @v1_router.get("/uploaded-files")
-async def get_file_upload_url(request: Request):
+async def get_file_upload_url(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
     tenant_id = get_request_state_value(request, "tenant_id")
     if not tenant_id:
         raise HTTPException(
             status_code=401, detail=f"""Unauthorized request. JWT is missing tenant id or tenant id invalid"""
         )
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        tenant_id = allowed_impersonate_tenant_id
     uploaded_files = user_materials_service.get_all_files(tenant_id)
     if not uploaded_files:
         return JSONResponse(content=[])
@@ -152,6 +162,15 @@ async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str]
     badges_progress = badges_api_service.get_user_badges_status(tenant_id=tenant_id)
     return JSONResponse(content=badges_progress)
 
+@v1_router.post("/badge-seen")
+def mark_badge_as_seen(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"""
+        )
+    badges_api_service.mark_badges_as_seen(tenant_id)
+    return JSONResponse(content={"status": "success", "message": "Badge marked as seen"})
 
 @v1_router.post("/successful-login")
 async def post_successful_login(
@@ -165,6 +184,30 @@ async def post_successful_login(
     logger.info(f"Received auth data: {auth_data}")
     response = tenants_api_service.post_successful_login(auth_data)
     return {"verdict": "allow", "response": response}
+
+@v1_router.get("/notifications/badges")
+async def badge_notifications_stream(request: Request):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401, detail="Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"
+        )
+
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            logger.info("SSE Request Triggered. Fetching unseen badges")
+            unseen_badge_ids = badges_api_service.get_unseen_badges(tenant_id)
+
+            if unseen_badge_ids:
+                yield json.dumps(unseen_badge_ids)
+
+            await asyncio.sleep(2)
+
+    return EventSourceResponse(event_generator())
+
 
 
 @v1_router.post("/users/login-event")

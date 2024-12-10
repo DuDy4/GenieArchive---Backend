@@ -273,6 +273,8 @@ class MeetingDTO:
 
 
 def evaluate_meeting_classification(participants_emails: List[dict]) -> MeetingClassification:
+    if len(participants_emails) > 14:
+        return MeetingClassification.INTERNAL
     if len(participants_emails) <= 1:
         logger.info(f"Classifying meeting as PRIVATE with participants {participants_emails}")
         return MeetingClassification.PRIVATE
