@@ -28,8 +28,10 @@ class BadgesApiService:
         """
         email = self.tenants_repository.get_tenant_email(tenant_id)
         badges_progress = self.badges_repository.get_user_all_current_badges_progress(email)
+        logger.info(f"User {email} has {badges_progress}")
         formatted_badges = []
         for badge in badges_progress:
+            progress, last_updated = self.check_progress_by_frequency(badge.progress, badge.criteria.get("frequency"), badge.last_updated)
             formatted_badges.append(
                 {
                     "badge_id": str(badge.badge_id),
@@ -38,7 +40,7 @@ class BadgesApiService:
                     "frequency": badge.criteria["frequency"],
                     "progress": {
                         "type": badge.criteria["type"],
-                        "count": badge.progress["count"] if badge.progress else 0,
+                        "count": progress.get("count") if progress else 0,
                         "goal": badge.criteria["count"],
                     },
                     "icon_url": badge.badge_icon_url,
@@ -120,26 +122,27 @@ class BadgesApiService:
         now = datetime.datetime.utcnow()
 
         # Reset progress if it's a daily badge and the date has passed 3 AM UTC
-        if badge.criteria["frequency"] == "daily":
-            if last_updated:
-                # Check if the current time is beyond the 3 AM reset point
-                if not self.is_within_daily_window(last_updated, now):
-                    current_progress = {"count": 0}
+        # if badge.criteria["frequency"] == "daily":
+        #     if last_updated:
+        #         # Check if the current time is beyond the 3 AM reset point
+        #         if not self.is_within_daily_window(last_updated, now):
+        #             current_progress = {"count": 0}
+        #
+        # # Reset progress if it's a weekly badge and the date has passed Sunday 3 AM UTC
+        # elif badge.criteria["frequency"] == "weekly":
+        #     if last_updated:
+        #         # Check if the current time is beyond the weekly reset point
+        #         if not self.is_within_weekly_window(last_updated, now):
+        #             current_progress = {"count": 0}
 
-        # Reset progress if it's a weekly badge and the date has passed Sunday 3 AM UTC
-        elif badge.criteria["frequency"] == "weekly":
-            if last_updated:
-                # Check if the current time is beyond the weekly reset point
-                if not self.is_within_weekly_window(last_updated, now):
-                    current_progress = {"count": 0}
+        current_progress, last_updated = self.check_progress_by_frequency(current_progress, badge.criteria.get("frequency"), last_updated)
 
         # Update progress based on the event type and badge criteria
-        if badge.criteria["type"] == event_type:
+        if badge.criteria.get("type") and badge.criteria.get("type") == event_type:
             count = current_progress.get("count", 0) + 1
             new_progress = {"count": count}
             # Check if the new progress meets the badge criteria
             if count >= badge.criteria["count"]:
-                logger.info(f"Badge {badge.badge_id} criteria met")
                 self.award_badge(email, str(badge.badge_id), badge.criteria["frequency"])
 
             # Update progress in the database
@@ -147,6 +150,27 @@ class BadgesApiService:
                 email=email, badge_id=str(badge.badge_id), progress=new_progress, last_updated=now
             )
             self.badges_repository.update_user_badge_progress(progress_dto)
+
+    def check_progress_by_frequency(self, progress: dict, frequency: str, last_updated: datetime):
+        """
+        Handles the badge frequency logic for daily and weekly badges.
+
+        :param progress: The current badge progress.
+        :param frequency: The frequency of the badge (e.g., "daily", "weekly").
+        :param last_updated: The timestamp of the last update.
+        """
+        if not progress or not last_updated:
+            logger.error("Invalid progress or last_updated")
+            return progress, last_updated
+        if frequency == "daily":
+            if not self.is_within_daily_window(last_updated, datetime.datetime.utcnow()):
+                progress["count"] = 0
+                last_updated = datetime.datetime.utcnow()
+        elif frequency == "weekly":
+            if not self.is_within_weekly_window(last_updated, datetime.datetime.utcnow()):
+                progress["count"] = 0
+                last_updated = datetime.datetime.utcnow()
+        return progress, last_updated
 
     def is_within_daily_window(self, last_updated, current_time):
         """
