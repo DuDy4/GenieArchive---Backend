@@ -1,8 +1,10 @@
 from typing import Union
 
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import requests
 
-from fastapi import Request, Query, BackgroundTasks, Depends
+from fastapi import Form, Request, Query, BackgroundTasks, Depends
 from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 
@@ -19,6 +21,7 @@ from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
+from data.api.api_services_classes.params_api_services import ParamsApiService
 
 from common.genie_logger import GenieLogger
 
@@ -41,6 +44,7 @@ admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
+params_api_service = ParamsApiService()
 
 logger.info("Imported all services")
 
@@ -809,7 +813,27 @@ def import_google_meetings(
     logger.info(f"Finished fetching meetings")
     return JSONResponse(content=response)
 
+templates = Jinja2Templates(directory="templates")
 
+@v1_router.get("/params", response_class=HTMLResponse)
+async def get_form(request: Request):
+    """
+    Serve the form template.
+    """
+    return templates.TemplateResponse("form.html", {"request": request})
+
+@v1_router.post("/params/submit")
+async def handle_form(
+    request: Request,
+):
+    """
+    Handle form submission and return parsed data.
+    """
+    body = await request.json()
+    response = await params_api_service.evaulate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
+
+    # Return parsed data
+    return JSONResponse(content=response)
 
 
 @v1_router.get(

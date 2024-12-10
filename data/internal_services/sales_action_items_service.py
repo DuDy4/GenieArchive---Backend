@@ -108,42 +108,6 @@ class SalesActionItemsService:
         """
         Internal method to fetch action items from the Google Sheet.
         """
-        # range_name = f"{self.SHEET_NAME}!A:D"
-        # sheet = self.service.spreadsheets()
-        # result = sheet.values().get(spreadsheetId=self.SPREADSHEET_ID, range=range_name).execute()
-        # rows = result.get("values", [])
-        #
-        # # Extract headers and data
-        # if len(rows) < 2:
-        #     raise Exception("Sheet is empty or does not have enough data.")
-        #
-        # headers = rows[0]
-        # data_rows = rows[1:]
-        #
-        # if self.SALES_CRITERIA_COLUMN not in headers or self.ACTION_ITEM_COLUMN not in headers or self.DETAILED_ACTION_ITEM_COLUMN not in headers:
-        #     raise Exception("Required columns are missing.")
-        #
-        # # Get column indices
-        # criteria_index = headers.index(self.SALES_CRITERIA_COLUMN)
-        # action_item_index = headers.index(self.ACTION_ITEM_COLUMN)
-        # detailed_item_index = headers.index(self.DETAILED_ACTION_ITEM_COLUMN)
-
-        # Fill down the Sales Criteria for merged cells
-        # last_criteria = None
-        # for row in data_rows:
-        #     if len(row) > criteria_index and row[criteria_index].strip():
-        #         last_criteria = row[criteria_index].strip()  # Update the last non-empty value
-        #     elif last_criteria:
-        #         # Fill the empty cell with the last non-empty value
-        #         if len(row) <= criteria_index:
-        #             row.extend([""] * (criteria_index - len(row) + 1))  # Extend the row if it's too short
-        #         row[criteria_index] = last_criteria
-
-        # Normalize the sales criteria
-        # if isinstance(sales_criteria, str):
-        #     criteria = sales_criteria
-        # else:
-        #     criteria = sales_criteria.criteria.value
         action_items = []
         for sale_criteria in sales_criteria:
             normalized_criteria = sale_criteria.criteria.value.strip().lower().replace("_", " ")

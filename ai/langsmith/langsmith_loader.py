@@ -345,6 +345,27 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    async def get_param_evaluation(self, person, param_data, person_artifact):
+        logger.info("Running Langsmith prompt for evaluating param")
+        prompt = hub.pull("param-scoring-v2")
+        arguments = {
+            "personal_info": person,
+            "param_data": param_data,
+            "post": person_artifact
+        }
+        try:
+            runnable = prompt | self.azure_model
+            response = await self._run_prompt_with_retry(runnable, arguments)            
+            if response and response.content and isinstance(response.content, str):
+                response = response.content
+                if response.startswith("```"):
+                    response = response.replace("```json", "").strip("`").strip()
+                    response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
+                    response = json.loads(response)
+        except Exception as e:          
+            response = f"Error: {e}"
+        return response
+
     
     async def get_summary(self, data, max_words=50):
         logger.info("Running Langsmith prompt for text summary")
