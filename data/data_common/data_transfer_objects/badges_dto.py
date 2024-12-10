@@ -8,6 +8,8 @@ class BadgesEventTypes(str, Enum):
     VIEW_PROFILE = "VIEW_PROFILE"
     VIEW_MEETING = "VIEW_MEETING"
     LOGIN_USER = "LOGIN_USER"
+    UPLOAD_FILE = "UPLOAD_FILE"
+    UPLOAD_FILE_CATEGORY = "UPLOAD_FILE_CATEGORY"
 
 
 class BadgeDTO(BaseModel):

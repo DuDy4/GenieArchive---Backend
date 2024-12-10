@@ -11,11 +11,14 @@ class ActionEnum(str, Enum):
     UPDATE = "UPDATE"
     DELETE = "DELETE"
     LOGIN = "LOGIN"
+    UPLOAD = "UPLOAD"
 
 class EntityEnum(str, Enum):
     MEETING = "MEETING"
     PROFILE = "PROFILE"
     USER = "USER"
+    FILE = "FILE"
+    FILE_CATEGORY = "FILE_CATEGORY"
 
 class StatsDTO(BaseModel):
     uuid: UUID = Field(default=get_uuid4())

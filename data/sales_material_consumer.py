@@ -78,7 +78,7 @@ class SalesMaterialConsumer(GenieConsumer):
             return {"status": "error", "message": "File upload DTO not found in the event data"}
         file_upload_dto.update_file_content(text)
 
-        self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.PROCESSING) 
+        self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.PROCESSING)
 
         logger.info(f"File upload DTO: {file_upload_dto}")
         file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
@@ -99,8 +99,7 @@ class SalesMaterialConsumer(GenieConsumer):
 
         file_categories = await self.langsmith.run_prompt_doc_categories(processed_content_text)
         if file_categories:
-            self.file_upload_repository.update_file_categories(file_upload_dto.uuid, file_categories)
-
+            self.file_upload_repository.update_file_categories(str(file_upload_dto.uuid), file_categories)
         try:
             metadata = {
                 "id": file_id,
@@ -112,12 +111,12 @@ class SalesMaterialConsumer(GenieConsumer):
             embedding_result = self.embeddings_client.embed_document(processed_content_text, metadata)
             if embedding_result:
                 logger.info(f"Document embedded successfully")
-                self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.COMPLETED) 
+                self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.COMPLETED)
                 self.embedding_success_by_tenant[file_upload_dto.tenant_id] = True
             else:
                 logger.error(f"Document embedding failed for tenant {file_upload_dto.tenant_id}")
         except Exception as e:
-            self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.FAILED) 
+            self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.FAILED)
             logger.error(
                 f"An error occurred during document embedding for tenant {file_upload_dto.tenant_id}: {e}"
             )
