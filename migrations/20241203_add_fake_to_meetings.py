@@ -15,6 +15,7 @@ def upgrade():
                     END $$;
             """)
             conn.commit()
+
 def downgrade():
     with db_connection() as conn:
         with conn.cursor() as cursor:
