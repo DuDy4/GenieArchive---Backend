@@ -88,7 +88,9 @@ async def file_uploaded(background_tasks: BackgroundTasks, request: Request):
     except:
         logger.info("Handling uploaded file")
     file_upload_dto_list = user_materials_service.file_uploaded(uploaded_files)
+    logger.info(f"File upload DTOs: {file_upload_dto_list}")
     for file_upload_dto in file_upload_dto_list:
+        logger.info(f"File upload DTO: {file_upload_dto}")
         background_tasks.add_task(stats_api_service.file_uploaded_event, file_upload_dto=file_upload_dto)
     if file_upload_dto_list:
         return JSONResponse(content={"status": "success", "message": "File uploaded"})
