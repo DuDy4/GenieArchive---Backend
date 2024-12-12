@@ -3,7 +3,8 @@ import json
 import os
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil import parser
 import pytz
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -580,7 +581,7 @@ class MeetingManager(GenieConsumer):
         if not meetings_from_database:
             logger.info("No meetings found")
             return {"status": "Failed to find meetings"}
-        logger.info(f"Meetings to check for deletion: {len(meetings_from_database)}")
+        logger.info(f"Meetings to check for deletion: {len(meetings_from_database)}: {meetings_from_database}")
         meetings_google_ids = [meeting.google_calendar_id for meeting in meetings_imported]
         for meeting in meetings_from_database:
             if meeting.google_calendar_id in meetings_google_ids:
@@ -590,11 +591,20 @@ class MeetingManager(GenieConsumer):
                 logger.info(
                     f"Meeting {meeting.uuid} not found in imported meetings. Checking if it should be deleted"
                 )
-                if meeting.start_time < last_date_imported:
-                    logger.info(f"Meeting {meeting.uuid} should be deleted")
-                    meeting.classification = MeetingClassification.DELETED
-                    self.meetings_repository.save_meeting(meeting)
-                    logger.info(f"Meeting {meeting.uuid} deleted")
+
+            # Convert meeting.start_time to a UTC datetime object
+            try:
+                meeting_start_time_utc = parser.isoparse(meeting.start_time).astimezone(timezone.utc)
+                last_date_imported_utc = parser.isoparse(last_date_imported).astimezone(timezone.utc)
+            except ValueError as e:
+                logger.error(f"Error parsing start_time for meeting {meeting.uuid}: {e}")
+                continue
+
+            if meeting_start_time_utc < last_date_imported_utc:
+                logger.info(f"Meeting {meeting.uuid} should be deleted")
+                meeting.classification = MeetingClassification.DELETED
+                self.meetings_repository.save_meeting(meeting)
+                logger.info(f"Meeting {meeting.uuid} deleted")
         logger.info(f"Finished checking for meetings to delete")
 
     async def handle_new_embedded_document(self, event):
