@@ -5,6 +5,7 @@ import asyncio
 
 from dotenv import load_dotenv
 
+from common.utils.news_utils import filter_not_reshared_social_media_news
 from data.data_common.data_transfer_objects.profile_dto import Phrase
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -154,6 +155,8 @@ class LangsmithConsumer(GenieConsumer):
         news_data = self.personal_data_repository.get_news_data_by_uuid(person_uuid)
         if not news_data:
             logger.error(f"No news data found for person {person_uuid}")
+            news_data = []
+        news_data = filter_not_reshared_social_media_news(news=news_data, linkedin_url=person.linkedin)
         logger.info(f"Personal News data: {str(news_data)[:300]}")
 
         email_address = person.email
@@ -250,6 +253,9 @@ class LangsmithConsumer(GenieConsumer):
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person)
 
         personal_news = self.personal_data_repository.get_news_data_by_uuid(person['uuid'])
+        if not personal_news:
+            personal_news = []
+        personal_news = filter_not_reshared_social_media_news(news=personal_news, linkedin_url=person.get('linkedin'))
         person['news'] = personal_news
 
         # Get/create sales criteria
