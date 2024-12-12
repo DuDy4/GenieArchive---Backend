@@ -581,7 +581,6 @@ class MeetingManager(GenieConsumer):
         if not meetings_from_database:
             logger.info("No meetings found")
             return {"status": "Failed to find meetings"}
-        logger.info(f"Meetings to check for deletion: {len(meetings_from_database)}: {meetings_from_database}")
         meetings_google_ids = [meeting.google_calendar_id for meeting in meetings_imported]
         for meeting in meetings_from_database:
             if meeting.google_calendar_id in meetings_google_ids:
