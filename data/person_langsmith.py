@@ -67,70 +67,23 @@ class LangsmithConsumer(GenieConsumer):
         match topic:
             case Topic.NEW_PERSONAL_NEWS:
                 logger.info("Handling new personal data to process")
-                await self.handle_new_personal_data(event)
+                await self.handle_personal_data_to_process(event)
             case Topic.FAILED_TO_GET_PERSONAL_NEWS:
                 logger.info("Failed to get personal news")
-                await self.handle_new_personal_data(event)
+                await self.handle_personal_data_to_process(event)
             case Topic.PERSONAL_NEWS_ARE_UP_TO_DATE:
                 logger.info("Personal news are up to date")
-                await self.handle_new_personal_data(event)
+                await self.handle_personal_data_to_process(event)
             case Topic.NEW_BASE_PROFILE:
                 logger.info("Handling new base profile")
                 await self.handle_new_base_profile(event)
             case Topic.NEW_PERSON_CONTEXT:
                 logger.info("Person Langsmith - Handling new person context")
-                await self.handle_new_person_context(event)
+                await self.handle_personal_data_to_process(event)
             case _:
                 logger.info("No matching topic")
 
-    async def handle_new_person_context(self, event):
-        event_body = json.loads(event.body_as_str())
-        if isinstance(event_body, str):
-            event_body = json.loads(event_body)
-        tenant_id = event_body.get("tenant_id")
-        if not tenant_id:
-            tenant_id = logger.get_tenant_id()
-        logger.info(f"Tenant ID: {tenant_id}")
-        user_email = self.tenants_repository.get_tenant_email(tenant_id)
-        if not user_email:
-            logger.error(f"No user email found for tenant {tenant_id}")
-            return
-        person_id = event_body.get("person_id")
-        if not person_id:
-            logger.error(f"No person id found")
-            return {"status": "error", "message": "No person id found"}
-
-        event = GenieEvent(Topic.NEW_PERSONAL_DATA,
-                           {"person_uuid": person_id, "tenant_id": tenant_id, "force": True})
-        event.send()
-        # company_uuid = event_body.get("company_uuid")
-        # company_data = self.company_repository.get_company(company_uuid)
-        # person_data = self.profiles_repository.get_profile_data(person_id)
-        # if not person_data:
-        #     logger.error(f"No person data found for person {person_id}")
-        #     return
-        # pdl_personal_data = self.personal_data_repository.get_pdl_personal_data(person_id)
-        # apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person_id)
-        # fetched_personal_data = None
-        # if pdl_personal_data:
-        #     fetched_personal_data = pdl_personal_data
-        # elif apollo_personal_data:
-        #     fetched_personal_data = apollo_personal_data
-        # person_data_dict = person_data.to_dict()
-        # person_data_dict['personal_data'] = fetched_personal_data
-        # seller_context = None
-        # if tenant_id:
-        #     seller_email = self.tenants_repository.get_tenant_email(tenant_id)
-        #     if seller_email:
-        #         seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person_data)
-        # if seller_context:
-        #     response = await self.langsmith.get_get_to_know(person_data_dict, company_data.to_dict(), seller_context)
-        #     get_to_know = response.get("get_to_know")
-        #     if get_to_know:
-        #         logger.info(f"Updating get to know for person {person_id}")
-        #         self.tenant_profiles_repository.update_get_to_know(person_id, get_to_know, tenant_id)
-
-    async def handle_new_personal_data(self, event):
+    async def handle_personal_data_to_process(self, event):
         """
         The right flow is:
         1. Check if there already is a profile in profiles table
@@ -153,7 +106,7 @@ class LangsmithConsumer(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        person_uuid = event_body.get("person_uuid")
+        person_uuid = event_body.get("person_uuid") if event_body.get("person_uuid") else event_body.get("person_id")
         if not person_uuid:
             logger.error(f"No person data found for person {person_uuid}")
             return

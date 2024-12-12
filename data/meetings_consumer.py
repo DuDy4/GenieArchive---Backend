@@ -638,7 +638,7 @@ class MeetingManager(GenieConsumer):
             for person_id in unique_person_ids:
                 GenieEvent(
                     topic=Topic.NEW_PERSON_CONTEXT,
-                    data={"tenant_id": tenant_id, "company_uuid": company.uuid, "person_id": person_id},
+                    data={"tenant_id": tenant_id, "company_uuid": company.uuid, "person_id": person_id, "force": True},
                 ).send()
 
         event = GenieEvent(
