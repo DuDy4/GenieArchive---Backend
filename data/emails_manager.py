@@ -112,7 +112,9 @@ class EmailManager(GenieConsumer):
             seller_context = self.embeddings_client.search_materials_by_prospect_data(
                 tenant_email, filtered_profiles[0]
             )
-            seller_context = " || ".join(seller_context) if seller_context else None
+            if seller_context and isinstance(seller_context, list):
+                seller_context = " || ".join(seller_context)
+                
 
         meeting_summary = await self.langsmith.get_meeting_summary(
             meeting_data=meeting, seller_context=seller_context, profiles=filtered_profiles, company_data=target_company

@@ -76,6 +76,7 @@ class Langsmith:
     async def run_prompt_action_items(self, person_data, action_item, action_item_criteria, company_data=None, seller_context=None):
         prompt = hub.pull("specific-action-item") 
         runnable = prompt | self.model
+        logger.info(f"Running Langsmith prompt for specific action item: {action_item}, criteria: {action_item_criteria}, seller_context: {seller_context}")
         arguments = {
             "sales_action_item": action_item, 
             "action_item_criteria": action_item_criteria,
