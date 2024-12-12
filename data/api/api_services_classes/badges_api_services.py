@@ -143,6 +143,7 @@ class BadgesApiService:
             new_progress = {"count": count}
             if event_type == BadgesEventTypes.UPLOAD_FILE_CATEGORY.value:
                 tenant_categories = self.stats_repository.get_file_categories_stats(email)
+                tenant_categories = [category for category in tenant_categories if category != "OTHER"] # Exclude "OTHER" category
                 new_progress = {"count": len(tenant_categories)}
             # Check if the new progress meets the badge criteria
             if count >= badge.criteria["count"]:
