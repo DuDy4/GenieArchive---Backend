@@ -216,6 +216,8 @@ class LangsmithConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         personal_data = event_body.get("profile")
         strengths = personal_data.get("strengths")
+        if isinstance(strengths, str):
+            strengths = json.loads(strengths)
         original_get_to_know = personal_data.get("get_to_know")
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")
