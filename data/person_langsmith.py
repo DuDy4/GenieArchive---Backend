@@ -79,9 +79,41 @@ class LangsmithConsumer(GenieConsumer):
                 await self.handle_new_base_profile(event)
             case Topic.NEW_PERSON_CONTEXT:
                 logger.info("Person Langsmith - Handling new person context")
-                await self.handle_personal_data_to_process(event)
+                await self.new_person_context(event)
             case _:
                 logger.info("No matching topic")
+
+
+    async def new_person_context(self, event):
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {str(event_body)[:300]}")
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person_uuid = event_body.get("person_uuid") if event_body.get("person_uuid") else event_body.get("person_id")
+        if not person_uuid:
+            logger.error(f"No person data found for person {person_uuid}")
+            return
+        profile = self.profiles_repository.get_profile_data(person_uuid)
+
+        # Check if needs to proceed with the event
+        if profile:
+            logger.info(f"Profile already exists: {profile}")
+            tenant_id = logger.get_tenant_id()
+            if not tenant_id:
+                logger.error(f"No tenant id found")
+                return
+            logger.info(f"Creating event NEW_BASE_PROFILE for person {person_uuid}")
+            person = self.persons_repository.get_person(person_uuid)
+            profile_to_send = {
+                "strengths": [strength.to_dict() for strength in profile.strengths],
+                "get_to_know": { key: [phrase.to_dict() for phrase in phrases] for key, phrases in profile.get_to_know.items()},
+                "work_history_summary": profile.work_history_summary,
+            }
+            data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
+            event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
+            event.send()
+        return {"status": "success"}
 
     async def handle_personal_data_to_process(self, event):
         """
