@@ -109,7 +109,6 @@ def check_db_connection():
         finally:
             # Always release the connection back to the pool
             connection_pool.putconn(conn)
-    logger.info(f"Checked {max_connections} connections; {closed_connections} are closed")
     # Check if more than half of the connections are closed
     if closed_connections >= max_connections // 2:
         logger.warning(f"More than half of the connections are closed ({closed_connections}/{max_connections}). Consider corrective action.")
