@@ -29,9 +29,16 @@ def mark_migration_as_applied(migration_name):
 
 def apply_migration(migration_file):
     migration_name = os.path.basename(migration_file)
-    module = __import__(f"migrations.{migration_name[:-3]}", fromlist=["upgrade"])
-    module.upgrade()
-    mark_migration_as_applied(migration_name)
+    try:
+        module = __import__(f"migrations.{migration_name[:-3]}", fromlist=["upgrade"])
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                module.upgrade()
+                cursor.execute("INSERT INTO schema_migrations (migration_name) VALUES (%s);", (migration_name,))
+                conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to apply migration {migration_name}: {e}")
+        raise
 
 def run_migrations():
     logger.info("Running migrations")
