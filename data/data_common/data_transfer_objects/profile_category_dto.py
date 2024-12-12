@@ -84,38 +84,3 @@ class SalesCriteria(BaseModel):
     def from_json(cls, json_str: str) -> "SalesCriteria":
         return cls.parse_raw(json_str)
 
-
-# class ActionItem(BaseModel):
-#     icon: str
-#     title: str
-#     description: str
-#     percentage: str
-#     criteria: SalesCriteriaType
-#
-#     @staticmethod
-#     def from_dict(data: dict) -> "ActionItem":
-#         return ActionItem(
-#             icon=data["icon"],
-#             title=data["title"],
-#             description=data["description"],
-#             percentage=data["percentage"],
-#             criteria=SalesCriteriaType(data["criteria"]),
-#         )
-#
-#     def to_dict(self) -> Dict[str, str]:
-#         return {
-#             "icon": self.icon,
-#             "title": self.title,
-#             "description": self.description,
-#             "percentage": self.percentage,
-#             "criteria": self.criteria.value,
-#         }
-#
-#     @classmethod
-#     def from_tuple(cls, data: tuple) -> "ActionItem":
-#         return cls(icon=data[0], title=data[1], description=data[2], percentage=data[3], criteria=SalesCriteriaType(data[4]))
-#
-#     def to_tuple(self) -> tuple:
-#         return self.icon, self.title, self.description, self.percentage, self.criteria.value
-#
-#

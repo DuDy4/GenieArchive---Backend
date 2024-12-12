@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from common.utils import env_utils
+from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO, FileStatusEnum
 from data.data_common.events.genie_event import GenieEvent
 from ai.langsmith.langsmith_loader import Langsmith
@@ -41,6 +42,7 @@ class SalesMaterialConsumer(GenieConsumer):
         super().__init__(topics=[Topic.FILE_UPLOADED], consumer_group=CONSUMER_GROUP)
         self.embeddings_client = GenieEmbeddingsClient()
         self.file_upload_repository = file_upload_repository()
+        self.stats_api_service = StatsApiService()
         # Dictionary to track successful embeddings for each tenant
         self.embedding_success_by_tenant = {}
         self.langsmith = Langsmith()
@@ -78,19 +80,17 @@ class SalesMaterialConsumer(GenieConsumer):
             return {"status": "error", "message": "File upload DTO not found in the event data"}
         file_upload_dto.update_file_content(text)
 
-        self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.PROCESSING) 
+        self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.PROCESSING)
 
         logger.info(f"File upload DTO: {file_upload_dto}")
+        logger.info(f"File content updated in the DTO: {file_upload_dto.file_hash}")
+
         file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
         if file_uploaded_in_db:
             logger.info(f"File already exists in the database")
-            return
-
-        logger.info(f"File content updated in the DTO: {file_upload_dto.file_hash}")
-        if self.file_upload_repository.exists(file_upload_dto.file_hash):
-            logger.info(f"File already exists in the database")
             self.file_upload_repository.delete(file_upload_dto.uuid)
             return {"status": "error", "message": "File already exists in the database"}
+
         self.file_upload_repository.update_file_hash(file_upload_dto)
         logger.info(f"File uploaded in the database")
 
@@ -99,8 +99,10 @@ class SalesMaterialConsumer(GenieConsumer):
 
         file_categories = await self.langsmith.run_prompt_doc_categories(processed_content_text)
         if file_categories:
-            self.file_upload_repository.update_file_categories(file_upload_dto.uuid, file_categories)
-
+            self.file_upload_repository.update_file_categories(str(file_upload_dto.uuid), file_categories)
+            self.stats_api_service.file_category_uploaded_event(file_categories=file_categories,
+                                                                tenant_id=file_upload_dto.tenant_id,
+                                                                email=file_upload_dto.email)
         try:
             metadata = {
                 "id": file_id,
@@ -112,12 +114,12 @@ class SalesMaterialConsumer(GenieConsumer):
             embedding_result = self.embeddings_client.embed_document(processed_content_text, metadata)
             if embedding_result:
                 logger.info(f"Document embedded successfully")
-                self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.COMPLETED) 
+                self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.COMPLETED)
                 self.embedding_success_by_tenant[file_upload_dto.tenant_id] = True
             else:
                 logger.error(f"Document embedding failed for tenant {file_upload_dto.tenant_id}")
         except Exception as e:
-            self.file_upload_repository.update_file_status(file_upload_dto.uuid, FileStatusEnum.FAILED) 
+            self.file_upload_repository.update_file_status(str(file_upload_dto.uuid), FileStatusEnum.FAILED)
             logger.error(
                 f"An error occurred during document embedding for tenant {file_upload_dto.tenant_id}: {e}"
             )

@@ -671,19 +671,8 @@ class PersonManager(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
                 event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send)
                 event.send()
-            # person = create_person_from_apollo_personal_data(person)
-            # if not person:
-            #     logger.error(f"Failed to create person from apollo personal data: {person}")
-            #     return {"error": "Failed to create person from apollo personal data"}
-            # self.persons_repository.save_person(person)
-            # existing_profile.name = person.name
-            # existing_profile.company = person.company
-            # existing_profile.position = person.position
-            # existing_profile.picture_url = self.personal_data_repository.get_profile_picture_url(person.uuid)
-            # logger.info(f"Profile: {existing_profile}")
-            # self.profiles_repository.save_profile(existing_profile)
             return {"status": "success"}
-        else: # If there is no profile, create a new one
+        else:
             logger.warning("Profile does not exist in database")
             event = GenieEvent(
                 Topic.NEW_PERSONAL_DATA,

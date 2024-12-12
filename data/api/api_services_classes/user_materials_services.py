@@ -29,6 +29,7 @@ class UserMaterialServices:
 
     def file_uploaded(self, uploaded_files):
         logger.info(f"Event details: {uploaded_files}")
+        files_list = []
         for file in uploaded_files:
             file_data = file["data"]
             if not file_data:
@@ -59,7 +60,6 @@ class UserMaterialServices:
             if not file_id:
                 logger.error(f"File ID not found in the event data")
                 continue
-
             try:
                 upload_time = datetime.fromisoformat(upload_time_str.replace("Z", "+00:00"))
                 upload_time_epoch = int(upload_time.timestamp())
@@ -89,7 +89,8 @@ class UserMaterialServices:
                 Topic.FILE_UPLOADED,
                 {"event_data": file_data, "file_uploaded": file_upload_dto.to_dict(), "file_id": file_id},
             ).send()
-            return {"status": "success"}
+            files_list.append(file_upload_dto)
+        return files_list
 
     def get_all_files(self, tenant_id):
         all_files = self.file_upload_repository.get_all_files(tenant_id)

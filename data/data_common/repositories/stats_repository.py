@@ -3,6 +3,8 @@ from uuid import UUID
 
 import psycopg2
 from datetime import timedelta, datetime
+
+from data.data_common.data_transfer_objects.badges_dto import BadgesEventTypes
 from data.data_common.data_transfer_objects.stats_dto import StatsDTO
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
@@ -125,3 +127,17 @@ class StatsRepository:
                 logger.error(f"Error getting person by email: {error}")
                 traceback.print_exc()
                 return None
+
+    def get_file_categories_stats(self, email):
+        query = """
+            SELECT entity_id FROM stats
+            WHERE email = %s AND entity = 'FILE_CATEGORY';
+        """
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, (email,))
+                file_categories = cursor.fetchall()
+                logger.info(f"Got file categories for email {email}")
+                file_categories = [category[0] for category in file_categories]
+                logger.info(f"File categories: {file_categories}")
+                return list(set(file_categories))

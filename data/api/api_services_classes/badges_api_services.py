@@ -94,7 +94,7 @@ class BadgesApiService:
         if not num_events_today:
             logger.info(f"Error counting events for user {email}")
             return
-        if num_events_today > 1:
+        if num_events_today > 1 and entity != BadgesEventTypes.UPLOAD_FILE_CATEGORY.value:
             logger.info(
                 f"Skipping badge calc. Event {event_type} for entity {entity_id} already exists for user {email}"
             )
@@ -116,9 +116,9 @@ class BadgesApiService:
         :param event_type: The type of event (e.g., "VIEW_PROFILE", "VIEW_MEETING").
         """
         # Get the current progress for this badge
-        current_progress, last_updated = (
-            self.badges_repository.get_user_badge_progress(email, str(badge.badge_id)) or {}
-        )
+        current_progress, last_updated = self.badges_repository.get_user_badge_progress(email, str(badge.badge_id)) or {}
+
+
         now = datetime.datetime.utcnow()
 
         # Reset progress if it's a daily badge and the date has passed 3 AM UTC
@@ -141,6 +141,10 @@ class BadgesApiService:
         if badge.criteria.get("type") and badge.criteria.get("type") == event_type:
             count = current_progress.get("count", 0) + 1
             new_progress = {"count": count}
+            if event_type == BadgesEventTypes.UPLOAD_FILE_CATEGORY.value:
+                tenant_categories = self.stats_repository.get_file_categories_stats(email)
+                tenant_categories = [category for category in tenant_categories if category != "OTHER"] # Exclude "OTHER" category
+                new_progress = {"count": len(tenant_categories)}
             # Check if the new progress meets the badge criteria
             if count >= badge.criteria["count"]:
                 self.award_badge(email, str(badge.badge_id), badge.criteria["frequency"])

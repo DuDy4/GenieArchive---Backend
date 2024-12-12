@@ -226,10 +226,10 @@ class ProfilesApiService:
             logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
             raise HTTPException(status_code=404, detail="Profile not found under this tenant")
 
-        profile = self.profiles_repository.get_profile_data(uuid)
+        # profile = self.profiles_repository.get_profile_data(uuid)
         action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
         if action_items:
-            logger.info(f"Got action items: {str(profile)[:300]}")
+            logger.info(f"Got tenant specific action items: {action_items}")
             return ActionItemsResponse.from_action_items_list(action_items=action_items)
         # else:
         #     logger.info(f"No tenant specific action items found for {uuid}, getting default action items")

@@ -26,8 +26,7 @@ from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 
-from common.genie_logger import GenieLogger
-
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -76,7 +75,7 @@ async def google_oauth_callback(request: Request, code: str = Query(...)):
 
 
 @v1_router.post("/file-uploaded")
-async def file_uploaded(request: Request):
+async def file_uploaded(background_tasks: BackgroundTasks, request: Request):
     logger.info(f"New file uploaded")
     uploaded_files = await request.json()
     if not uploaded_files:
@@ -92,8 +91,12 @@ async def file_uploaded(request: Request):
                 return
     except:
         logger.info("Handling uploaded file")
-    result = user_materials_service.file_uploaded(uploaded_files)
-    if result:
+    file_upload_dto_list = user_materials_service.file_uploaded(uploaded_files)
+    logger.info(f"File upload DTOs: {file_upload_dto_list}")
+    for file_upload_dto in file_upload_dto_list:
+        logger.info(f"File upload DTO: {file_upload_dto}")
+        background_tasks.add_task(stats_api_service.file_uploaded_event, file_upload_dto=file_upload_dto)
+    if file_upload_dto_list:
         return JSONResponse(content={"status": "success", "message": "File uploaded"})
     else:
         return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
