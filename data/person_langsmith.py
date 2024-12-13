@@ -111,7 +111,7 @@ class LangsmithConsumer(GenieConsumer):
                 "get_to_know": { key: [phrase.to_dict() for phrase in phrases] for key, phrases in profile.get_to_know.items()},
                 "work_history_summary": profile.work_history_summary,
             }
-            data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
+            data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email, "force_refresh": True}
             event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
             event.send()
         return {"status": "success"}
