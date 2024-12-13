@@ -16,7 +16,7 @@ logger = GenieLogger()
 def test_uploaded_file():
     file_upload_repository = FileUploadRepository()
     file_data = {'api': 'PutBlob', 'requestId': 'e3d97c0b-a01e-00e9-3602-232330000000', 'eTag': '0x8DCF11A0C955244', 'contentType': 'application/x-www-form-urlencoded', 'contentLength': 16585105, 'blobType': 'BlockBlob', 'accessTier': 'Default', 'blobUrl': 'https://useruploadedmaterials.blob.core.windows.net/user-uploaded-materials/asaf@genieai.ai/uploads/Pitch Deck - Genie AI  .pdf', 'url': 'https://useruploadedmaterials.blob.core.windows.net/user-uploaded-materials/asaf@genieai.ai/uploads/Pitch Deck - Genie AI  .pdf', 'sequencer': '00000000000000000000000000031383000000000060e007', 'identity': '$superuser', 'storageDiagnostics': {'batchId': '0ffe6d37-8006-001a-0002-2384a5000000'}}
-    file_upload_dto = {'uuid': 'c0a47b1d-cb5c-462f-842e-2de3193d39ee', 'file_name': 'Pitch Deck - Genie AI  .pdf', 'file_hash': None, 'upload_timestamp': '2024-10-20T15:15:36.233456+00:00', 'upload_time_epoch': 1729437336, 'email': 'asaf@genieai.ai', 'tenant_id': 'org_RPLWQRTI8t7EWU1L', 'status': 'UPLOADED', 'categories': None}
+    file_upload_dto = {'uuid': 'c0a47b1d-cb5c-462f-842e-2de3193d39ef', 'file_name': 'Pitch Deck - Genie AI  .pdf', 'file_hash': None, 'upload_timestamp': '2024-10-20T15:15:36.233456+00:00', 'upload_time_epoch': 1729437336, 'email': 'asaf@genieai.ai', 'tenant_id': 'org_RPLWQRTI8t7EWU1L', 'status': 'UPLOADED', 'categories': []}
     file_id = 'e3d97c0b-a01e-00e9-3602-232330064dc8'
 
     file_upload = FileUploadDTO.from_dict(file_upload_dto)
