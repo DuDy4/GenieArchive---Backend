@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
-from common.utils import env_utils
+from common.utils import env_utils, str_utils
 from pinecone import Pinecone
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from azure.ai.inference import EmbeddingsClient
@@ -49,9 +49,12 @@ class GenieEmbeddingsClient:
 
             embeddings = self.generate_embeddings(chunks)
             vector_id = metadata["id"]
+            user = metadata.get("user")
+            domain = str_utils.get_email_suffix(user)
 
             correct_metadata = {
                 "user": metadata.get("user"),
+                "domain": domain,
                 "tenant_id": metadata.get("tenant_id"),
                 "type": metadata.get("type"),
             }
@@ -92,10 +95,17 @@ class GenieEmbeddingsClient:
         if not query_embedding:
             logger.info(f"Query embedding is empty for user {user_id}")
             return []
+        domain = str_utils.get_email_suffix(user_id)
+        results = None
+        if domain:
+            results = index.query(
+                vector=query_embedding, top_k=top_k, include_metadata=True, filter={"domain": domain}
+            )
 
-        results = index.query(
-            vector=query_embedding, top_k=top_k, include_metadata=True, filter={"user": user_id}
-        )
+        if not results or not results["matches"]:
+            results = index.query(
+                vector=query_embedding, top_k=top_k, include_metadata=True, filter={"user": user_id}
+            )
 
         chunks_text = []
         if results:

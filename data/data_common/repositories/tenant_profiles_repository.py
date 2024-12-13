@@ -166,6 +166,7 @@ class TenantProfilesRepository:
             except Exception as error:
                 logger.error(f"Error fetching sales criteria and action items by uuid: {error}")
                 traceback.print_exception(error)
+                return None, None
 
     def get_all_uuids_and_tenants_id_without_action_items(self, forced: bool = False):
         select_query = f"""

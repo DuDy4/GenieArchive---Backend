@@ -104,7 +104,7 @@ class LangsmithConsumer(GenieConsumer):
             if not tenant_id:
                 logger.error(f"No tenant id found")
                 return
-            logger.info(f"Creating event NEW_BASE_PROFILE for person {person_uuid}")
+            logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
             person = self.persons_repository.get_person(person_uuid)
             profile_to_send = {
                 "strengths": [strength.to_dict() for strength in profile.strengths],
@@ -154,7 +154,7 @@ class LangsmithConsumer(GenieConsumer):
                 return
             tenant_sales_criteria, tenant_sales_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person_uuid, tenant_id)
             if not tenant_sales_criteria or not tenant_sales_action_items:
-                logger.info(f"Creating event NEW_BASE_PROFILE for person {person_uuid}")
+                logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
                 person = self.persons_repository.get_person(person_uuid)
                 profile_to_send = {
                     "strengths": [strength.to_dict() for strength in profile.strengths],
