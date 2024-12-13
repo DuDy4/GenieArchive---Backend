@@ -72,7 +72,7 @@ class SalesMaterialConsumer(GenieConsumer):
         logger.info(f"Processing file url: {blob_name}")
         file_name = get_file_name_from_url(blob_name)
         logger.info(f"Processing file with name: {file_name}")
-        file_id = event_data.get("file_id")
+        file_id = event_body.get("file_id")
         file_uploaded = event_body.get("file_uploaded")
         file_upload_dto = FileUploadDTO.from_dict(file_uploaded)
         if not file_upload_dto:
