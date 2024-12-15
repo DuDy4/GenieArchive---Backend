@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import datetime
 import json
@@ -54,7 +55,7 @@ class ParamsApiService:
         self.definition_column_index = None
         self.param_explanation_column_index = None
         self.clues_column_index = None
-        self._initailze_sheet()
+        # asyncio.run(self._initailze_sheet())
 
     def refresh_credentials(self):
         """
@@ -66,7 +67,7 @@ class ParamsApiService:
         # Reinitialize the Sheets API service
         self.service = build("sheets", "v4", credentials=self.credentials)
 
-    def _initailze_sheet(self):
+    async def _initialize_sheet(self):
         range_name = f"{self.SHEET_NAME}!A:I"
         sheet = self.service.spreadsheets()
         values = sheet.values()
@@ -103,8 +104,8 @@ class ParamsApiService:
         #             row.extend([""] * (self.criteria_index - len(row) + 1))  # Extend the row if it's too short
         #         row[self.criteria_index] = last_param
 
-    async def evaulate_param(self, post, name, position, company, param_id):
-        self._initailze_sheet()
+    async def evaluate_param(self, post, name, position, company, param_id):
+        await self._initialize_sheet()
         person = {
             'name': name,
             'position': position,
