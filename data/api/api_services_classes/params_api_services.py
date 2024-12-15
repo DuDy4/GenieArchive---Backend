@@ -111,6 +111,7 @@ class ParamsApiService:
         }
         for row in self.data_rows:
             if row[self.id_column_index] == param_id:
+                logger.info(f"Found parameter in sheet. Row: {row}")
                 param_name = row[self.param_name_column_index]
                 min_range = row[self.min_range_column_index]
                 max_range = row[self.max_range_column_index]
