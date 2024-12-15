@@ -70,11 +70,22 @@ class ParamsApiService:
     async def _initialize_sheet(self):
         range_name = f"{self.SHEET_NAME}!A:I"
         sheet = self.service.spreadsheets()
-        values = sheet.values()
-        raw_sheet = values.get(spreadsheetId=self.SPREADSHEET_ID, range=range_name)
+        # values = sheet.values()
+        # raw_sheet = values.get(spreadsheetId=self.SPREADSHEET_ID, range=range_name)
+        raw_sheet = sheet.values().get(
+            spreadsheetId=self.SPREADSHEET_ID,
+            range=range_name,
+            majorDimension="ROWS",
+            valueRenderOption="FORMATTED_VALUE"
+        )
         result = raw_sheet.execute()
         # result = sheet.values().get(spreadsheetId=self.SPREADSHEET_ID, range=range_name).execute()
         rows = result.get("values", [])
+
+        num_columns = 9
+        logger.info(f"Number of columns: {num_columns}")
+        # Check if the sheet has enough columns
+        rows = [row + [""] * (num_columns - len(row)) for row in rows]
 
         # Extract headers and data
         if len(rows) < 2:
