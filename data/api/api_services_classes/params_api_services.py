@@ -55,7 +55,7 @@ class ParamsApiService:
         self.definition_column_index = None
         self.param_explanation_column_index = None
         self.clues_column_index = None
-        asyncio.run(self._initailze_sheet())
+        # asyncio.run(self._initailze_sheet())
 
     def refresh_credentials(self):
         """
@@ -67,14 +67,25 @@ class ParamsApiService:
         # Reinitialize the Sheets API service
         self.service = build("sheets", "v4", credentials=self.credentials)
 
-    async def _initailze_sheet(self):
+    async def _initialize_sheet(self):
         range_name = f"{self.SHEET_NAME}!A:I"
         sheet = self.service.spreadsheets()
-        values = sheet.values()
-        raw_sheet = values.get(spreadsheetId=self.SPREADSHEET_ID, range=range_name)
+        # values = sheet.values()
+        # raw_sheet = values.get(spreadsheetId=self.SPREADSHEET_ID, range=range_name)
+        raw_sheet = sheet.values().get(
+            spreadsheetId=self.SPREADSHEET_ID,
+            range=range_name,
+            majorDimension="ROWS",
+            valueRenderOption="FORMATTED_VALUE"
+        )
         result = raw_sheet.execute()
         # result = sheet.values().get(spreadsheetId=self.SPREADSHEET_ID, range=range_name).execute()
         rows = result.get("values", [])
+
+        num_columns = 9
+        logger.info(f"Number of columns: {num_columns}")
+        # Check if the sheet has enough columns
+        rows = [row + [""] * (num_columns - len(row)) for row in rows]
 
         # Extract headers and data
         if len(rows) < 2:
@@ -104,8 +115,8 @@ class ParamsApiService:
         #             row.extend([""] * (self.criteria_index - len(row) + 1))  # Extend the row if it's too short
         #         row[self.criteria_index] = last_param
 
-    async def evaulate_param(self, post, name, position, company, param_id):
-        await self._initailze_sheet()
+    async def evaluate_param(self, post, name, position, company, param_id):
+        await self._initialize_sheet()
         person = {
             'name': name,
             'position': position,
