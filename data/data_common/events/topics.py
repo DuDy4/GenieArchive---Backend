@@ -1,7 +1,39 @@
-class Topic:
-    # Events that notify about new objects in the system
 
+
+class Topic:
+    PROFILE_CRITICAL = [
+        "personal-news-are-up-to-date",
+        "new-tenant-profile",
+        "failed-to-get-personal-news",
+        "new-personal-news",
+        "new=-person-context",
+        "new-person",
+        "new-contact",
+        "new-email-address-to-process",
+        "new-email-address-to-enrich",
+        "pdl-new-person-to-enrich",
+        "apollo-new-person-to-enrich",
+        "apollo-new-email-address-to-enrich",
+        "pdl-got-updated-enriched-data",
+        "apollo-updated-enriched-data",
+        "new-personal-data-to-process",
+        "new-processed-profile",
+        "new-base-profile",
+        "up-to-date-enriched-data",
+        "apollo-up-to-date-personal-data",
+        "already-failed-to-enrich-email",
+        "already-failed-to-enrich-person",
+        "finished-new-profile",
+        "pdl-failed-to-enrich-person",
+        "pdl-failed-to-enrich-email",
+        "apollo-failed-to-enrich-person",
+        "apollo-failed-to-enrich-email",
+        "failed-to-enrich-email",
+        "failed-to-enrich-person",
+    ]
+    # Events that notify about new objects in the system
     # New objects events
+    PROFILE_ERROR = "profile-error"
     PERSONAL_NEWS_ARE_UP_TO_DATE = "personal-news-are-up-to-date"  # News scrapper already has the latest news
     BUG_IN_TENANT_ID = "bug-in-tenant-id"  # TenantManager found a bug in tenant_id
     NEW_TENANT_PROFILE = "new-tenant-profile"  # TenantManager saved a new tenant profile

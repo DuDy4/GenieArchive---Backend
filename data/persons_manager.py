@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.internal_services.azure_storage_picture_uploader import AzureProfilePictureUploader
 from data.data_common.utils.persons_utils import (
@@ -63,6 +63,7 @@ class PersonManager(GenieConsumer):
                 Topic.ALREADY_PDL_FAILED_TO_ENRICH_PERSON,
                 Topic.NEW_PERSONAL_DATA,
                 Topic.FINISHED_NEW_PROFILE,
+                Topic.PROFILE_ERROR,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -118,6 +119,9 @@ class PersonManager(GenieConsumer):
             case Topic.FINISHED_NEW_PROFILE:
                 logger.info("Handling finished new profile")
                 await self.handle_finished_new_profile(event)
+            case Topic.PROFILE_ERROR:
+                logger.info("Handling profile error")
+                await self.handle_profile_error(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -730,6 +734,7 @@ class PersonManager(GenieConsumer):
         if not profile:
             logger.error(f"Profile not found in database: {profile_uuid}")
             return {"error": "Profile not found in database"}
+        self.persons_repository.update_status(profile.person_uuid, PersonStatus.COMPLETED)
         person = self.persons_repository.get_person(profile_uuid)
         if not person:
             logger.error(f"Person not found in database: {profile_uuid}")
@@ -762,7 +767,26 @@ class PersonManager(GenieConsumer):
 
         return {"status": "failed"}
 
-
+    async def handle_profile_error(self, event):
+        """
+        Should check for profile data, and if is broken that update person to be error
+        """
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        email = event_body.get("email")
+        uuid = event_body.get("uuid")
+        if uuid:
+            logger.info(f"About to update person status to error for {uuid}")
+            self.persons_repository.update_status(uuid, PersonStatus.FAILED)
+            return {"status": "success"}
+        if email:
+            logger.info(f"About to update person status to error for {email}")
+            self.persons_repository.update_status_by_email(email, PersonStatus.FAILED)
+            return {"status": "success"}
+        logger.error("No email or uuid found in event body - could not update person status")
+        return {"status": "failed"}
 
 
 if __name__ == "__main__":

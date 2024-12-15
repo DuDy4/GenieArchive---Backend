@@ -2,11 +2,12 @@ import traceback
 
 import psycopg2
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
 
 logger = GenieLogger()
+
 
 
 class PersonsRepository:
@@ -25,6 +26,7 @@ class PersonsRepository:
             position VARCHAR,
             timezone VARCHAR,
             last_message_sent_at TIMESTAMP
+            status TEXT
         );
         """
         with db_connection() as conn:
@@ -41,8 +43,8 @@ class PersonsRepository:
         :return the id of the newly created person in database:
         """
         insert_query = """
-        INSERT INTO persons (uuid, name, company, email, linkedin, position, timezone)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO persons (uuid, name, company, email, linkedin, position, timezone, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert person: {person}")
@@ -53,12 +55,12 @@ class PersonsRepository:
 
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(insert_query, person_data)
+                    cursor.execute(insert_query, person_data + (PersonStatus.IN_PROGRESS.value,))
                     conn.commit()
                     person_id = cursor.fetchone()[0]
                     logger.info(f"Inserted person to database. Person id: {person_id}")
                     return person.uuid
-            except psycopg2.errors.UniqueViolation as error:
+            except psycopg2.IntegrityError:
                 logger.warning(f"Duplicate entry for UUID: {person.uuid}, skipping insert.")
                 conn.rollback()  # Rollback the transaction in case of duplicate key
                 return None  # Return None or some other indication that insert was skipped
@@ -368,6 +370,38 @@ class PersonsRepository:
                     logger.info(f"Updated last message sent at for {email}")
             except psycopg2.Error as error:
                 logger.error(f"Error updating last message sent at by email: {error}")
+                return None
+
+    def update_status(self, uuid: str | UUID, status: PersonStatus):
+        query = """
+        UPDATE persons
+        SET status = %s
+        WHERE uuid = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (status.value, uuid))
+                    conn.commit()
+                    logger.info(f"Updated status for {uuid}")
+            except psycopg2.Error as error:
+                logger.error(f"Error updating status: {error}")
+                return None
+
+    def update_status_by_email(self, email: str, status: PersonStatus):
+        query = """
+        UPDATE persons
+        SET status = %s
+        WHERE email = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (status.value, email))
+                    conn.commit()
+                    logger.info(f"Updated status for {email}")
+            except psycopg2.Error as error:
+                logger.error(f"Error updating status by email: {error}")
                 return None
 
 
