@@ -41,7 +41,8 @@ class SlackConsumer(GenieConsumer):
                 Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
                 Topic.EMAIL_SENDING_FAILED,
-                Topic.BUG_IN_TENANT_ID
+                Topic.BUG_IN_TENANT_ID,
+                Topic.PROFILE_ERROR
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -70,6 +71,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.BUG_IN_TENANT_ID:
                 logger.info("Handling bug in tenant id")
                 await self.handle_bug_in_tenant_id(event)
+            case Topic.PROFILE_ERROR:
+                logger.info("Handling profile error")
+                await self.handle_profile_error(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -174,6 +178,33 @@ class SlackConsumer(GenieConsumer):
         send_message(message)
         return {"status": "ok"}
 
+    async def handle_profile_error(self, event):
+        """
+        Should send a message to slack about the error
+        """
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        error = event_body.get("error")
+        traceback_logs = event_body.get("traceback")
+        email = event_body.get("email")
+        uuid = event_body.get("uuid")
+        topic = event_body.get("topic")
+        consumer_group = event_body.get("consumer_group")
+        message = (f"[CTX={logger.get_ctx_id()}] error occurred in topic: {topic} and consumer_group: {consumer_group}."
+                   f"While processing {email or uuid}."
+                   f" Error: {error}."
+                   f"")
+        {
+            "error": str(error_message),
+            "traceback": traceback_logs,
+            "event": event.body,
+            "topic": topic,
+            "consumer_group": self.consumer_group,
+            "email": email,
+            "uuid": uuid,
+        }
 
 if __name__ == "__main__":
     slack_consumer = SlackConsumer()

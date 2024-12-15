@@ -2,6 +2,8 @@ import traceback
 
 import psycopg2
 
+from uuid import UUID
+
 from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
@@ -25,7 +27,7 @@ class PersonsRepository:
             linkedin VARCHAR,
             position VARCHAR,
             timezone VARCHAR,
-            last_message_sent_at TIMESTAMP
+            last_message_sent_at TIMESTAMP,
             status TEXT
         );
         """
