@@ -195,16 +195,10 @@ class SlackConsumer(GenieConsumer):
         message = (f"[CTX={logger.get_ctx_id()}] error occurred in topic: {topic} and consumer_group: {consumer_group}."
                    f"While processing {email or uuid}."
                    f" Error: {error}."
-                   f"")
-        {
-            "error": str(error_message),
-            "traceback": traceback_logs,
-            "event": event.body,
-            "topic": topic,
-            "consumer_group": self.consumer_group,
-            "email": email,
-            "uuid": uuid,
-        }
+                   f" Traceback: {traceback_logs}.")
+        send_message(message)
+        return {"status": "ok"}
+
 
 if __name__ == "__main__":
     slack_consumer = SlackConsumer()
