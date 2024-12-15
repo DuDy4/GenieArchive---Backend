@@ -1,6 +1,10 @@
 class Topic:
     # Events that notify about new objects in the system
 
+    PROFILE_CRITICAL_TOPICS = [
+                
+    ]
+
     # New objects events
     PERSONAL_NEWS_ARE_UP_TO_DATE = "personal-news-are-up-to-date"  # News scrapper already has the latest news
     BUG_IN_TENANT_ID = "bug-in-tenant-id"  # TenantManager found a bug in tenant_id
@@ -88,3 +92,5 @@ class Topic:
     FAILED_TO_GET_COMPANY_NEWS = "failed-to-get-company-news"  # News scrapper failed to get news
 
     FILE_UPLOADED = "file-uploaded"
+
+

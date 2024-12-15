@@ -104,6 +104,7 @@ class ParamsApiService:
         #         row[self.criteria_index] = last_param
 
     async def evaulate_param(self, post, name, position, company, param_id):
+        self._initailze_sheet()
         person = {
             'name': name,
             'position': position,

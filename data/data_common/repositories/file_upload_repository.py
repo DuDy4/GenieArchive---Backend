@@ -135,7 +135,8 @@ class FileUploadRepository:
         select_query = """
         SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
         FROM file_uploads
-        WHERE tenant_id = %s;
+        WHERE tenant_id = %s
+        AND file_name <> 'placeholder.txt';
         """
         with db_connection() as conn:
             try:
