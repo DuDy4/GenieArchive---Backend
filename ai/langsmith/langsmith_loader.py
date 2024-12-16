@@ -367,7 +367,6 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
-    
     async def get_summary(self, data, max_words=50):
         logger.info("Running Langsmith prompt for text summary")
         prompt = hub.pull("whiteforest/chain-of-density-prompt")
@@ -382,9 +381,12 @@ class Langsmith:
             runnable = prompt | self.model
             response = await self._run_prompt_with_retry(runnable, arguments)
             if response and response.content and isinstance(response.content, str):
-                summary_obj = json.loads(response.content)[0]
-                summary = summary_obj.get("denser_summary")
-                return summary
+                summary_array = json.loads(response.content)
+                if summary_array and isinstance(summary_array, list) and len(summary_array) > 0:
+                    summary = summary_array[0].get("denser_summary")
+                    return summary
+                else:
+                    return None
             else:
                 return None
         except Exception as e:
