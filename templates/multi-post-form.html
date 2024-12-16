@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi Post Helper</title>
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #0056b3;
+            margin-bottom: 20px;
+        }
+
+        .form-container {
+            background: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input, button {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .checkbox-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #0056b3;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background: #003d80;
+        }
+
+        .response-container {
+            margin-top: 30px;
+            background: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        pre {
+            background: #f5f5f5;
+            border-radius: 5px;
+            padding: 15px;
+            font-size: 14px;
+            overflow-x: auto; /* Scroll horizontally for long lines */
+            overflow-y: auto; /* Add vertical scrolling if content overflows */
+            white-space: pre-wrap; /* Ensures text wraps properly */
+            word-wrap: break-word; /* Ensures words break if necessary */
+            max-height: 300px; /* Limit the max height of the response area */
+        }
+
+    </style>
+    <script>
+        async function handleSubmit(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const responseContainer = document.getElementById("response-container");
+            const responseContent = document.getElementById("response-content");
+
+            // Convert to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                if (data[key]) {
+                    if (Array.isArray(data[key])) {
+                        data[key].push(value);
+                    } else {
+                        data[key] = [data[key], value];
+                    }
+                } else {
+                    data[key] = value;
+                }
+            });
+
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                responseContainer.style.display = "block";
+                responseContent.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Param Selection Form</h1>
+    <div class="form-container">
+        <form action="/v1/posts/submit" method="post" onsubmit="handleSubmit(event)">
+            <label for="linkedin">LinkedIn URL:</label>
+            <input type="url" id="linkedin" name="linkedin" required>
+
+            <label for="num_posts">Number of Posts:</label>
+            <input type="number" id="num_posts" name="num_posts" required>
+
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label>Select Param IDs: (the more youe choose the slower it will be)</label>
+            <div class="checkbox-container">
+                <!-- Dynamically Generate Checkboxes -->
+                <script>
+                    for (let i = 1; i <= 30; i++) {
+                        document.write(`
+                            <label>
+                                <input type="checkbox" name="selected_numbers" value="${i}"> ${i}
+                            </label>
+                        `);
+                    }
+                </script>
+            </div>
+
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <div id="response-container" class="response-container">
+        <h2>Response:</h2>
+        <pre id="response-content"></pre>
+        <button onclick="copyResponseAsCSV()" style="margin-top: 10px; background-color: #28a745;">Copy as CSV</button>
+    </div>
+    
+    <script>
+        function copyResponseAsCSV() {
+            const responseContent = document.getElementById("response-content").textContent;
+    
+            try {
+                const json = JSON.parse(responseContent); // Parse JSON response
+                const csv = convertJSONToCSV(json);
+                navigator.clipboard.writeText(csv).then(() => {
+                    alert("Response copied as CSV!");
+                });
+            } catch (error) {
+                alert("Failed to convert response to CSV.");
+            }
+        }
+    
+        function flattenObject(ob) {
+            const result = {};
+
+            function recurse(cur, prop) {
+                if (Object(cur) !== cur) {
+                    // Handle primitive values and replace newlines
+                    result[prop] = String(cur).replace(/\n/g, " ").replace(/\r/g, " ");
+                } else if (Array.isArray(cur)) {
+                    // Check if the array contains objects
+                    if (cur.every(item => typeof item === "object" && item !== null)) {
+                        // Convert array of objects to JSON strings
+                        result[prop] = cur.map(item => JSON.stringify(item)).join("; ");
+                    } else {
+                        // Join primitive arrays into a string
+                        result[prop] = cur.join(", ");
+                    }
+                } else {
+                    // Recurse for nested objects
+                    for (const key in cur) {
+                        recurse(cur[key], prop ? `${prop}.${key}` : key);
+                    }
+                }
+            }
+            recurse(ob, "");
+            return result;
+        }
+
+
+        function convertJSONToCSV(json) {
+            const array = Array.isArray(json) ? json : [json];
+            const flattenedArray = array.map(flattenObject);
+            const keys = Object.keys(flattenedArray[0]);
+
+            const csv = [
+                keys.join(","), // CSV headers
+                ...flattenedArray.map(row =>
+                    keys.map(key => `"${(row[key] || "").replace(/"/g, '""')}"`).join(",") // Escape quotes
+                ),
+            ].join("\n");
+
+            return csv;
+        }
+
+
+    </script>
+</body>
+</html>

@@ -861,6 +861,27 @@ def import_google_meetings(
 
 templates = Jinja2Templates(directory="templates")
 
+@v1_router.get("/posts", response_class=HTMLResponse)
+async def get_form(request: Request):
+    """
+    Serve the form template.
+    """
+    return templates.TemplateResponse("multi-post-form.html", {"request": request})
+
+
+@v1_router.post("/posts/submit")
+async def handle_posts_form(
+    request: Request,
+):
+    """
+    Handle form submission and return parsed data.
+    """
+    body = await request.json()
+    response = await params_api_service.evaluate_posts(body['linkedin'], body['num_posts'], body['name'], body['selected_numbers'])
+
+    # Return parsed data
+    return JSONResponse(content=response)
+
 @v1_router.get("/params", response_class=HTMLResponse)
 async def get_form(request: Request):
     """

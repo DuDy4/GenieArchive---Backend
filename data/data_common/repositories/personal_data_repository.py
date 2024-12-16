@@ -451,10 +451,12 @@ class PersonalDataRepository:
                 traceback.format_exc()
                 return []
 
-    def _get_news(self, query: str, arg: str):
+    def _get_news(self, query: str, arg: str, wildcard: bool = False):
         with db_connection() as conn:
             try:
                 with (conn.cursor() as cursor):
+                    if wildcard:
+                        arg = f"%{arg}%"
                     cursor.execute(query, (arg,))
                     news = cursor.fetchone()
                     if news is None:
@@ -486,6 +488,10 @@ class PersonalDataRepository:
     def get_news_data_by_email(self, email):
         query = """SELECT news FROM personalData WHERE email = %s;"""
         return self._get_news(query, email)
+
+    def get_news_data_by_linkedin(self, linkedin_url):
+        query = """SELECT news FROM personalData WHERE linkedin_url ILIKE %s;"""
+        return self._get_news(query, linkedin_url, True)
 
     def update_news_to_db(self, uuid: str, news_data: dict | None, status: str = "FETCHED"):
         """
