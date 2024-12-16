@@ -103,7 +103,6 @@ class TenantsApiService:
         )
 
         # Log credentials before using them
-        logger.debug(f"Google credentials before refresh: {credentials}")
 
         # Build the service using the credentials
         service = build("calendar", "v3", credentials=credentials)
@@ -187,14 +186,10 @@ class TenantsApiService:
                 raise HTTPException(status_code=400, detail="Missing user email or tenant ID")
 
             if self.tenants_repository.exists(tenant_id):
-                logger.debug(f"Tenant ID {tenant_id} already exists in database")
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
-                logger.debug(f"Updated google creds for user: {user_email}. About to fetch google meetings")
                 self.fetch_google_meetings(user_email)
             elif self.tenants_repository.email_exists(user_email):
-                logger.debug(
-                    f"Another tenant ID exists for this email: {user_email}. About to update tenant ID"
-                )
+
                 old_tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
                 TenantService.changed_old_tenant_to_new_tenant(
                     new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id, user_name=user_name
@@ -207,7 +202,6 @@ class TenantsApiService:
                         detail="Missing tenant ID or Credentials",
                     )
                 # Signup new user
-                logger.debug(f"About to signup new user: {user_email}")
                 self.tenants_repository.insert(
                     {
                         "uuid": get_uuid4(),

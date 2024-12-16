@@ -84,7 +84,6 @@ class ApolloConsumer(GenieConsumer):
         )
         if apollo_personal_data_from_db:
             logger.warning(f"Already have personal data from apollo for email: {person.email}")
-            logger.debug(f"Personal data: {str(apollo_personal_data_from_db)[:300]}")
             person = create_person_from_apollo_personal_data(person)
             self.persons_repository.save_person(person)
             event = GenieEvent(topic=Topic.APOLLO_UP_TO_DATE_ENRICHED_DATA, data={"person": person.to_dict()})
@@ -93,7 +92,6 @@ class ApolloConsumer(GenieConsumer):
 
         # If we do not have any personal data on this person, fetch it from Apollo
         apollo_personal_data = self.apollo_client.enrich_person(person)
-        logger.debug(f"Apollo personal data: {apollo_personal_data}")
         if not apollo_personal_data:
             logger.warning(f"Failed to get personal data for person: {person}")
             self.personal_data_repository.save_apollo_personal_data(

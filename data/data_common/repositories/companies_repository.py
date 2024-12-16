@@ -136,7 +136,6 @@ class CompaniesRepository:
                     if news is None:
                         logger.error(f"No news data for email: {email}, and news is null instead of empty list")
                         return []
-                    logger.debug(f"News data by email: {news}")
                     if not news:
                         news = []  # In case news is null
                     else:
@@ -195,9 +194,7 @@ class CompaniesRepository:
                     cursor.execute(select_query)
                     companies = cursor.fetchall()
                     if companies:
-                        logger.debug(f"Got {len(companies)} companies: {companies}")
                         companies = [CompanyDTO.from_tuple(company) for company in companies]
-                        logger.debug(f"Companies: {companies}")
                         return companies
                     logger.info(f"No companies found")
                     return []
@@ -221,9 +218,7 @@ class CompaniesRepository:
                     cursor.execute(select_query)
                     companies = cursor.fetchall()
                     if companies:
-                        logger.debug(f"Got {len(companies)} companies: {companies}")
                         companies = [CompanyDTO.from_tuple(company) for company in companies]
-                        logger.debug(f"Companies: {companies}")
                         return companies
                     logger.info(f"No companies found")
                     return []

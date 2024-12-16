@@ -114,11 +114,9 @@ class MeetingsApiService:
             if person:
                 profile_picture = self.profiles_repository.get_profile_picture(person.uuid)
                 mini_person = InternalMiniPersonResponse.from_person_dto(person, profile_picture)
-                logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
             else:
                 mini_person = InternalMiniPersonResponse.from_dict({"uuid": get_uuid4(), "email": email})
-                logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
         internal_meeting_overview = InternalMeetingOverviewResponse(
             meeting=mini_meeting,
@@ -191,7 +189,6 @@ class MeetingsApiService:
                             if domain not in str(link):
                                 news.append(new)
                         company.news = news[:3]
-                        logger.debug(f"Company news: {str(company.news)[:300]}")
                     except Exception as e:
                         logger.error(f"Error processing company news: {e}")
                         company.news = []
@@ -240,7 +237,6 @@ class MeetingsApiService:
                 else:
                     person = PersonDTO.from_dict({"email": participant})
                     person_response = MiniPersonResponse.from_dict(person.to_dict())
-                logger.debug(f"Person: {person_response}")
                 mini_persons.append(person_response)
 
         if not mini_profiles and not mini_persons:

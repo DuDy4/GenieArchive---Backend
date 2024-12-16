@@ -183,8 +183,6 @@ class PersonsRepository:
 
             try:
                 with conn.cursor() as cursor:
-                    logger.debug(f"Executing query: {query}")
-                    logger.debug(f"UUIDs: {uuids}")
                     cursor.execute(query, tuple(parameters))
                     rows = cursor.fetchall()
                     logger.info(f"Retrieved emails for UUIDs: {rows}")

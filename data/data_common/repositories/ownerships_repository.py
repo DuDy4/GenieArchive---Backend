@@ -37,9 +37,7 @@ class OwnershipsRepository:
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    logger.debug(f"About to get all ownerships for tenant {tenant_id}")
                     cursor.execute(select_query, (tenant_id,))
-                    logger.debug(f"Executed query")
                     ownerships = cursor.fetchall()
                     logger.info(f"Got all ownerships for tenant {tenant_id}")
                     ownerships = [ownership[0] for ownership in ownerships]

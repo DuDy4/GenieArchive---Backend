@@ -98,7 +98,6 @@ class TenantsRepository:
         select_query = """SELECT tenant_id FROM tenants WHERE email = %s"""
         with db_connection() as conn:
             try:
-                logger.debug(f"Getting tenant_id for email: {email}")
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (email,))
                     result = cursor.fetchone()
@@ -143,19 +142,13 @@ class TenantsRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query, (tenant_id,))
                     result = cursor.fetchone()
-                    logger.debug(f"Result of email query: {result}")
                     return result[0] if result else None
             except Exception as error:
                 logger.error("Error getting tenant email:", error)
                 logger.error(traceback.format_exc())
                 return None
 
-    def update_tenant_id(
-            self, old_tenant_id, new_tenant_id, user_id: Optional[str] = None, user_name: Optional[str] = None
-    ):
-        logger.debug(
-            f"About to update tenant id from {old_tenant_id} to {new_tenant_id} and user_id: {user_id}"
-        )
+    def update_tenant_id(self, old_tenant_id, new_tenant_id, user_id: Optional[str] = None, user_name: Optional[str] = None):
         update_query = "UPDATE tenants SET tenant_id = %s"
         if user_id:
             update_query += ", user_id = %s"

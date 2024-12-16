@@ -58,7 +58,6 @@ class ProfilesRepository:
 
     def save_new_profile_from_person(self, person: PersonDTO):
         self.create_table_if_not_exists()
-        logger.debug(f"About to save profile from person: {person}")
         profile = ProfileDTO(
             uuid=person.uuid, name=person.name, company=person.company, position=person.position
         )
@@ -66,7 +65,6 @@ class ProfilesRepository:
 
     def save_profile(self, profile: ProfileDTO):
         self.create_table_if_not_exists()
-        logger.debug(f"About to save profile: {profile}")
         if self.exists(str(profile.uuid)):
             self._update(profile)
         else:
@@ -200,7 +198,6 @@ class ProfilesRepository:
         with db_connection() as conn:
 
             try:
-                logger.debug(f"About to get profiles from list: {uuids} with search: {search}")
                 with conn.cursor() as cursor:
                     if search:
                         select_query = """
@@ -224,25 +221,20 @@ class ProfilesRepository:
 
                     for row in rows:
                         uuid = UUID(row[0])
-                        logger.debug(f"UUID: {uuid}")
 
                         name = row[1] if row[1] else ""
                         if name == "":
                             logger.error(f"Name is empty for {uuid}")
-                        logger.debug(f"Name: {name}")
 
                         company = row[2] if row[2] else ""
                         if company == "":
                             logger.error(f"Company is empty for {uuid}")
-                        logger.debug(f"Company: {company}")
 
                         position = row[3] if row[3] else ""
                         if position == "":
                             logger.error(f"Position is empty for {uuid}")
-                        logger.debug(f"Position: {position}")
 
                         summary = row[8] if row[8] else None
-                        logger.debug(f"Summary: {summary}")
 
                         # Ensure strengths is a list of Strength objects
                         strengths = (
@@ -250,13 +242,10 @@ class ProfilesRepository:
                             if isinstance(row[4], str)
                             else row[4]
                         )
-                        logger.debug(f"Strengths length: {len(strengths)}")
-
                         # Ensure hobbies is a list of UUIDs
                         hobbies = (
                             [UUID(hobby) for hobby in json.loads(row[5])] if isinstance(row[5], str) else row[5]
                         )
-                        logger.debug(f"Hobbies: {hobbies}")
 
                         # Ensure connections is a list of Connection objects
                         connections = (
@@ -264,18 +253,12 @@ class ProfilesRepository:
                             if isinstance(row[6], str)
                             else row[6]
                         )
-                        logger.debug(f"Connections: {connections}")
-
                         # Ensure get_to_know is a dictionary with lists of Phrase objects
                         get_to_know = (
                             {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
                             if isinstance(row[7], str)
                             else row[7]
                         )
-                        logger.debug(f"Get to know: {get_to_know}")
-
-                        # Ensure company field is present
-
                         # Ensure picture_url is a valid URL or None
                         picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
                         if picture_url == "":
@@ -284,8 +267,6 @@ class ProfilesRepository:
                         work_history_summary = row[10] if row[10] else None
 
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
-
-                        logger.debug(f"About to create ProfileDTO from tuple: {row}")
 
                         profile_data = (
                             uuid,  # uuid
@@ -332,25 +313,20 @@ class ProfilesRepository:
                     for row in rows:
                         # logger.info(f"Row: {row}")
                         uuid = UUID(row[0])
-                        logger.debug(f"UUID: {uuid}")
 
                         name = row[1] if row[1] else ""
                         if name == "":
                             logger.error(f"Name is empty for {uuid}")
-                        logger.debug(f"Name: {name}")
 
                         company = row[2] if row[2] else ""
                         if company == "":
                             logger.error(f"Company is empty for {uuid}")
-                        logger.debug(f"Company: {company}")
 
                         position = row[3] if row[3] else ""
                         if position == "":
                             logger.error(f"Position is empty for {uuid}")
-                        logger.debug(f"Position: {position}")
 
                         summary = row[8] if row[8] else None
-                        logger.debug(f"Summary: {summary}")
 
                         # Ensure strengths is a list of Strength objects
                         strengths = (
@@ -358,13 +334,11 @@ class ProfilesRepository:
                             if isinstance(row[4], str)
                             else row[4]
                         )
-                        logger.debug(f"Strengths length: {len(strengths)}")
 
                         # Ensure hobbies is a list of UUIDs
                         hobbies = (
                             [UUID(hobby) for hobby in json.loads(row[5])] if isinstance(row[5], str) else row[5]
                         )
-                        logger.debug(f"Hobbies: {hobbies}")
 
                         # Ensure connections is a list of Connection objects
                         connections = (
@@ -372,7 +346,6 @@ class ProfilesRepository:
                             if isinstance(row[6], str)
                             else row[6]
                         )
-                        logger.debug(f"Connections: {connections}")
 
                         # Ensure get_to_know is a dictionary with lists of Phrase objects
                         get_to_know = (
@@ -380,7 +353,6 @@ class ProfilesRepository:
                             if isinstance(row[7], str)
                             else row[7]
                         )
-                        logger.debug(f"Get to know: {get_to_know}")
 
                         # Ensure company field is present
 
@@ -392,8 +364,6 @@ class ProfilesRepository:
                         work_history_summary = row[10] if row[10] else None
 
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
-
-                        logger.debug(f"About to create ProfileDTO from tuple: {row}")
 
                         profile_data = (
                             uuid,  # uuid

@@ -47,7 +47,6 @@ class MeetingsRepository:
                 traceback.print_exc()
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
-        logger.debug(f"Meeting to insert: {meeting}")
         if self.exists(meeting.google_calendar_id, meeting.tenant_id):
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
@@ -121,7 +120,6 @@ class MeetingsRepository:
                     cursor.execute(select_query, (google_calendar_id, tenant_id, MeetingClassification.DELETED.value))
                     row = cursor.fetchone()
                     if row:
-                        logger.debug(f"Got meeting data {row[0]} from database")
                         return MeetingDTO.from_tuple(row)
                     else:
                         logger.warning(f"Meeting not found for {google_calendar_id}")
@@ -292,8 +290,6 @@ class MeetingsRepository:
                     cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
                     meetings = cursor.fetchall()
                     logger.info(f"Got {len(meetings)} external meetings without agenda from database")
-                    for meeting in meetings:
-                        logger.debug(f"Meeting: {meeting}")
                     return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
             except Exception as error:
                 logger.error("Error fetching meetings without agenda:", error)
@@ -377,7 +373,6 @@ class MeetingsRepository:
             meeting.google_calendar_id,
             meeting.tenant_id,
         )
-        logger.debug(f"About to update meeting data: {meeting_data}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
@@ -716,8 +711,6 @@ class MeetingsRepository:
                             meeting_uuid = meeting[0]
                             reminder_schedule = meeting[-1]  # Assuming last field is `reminder_schedule`
                             start_time = meeting[8]  # Assuming `start_time` is at index 8
-
-                            logger.debug(f"Meeting ID: {meeting_uuid}, Start Time: {start_time}, Reminder Schedule: {reminder_schedule}")
 
                         return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                     else:

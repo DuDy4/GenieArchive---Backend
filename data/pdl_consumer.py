@@ -75,7 +75,6 @@ class PDLConsumer(GenieConsumer):
                 event_body = json.loads(event_body)
                 if isinstance(event_body, str):
                     event_body = json.loads(event_body)
-                logger.debug(f"Event body: {str(event_body)[:300]}")
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON: {event_body}")
                 return {"error": "Invalid JSON"}
@@ -142,13 +141,10 @@ class PDLConsumer(GenieConsumer):
                 # If already fetched and up-to-date, send up-to-date event
                 logger.info(f"Personal data is up-to-date. Skipping update for {person.uuid}.")
                 personal_data = self.personal_data_repository.get_pdl_personal_data(person.uuid)
-                logger.debug(f"Person: {person}")
-                logger.debug(f"Personal data: {str(personal_data)[:300]}")
                 if not personal_data:
                     logger.error(f"Unexpected error: Personal data fetched but not found for {person.uuid}")
                 else:
                     person = self.verify_person(person, personal_data)
-                logger.debug(f"Person: {person}")
                 if not person:
                     logger.error(f"Failed to create person from personal data")
                     return {"status": "failed"}
@@ -213,7 +209,6 @@ class PDLConsumer(GenieConsumer):
             if self.pdl_client.is_up_to_date(existing_uuid):
                 # If already tried but failed before, skip
                 pdl_status = self.personal_data_repository.get_pdl_status(existing_uuid)
-                logger.debug(f"Status: {pdl_status}")
                 if pdl_status == self.personal_data_repository.TRIED_BUT_FAILED or not pdl_status:
                     if self.pdl_client.has_other_new_data(existing_uuid):
                         logger.warning(f"Profile for {existing_uuid} has other new data.")
@@ -477,13 +472,11 @@ class PDLClient:
         else:
             logger.warning(f"No LinkedIn or email for {person.uuid}")
             return
-        logger.debug(f"Personal data: {str(personal_data)[:300]}")
         status = (
             self.personal_data_repository.FETCHED
             if personal_data
             else self.personal_data_repository.TRIED_BUT_FAILED
         )
-        logger.debug(f"Status: {status}")
         self.personal_data_repository.save_pdl_personal_data(
             person=person, personal_data=personal_data, status=status
         )
@@ -610,7 +603,6 @@ class PDLClient:
     def does_need_update(self, uuid):
         last_updated_timestamp = self.personal_data_repository.get_pdl_last_updated(uuid)
         if last_updated_timestamp:
-            logger.debug(f"Last updated: {last_updated_timestamp}")
             time_since_last_update = datetime.now() - last_updated_timestamp
             if time_since_last_update < timedelta(seconds=MIN_INTERVAL_TO_FETCH_PROFILES):
                 logger.info(f"Skipping update for uuid: {uuid}, last updated {time_since_last_update} ago.")
@@ -663,7 +655,6 @@ class PDLClient:
     def is_up_to_date(self, existing_uuid):
         last_updated_timestamp = self.personal_data_repository.get_pdl_last_updated(existing_uuid)
         if last_updated_timestamp:
-            logger.debug(f"Last updated: {last_updated_timestamp}")
             time_since_last_update = datetime.now() - last_updated_timestamp
             if time_since_last_update < timedelta(seconds=MIN_INTERVAL_TO_FETCH_PROFILES):
                 logger.info(f"{existing_uuid} is up-to-date")
