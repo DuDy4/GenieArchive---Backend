@@ -828,7 +828,7 @@ class PersonManager(GenieConsumer):
         if not profile:
             logger.error(f"Profile not found in database: {profile_uuid}")
             raise Exception("Failed to handle finished new profile: Profile not found in database")
-        self.persons_repository.update_status(profile.person_uuid, PersonStatus.COMPLETED)
+        self.persons_repository.update_status(profile.uuid, PersonStatus.COMPLETED)
         person = self.persons_repository.get_person(profile_uuid)
         if not person:
             logger.error(f"Person not found in database: {profile_uuid}")

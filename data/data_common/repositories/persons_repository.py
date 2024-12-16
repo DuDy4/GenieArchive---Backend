@@ -381,7 +381,7 @@ class PersonsRepository:
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(query, (status.value, uuid))
+                    cursor.execute(query, (status.value, str(uuid)))
                     conn.commit()
                     logger.info(f"Updated status for {uuid}")
             except psycopg2.Error as error:
