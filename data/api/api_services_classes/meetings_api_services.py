@@ -22,7 +22,7 @@ from data.api.base_models import (
     MidMeetingCompany,
     MiniProfileResponse,
     MiniMeetingOverviewResponse,
-    InternalMiniPersonResponse,
+    InternalMiniPersonResponse, SearchMeeting,
 )
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -54,6 +54,16 @@ class MeetingsApiService:
         dict_meetings.sort(key=lambda x: x["start_time"])
         logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
         return dict_meetings
+
+    def handle_search_meetings(self, tenant_id):
+        if not tenant_id:
+            logger.error("Tenant ID not provided")
+            raise HTTPException(status_code=400, detail="Tenant ID not provided")
+        logger.info(f"About to get all meetings for tenant_id: {tenant_id}")
+
+        meetings = self.meetings_repository.get_all_meetings_to_search(tenant_id)
+        meetings_search_response = [SearchMeeting.from_dict(meeting) for meeting in meetings]
+        return meetings_search_response
 
     def get_all_meetings_with_selected_date(self, tenant_id, selected_datetime: datetime = datetime.now()):
         if not tenant_id:

@@ -152,6 +152,77 @@ class MeetingsRepository:
                 traceback.print_exception(error)
                 return []
 
+    def get_all_meetings_to_search(self, tenant_id: str) -> list[dict]:
+        select_query = """
+        WITH expanded_participants AS (
+            SELECT 
+                m.uuid AS uuid,
+                m.subject AS subject,
+                p.email AS participant_email,
+                p.name AS participant_name,
+                m.start_time AS start_time,
+                m.end_time AS end_time
+            FROM 
+                meetings m
+            CROSS JOIN LATERAL jsonb_array_elements(m.participants_emails) participant
+            LEFT JOIN 
+                persons p
+            ON 
+                participant->>'email' = p.email
+            WHERE
+                m.tenant_id = %s and classification = %s
+            ),
+            aggregated_participants AS (
+                SELECT
+                    uuid,
+                    subject,
+                    start_time,
+                    end_time,
+                    ARRAY_REMOVE(
+                        ARRAY_AGG(COALESCE(participant_name, participant_email)),
+                        NULL
+                    ) AS participants_names
+                FROM 
+                    expanded_participants
+                GROUP BY 
+                    uuid, subject, start_time, end_time
+            )
+            SELECT
+                uuid,
+                subject,
+                participants_names,
+                start_time,
+                end_time
+            FROM 
+                aggregated_participants;
+
+        """
+        with db_connection() as conn:
+            try:
+                self.create_table_if_not_exists()
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (tenant_id, MeetingClassification.EXTERNAL.value))
+                    meetings = cursor.fetchall()
+                    if meetings:
+                        dict_meetings = []
+                        for meeting in meetings:
+                            dict_meeting = {
+                                "uuid": meeting[0],
+                                "subject": meeting[1],
+                                "participants_names": meeting[2],
+                                "start_time": meeting[3],
+                                "end_time": meeting[4],
+                            }
+                            dict_meetings.append(dict_meeting)
+                        return dict_meetings
+                    else:
+                        logger.error(f"No meetings found for tenant_id: {tenant_id}")
+                        return []
+            except Exception as error:
+                logger.error("Error fetching meeting data by tenant_id:", error)
+                traceback.print_exception(error)
+                return []
+
     def get_all_meetings_by_tenant_id_in_datetime(self, tenant_id: str, selected_datetime: datetime) -> list[MeetingDTO]:
         start_range = (selected_datetime - timedelta(weeks=2)).isoformat()
         end_range = (selected_datetime + timedelta(weeks=2)).isoformat()
