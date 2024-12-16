@@ -89,10 +89,6 @@ class Strength(BaseModel):
     def to_json(self) -> str:
         return self.json()
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "Strength":
-        return cls.parse_obj(data)
-
     def to_tuple(self) -> Tuple[str, str, int]:
         return self.strength_name, self.reasoning, self.score
 
@@ -105,7 +101,11 @@ class Strength(BaseModel):
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "Strength":
-        return cls(**data)
+        return cls(
+            strength_name=data["strength_name"],
+            reasoning=data["reasoning"],
+            score=data["score"],
+        )
 
 
 class Connection(BaseModel):
@@ -128,7 +128,11 @@ class Connection(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict) -> "Connection":
-        return cls.parse_obj(data)
+        return cls(
+            name=data["name"],
+            image_url=data["image_url"] if data.get("image_url") else None,
+            linkedin_url=data["linkedin_url"] if data.get("linkedin_url") else None,
+        )
 
     def to_tuple(self) -> Tuple[str, Optional[HttpUrl], Optional[HttpUrl]]:
         return self.name, self.image_url, self.linkedin_url

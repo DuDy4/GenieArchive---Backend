@@ -94,7 +94,7 @@ class LangsmithConsumer(GenieConsumer):
         person_uuid = event_body.get("person_uuid") if event_body.get("person_uuid") else event_body.get("person_id")
         if not person_uuid:
             logger.error(f"No person data found for person {person_uuid}")
-            return
+            raise Exception("Got event with uuid but no person data")
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
         # Check if needs to proceed with the event
@@ -103,7 +103,7 @@ class LangsmithConsumer(GenieConsumer):
             tenant_id = logger.get_tenant_id()
             if not tenant_id:
                 logger.error(f"No tenant id found")
-                return
+                raise Exception("Got event with no tenant id")
             logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
             person = self.persons_repository.get_person(person_uuid)
             profile_to_send = {
@@ -142,7 +142,7 @@ class LangsmithConsumer(GenieConsumer):
         person_uuid = event_body.get("person_uuid") if event_body.get("person_uuid") else event_body.get("person_id")
         if not person_uuid:
             logger.error(f"No person data found for person {person_uuid}")
-            return
+            raise Exception("Got event with uuid but no person data")
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
         # Check if needs to proceed with the event
@@ -151,7 +151,7 @@ class LangsmithConsumer(GenieConsumer):
             tenant_id = logger.get_tenant_id()
             if not tenant_id:
                 logger.error(f"No tenant id found")
-                return
+                raise Exception("Got event with no tenant id")
             tenant_sales_criteria, tenant_sales_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person_uuid, tenant_id)
             if not tenant_sales_criteria or not tenant_sales_action_items:
                 logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
@@ -173,16 +173,7 @@ class LangsmithConsumer(GenieConsumer):
             personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
         if not personal_data:
             logger.error(f"No person data found for person {person_uuid}")
-            return
-            # else:
-            #     person = self.persons_repository.get_person(person_uuid)
-            #     person = person.to_dict()
-            #     personal_data = self.personal_data_repository.get_pdl_personal_data(person_uuid)
-            #     if not personal_data:
-            #         personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
-            #     if not person and not personal_data:
-            #         logger.error(f"No person data found for person {person_uuid}")
-            #         return
+            raise Exception("Got event with no personal data")
         person = self.persons_repository.get_person(person_uuid)
         if not person:
             return
@@ -252,6 +243,10 @@ class LangsmithConsumer(GenieConsumer):
         strengths = personal_data.get("strengths")
         if isinstance(strengths, str):
             strengths = json.loads(strengths)
+        logger.info(f"Strengths: {strengths}")
+        if not strengths:
+            logger.error(f"No strengths found in personal data")
+            raise Exception("Got base profile event with no strengths")
         original_get_to_know = personal_data.get("get_to_know")
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")

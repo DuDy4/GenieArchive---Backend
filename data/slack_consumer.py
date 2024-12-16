@@ -7,6 +7,7 @@ import traceback
 from datetime import timedelta, datetime
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.repositories.tenants_repository import TenantsRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
@@ -37,28 +38,29 @@ class SlackConsumer(GenieConsumer):
     ):
         super().__init__(
             topics=[
-                Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
-                Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
+                Topic.FAILED_TO_ENRICH_PERSON,
+                Topic.FAILED_TO_ENRICH_EMAIL,
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
                 Topic.EMAIL_SENDING_FAILED,
-                Topic.BUG_IN_TENANT_ID
+                Topic.BUG_IN_TENANT_ID,
+                Topic.PROFILE_ERROR
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
         )
         self.company_repository: CompaniesRepository = companies_repository()
         self.persons_repository: PersonsRepository = persons_repository()
-        self.tenants_repository = tenants_repository()
+        self.tenants_repository: TenantsRepository = tenants_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         match topic:
-            case Topic.APOLLO_FAILED_TO_ENRICH_PERSON:
+            case Topic.FAILED_TO_ENRICH_PERSON:
                 logger.info("Handling failed attempt to enrich person")
                 await self.handle_failed_to_get_personal_data(event)
-            case Topic.APOLLO_FAILED_TO_ENRICH_EMAIL:
+            case Topic.FAILED_TO_ENRICH_EMAIL:
                 logger.info("Handling failed attempt to enrich email")
                 await self.handle_failed_to_get_personal_data(event)
             case Topic.FAILED_TO_GET_PROFILE_PICTURE:
@@ -70,6 +72,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.BUG_IN_TENANT_ID:
                 logger.info("Handling bug in tenant id")
                 await self.handle_bug_in_tenant_id(event)
+            case Topic.PROFILE_ERROR:
+                logger.info("Handling profile error")
+                await self.handle_profile_error(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -79,7 +84,7 @@ class SlackConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email = event_body.get("email")
-        domain = email.split("@")[1] if "@" in email else None
+        domain = email.split("@")[1] if (email and "@" in email) else None
         tenant_id = logger.get_tenant_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(email)
         if last_message_sent_at:
@@ -160,7 +165,7 @@ class SlackConsumer(GenieConsumer):
                 message += f"""
                     Originating user: {email}.
                     """
-        send_message(message, channel="email")
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
     async def handle_bug_in_tenant_id(self, event):
@@ -172,6 +177,30 @@ class SlackConsumer(GenieConsumer):
         logger_tenant_id = logger.get_tenant_id()
         message = f"[CTX={logger.get_ctx_id()}] found a bug in tenant_id: {tenant_id} and logger_tenant_id: {logger_tenant_id}."
         send_message(message)
+        return {"status": "ok"}
+
+    async def handle_profile_error(self, event):
+        """
+        Should send a message to slack about the error
+        """
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+
+        logger_info = logger.get_extra()
+        logger_info_str = ", ".join(f"{k}: {v}" for k, v in logger_info.items())
+        error = event_body.get("error")
+        traceback_logs = event_body.get("traceback")
+        email = event_body.get("email")
+        uuid = event_body.get("uuid")
+        topic = event_body.get("topic")
+        consumer_group = event_body.get("consumer_group")
+        message = (f"{logger_info_str} error occurred in topic: {topic} and consumer_group: {consumer_group}."
+                   f"\nWhile processing {email or uuid}."
+                   f" \nError: {error}."
+                   f" \nTraceback: {traceback_logs}.")
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
 

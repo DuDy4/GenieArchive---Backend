@@ -642,3 +642,21 @@ class InternalMeetingOverviewResponse(BaseModel):
 
 class PrivateMeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
+
+
+class SearchMeeting(BaseModel):
+    uuid: str
+    subject: str
+    participants: list[str]
+    start_time: str
+    end_time: str
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            uuid=data.get("uuid", ""),
+            subject=data.get("subject", ""),
+            participants=data.get("participants_names", []),
+            start_time=data.get("start_time", ""),
+            end_time=data.get("end_time", ""),
+        )

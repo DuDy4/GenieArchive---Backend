@@ -198,19 +198,15 @@ class AdminApiService:
         all_meetings = all_meetings[:number_of_meetings]
         logger.info(f"Processing {len(all_meetings)} meetings")
         for meeting in all_meetings:
-            logger.debug(f"Processing meeting {meeting.uuid}, with agenda: {meeting.agenda}")
             if meeting.agenda:
-                logger.debug("Meeting has agenda")
+                logger.info("Meeting has agenda")
             else:
                 meeting_goals = self.meetings_repository.get_meeting_goals(meeting.uuid)
-                logger.debug(f"Meeting goals: {meeting_goals}")
                 if meeting_goals:
                     event = GenieEvent(topic=Topic.NEW_MEETING_GOALS, data={"meeting_uuid": meeting.uuid})
                     event.send()
                 else:
-                    logger.debug("Meeting has no goals")
                     self.process_meeting_from_scratch(meeting)
-            logger.debug("Processing complete")
         logger.info("Finished processing all meetings")
         all_meetings = self.meetings_repository.get_all_external_meetings_without_agenda()
         logger.info(f"After processing, found {len(all_meetings)} meetings without agenda")
@@ -219,7 +215,6 @@ class AdminApiService:
     def process_classification_to_all_meetings(self):
         meetings = self.meetings_repository.get_all_meetings_without_classification()
         for meeting in meetings:
-            logger.debug(f"Processing meeting {meeting}")
             classification = evaluate_meeting_classification(meeting.participants_emails)
             meeting.classification = classification
             logger.info(f"Updated meeting {meeting.uuid} with classification {meeting.classification}")
@@ -230,7 +225,6 @@ class AdminApiService:
     def process_new_classification_to_all_meetings(self):
         meetings = self.meetings_repository.get_all_meetings()
         for meeting in meetings:
-            logger.debug(f"Processing meeting {meeting}")
             classification = evaluate_meeting_classification(meeting.participants_emails)
             meeting.classification = classification
             self.meetings_repository.save_meeting(meeting)

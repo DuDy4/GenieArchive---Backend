@@ -320,7 +320,6 @@ def create_person_from_pdl_personal_data(person: PersonDTO):
                     linkedin_url = profile.get("url")
                     break
     linkedin_url = fix_linkedin_url(linkedin_url)
-    logger.debug(f"Linkedin URL: {linkedin_url}")
     pdl_company, pdl_position = get_company_and_position_from_pdl_experience(personal_experience)
     position = pdl_position
     if not company:
@@ -382,7 +381,6 @@ def create_person_from_apollo_personal_data(person: PersonDTO):
 
     else:
         linkedin_url = fix_linkedin_url(linkedin_url)
-    logger.debug(f"Linkedin URL: {linkedin_url}")
     person_name = personal_data.get("name", "") or personal_data.get("first_name") + " " + personal_data.get(
         "last_name"
     )

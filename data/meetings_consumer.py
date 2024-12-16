@@ -176,7 +176,6 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     async def handle_meeting_to_process(self, meeting: MeetingDTO, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id):
-        logger.debug(f"Meeting: {str(meeting)[:300]}, type: {type(meeting)}")
         if isinstance(meeting, str):
             meeting = json.loads(meeting)
         meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
@@ -215,7 +214,6 @@ class MeetingManager(GenieConsumer):
     async def handle_new_meeting(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
-        logger.debug(f"Meeting: {str(meeting)[:300]}")
         meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
             meeting.google_calendar_id, meeting.tenant_id
         )
@@ -267,16 +265,13 @@ class MeetingManager(GenieConsumer):
         tenant_id = event_body.get("tenant_id")
         if not tenant_id:
             tenant_id = logger.get_tenant_id()
-        logger.debug(f"Tenant ID: {tenant_id}")
         seller_email = self.tenant_repository.get_tenant_email(tenant_id)
         person = event_body.get("person")
         if not person:
             logger.error("No person in event")
             return
         person = json.loads(person) if isinstance(person, str) else person
-        logger.debug(f"Person: {person}, type: {type(person)}")
         person = PersonDTO.from_dict(person)
-        logger.debug(f"Person: {person}")
 
         meetings = self.meetings_repository.get_meetings_without_goals_by_email(person.email)
         if not meetings:
@@ -351,7 +346,6 @@ class MeetingManager(GenieConsumer):
         if not meetings_list:
             logger.error(f"No meetings found for {company.domain}")
             return
-        logger.debug(f"Meetings without goals for {company.domain}: {meetings_list}")
         for meeting in meetings_list:
             if not force_refresh_goals and self.meetings_repository.get_meeting_goals(meeting.uuid):
                 logger.info(f"Meeting {meeting.uuid} already has goals")
@@ -387,7 +381,6 @@ class MeetingManager(GenieConsumer):
                     self_email, personal_data
                 )
                 seller_context = " || ".join(seller_context) if seller_context else None
-                logger.debug(f"Got personal data for {email}: {str(personal_data)[:300]}")
                 logger.info(f"About to run ask langsmith for meeting goals for meeting {meeting.uuid}")
                 meetings_goals = await self.langsmith.run_prompt_get_meeting_goals(
                     personal_data=personal_data, my_company_data=company, seller_context=seller_context
@@ -438,7 +431,6 @@ class MeetingManager(GenieConsumer):
             if not meeting_goals:
                 logger.error(f"No meeting goals found for {meeting.uuid}")
                 continue
-            logger.debug(f"Meeting goals: {meeting_goals}")
             meeting_details = meeting.to_dict()
             tenant_id = logger.get_tenant_id()
             seller_context = None
@@ -542,26 +534,18 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     def check_same_meeting(self, meeting: MeetingDTO, meeting_in_database: MeetingDTO):
-        logger.debug(
-            f"About to check if meetings are the same: {str(meeting)[:300]}, db:{str(meeting_in_database)[:300]}"
-        )
         if not meeting_in_database:
             return False
         if meeting.start_time != meeting_in_database.start_time:
             return False
-        # logger.debug(f"Meeting start times are the same")
         if meeting.end_time != meeting_in_database.end_time:
             return False
-        # logger.debug(f"Meeting end times are the same")
         if meeting.location != meeting_in_database.location:
             return False
-        # logger.debug(f"Meeting locations are the same")
         if meeting.subject != meeting_in_database.subject:
             return False
-        # logger.debug(f"Meeting subjects are the same")
         if meeting.link != meeting_in_database.link:
             return False
-        # logger.debug(f"Meeting links are the same")
         if meeting.participants_hash != meeting_in_database.participants_hash:
             return False
         return True

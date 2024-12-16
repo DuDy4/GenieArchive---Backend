@@ -79,7 +79,6 @@ class ApolloClient:
         }
 
         try:
-            logger.debug(f"Sending request to Apollo: {data}")
             response = self._send_request_with_retries(url, data)
             if response is None:
                 return None  # Max retries reached

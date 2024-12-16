@@ -120,9 +120,6 @@ class PersonalDataRepository:
                             (uuid,),
                         )
                     conn.commit()
-                    logger.debug(
-                        f"Inserted personalData into database: {[(columns[i], values[i]) for i in range(len(columns))]}"
-                    )
                     logger.info("Inserted personalData into database")
             except psycopg2.IntegrityError as e:
                 logger.error("PersonalData with this UUID already exists")
@@ -519,10 +516,6 @@ class PersonalDataRepository:
                 news_last_updated = datetime.now()
                 json_news_data = json.dumps(news_data) if news_data else None
 
-                logger.debug(
-                    f"Updating news in DB, UUID: {uuid}, status: {status}, news_data: {str(json_news_data)[:100]}"
-                )
-
                 with conn.cursor() as cursor:
                     cursor.execute(
                         update_query,
@@ -683,9 +676,6 @@ class PersonalDataRepository:
         :param uuid: Unique identifier for the personalData.
         :param personal_data: Personal data to save.
         """
-
-        logger.debug(f"Updating personal data for {uuid}, apollo_personal_data: {str(personal_data)[:300]}")
-
         update_query = """
         UPDATE personalData
         SET apollo_personal_data = %s, apollo_last_updated = CURRENT_TIMESTAMP, apollo_status = %s
@@ -791,7 +781,6 @@ class PersonalDataRepository:
         :param person: Person object.
         :param personal_data: Personal data to save.
         """
-        logger.debug(f"Saving personal data for {person.email}")
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -824,9 +813,6 @@ class PersonalDataRepository:
         :param personal_data: Personal data to save.
         """
         self.create_table_if_not_exists()
-        logger.debug(
-            f"Saving personal data for {person.uuid}, apollo_personal_data: {str(personal_data)[:300]}"
-        )
         if not self.exists_uuid(person.uuid):
             self.insert(
                 uuid=person.uuid,
@@ -1280,7 +1266,6 @@ class PersonalDataRepository:
                     return [profile[0] for profile in profiles]
             except psycopg2.Error as db_error:
                 logger.error(f"Database error fetching future profiles: {db_error.pgerror}")
-                logger.debug(traceback.format_exc())
                 return []
             except Exception as e:
                 logger.error(f"Unexpected error: {e}")
