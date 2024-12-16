@@ -7,6 +7,7 @@ import traceback
 from datetime import timedelta, datetime
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.repositories.tenants_repository import TenantsRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
@@ -37,8 +38,8 @@ class SlackConsumer(GenieConsumer):
     ):
         super().__init__(
             topics=[
-                Topic.APOLLO_FAILED_TO_ENRICH_PERSON,
-                Topic.APOLLO_FAILED_TO_ENRICH_EMAIL,
+                Topic.FAILED_TO_ENRICH_PERSON,
+                Topic.FAILED_TO_ENRICH_EMAIL,
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
                 Topic.EMAIL_SENDING_FAILED,
                 Topic.BUG_IN_TENANT_ID,
@@ -49,17 +50,17 @@ class SlackConsumer(GenieConsumer):
         )
         self.company_repository: CompaniesRepository = companies_repository()
         self.persons_repository: PersonsRepository = persons_repository()
-        self.tenants_repository = tenants_repository()
+        self.tenants_repository: TenantsRepository = tenants_repository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
         topic = event.properties.get(b"topic").decode("utf-8")
         logger.info(f"Processing event on topic {topic}")
         match topic:
-            case Topic.APOLLO_FAILED_TO_ENRICH_PERSON:
+            case Topic.FAILED_TO_ENRICH_PERSON:
                 logger.info("Handling failed attempt to enrich person")
                 await self.handle_failed_to_get_personal_data(event)
-            case Topic.APOLLO_FAILED_TO_ENRICH_EMAIL:
+            case Topic.FAILED_TO_ENRICH_EMAIL:
                 logger.info("Handling failed attempt to enrich email")
                 await self.handle_failed_to_get_personal_data(event)
             case Topic.FAILED_TO_GET_PROFILE_PICTURE:
