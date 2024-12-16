@@ -468,6 +468,7 @@ class PersonalDataRepository:
                     if not res_news:
                         logger.warning(f"No news data for {arg}")
                         return []
+                    logger.info(f"Got personal news data: {len(res_news) if res_news and isinstance(res_news, list) else str(res_news)[:300]}")
                     return res_news
             except psycopg2.Error as error:
                 logger.error(f"Error getting news data: {error}")
