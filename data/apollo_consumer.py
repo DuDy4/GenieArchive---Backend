@@ -64,24 +64,16 @@ class ApolloConsumer(GenieConsumer):
             event_body = json.loads(event_body)
         person = event_body.get("person")
         logger.info(f"Person: {person}")
+        if not person:
+            logger.error(f"Person not found in event body: {event_body}")
+            raise Exception("Person not found in event body")
         if isinstance(person, str):
             person = json.loads(person)
         person = PersonDTO(**person)
         logger.info(f"Person DTO: {person}")
-        # if person.linkedin:
-        #     logger.info(f"Person already has LinkedIn: {person.LinkedIn}")
-        #     return {"status": "ok"}
+
         person_in_db = self.persons_repository.get_person_by_email(person.email)
-        # if person_in_db:
-        # if person_in_db.linkedin:
-        #     logger.info(f"Person in database already has linkedin_url: {person_in_db.LinkedIn}")
-        # personal_data = self.personal_data_repository.get_pdl_personal_data_by_email(person.email)
-        # if personal_data:
-        #     logger.info(f"Personal data already exists for email: {person.email}")
-        #     return {"status": "ok"}
-        apollo_personal_data_from_db = self.personal_data_repository.get_apollo_personal_data_by_email(
-            person.email
-        )
+        apollo_personal_data_from_db = self.personal_data_repository.get_apollo_personal_data_by_email(person.email)
         if apollo_personal_data_from_db:
             logger.warning(f"Already have personal data from apollo for email: {person.email}")
             person = create_person_from_apollo_personal_data(person)
@@ -119,6 +111,9 @@ class ApolloConsumer(GenieConsumer):
         email = event_body.get("email")
         person = self.persons_repository.get_person_by_email(email)
         if not person:
+            if not email:
+                logger.error(f"Email not found in event body: {event_body}")
+                raise Exception("Not email nor person were found in event body")
             logger.error(f"Person not found for email: {email}")
             uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
             if not uuid:

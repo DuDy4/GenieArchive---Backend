@@ -529,8 +529,8 @@ class PDLClient:
             logger.warning(f"Cannot find profiles for {linkedin_profile_url}")
             return
         if response["status"] == 402:
-            logger.warning(f"Need Payment")
-            return
+            logger.error(f"Need Payment")
+            raise Exception("PDL failed to fetch profile: Need Payment")
         else:
             logger.info(
                 f"Got profile for {linkedin_profile_url} from PDL. Data: {str(response['data'])[:200]}"
@@ -552,8 +552,8 @@ class PDLClient:
             logger.warning(f"Cannot find profiles for {email_address}")
             return
         if response["status"] == 402:
-            logger.warning(f"Need Payment")
-            return
+            logger.error(f"Need Payment")
+            raise Exception("PDL failed to fetch profile: Need Payment")
         else:
             logger.info(f"Got profile for {email_address} from PDL")
             return response["data"]
@@ -596,6 +596,9 @@ class PDLClient:
             logger.warning(f"Cannot find data for {company_website}")
             # self.profiles_repository.insert_tried_but_failed_profiles([linkedin_profile_url])
             return None
+        if response["status"] == 402:
+            logger.error(f"Need Payment")
+            raise Exception("PDL failed to fetch company: Need Payment")
         else:
             # self.profiles_repository.insert_fetched_profiles({linkedin_profile_url: response["data"]})
             return response["summary"]

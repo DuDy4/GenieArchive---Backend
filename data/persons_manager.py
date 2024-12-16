@@ -609,7 +609,7 @@ class PersonManager(GenieConsumer):
         person = PersonDTO.from_dict(person_dict)
         if not person:
             logger.error(f"Person not found in event body: {event_body}")
-            return {"error": "Person not found in event body"}
+            raise Exception("For some reason, person not found in event body for 'already failed to enrich person'")
         apollo_personal_data = self.personal_data_repository.get_apollo_personal_data(person.uuid)
         if apollo_personal_data:
             logger.info(f"Person already has apollo personal data: {person.email}")
@@ -647,7 +647,7 @@ class PersonManager(GenieConsumer):
         logger.debug(f"Person: {person}, Tenant: {tenant_id}")
         if not person:
             logger.error(f"Invalid person data: {person}")
-            return {"error": "Invalid person data"}
+            raise Exception("Could not check profile data: Invalid person data")
         if tenant_id:
             self.ownerships_repository.save_ownership(person.uuid, tenant_id)
 
@@ -665,12 +665,11 @@ class PersonManager(GenieConsumer):
         logger.info(f"Person: {person_dict}")
         if not person_dict:
             logger.error("No person data received in event")
-            return {"error": "No person data received in event"}
+            raise Exception("LinkedIn scrape failed: No person data received in event")
         person = PersonDTO.from_dict(person_dict)
         linkedin = person.linkedin
         uuid = person.uuid
 
-        logger.debug(f"Extracted UUID: {uuid}")
         if not uuid:
             logger.error("UUID is missing in the event data")
             return {"error": "UUID is missing"}
@@ -824,16 +823,16 @@ class PersonManager(GenieConsumer):
         profile_uuid = event_body.get("profile_uuid")
         if not profile_uuid:
             logger.error("No profile UUID found in event body")
-            return {"error": "No profile UUID found in event body"}
+            raise Exception("Failed to handle finished new profile: No profile UUID found in event body")
         profile = self.profiles_repository.get_profile_data(profile_uuid)
         if not profile:
             logger.error(f"Profile not found in database: {profile_uuid}")
-            return {"error": "Profile not found in database"}
+            raise Exception("Failed to handle finished new profile: Profile not found in database")
         self.persons_repository.update_status(profile.person_uuid, PersonStatus.COMPLETED)
         person = self.persons_repository.get_person(profile_uuid)
         if not person:
             logger.error(f"Person not found in database: {profile_uuid}")
-            return {"error": "Person not found in database"}
+            raise Exception("Failed to handle finished new profile: Person not found in database")
         if not person.linkedin:
             person = self.validate_person(person)
             if not person.linkedin:
