@@ -358,7 +358,8 @@ class Langsmith:
                     response = response.replace("```json", "").strip("`").strip()
                     response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
                     response = json.loads(response)
-        except Exception as e:          
+        except Exception as e:
+            logger.error(f"Error running param evaluation: {e}")          
             response = f"Error: {e}"
         return response
 

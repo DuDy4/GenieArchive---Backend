@@ -5,11 +5,14 @@ import json
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from common.utils import env_utils
-from data.data_common.data_transfer_objects.stats_dto import StatsDTO
-from data.data_common.dependencies.dependencies import badges_repository, stats_repository, tenants_repository
-from common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
 from ai.langsmith.langsmith_loader import Langsmith
+from data.api_services.linkedin_scrape import HandleLinkedinScrape
+from data.data_common.utils.persons_utils import fix_linkedin_url
+from data.data_common.dependencies.dependencies import (
+    persons_repository,
+    personal_data_repository,
+)
 
 logger = GenieLogger()
 
@@ -56,6 +59,9 @@ class ParamsApiService:
         self.param_explanation_column_index = None
         self.clues_column_index = None
         # asyncio.run(self._initailze_sheet())
+        self.linkedin_scrapper = HandleLinkedinScrape()
+        self.persons_repository = persons_repository()
+        self.personal_data_repository = personal_data_repository()
 
     def refresh_credentials(self):
         """
@@ -140,10 +146,38 @@ class ParamsApiService:
         }
         response = await self.langsmith.get_param_evaluation(person, param_data, post)
         if response:
-            response_dict = { 'param': param_name }
+            response_dict = { 'param': param_name, 'param_id': param_id }
             response['param'] = param_name
             for i, response_clue in enumerate(response['clues']):
                 response_clue['clue'] = clues_list[i]
             response_dict.update(response)
             return response_dict
         return {}
+    
+    async def evaluate_posts(self, linkedin_url, num_posts, name, selected_params):
+        posts = await self.fetch_linkedin_posts(linkedin_url, int(num_posts), name)
+        responses = []
+        for post in posts:
+            for param_id in selected_params:
+                response = await self.evaulate_param(post.text, name, "", "", param_id)
+                if response:
+                    post_data = {
+                        "Full Name": name,
+                        'post': post.to_dict(),
+                        'params': response,
+                    }
+                    responses.append(post_data)
+        return responses
+    
+    async def fetch_linkedin_posts(self, linkedin_url, num_posts, name):
+        linkedin_url = fix_linkedin_url(linkedin_url)
+        uuid = "123-" + linkedin_url
+        posts = []
+        if self.personal_data_repository.exists_linkedin_url(linkedin_url):
+            posts = self.personal_data_repository.get_news_data_by_linkedin(linkedin_url)
+        else:
+            posts = self.linkedin_scrapper.fetch_and_process_posts(linkedin_url, num_posts)
+            self.personal_data_repository.insert(uuid=uuid, name=name, linkedin_url=linkedin_url)
+            self.personal_data_repository.update_news_list_to_db(uuid, posts)
+
+        return posts
