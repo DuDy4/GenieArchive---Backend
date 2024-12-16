@@ -176,7 +176,7 @@ class SlackConsumer(GenieConsumer):
         tenant_id = event_body.get("tenant_id")
         logger_tenant_id = logger.get_tenant_id()
         message = f"[CTX={logger.get_ctx_id()}] found a bug in tenant_id: {tenant_id} and logger_tenant_id: {logger_tenant_id}."
-        send_message(message)
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
     async def handle_profile_error(self, event):
