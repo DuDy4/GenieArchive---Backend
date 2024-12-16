@@ -84,7 +84,7 @@ class SlackConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email = event_body.get("email")
-        domain = email.split("@")[1] if "@" in email else None
+        domain = email.split("@")[1] if (email and "@" in email) else None
         tenant_id = logger.get_tenant_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(email)
         if last_message_sent_at:
