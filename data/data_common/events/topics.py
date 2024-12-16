@@ -6,7 +6,7 @@ class Topic:
         "new-tenant-profile",
         "failed-to-get-personal-news",
         "new-personal-news",
-        "new=-person-context",
+        "new-person-context",
         "new-person",
         "new-contact",
         "new-email-address-to-process",

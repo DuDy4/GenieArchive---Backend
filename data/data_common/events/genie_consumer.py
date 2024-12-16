@@ -125,7 +125,7 @@ class GenieConsumer:
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email = event_body.get("email")
-        uuid = event_body.get("uuid") or event_body.get("person_uuid") or event_body.get("profile_uuid")
+        uuid = event_body.get("uuid") or event_body.get("person_uuid") or event_body.get("profile_uuid") or event_body.get("person_id")
         if not email and not uuid:
             person = event_body.get("person")
             profile = event_body.get("profile")
@@ -136,9 +136,9 @@ class GenieConsumer:
 
         data_to_send = {
             "error": str(error_message),
-            "traceback": traceback_logs,
-            "event": event.body,
-            "topic": topic,
+            "traceback": str(traceback_logs),
+            "event": event.body_as_str(),
+            "topic": str(topic),
             "consumer_group": self.consumer_group,
             "email": email,
             "uuid": uuid,

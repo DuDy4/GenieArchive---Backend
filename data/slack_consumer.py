@@ -165,7 +165,7 @@ class SlackConsumer(GenieConsumer):
                 message += f"""
                     Originating user: {email}.
                     """
-        send_message(message, channel="email")
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
     async def handle_bug_in_tenant_id(self, event):
@@ -194,10 +194,10 @@ class SlackConsumer(GenieConsumer):
         topic = event_body.get("topic")
         consumer_group = event_body.get("consumer_group")
         message = (f"[CTX={logger.get_ctx_id()}] error occurred in topic: {topic} and consumer_group: {consumer_group}."
-                   f"While processing {email or uuid}."
-                   f" Error: {error}."
-                   f" Traceback: {traceback_logs}.")
-        send_message(message)
+                   f"\nWhile processing {email or uuid}."
+                   f" \nError: {error}."
+                   f" \nTraceback: {traceback_logs}.")
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
 

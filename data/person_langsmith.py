@@ -174,15 +174,6 @@ class LangsmithConsumer(GenieConsumer):
         if not personal_data:
             logger.error(f"No person data found for person {person_uuid}")
             return
-            # else:
-            #     person = self.persons_repository.get_person(person_uuid)
-            #     person = person.to_dict()
-            #     personal_data = self.personal_data_repository.get_pdl_personal_data(person_uuid)
-            #     if not personal_data:
-            #         personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
-            #     if not person and not personal_data:
-            #         logger.error(f"No person data found for person {person_uuid}")
-            #         return
         person = self.persons_repository.get_person(person_uuid)
         if not person:
             return
