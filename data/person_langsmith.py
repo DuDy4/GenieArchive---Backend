@@ -243,6 +243,10 @@ class LangsmithConsumer(GenieConsumer):
         strengths = personal_data.get("strengths")
         if isinstance(strengths, str):
             strengths = json.loads(strengths)
+        logger.info(f"Strengths: {strengths}")
+        if not strengths:
+            logger.error(f"No strengths found in personal data")
+            raise Exception("Got base profile event with no strengths")
         original_get_to_know = personal_data.get("get_to_know")
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")
