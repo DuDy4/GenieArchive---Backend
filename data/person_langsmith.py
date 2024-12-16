@@ -146,7 +146,7 @@ class LangsmithConsumer(GenieConsumer):
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
         # Check if needs to proceed with the event
-        if profile and not event_body.get("force"):
+        if profile and profile.strengths and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
             tenant_id = logger.get_tenant_id()
             if not tenant_id:
@@ -157,9 +157,9 @@ class LangsmithConsumer(GenieConsumer):
                 logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
                 person = self.persons_repository.get_person(person_uuid)
                 profile_to_send = {
-                    "strengths": [strength.to_dict() for strength in profile.strengths],
-                    "get_to_know": { key: [phrase.to_dict() for phrase in phrases] for key, phrases in profile.get_to_know.items()},
-                    "work_history_summary": profile.work_history_summary,
+                    "strengths": [strength.to_dict() for strength in profile.strengths] if profile.strengths else None,
+                    "get_to_know": { key: [phrase.to_dict() for phrase in phrases] for key, phrases in profile.get_to_know.items()} if profile.get_to_know else None,
+                    "work_history_summary": profile.work_history_summary if profile.work_history_summary else None,
                 }
                 data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
                 event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
