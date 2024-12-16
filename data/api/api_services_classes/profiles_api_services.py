@@ -83,7 +83,7 @@ class ProfilesApiService:
         participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
         host_email_list = [email.email_address for email in participants if email.self]
         self_email = host_email_list[0] if host_email_list else None
-        self_domain = self_email.split("@")[1] if "@" in self_email else None
+        self_domain = (self_email.split("@")[1] if "@" in self_email else None) if self_email else None
         if self_domain:
             additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
             filtered_participants_emails = email_utils.filter_emails_with_additional_domains(self_email, participants_emails, additional_domains)
