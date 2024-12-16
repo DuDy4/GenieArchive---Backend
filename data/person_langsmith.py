@@ -207,12 +207,7 @@ class LangsmithConsumer(GenieConsumer):
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
 
         # Start cooking the profile - inside has strengths, get_to_know and work_history_summary
-        # response = await self.langsmith.get_profile(personal_data, company_dict, news_data, seller_context)
-        response = {
-            "strengths": profile.strengths,
-            "get_to_know": profile.get_to_know,
-            "work_history_summary": profile.work_history_summary,
-        }
+        response = await self.langsmith.get_profile(personal_data, company_dict, news_data, seller_context)
         logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
 
         profile_strengths_get_to_know_work_history_summary = {
