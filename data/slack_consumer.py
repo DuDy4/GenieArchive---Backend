@@ -189,13 +189,14 @@ class SlackConsumer(GenieConsumer):
             event_body = json.loads(event_body)
 
         logger_info = logger.get_extra()
+        logger_info_str = ", ".join(f"{k}: {v}" for k, v in logger_info.items())
         error = event_body.get("error")
         traceback_logs = event_body.get("traceback")
         email = event_body.get("email")
         uuid = event_body.get("uuid")
         topic = event_body.get("topic")
         consumer_group = event_body.get("consumer_group")
-        message = (f"{[f"{k}: {v}" for (k,v) in logger_info]} error occurred in topic: {topic} and consumer_group: {consumer_group}."
+        message = (f"{logger_info_str} error occurred in topic: {topic} and consumer_group: {consumer_group}."
                    f"\nWhile processing {email or uuid}."
                    f" \nError: {error}."
                    f" \nTraceback: {traceback_logs}.")
