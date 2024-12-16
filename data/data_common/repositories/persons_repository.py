@@ -356,6 +356,34 @@ class PersonsRepository:
                 logger.error(f"Error getting last message sent at by email: {error}")
                 return None
 
+    def get_all_person_uuid_by_status(self, status: PersonStatus | None = None):
+        query = f"""
+        SELECT uuid FROM persons WHERE status {'=' if status else 'IS'} %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (status.value if status else None,))
+                    return [row[0] for row in cursor.fetchall()]
+            except psycopg2.Error as error:
+                logger.error(f"Error getting all person uuid by status: {error}")
+                return []
+
+    def get_persons_uuid_that_failed_but_have_data(self):
+        query = """
+        SELECT uuid FROM public.persons
+        where status = 'FAILED' and position != ''
+        ORDER BY id ASC 
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query)
+                    return [row[0] for row in cursor.fetchall()]
+            except psycopg2.Error as error:
+                logger.error(f"Error getting persons that failed but have data: {error}")
+                return []
+
     def update_last_message_sent_at_by_email(self, email):
         query = """
         UPDATE persons
