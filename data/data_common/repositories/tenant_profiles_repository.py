@@ -287,6 +287,7 @@ class TenantProfilesRepository:
                     cursor.execute(update_query, (criteria, action_item_json, uuid, tenant_id))
                     conn.commit()
                     logger.info(f"Updated action item description for {uuid}")
+                    return True
             except psycopg2.Error as error:
                 raise Exception(f"Error updating action item description, because: {error.pgerror}")
 
