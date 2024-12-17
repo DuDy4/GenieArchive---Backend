@@ -262,6 +262,34 @@ class TenantProfilesRepository:
             except psycopg2.Error as error:
                 raise Exception(f"Error updating get to know, because: {error.pgerror}")
 
+    def update_sales_action_item_description(self, tenant_id: str, uuid: str, criteria: str, action_item: str):
+        update_query = """
+        UPDATE tenant_profiles
+        SET action_items = (
+            SELECT jsonb_agg(
+                CASE
+                    WHEN item->>'criteria' = %s THEN
+                        jsonb_set(item, '{action_item}', %s::jsonb)
+                    ELSE
+                        item
+                END
+            )
+            FROM jsonb_array_elements(action_items) AS item
+        )
+        WHERE profile_uuid = %s
+        AND tenant_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    # Ensure action_item is a valid JSON string
+                    action_item_json = json.dumps(action_item)
+                    cursor.execute(update_query, (criteria, action_item_json, uuid, tenant_id))
+                    conn.commit()
+                    logger.info(f"Updated action item description for {uuid}")
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating action item description, because: {error.pgerror}")
+
     def _insert(self, profile_uuid: str, tenant_id: str) -> Union[str, None]:
         insert_query = """
                     INSERT INTO tenant_profiles (uuid, profile_uuid, tenant_id)
