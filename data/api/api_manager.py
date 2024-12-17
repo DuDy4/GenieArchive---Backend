@@ -303,6 +303,33 @@ async def get_all_meetings(
 
 
 @v1_router.get(
+    "/{tenant_id}/meetings-search",
+    response_model=List[SearchMeeting],
+    summary="Gets all *meeting* for the search attendees",
+)
+async def get_all_meetings_to_search(
+        request: Request,
+        tenant_id: str,
+        impersonate_tenant_id: Optional[str] = Query(None),
+) ->List[SearchMeeting] | JSONResponse:
+    """
+    Gets all *meeting* that the tenant has profiles participants in.
+
+    Steps:
+    1. Get all persons for the tenant.
+    2. Get all emails for the persons with name that includes the search text.
+    3. Get all meetings with participants that have the emails.
+
+    """
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
+    response = meetings_api_service.handle_search_meetings(tenant_id)
+    return response
+
+
+@v1_router.get(
     "/{tenant_id}/meetings/{selected_date}",
     response_model=MeetingsListResponse,
     summary="Gets all *meeting* that the tenant has profiles participants in",

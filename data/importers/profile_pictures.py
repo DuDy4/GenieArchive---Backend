@@ -120,7 +120,6 @@ class ProfilePictureFetcher:
             profile_picture = self.linkedin_profile_picture_fetcher.get_profile_picture_from_linkedin_url(
                 person.linkedin
             )
-            logger.debug(f"Profile picture: {profile_picture}")
             if profile_picture:
                 return profile_picture
         else:

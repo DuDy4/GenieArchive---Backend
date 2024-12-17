@@ -1,3 +1,4 @@
+import json
 import os
 import asyncio
 import sys
@@ -8,6 +9,9 @@ import httpx
 from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
+
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
@@ -42,6 +46,7 @@ class GenieConsumer:
             transport_type=TransportType.AmqpOverWebsocket,
         )
         self.topics = topics
+        self.current_event = None
         self._shutdown_event = asyncio.Event()
         self.is_healthy = True  
 
@@ -77,6 +82,7 @@ class GenieConsumer:
         topic = event.properties.get(b"topic")
         try:
             if topic and (topic.decode("utf-8") in self.topics):
+                self.current_event = event
                 decoded_topic = topic.decode("utf-8")
                 if b"ctx_id" in event.properties:
                     ctx_id = event.properties.get(b"ctx_id")
@@ -96,14 +102,51 @@ class GenieConsumer:
                 topic = topic.decode("utf-8") if topic else None
                 logger.info(f"Skipping topic [{topic}]. Consumer group: {self.consumer_group}")
         except Exception as e:
+
             logger.error(f"Exception occurred: {e}")
+            topic = topic.decode("utf-8") if topic else None
+            if topic in Topic.PROFILE_CRITICAL:
+                traceback_str = traceback.format_exc()
+                await self.handle_failed_processing_profile_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)
+
             logger.error("Detailed traceback information:")
             traceback.print_exc()
+        finally:
+            self.current_event = None
         await partition_context.update_checkpoint(event)
 
     async def process_event(self, event):
         """Override this method in subclasses to define event processing logic."""
         raise NotImplementedError("Must be implemented in subclass")
+
+    async def handle_failed_processing_profile_event(self, event, error_message, topic, traceback_logs):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        email = event_body.get("email")
+        uuid = event_body.get("uuid") or event_body.get("person_uuid") or event_body.get("profile_uuid") or event_body.get("person_id")
+        if not email and not uuid:
+            person = event_body.get("person")
+            profile = event_body.get("profile")
+            uuid = person.get("uuid") if person else profile.get("uuid") if profile else None
+            email = person.get("email") if person else profile.get("email") if profile else None
+        if not email and not uuid:
+            logger.error("No email or uuid found in event body")
+
+        data_to_send = {
+            "error": str(error_message),
+            "traceback": str(traceback_logs),
+            "event": event.body_as_str(),
+            "topic": str(topic),
+            "consumer_group": self.consumer_group,
+            "email": email,
+            "uuid": uuid,
+        }
+        event = GenieEvent(topic=Topic.PROFILE_ERROR, data=data_to_send)
+        event.send()
+
+
 
     async def start(self):
         logger.info(f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}")

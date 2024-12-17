@@ -89,8 +89,6 @@ class Langsmith:
             response = await self._run_prompt_with_retry(runnable, arguments)
         except Exception as e:
             response = f"Error: {e}"
-
-        logger.debug(f"Got specific action item from Langsmith: {response}")
         return response
 
     async def run_prompt_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
@@ -109,7 +107,6 @@ class Langsmith:
         }
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
-            logger.debug(f"Response from get-to-know: {response}")
             for i in range(5):
                 if (
                     response
@@ -164,7 +161,6 @@ class Langsmith:
 
     def run_prompt_company_overview_challenges(self, company_data):
         logger.info("Running Langsmith prompt for company overview and challenges")
-        logger.debug(f"Company data: {company_data}")
 
         prompt = hub.pull("get_company_overview")
         try:
@@ -234,7 +230,6 @@ class Langsmith:
                 response = await self.run_prompt_get_meeting_guidelines(
                     customer_strengths, meeting_details, meeting_goals, case
                 )
-            logger.debug(f"Got meeting guidelines from Langsmith: {response}")
             while True:
                 if isinstance(response, dict) and response.get("guidelines"):
                     response = response.get("guidelines") or response.get("data")

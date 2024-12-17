@@ -47,7 +47,6 @@ class MeetingsRepository:
                 traceback.print_exc()
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
-        logger.debug(f"Meeting to insert: {meeting}")
         if self.exists(meeting.google_calendar_id, meeting.tenant_id):
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
@@ -121,7 +120,6 @@ class MeetingsRepository:
                     cursor.execute(select_query, (google_calendar_id, tenant_id, MeetingClassification.DELETED.value))
                     row = cursor.fetchone()
                     if row:
-                        logger.debug(f"Got meeting data {row[0]} from database")
                         return MeetingDTO.from_tuple(row)
                     else:
                         logger.warning(f"Meeting not found for {google_calendar_id}")
@@ -146,6 +144,77 @@ class MeetingsRepository:
                     if meetings:
                         logger.info(f"Got {len(meetings)} meetings from database")
                         return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+                    else:
+                        logger.error(f"No meetings found for tenant_id: {tenant_id}")
+                        return []
+            except Exception as error:
+                logger.error("Error fetching meeting data by tenant_id:", error)
+                traceback.print_exception(error)
+                return []
+
+    def get_all_meetings_to_search(self, tenant_id: str) -> list[dict]:
+        select_query = """
+        WITH expanded_participants AS (
+            SELECT 
+                m.uuid AS uuid,
+                m.subject AS subject,
+                p.email AS participant_email,
+                p.name AS participant_name,
+                m.start_time AS start_time,
+                m.end_time AS end_time
+            FROM 
+                meetings m
+            CROSS JOIN LATERAL jsonb_array_elements(m.participants_emails) participant
+            LEFT JOIN 
+                persons p
+            ON 
+                participant->>'email' = p.email
+            WHERE
+                m.tenant_id = %s and classification = %s
+            ),
+            aggregated_participants AS (
+                SELECT
+                    uuid,
+                    subject,
+                    start_time,
+                    end_time,
+                    ARRAY_REMOVE(
+                        ARRAY_AGG(COALESCE(participant_name, participant_email)),
+                        NULL
+                    ) AS participants_names
+                FROM 
+                    expanded_participants
+                GROUP BY 
+                    uuid, subject, start_time, end_time
+            )
+            SELECT
+                uuid,
+                subject,
+                participants_names,
+                start_time,
+                end_time
+            FROM 
+                aggregated_participants;
+
+        """
+        with db_connection() as conn:
+            try:
+                self.create_table_if_not_exists()
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (tenant_id, MeetingClassification.EXTERNAL.value))
+                    meetings = cursor.fetchall()
+                    if meetings:
+                        dict_meetings = []
+                        for meeting in meetings:
+                            dict_meeting = {
+                                "uuid": meeting[0],
+                                "subject": meeting[1],
+                                "participants_names": meeting[2],
+                                "start_time": meeting[3],
+                                "end_time": meeting[4],
+                            }
+                            dict_meetings.append(dict_meeting)
+                        return dict_meetings
                     else:
                         logger.error(f"No meetings found for tenant_id: {tenant_id}")
                         return []
@@ -292,8 +361,6 @@ class MeetingsRepository:
                     cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
                     meetings = cursor.fetchall()
                     logger.info(f"Got {len(meetings)} external meetings without agenda from database")
-                    for meeting in meetings:
-                        logger.debug(f"Meeting: {meeting}")
                     return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
             except Exception as error:
                 logger.error("Error fetching meetings without agenda:", error)
@@ -377,7 +444,6 @@ class MeetingsRepository:
             meeting.google_calendar_id,
             meeting.tenant_id,
         )
-        logger.debug(f"About to update meeting data: {meeting_data}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
@@ -716,8 +782,6 @@ class MeetingsRepository:
                             meeting_uuid = meeting[0]
                             reminder_schedule = meeting[-1]  # Assuming last field is `reminder_schedule`
                             start_time = meeting[8]  # Assuming `start_time` is at index 8
-
-                            logger.debug(f"Meeting ID: {meeting_uuid}, Start Time: {start_time}, Reminder Schedule: {reminder_schedule}")
 
                         return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                     else:

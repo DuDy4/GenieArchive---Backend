@@ -46,7 +46,6 @@ class ProfilesApiService:
         tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
         logger.info(f"Tenant email: {tenant_email}")
         participants_emails = meeting.participants_emails
-        logger.debug(f"Participants emails: {participants_emails}")
         tenant_domain = tenant_email.split("@")[1]
 
         # Get additional domains in case the same company has multiple domains (or old ones)
@@ -117,7 +116,6 @@ class ProfilesApiService:
                 else:
                     person = PersonDTO.from_dict({"email": participant})
                     person_response = MiniPersonResponse.from_dict(person.to_dict())
-                logger.debug(f"Person: {person_response}")
                 mini_persons.append(person_response)
 
         if not mini_profiles and not mini_persons:

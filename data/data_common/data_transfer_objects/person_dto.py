@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field
 import json
+from enum import Enum
+
 from common.utils.str_utils import get_uuid4
 
+class PersonStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    IN_PROGRESS = "IN_PROGRESS"
+    FAILED = "FAILED"
 
 @dataclass
 class PersonDTO:

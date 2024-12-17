@@ -22,7 +22,7 @@ from data.api.base_models import (
     MidMeetingCompany,
     MiniProfileResponse,
     MiniMeetingOverviewResponse,
-    InternalMiniPersonResponse,
+    InternalMiniPersonResponse, SearchMeeting,
 )
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -54,6 +54,16 @@ class MeetingsApiService:
         dict_meetings.sort(key=lambda x: x["start_time"])
         logger.info(f"About to sent to {tenant_id} meetings: {len(dict_meetings)}")
         return dict_meetings
+
+    def handle_search_meetings(self, tenant_id):
+        if not tenant_id:
+            logger.error("Tenant ID not provided")
+            raise HTTPException(status_code=400, detail="Tenant ID not provided")
+        logger.info(f"About to get all meetings for tenant_id: {tenant_id}")
+
+        meetings = self.meetings_repository.get_all_meetings_to_search(tenant_id)
+        meetings_search_response = [SearchMeeting.from_dict(meeting) for meeting in meetings]
+        return meetings_search_response
 
     def get_all_meetings_with_selected_date(self, tenant_id, selected_datetime: datetime = datetime.now()):
         if not tenant_id:
@@ -114,11 +124,9 @@ class MeetingsApiService:
             if person:
                 profile_picture = self.profiles_repository.get_profile_picture(person.uuid)
                 mini_person = InternalMiniPersonResponse.from_person_dto(person, profile_picture)
-                logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
             else:
                 mini_person = InternalMiniPersonResponse.from_dict({"uuid": get_uuid4(), "email": email})
-                logger.debug(f"Person: {mini_person}")
                 participants.append(mini_person)
         internal_meeting_overview = InternalMeetingOverviewResponse(
             meeting=mini_meeting,
@@ -191,7 +199,6 @@ class MeetingsApiService:
                             if domain not in str(link):
                                 news.append(new)
                         company.news = news[:3]
-                        logger.debug(f"Company news: {str(company.news)[:300]}")
                     except Exception as e:
                         logger.error(f"Error processing company news: {e}")
                         company.news = []
@@ -240,7 +247,6 @@ class MeetingsApiService:
                 else:
                     person = PersonDTO.from_dict({"email": participant})
                     person_response = MiniPersonResponse.from_dict(person.to_dict())
-                logger.debug(f"Person: {person_response}")
                 mini_persons.append(person_response)
 
         if not mini_profiles and not mini_persons:
