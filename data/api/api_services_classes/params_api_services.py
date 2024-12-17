@@ -122,7 +122,6 @@ class ParamsApiService:
         #         row[self.criteria_index] = last_param
 
     async def evaluate_param(self, post, name, position, company, param_id):
-        await self._initialize_sheet()
         person = {
             'name': name,
             'position': position,
@@ -155,11 +154,12 @@ class ParamsApiService:
         return {}
     
     async def evaluate_posts(self, linkedin_url, num_posts, name, selected_params):
+        await self._initialize_sheet()
         posts = await self.fetch_linkedin_posts(linkedin_url, int(num_posts), name)
         responses = []
         for post in posts:
             for param_id in selected_params:
-                response = await self.evaulate_param(post.text, name, "", "", param_id)
+                response = await self.evaluate_param(post.text, name, "", "", param_id)
                 if response:
                     post_data = {
                         "Full Name": name,

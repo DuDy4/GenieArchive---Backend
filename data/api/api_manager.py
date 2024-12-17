@@ -897,6 +897,7 @@ async def handle_form(
     Handle form submission and return parsed data.
     """
     body = await request.json()
+    await params_api_service._initialize_sheet()
     response = await params_api_service.evaluate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
 
     # Return parsed data
