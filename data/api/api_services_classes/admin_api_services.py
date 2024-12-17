@@ -404,3 +404,7 @@ class AdminApiService:
             except Exception as e:
                 logger.error(f"Error sending event for {uuid}: {e}")
                 break
+
+    def update_action_item(self, tenant_id, uuid, criteria, description):
+        result = self.tenant_profiles_repository.update_sales_action_item_description(tenant_id, uuid, criteria, description)
+        return {"status": "success"} if result else {"error": str(result)}
