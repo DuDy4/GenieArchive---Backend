@@ -134,6 +134,35 @@ class SocialMediaLinksList(BaseModel):
         # Only valid links are passed to the constructor
         return cls(links=links)
 
+class MiniCompanyDTO(BaseModel):
+    name: str
+    domain: str
+    logo: Optional[str]
+    website: Optional[str]
+    size: Optional[str]
+    year_founded: Optional[int]
+
+    def from_dict(self, data: dict):
+        return MiniCompanyDTO(
+            name=data.get("name", ""),
+            domain=data.get("domain", ""),
+            logo=data.get("logo", ""),
+            website=data.get("website", ""),
+            size=data.get("size", ""),
+            year_founded=data.get("year_founded", None),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "domain": self.domain,
+            "logo": self.logo,
+            "website": self.website,
+            "size": self.size,
+            "year_founded": self.year_founded,
+        }
+
+
 
 class CompanyDTO:
     def __init__(
@@ -152,6 +181,7 @@ class CompanyDTO:
         technologies: Optional[Union[Dict, List[Dict], List[str]]],
         logo: Optional[str] = "",
         employees: Optional[Union[Dict, List[Dict]]] = None,
+        # customers: Optional[List[CustomerCompanyDTO]] = None,
         social_links: Optional[List[SocialMediaLinks]] = None,
         annual_revenue: Optional[str] = None,
         total_funding: Optional[str] = None,

@@ -89,6 +89,11 @@ class GenieConsumer:
                     if ctx_id:
                         decoded_ctx_id = ctx_id.decode("utf-8")
                         logger.bind_context(decoded_ctx_id)
+                if b"cty_id" in event.properties:
+                    cty_id = event.properties.get(b"cty_id")
+                    if cty_id:
+                        decoded_cty_id = cty_id.decode("utf-8")
+                        logger.bind_y_context(decoded_cty_id)
                 if b"tenant_id" in event.properties:
                     tenant_id = event.properties.get(b"tenant_id")
                     if tenant_id:
@@ -113,6 +118,7 @@ class GenieConsumer:
             traceback.print_exc()
         finally:
             self.current_event = None
+            logger.clean_cty_id()
         await partition_context.update_checkpoint(event)
 
     async def process_event(self, event):

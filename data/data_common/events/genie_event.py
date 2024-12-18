@@ -17,25 +17,29 @@ producer = EventHubProducerClient.from_connection_string(conn_str=connection_str
 
 
 class GenieEvent:
-    def __init__(self, topic, data: str | dict, scope="public", ctx_id=None):
+    def __init__(self, topic, data: str | dict, scope="public", ctx_id=None, cty_id=None):
         self.topic = topic
         self.data: str = self.ensure_json_format(data)
         self.scope = scope
         ctx_id = ctx_id if ctx_id else logger.get_ctx_id()
         self.ctx_id = ctx_id
+        cty_id = cty_id if cty_id else logger.get_cty_id()
+        self.cty_id = cty_id if cty_id else None
         self.tenant_id = logger.get_tenant_id() or data.get("tenant_id")
 
     def send(self):
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
         event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id, "tenant_id" : self.tenant_id}
+        if self.cty_id:
+            event.properties["cty_id"] = self.cty_id
         logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope};TENANT_ID={self.tenant_id}]")
         event_data_batch.add(event)
 
         # Send the batch
-        producer.send_batch(event_data_batch)
+        send_timeout = 60  # Set timeout to 60 seconds
+        producer.send_batch(event_data_batch, timeout=send_timeout)
         logger.info(f"Batch sent successfully [TOPIC={self.topic}]")
-
         producer.close()
 
     def ensure_json_format(self, data):

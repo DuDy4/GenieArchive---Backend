@@ -143,6 +143,7 @@ class PersonManager(GenieConsumer):
             person_dict = json.loads(person_dict)
         person = PersonDTO.from_dict(person_dict)
         person.uuid = self.persons_repository.save_person(person)
+        logger.bind_y_context()
         event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, {"person": person.to_dict()})
         event.send()
         return {"status": "success"}
@@ -167,6 +168,7 @@ class PersonManager(GenieConsumer):
                 "public",
             )
             event.send()
+        logger.bind_y_context()
         logger.info(f"Got data from event: Tenant: {tenant_id}, Email: {email}")
 
         person = self.persons_repository.find_person_by_email(email)

@@ -258,6 +258,7 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     async def create_goals_from_new_personal_data(self, event):
+        logger.clean_cty_id()
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
@@ -323,6 +324,7 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     async def create_goals_from_new_company_data(self, event):
+        logger.clean_cty_id()
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
@@ -402,6 +404,7 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     async def create_agenda_from_profile(self, event):
+        logger.clean_cty_id()
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
@@ -462,6 +465,7 @@ class MeetingManager(GenieConsumer):
         return {"status": "success"}
 
     async def create_agenda_from_goals(self, event):
+        logger.clean_cty_id()
         logger.info(f"Person processing event: {str(event)[:300]}")
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
