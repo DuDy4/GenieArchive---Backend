@@ -84,6 +84,12 @@ class SlackConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email = event_body.get("email")
+        person = event_body.get("person")
+        if not email and person:
+            person = PersonDTO.from_dict(person)
+            email = person.email
+            if not email:
+                raise Exception("Could not find email in event body.")
         domain = email.split("@")[1] if (email and "@" in email) else None
         tenant_id = logger.get_tenant_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(email)
@@ -97,7 +103,7 @@ class SlackConsumer(GenieConsumer):
         company = None
         if domain:
             company = self.company_repository.get_company_from_domain(email.split("@")[1])
-        message = f"[CTX={logger.get_ctx_id()}] failed to identify info for email: {email}."
+        message = f"[CTX={logger.get_ctx_id()}] {f'[CTY={logger.clean_cty_id()}]'if logger.get_cty_id() else ''} failed to identify info for email: {email}."
         if tenant_id:
             tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
             if tenant_email:

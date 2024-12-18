@@ -717,6 +717,23 @@ def get_latest_profiles(request: Request, limit: int = 3, search_term: str = Non
         raise HTTPException(status_code=403, detail="Forbidden endpoint")
 
 
+@v1_router.post("/{tenant_id}/{uuid}/update-action-item", response_class=JSONResponse)
+async def update_action_item(
+        tenant_id: str,
+        uuid: str,
+        request: Request,
+        impersonate_tenant_id: Optional[str] = Query(None),
+):
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    body = await request.json()
+    criteria = body.get("criteria")
+    description = body.get("description")
+    logger.info(f"Updating action item for tenant: {tenant_id}, uuid: {uuid}, criteria: {criteria}, description: {description}")
+    response = admin_api_service.update_action_item(tenant_id, uuid, criteria, description)
+    return JSONResponse(content=response)
+
+
 @v1_router.post("/internal/update-profiles")
 async def update_profiles(request: Request) -> JSONResponse:
     """

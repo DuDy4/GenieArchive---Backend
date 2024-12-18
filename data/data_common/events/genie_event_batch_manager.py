@@ -55,6 +55,8 @@ class EventHubBatchManager:
             "ctx_id": event.ctx_id,
             "tenant_id": event.tenant_id,
         }
+        if event.cty_id:
+            event_data.properties["cty_id"] = event.cty_id
         self.events.append(event_data)
         logger.info(f"Event queued [TOPIC={event.topic}]")
 

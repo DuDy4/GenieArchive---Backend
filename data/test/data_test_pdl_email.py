@@ -23,14 +23,14 @@ from data.data_common.dependencies.dependencies import personal_data_repository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
-logger.bind_context()
-pdl_key = env_utils.get("PDL_API_KEY")
-
-event = GenieEvent(
-    topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-    data={"tenant_id": "13eb2df3-0ae9-404c-b888-f20b1bf468b1", "email": "asaf@genieai.ai"},
-)
-event.send()
+# logger.bind_context()
+# pdl_key = env_utils.get("PDL_API_KEY")
+#
+# event = GenieEvent(
+#     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+#     data={"tenant_id": "13eb2df3-0ae9-404c-b888-f20b1bf468b1", "email": "asaf@genieai.ai"},
+# )
+# event.send()
 
 # data = pdl_client.get_single_profile_from_email_address("danshevel@gmail.com")
 # logger.info(f"Dan Shevel's data: {data}")

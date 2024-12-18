@@ -351,7 +351,11 @@ class PersonsRepository:
             try:
                 with conn.cursor() as cursor:
                         cursor.execute(query, (email,))
-                        return cursor.fetchone()[0]
+                        result = cursor.fetchone()
+                        if result:
+                            return result[0]
+                        logger.info(f"Last message sent at for {email} does not exist")
+                        return None
             except psycopg2.Error as error:
                 logger.error(f"Error getting last message sent at by email: {error}")
                 return None
