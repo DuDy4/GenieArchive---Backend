@@ -7,7 +7,7 @@ logging.getLogger("azure.core").setLevel(logging.WARNING)
 logging.getLogger("azure.monitor").setLevel(logging.WARNING)
 logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
 logging.getLogger("aiohttp").setLevel(logging.WARNING)
-logging.getLogger("asyncio.default_exception_handler").setLevel(logging.ERROR)
+logging.getLogger("asyncio.default_exception_handler").setLevel(logging.CRITICAL + 1)
 logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("pinecone_plugin_interface.logging").setLevel(logging.WARNING)
@@ -22,6 +22,7 @@ import uuid
 from contextvars import ContextVar
 
 context_id = ContextVar("context_id", default=None)
+context_y_id = ContextVar("context_y_id", default=None)
 topic = ContextVar("topic", default=None)
 endpoint = ContextVar("endpoint", default=None)
 email = ContextVar("email", default=None)
@@ -37,6 +38,9 @@ class GenieLogger:
 
     def get_ctx_id(self):
         return context_id.get()
+
+    def get_cty_id(self):
+        return context_y_id.get()
 
     def get_topic(self):
         return topic.get()
@@ -64,6 +68,8 @@ class GenieLogger:
         extra_object = {}
         if self.get_ctx_id():
             extra_object["ctx_id"] = self.get_ctx_id()
+        if self.get_cty_id():
+            extra_object["cty_id"] = self.get_cty_id()
         if self.get_topic():
             extra_object["topic"] = self.get_topic()
         if self.get_endpoint():
@@ -102,7 +108,16 @@ class GenieLogger:
         context_id.set(ctx_id)
         return ctx_id
 
+    def bind_y_context(self, cty_id=None):
+        if cty_id is None:
+            cty_id = self.generate_short_context_id()
+        context_y_id.set(cty_id)
+        return cty_id
+
     def log(self, level, message, *args, **kwargs):
+        cty_id = context_y_id.get()
+        if cty_id:
+            message = f"[CTY={cty_id}] {message}"
         ctx_id = context_id.get()
         if ctx_id:
             message = f"[CTX={ctx_id}] {message}"
@@ -125,3 +140,7 @@ class GenieLogger:
 
     def critical(self, message, *args, **kwargs):
         self.log(logging.CRITICAL, message, *args, **kwargs)
+
+    def clean_cty_id(self):
+        context_y_id.set(None)
+

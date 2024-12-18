@@ -26,10 +26,11 @@ def run():
         logger.info(f"Profile picture url: {profile_picture_url}")
         logger.info(f"Uploading profile picture for {profile_uuid} from {profile_picture_url}")
         try:
-            azure_profile_picture_uploader.upload_image_from_url(profile_picture_url, str(profile_uuid))
-            upload_url = f"https://{AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{BLOB_CONTAINER_PICTURES_NAME}/{profile_uuid}.jpg"
-            profiles_repository.update_profile_picture(str(profile_uuid), upload_url)
-            logger.info(f"Profile picture uploaded successfully for {profile_uuid}")
+            result = azure_profile_picture_uploader.upload_image_from_url(profile_picture_url, str(profile_uuid))
+            if result:
+                upload_url = f"https://{AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{BLOB_CONTAINER_PICTURES_NAME}/{profile_uuid}.jpg"
+                profiles_repository.update_profile_picture(str(profile_uuid), upload_url)
+                logger.info(f"Profile picture uploaded successfully for {profile_uuid}")
         except NotAnImageError:
             logger.error(f"\nURL does not point to an image: {profile_picture_url}\n")
             profiles_repository.update_profile_picture(str(profile_uuid), DEFAULT_PROFILE_PICTURE)

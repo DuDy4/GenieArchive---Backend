@@ -1,7 +1,7 @@
 import os
 
 import requests
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
 
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
@@ -67,13 +67,15 @@ class AzureProfilePictureUploader:
             # Fetch the image content
             response = requests.get(image_url)
             response.raise_for_status()
+            logger.info(f"Image downloaded successfully from {image_url}.")
 
             # Create a blob client for the image
             blob_client = container_client.get_blob_client(blob_name)
 
             # Upload the image to Azure Blob Storage
-            blob_client.upload_blob(response.content, overwrite=True)
+            blob_client.upload_blob(response.content, overwrite=True, content_settings=ContentSettings(content_type='image/jpeg'))
             logger.info(f"Image uploaded successfully as {blob_name}.")
+            return True
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Error downloading image: {e}")
