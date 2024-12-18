@@ -156,18 +156,47 @@ class ParamsApiService:
     async def evaluate_posts(self, linkedin_url, num_posts, name, selected_params):
         await self._initialize_sheet()
         posts = await self.fetch_linkedin_posts(linkedin_url, int(num_posts), name)
-        responses = []
+
+        # Create a list to store all evaluation tasks
+        evaluation_tasks = []
+        
+        # Generate tasks for each post and parameter combination
         for post in posts:
-            for param_id in selected_params:
-                response = await self.evaluate_param(post.text, name, "", "", param_id)
-                if response:
-                    post_data = {
-                        "Full Name": name,
-                        'post': post.to_dict(),
-                        'params': response,
-                    }
-                    responses.append(post_data)
+            post_tasks = [
+                self.evaluate_param(post.text, name, "", "", param_id) 
+                for param_id in selected_params
+            ]
+            evaluation_tasks.extend(post_tasks)
+        
+        # Run all evaluation tasks simultaneously
+        responses_raw = await asyncio.gather(*evaluation_tasks)
+        
+        # Filter out None responses and construct post data
+        responses = []
+        for i, response in enumerate(responses_raw):
+            if response:
+                post_index = i // len(selected_params)
+                param_index = i % len(selected_params)
+                
+                post_data = {
+                    "Full Name": name,
+                    'post': posts[post_index].to_dict(),
+                    'params': response,
+                }
+                responses.append(post_data)
+        
         return responses
+        # for post in posts:
+        #     for param_id in selected_params:
+        #         response = await self.evaluate_param(post.text, name, "", "", param_id)
+        #         if response:
+        #             post_data = {
+        #                 "Full Name": name,
+        #                 'post': post.to_dict(),
+        #                 'params': response,
+        #             }
+        #             responses.append(post_data)
+        # return responses
     
     async def fetch_linkedin_posts(self, linkedin_url, num_posts, name):
         linkedin_url = fix_linkedin_url(linkedin_url)

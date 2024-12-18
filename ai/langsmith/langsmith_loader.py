@@ -21,7 +21,11 @@ class Langsmith:
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = env_utils.get("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
         self.model = ChatOpenAI(model="gpt-4o")
-        self.azure_model = AzureChatOpenAI()
+        self.azure_model = AzureChatOpenAI(
+            deployment_name="gpt-4o",
+            model="gpt-4o",
+            #openai_api_version="2024-11-20",
+        )
         self.embeddings_client = GenieEmbeddingsClient()
         
 
