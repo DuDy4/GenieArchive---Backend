@@ -270,12 +270,6 @@ class LangsmithConsumer(GenieConsumer):
                 company_dict.pop("employees")
                 company_dict.pop("logo")
 
-        profile_strength_get_to_know_work_history_summary = {
-            "strengths": strengths,
-            "get_to_know": original_get_to_know,
-            "work_history_summary": work_history_summary,
-        }
-
         seller_context = None
         # seller_tenant_id = logger.get_tenant_id()
         if seller_tenant_id:

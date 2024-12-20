@@ -109,7 +109,17 @@ class SocialMediaPost(NewsData):
         This method uses the same fields as NewsData and extends it with SocialMediaPost-specific fields.
         """
         try:
-            return cls(**data)
+            return SocialMediaPost(
+                date=data.get("date"),
+                link=data.get("link"),
+                media=data.get("media"),
+                title=data.get("title"),
+                text=data.get("text"),
+                reshared=data.get("reshared"),
+                likes=data.get("likes"),
+                images=data.get("images"),
+                summary=data.get("summary"),
+            )
         except ValidationError as e:
             logger.error(f"Validation error while creating SocialMediaPost: {e}")
             return None
