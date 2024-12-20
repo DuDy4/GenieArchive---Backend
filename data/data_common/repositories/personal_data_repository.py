@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 import json
 import psycopg2
 import traceback
@@ -1270,6 +1270,26 @@ class PersonalDataRepository:
             except Exception as e:
                 logger.error(f"Unexpected error: {e}")
                 logger.debug(traceback.format_exc())
+                return []
+
+    def get_all_uuid_with_fetched_news(self) -> list[dict[str, Union[NewsData, SocialMediaPost]]]:
+        """
+        Retrieve all UUIDs with fetched news data.
+        """
+        select_query = """
+        SELECT uuid, news
+        FROM personalData
+        WHERE news_status = 'FETCHED'
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    uuids = cursor.fetchall()
+                    return [{"uuid": uuid[0], "news": [SocialMediaPost.from_dict(new) for new in uuid[1]]} for uuid in uuids]
+            except Exception as e:
+                logger.error(f"Error retrieving UUIDs with fetched news data: {e}", e)
+                traceback.format_exc()
                 return []
 
     def get_hobbies_by_email(self, profile_email):

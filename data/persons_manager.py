@@ -685,10 +685,10 @@ class PersonManager(GenieConsumer):
         if not linkedin:
             logger.error(f"No LinkedIn URL found in event body, skipping this part: {event_body}")
             return {"error": "No LinkedIn URL found in event body"}
-        person_status = self.persons_repository.get_person_status(uuid)
-        if person_status == PersonStatus.IN_PROGRESS:
-            logger.info(f"Person already in progress: {uuid}")
-            return {"error": "Person already in progress"}
+        # person_status = self.persons_repository.get_person_status(uuid)
+        # if person_status == PersonStatus.IN_PROGRESS:
+        #     logger.info(f"Person already in progress: {uuid}")
+        #     return {"error": "Person already in progress"}
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
         news_in_database = self.personal_data_repository.get_news_data_by_uuid(uuid)
         if self.personal_data_repository.should_do_linkedin_posts_lookup(uuid):
