@@ -69,8 +69,16 @@ class Langsmith:
 
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
+            try:
+                if response and isinstance(response, dict):
+                    response = response.get("strengths")
+                if response and isinstance(response, list):
+                    if isinstance(response[0], str):
+                        response = await self._run_prompt_with_retry(runnable, arguments)
+            except Exception as e:
+                logger.error(f"Error parsing strengths from Langsmith: {e}")
         except Exception as e:
-            response = f"Error: {e}"
+            logger.error(f"Error running strengths prompt: {e}")
         return response
 
     async def run_prompt_action_items(self, person_data, action_item, action_item_criteria, company_data=None, seller_context=None):
