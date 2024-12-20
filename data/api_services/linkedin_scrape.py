@@ -1,13 +1,14 @@
+from pyarrow import scalar
+
 from common.utils import env_utils
-from data.data_common.data_transfer_objects.company_dto import NewsData
 import requests
-import os
-from typing import List, Dict, Any
-from pydantic import ValidationError, HttpUrl
+from typing import List, Union
+from pydantic import ValidationError
 from datetime import datetime, timedelta
 
-from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
+from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost, NewsData
 from common.genie_logger import GenieLogger
+from data.data_common.dependencies.dependencies import personal_data_repository
 
 logger = GenieLogger()
 
@@ -80,8 +81,8 @@ class HandleLinkedinScrape:
                     logger.info(f"Processed post: {news_data}")
                 except Exception as e:
                     logger.error(f"Error processing post {post.get('post_url')}: {e}")
-
-            return processed_posts
+            sorted_processed_posts = self.sort_data_by_preferences(processed_posts, linkedin_url)
+            return sorted_processed_posts
 
         except requests.exceptions.HTTPError as http_err:
             logger.error(f"HTTP error occurred: {http_err}")
@@ -90,7 +91,14 @@ class HandleLinkedinScrape:
 
         return []
 
-    def sort_data_by_preferences(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def sort_posts_by_date(self, posts: List[Union[SocialMediaPost, NewsData]]) -> List[SocialMediaPost]:
+        """
+        Sort the posts by date, with the most recent posts first.
+        """
+        sorted_posts = sorted(posts, key=lambda x: x.date, reverse=True)
+        return sorted_posts
+
+    def sort_data_by_preferences(self, posts: List[Union["SocialMediaPost", "NewsData"]], linkedin_url: str) -> List["SocialMediaPost"]:
         """
         Sort the data by preferences:
         1. Posts that are not reshared, but created by the user, in the last 90 days.
@@ -98,40 +106,49 @@ class HandleLinkedinScrape:
         3. Posts that are not reshared, but created by the user, older than 90 days.
         4. Posts that are reshared, older than 90 days.
         """
-        posts = data.get("data", [])
-        if not posts:
-            return data
-
-        # Define a 90-day window
         ninety_days_ago = datetime.now() - timedelta(days=90)
 
-        # Create different lists for the four categories
+        # Create empty lists for each category
         recent_original_posts = []
         recent_reshared_posts = []
         older_original_posts = []
         older_reshared_posts = []
 
-        # Sort posts into respective lists based on reshared status and date
         for post in posts:
-            # Parse the 'posted' date from the post
-            post_date = datetime.strptime(post.get("posted", ""), "%Y-%m-%d %H:%M:%S")
+            try:
+                # Parse date with fallback for different formats
+                post_date = datetime.strptime(str(post.date), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                post_date = datetime.strptime(str(post.date), "%Y-%m-%d")
 
-            # Check if the post is reshared and its recency
-            if post.get("reshared"):
-                if post_date > ninety_days_ago:
-                    recent_reshared_posts.append(post)
-                else:
-                    older_reshared_posts.append(post)
-            else:
-                if post_date > ninety_days_ago:
+            # Determine if the post is created by the user
+            is_original = linkedin_url in post.reshared
+            is_recent = post_date > ninety_days_ago
+
+            # Categorize the post
+            if is_original:
+                if is_recent:
                     recent_original_posts.append(post)
                 else:
                     older_original_posts.append(post)
+            else:
+                if is_recent:
+                    recent_reshared_posts.append(post)
+                else:
+                    older_reshared_posts.append(post)
 
-        # Concatenate all sorted categories in order
-        sorted_posts = (
-            recent_original_posts + recent_reshared_posts + older_original_posts + older_reshared_posts
-        )
-        data["data"] = sorted_posts
+        # Debugging each category
+        logger.info(f"Recent Original Posts: {[post.date for post in recent_original_posts]}")
+        logger.info(f"Recent Reshared Posts: {[post.date for post in recent_reshared_posts]}")
+        logger.info(f"Older Original Posts: {[post.date for post in older_original_posts]}")
+        logger.info(f"Older Reshared Posts: {[post.date for post in older_reshared_posts]}")
 
-        return data
+        sorted_recent_original_posts = sorted(recent_original_posts, key=lambda x: x.date, reverse=True)
+        sorted_recent_reshared_posts = sorted(recent_reshared_posts, key=lambda x: x.date, reverse=True)
+        sorted_older_original_posts = sorted(older_original_posts, key=lambda x: x.date, reverse=True)
+        sorted_older_reshared_posts = sorted(older_reshared_posts, key=lambda x: x.date, reverse=True)
+
+        # Combine lists in order of priority
+        sorted_posts = sorted_recent_original_posts + sorted_recent_reshared_posts + sorted_older_original_posts + sorted_older_reshared_posts
+
+        return sorted_posts

@@ -388,6 +388,23 @@ class PersonsRepository:
                 logger.error(f"Error getting persons that failed but have data: {error}")
                 return []
 
+    def get_person_status(self, uuid):
+        query = """
+        SELECT status FROM persons WHERE uuid = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    result = cursor.execute(query, (uuid,))
+                    if result:
+                        logger.info(f"Got person status: {result[0]} for {uuid}")
+                        return result[0]
+                    logger.info(f"Person status for {uuid} does not exist")
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting person status: {error}")
+                return None
+
     def update_last_message_sent_at_by_email(self, email):
         query = """
         UPDATE persons
