@@ -42,6 +42,22 @@ def extract_text_from_docx(file_content):
     with io.BytesIO(file_content) as file_like_object:
         doc = docx.Document(file_like_object)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+    if not text:
+        file_like_object = io.BytesIO(file_content)
+        document = docx.Document(file_like_object)
+
+        # Extract text from paragraphs
+        full_text = []
+        for paragraph in document.paragraphs:
+            full_text.append(paragraph.text)
+        for table in document.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.text.strip():
+                        full_text.append(cell.text)
+
+        return "\n".join(full_text)
     return text
 
 

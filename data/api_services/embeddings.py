@@ -19,9 +19,11 @@ if not endpoint or not credential:
     logger.error(f"Endpoint or Credential missing: Endpoint={endpoint}, Credential={credential}")
     raise ValueError("Azure endpoint or credential is missing.")
 
+DEV_MODE = env_utils.get("DEV_MODE", "")
 
 PINECONE_API_KEY = env_utils.get("PINECONE_API_KEY")
-PINECONE_INDEX = "users-file-uploads"
+PINECONE_INDEX = env_utils.get(DEV_MODE + "PINECONE_INDEX")
+
 from azure.ai.inference import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 
@@ -52,12 +54,14 @@ class GenieEmbeddingsClient:
             user = metadata.get("user")
             domain = str_utils.get_email_suffix(user)
 
-            correct_metadata = {
-                "user": metadata.get("user"),
-                "domain": domain,
-                "tenant_id": metadata.get("tenant_id"),
-                "type": metadata.get("type"),
-            }
+            # correct_metadata = {
+            #     "user": metadata.get("user"),
+            #     "domain": domain,
+            #     "tenant_id": metadata.get("tenant_id"),
+            #     "type": metadata.get("type"),
+            # }
+            correct_metadata = metadata
+            correct_metadata["domain"] = domain
             # embeddings_data = [embedding["embedding"] for embedding in embeddings]
             ids = [f"{vector_id}_{i}" for i in range(len(embeddings))]
             pinecone_metadata = [{**correct_metadata, "chunk": chunk} for chunk in chunks]

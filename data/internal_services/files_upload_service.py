@@ -1,3 +1,5 @@
+import traceback
+
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -67,7 +69,7 @@ class FileUploadService:
             container_name=container_name,
             blob_name=blob_name,
             account_key=ACCOUNT_KEY,  # Retrieve from Azure Portal -> Access keys
-            permission=BlobSasPermissions(write=True),
+            permission=BlobSasPermissions(read=True, write=True),
             expiry=datetime.utcnow() + timedelta(hours=1)  # Set the token to expire in 1 hour
         )
         return sas_token
@@ -80,10 +82,14 @@ class FileUploadService:
     
 
     def read_blob_file(blob_name: str):
-        blob_short_name = blob_name.split(UPLOADED_MATERIALS_CONTINAER_NAME + '/')[1]
-        logger.info(f"Trying to fetch azure blob - {blob_name}")
-        blob_client = blob_service_client.get_blob_client(container=UPLOADED_MATERIALS_CONTINAER_NAME, blob=blob_short_name)
-        download_stream = blob_client.download_blob()
-        file_contents = download_stream.readall()  
-        return file_contents
+        try:
+            blob_short_name = blob_name.split(UPLOADED_MATERIALS_CONTINAER_NAME + '/')[1]
+            logger.info(f"Trying to fetch azure blob - {blob_name}")
+            blob_client = blob_service_client.get_blob_client(container=UPLOADED_MATERIALS_CONTINAER_NAME, blob=blob_short_name)
+            download_stream = blob_client.download_blob()
+            file_contents = download_stream.readall()
+            return file_contents
+        except Exception as e:
+            logger.error(f"Failed to read blob file {blob_name}. Error: {e}")
+            return None
     
