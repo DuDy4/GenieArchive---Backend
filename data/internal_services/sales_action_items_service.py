@@ -1,13 +1,14 @@
 import json
 import base64
 import random
+from data.data_common.utils.persons_utils import get_default_individual_sales_criteria
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 from common.utils import env_utils
 from common.genie_logger import GenieLogger
-from data.data_common.data_transfer_objects.profile_category_dto import SalesCriteria
-from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory, SalesCriteria, SalesCriteriaType
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem, SalesActionItemCategory
 from data.data_common.dependencies.dependencies import tenant_profiles_repository
 
 logger = GenieLogger()
@@ -21,6 +22,7 @@ class SalesActionItemsService:
     SALES_CRITERIA_COLUMN = "Sales Criteria"
     ACTION_ITEM_COLUMN = "Action Item"
     DETAILED_ACTION_ITEM_COLUMN = "Detailed Action Item"
+    ACTION_ITEM_CATEGORY_COLUMN = "Action Item Category"
 
     def __init__(self):
         """
@@ -43,6 +45,7 @@ class SalesActionItemsService:
         self.criteria_index = None
         self.action_item_index = None
         self.detailed_item_index = None
+        self.category_index = None
         self._initailze_sheet()
 
     def refresh_credentials(self):
@@ -56,7 +59,7 @@ class SalesActionItemsService:
         self.service = build("sheets", "v4", credentials=self.credentials)
 
     def _initailze_sheet(self):
-        range_name = f"{self.SHEET_NAME}!A:D"
+        range_name = f"{self.SHEET_NAME}!A:E"
         sheet = self.service.spreadsheets()
         result = sheet.values().get(spreadsheetId=self.SPREADSHEET_ID, range=range_name).execute()
         rows = result.get("values", [])
@@ -75,6 +78,7 @@ class SalesActionItemsService:
         self.criteria_index = headers.index(self.SALES_CRITERIA_COLUMN)
         self.action_item_index = headers.index(self.ACTION_ITEM_COLUMN)
         self.detailed_item_index = headers.index(self.DETAILED_ACTION_ITEM_COLUMN)
+        self.category_index = headers.index(self.ACTION_ITEM_CATEGORY_COLUMN)
 
         # Fill down the Sales Criteria for merged cells
         last_criteria = None
@@ -114,7 +118,7 @@ class SalesActionItemsService:
 
             # Filter rows matching the criteria
             suggestions = [
-                (row[self.action_item_index], row[self.detailed_item_index] if len(row) > self.detailed_item_index else None)
+                (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None)
                 for row in self.data_rows
                 if len(row) > self.criteria_index
                 and row[self.criteria_index].strip().lower().replace("_", " ") == normalized_criteria
@@ -123,12 +127,16 @@ class SalesActionItemsService:
             ]
 
             if suggestions:
-                action_item, detailed_item = random.choice(suggestions)
+                action_item, detailed_item, category = random.choice(suggestions)
+                if category:
+                    category = category.strip().upper().replace(" ", "_")
+                    action_item_category = SalesActionItemCategory(category)
                 action_items.append(SalesActionItem(
                     criteria=sale_criteria.criteria,
                     action_item=action_item,
                     detailed_action_item=detailed_item,
-                    score=int(sale_criteria.target_score * 0.25)  # Placeholder - 25% of the target score
+                    score=int(sale_criteria.target_score * 0.25),  # Placeholder - 25% of the target score
+                    category=action_item_category if category else SalesActionItemCategory.GENERIC
                 ))
         # normalized_criteria = criteria.strip().lower().replace("_", " ")
         #
@@ -172,17 +180,15 @@ if __name__ == "__main__":
     sales_service = SalesActionItemsService()
 
     # Hardcoded sales criteria for testing
-    SALES_CRITERIA = "Budget"  # Test case with underscores and merged cells
-
+    sales_criterias = get_default_individual_sales_criteria(ProfileCategory(category="The Innovator", scores={"Business Fit": 100}, description="Business Fit Description"))
     # Get action items
     try:
-        suggestion = sales_service.get_action_items(SALES_CRITERIA)
+        suggestion = sales_service.get_action_items(sales_criterias)
         if suggestion:
-            action_item, detailed_item = suggestion
-            print(f"Suggestion for '{SALES_CRITERIA}':")
-            print(f"- Action Item: {action_item}")
-            print(f"- Detailed Action Item: {detailed_item}")
+            print(f"- Action Item: {suggestion[1].action_item}")
+            
+            print(f"- Category: {suggestion[1].category}")
         else:
-            print(f"No suggestions found for '{SALES_CRITERIA}'.")
+            print(f"No suggestions found.")
     except Exception as e:
         print(f"Error: {e}")

@@ -158,7 +158,7 @@ class TenantProfilesRepository:
                     row = cursor.fetchone()
                     if row:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
-                        action_items = [SalesActionItem.from_dict(item) for item in row[1]]
+                        action_items = [SalesActionItem.from_dict(item) for item in row[1]] if row[1] else []
                         return sales_criteria, action_items
                     else:
                         logger.warning(f"Couldn't find sales criteria and action items for {uuid}")
