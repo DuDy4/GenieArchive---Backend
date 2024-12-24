@@ -103,6 +103,32 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    async def run_prompt_send_file_action_items(
+            self, 
+            action_item,
+            action_item_criteria, 
+            file_name, 
+            person_data, 
+            prospect_company_data=None,
+            chunk_text = None):
+        prompt = hub.pull("send-file-action-item") 
+        runnable = prompt | self.azure_model
+        logger.info(f"Running Langsmith prompt for specific send file action item: {action_item}, criteria: {action_item_criteria}, file: {file_name}")
+        arguments = {
+            "sales_action_item": action_item, 
+            "action_item_criteria": action_item_criteria,
+            "file_name": file_name,
+            "prospect_data": person_data, 
+            "prospect_company_data": prospect_company_data if prospect_company_data else None, 
+            "chunk_text": chunk_text
+        }
+
+        try:
+            response = await self._run_prompt_with_retry(runnable, arguments)
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
     async def run_prompt_get_to_know(self, person_data, company_data=None, news_data=None, seller_context=None):
         prompt = hub.pull("dos_and_donts_w_context_and_posts") if news_data else hub.pull("dos_and_donts_w_context")
         runnable = prompt | self.model

@@ -109,7 +109,9 @@ class SalesMaterialConsumer(GenieConsumer):
                 "user": file_upload_dto.email,
                 "tenant_id": file_upload_dto.tenant_id,
                 "type": "uploaded_file",
-                "upload_time": file_upload_dto.upload_timestamp,
+                "upload_time": str(file_upload_dto.upload_timestamp),
+                "categories": file_categories,
+                "file_name": file_name
             }
             embedding_result = self.embeddings_client.embed_document(processed_content_text, metadata)
             if embedding_result:

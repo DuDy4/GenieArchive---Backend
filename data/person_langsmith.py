@@ -17,7 +17,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_consumer import GenieConsumer
-from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem
+from data.data_common.data_transfer_objects.sales_action_item_dto import SalesActionItem, SalesActionItemCategory
 from data.internal_services.sales_action_items_service import SalesActionItemsService
 from data.data_common.dependencies.dependencies import (
     companies_repository,
@@ -294,19 +294,25 @@ class LangsmithConsumer(GenieConsumer):
 
         # Get/create sales action items
         # existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
+        specific_action_items = [] 
         if not existing_action_items or forced_refresh:
             action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:
-                tasks = [
-                    self.process_action_item(person, action_item, company_data, seller_context)
-                    for action_item in action_items
-                ]
+                for action_item in action_items:
+                    processed_action_item = None
+                    if not action_item.category:
+                        action_item.category = SalesActionItemCategory.GENERIC
+                    if action_item.category == SalesActionItemCategory.SEND_FILE:
+                        relevant_file_name, chunk_text = self.embeddings_client.search_files_by_action_item(seller_email, action_item.action_item)
+                        if relevant_file_name:
+                            processed_action_item = await self.process_send_file_action_item(person, action_item, company_data, relevant_file_name, chunk_text)
+                    if not processed_action_item:
+                        processed_action_item = await self.process_action_item(person, action_item, company_data, seller_context)
+                    if processed_action_item:
+                        specific_action_items.append(processed_action_item)
 
-                # Gather all results concurrently
-                results = await asyncio.gather(*tasks)
 
                 # Filter out None values and collect specific action items
-                specific_action_items = [result for result in results if result is not None]
                 logger.info(f"Specific action items for {person['uuid']} and tenant {seller_tenant_id}: {specific_action_items}")
                 if specific_action_items and len(specific_action_items) == len(action_items):
                     action_items = specific_action_items
@@ -328,6 +334,25 @@ class LangsmithConsumer(GenieConsumer):
             action_item.criteria.value,
             company_data,
             seller_context
+        )
+        if response and response.content:
+            output_action_item = response.content
+            if output_action_item:
+                action_item.action_item = output_action_item
+                logger.info(f"Updated action item: {action_item.to_dict()}")
+                return action_item  # Return the updated action item
+        logger.warning(f"Failed to get specific action item for prospect: {person['name']}, action item: {action_item.to_dict()}")
+        return None  # Return None if nothing was updated
+
+    async def process_send_file_action_item(self, person, action_item, prospect_company_data, file_name, chunk_text):
+        logger.info(f"Action item: {action_item.to_dict()}")
+        response = await self.langsmith.run_prompt_send_file_action_items(
+            action_item.action_item,
+            action_item.criteria.value,
+            file_name,
+            person,
+            prospect_company_data,
+            chunk_text,
         )
         if response and response.content:
             output_action_item = response.content

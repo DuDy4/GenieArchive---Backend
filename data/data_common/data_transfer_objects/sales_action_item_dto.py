@@ -10,12 +10,19 @@ class SalesActionItemStatus(str, Enum):
     COMPLETED = "COMPLETED"
 
 
+class SalesActionItemCategory(str, Enum):
+    GENERIC = "GENERIC"
+    SEND_FILE = "SEND_FILE"
+
+
+
 class SalesActionItem(BaseModel):
     criteria: SalesCriteriaType
     action_item: str
     detailed_action_item: Optional[str] = None
     status: SalesActionItemStatus = SalesActionItemStatus.PENDING
     score: int = Field(0, ge=0, le=100)
+    category: SalesActionItemCategory = SalesActionItemCategory.GENERIC
 
     def to_dict(self) -> Dict[str, str | int]:
         return {
@@ -24,6 +31,7 @@ class SalesActionItem(BaseModel):
             "detailed_action_item": str(self.detailed_action_item) if self.detailed_action_item else "",
             "status": self.status.value,
             "score": int(self.score),
+            "category": self.category.value,
         }
 
     @classmethod
@@ -34,5 +42,6 @@ class SalesActionItem(BaseModel):
             detailed_action_item=data["detailed_action_item"],
             status=SalesActionItemStatus(data["status"]),
             score=data["score"],
+            category=SalesActionItemCategory(data["category"]) if "category" in data else SalesActionItemCategory.GENERIC,
         )
 

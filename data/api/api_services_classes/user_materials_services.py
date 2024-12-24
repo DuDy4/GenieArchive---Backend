@@ -44,6 +44,9 @@ class UserMaterialServices:
             if not file_name:
                 logger.error(f"File name not found in the blob URL")
                 continue
+            if file_name == "placeholder.txt":
+                logger.info(f"Placeholder file uploaded. Skipping")
+                continue
             user_email = email_utils.extract_email_from_url(file_data["blobUrl"])
             if not user_email:
                 logger.error(f"User email is not part of the blob")
@@ -79,6 +82,9 @@ class UserMaterialServices:
             if self.file_upload_repository.exists_metadata(file_upload_dto):
                 logger.info(f"File already exists in the database")
                 continue
+            if file.file_name == "placeholder.txt":
+                logger.info(f"Placeholder file uploaded. Skipping")
+                continue
             self.file_upload_repository.insert(file_upload_dto)
 
             logger.info(f"File upload DTO: {file_upload_dto}")
@@ -93,7 +99,7 @@ class UserMaterialServices:
         return files_list
 
     def get_all_files(self, tenant_id):
-        all_files = self.file_upload_repository.get_all_files(tenant_id)
+        all_files = self.file_upload_repository.get_all_files_by_tenant_id(tenant_id)
         all_categories = FileCategoryEnum.get_all_categories()
         all_files_jsoned = [file.to_dict() for file in all_files] if all_files else []
         return {"files": all_files_jsoned, "categories": all_categories}

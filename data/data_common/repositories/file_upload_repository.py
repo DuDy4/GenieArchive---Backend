@@ -131,7 +131,7 @@ class FileUploadRepository:
                 traceback.print_exc()
                 return False
 
-    def get_all_files(self, tenant_id: str) -> list[FileUploadDTO] | None:
+    def get_all_files_by_tenant_id(self, tenant_id: str) -> list[FileUploadDTO] | None:
         select_query = """
         SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
         FROM file_uploads
@@ -164,6 +164,37 @@ class FileUploadRepository:
                 traceback.print_exc()
                 return None
 
+    def get_all_files(self) -> list[FileUploadDTO] | None:
+        select_query = """
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
+        FROM file_uploads;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    files = cursor.fetchall()
+                    if files:
+                        return [
+                            FileUploadDTO(
+                                uuid=file[0],
+                                file_name=file[1],
+                                file_hash=file[2],
+                                upload_time_epoch=file[3],
+                                upload_timestamp=file[4],
+                                email=file[5],
+                                tenant_id=file[6],
+                                status=file[7],
+                                categories=file[8] if file[8] else [],
+                            )
+                            for file in files
+                        ]
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting all files: {error}")
+                traceback.print_exc()
+                return None
+
     def get_file_count_and_last_upload_time(self, tenant_id: str) -> tuple[int, datetime | None]:
         query = """
         SELECT COUNT(*), MAX(upload_timestamp)
@@ -184,6 +215,34 @@ class FileUploadRepository:
                 logger.error(f"Error getting file count and last upload time for tenant {tenant_id}: {error}")
                 traceback.print_exc()
                 return 0, None
+
+    def get_file(self, uuid: str):
+        query = """
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
+        FROM file_uploads WHERE uuid = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (str(uuid),))
+                    result = cursor.fetchone()
+                    if result:
+                        return FileUploadDTO(
+                            uuid=result[0],
+                            file_name=result[1],
+                            file_hash=result[2],
+                            upload_time_epoch=result[3],
+                            upload_timestamp=result[4],
+                            email=result[5],
+                            tenant_id=result[6],
+                            status=result[7],
+                            categories=result[8] if result[8] else [],
+                        )
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting file: {error}")
+                traceback.print_exc()
+                return None
 
     def exists_metadata(self, file_upload_dto):
         query = """
@@ -231,6 +290,22 @@ class FileUploadRepository:
                     return True
             except psycopg2.Error as error:
                 logger.error(f"Error updating file metadata: {error}")
+                traceback.print_exc()
+                return False
+
+    def change_all_file_statuses(self, status: FileStatusEnum) -> bool:
+        query = """
+        UPDATE file_uploads
+        SET status = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (status.value,))
+                    conn.commit()
+                    return True
+            except psycopg2.Error as error:
+                logger.error(f"Error updating file statuses: {error}")
                 traceback.print_exc()
                 return False
 
