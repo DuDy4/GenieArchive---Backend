@@ -49,7 +49,7 @@ def test_base_profile(data_to_send):
     event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
     event.send()
 
-# data_to_send = create_fake_data()
-# test_base_profile(data_to_send)
+data_to_send = create_fake_data()
+test_base_profile(data_to_send)
 
 

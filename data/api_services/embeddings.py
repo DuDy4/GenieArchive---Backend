@@ -93,8 +93,44 @@ class GenieEmbeddingsClient:
             Here's the prospect data: {prospect_data}
         """
         return self.search_by_query_and_user(profile_query, user_id)
+    
+    def search_files_by_action_item(self, user_id, action_item):
+        action_item_query = f"""
+            What are the best matierlas that comply with the following action item: {action_item}.
+            The goal is to generate to sell to that person. Any information regarding the specific action item is highly beneficial.
+            Here's the action item: {action_item}
+        """
+        return self.search_files_by_query_and_user(action_item_query, user_id, top_k=1)
+    
+    def search_files_by_query_and_user(self, query_text, user_id, top_k=5):
+        results = self.query_embeddings(user_id, query_text, top_k=top_k)
+        closest_file = None
+        closest_file_text = None
+        if results:
+            logger.info(f"Returned {len(results['matches'])} embedding vectors for user {user_id}")
+            chunks = results["matches"]
+            for chunk in chunks:
+                if chunk["metadata"] and chunk["metadata"]["file_name"]:
+                    closest_file = chunk["metadata"]["file_name"]
+                    closest_file_text = chunk["metadata"]["chunk"]
+        else:
+            logger.info(f"No results returned for user {user_id}")
+        return closest_file, closest_file_text
 
     def search_by_query_and_user(self, query_text, user_id, top_k=5):
+        results = self.query_embeddings(user_id, query_text, top_k=top_k)
+
+        chunks_text = []
+        if results:
+            logger.info(f"Returned {len(results['matches'])} embedding vectors for user {user_id}")
+            chunks = results["matches"]
+            for chunk in chunks:
+                chunks_text.append(chunk["metadata"]["chunk"])
+        else:
+            logger.info(f"No results returned for user {user_id}")
+        return chunks_text
+    
+    def query_embeddings(self, user_id, query_text, top_k=5):
         query_embedding = self.generate_embeddings(query_text)
         if not query_embedding:
             logger.info(f"Query embedding is empty for user {user_id}")
@@ -111,15 +147,7 @@ class GenieEmbeddingsClient:
                 vector=query_embedding, top_k=top_k, include_metadata=True, filter={"user": user_id}
             )
 
-        chunks_text = []
-        if results:
-            logger.info(f"Returned {len(results['matches'])} embedding vectors for user {user_id}")
-            chunks = results["matches"]
-            for chunk in chunks:
-                chunks_text.append(chunk["metadata"]["chunk"])
-        else:
-            logger.info(f"No results returned for user {user_id}")
-        return chunks_text
+        return results
     
     def delete_vectors_by_user(self, user_id):
         if user_id:
@@ -144,4 +172,11 @@ class GenieEmbeddingsClient:
         else:
             logger.error(f"User ID not provided for deletion")
     
-
+# if __name__ == "__main__":
+#     embeddings_client = GenieEmbeddingsClient()
+#     user_id = "asaf@genieai.ai"
+#     prospect_data = "The prospect is a CTO at a tech company"
+#     action_item = "Follow up with the prospect"
+#     print(f"Searching for materials for user {user_id} based on prospect data")
+#     data = embeddings_client.search_files_by_action_item(user_id, action_item)
+#     print(data)
