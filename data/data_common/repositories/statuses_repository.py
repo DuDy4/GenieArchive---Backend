@@ -70,6 +70,9 @@ class StatusesRepository:
         logger.info(f"Inserting status: {args}")
         with db_connection() as conn:
             try:
+                if self.exists(str(status_dto.person_uuid), status_dto.tenant_id):
+                    logger.error(f"Status already exists for person_uuid={status_dto.person_uuid} and tenant_id={status_dto.tenant_id}")
+                    return
                 with conn.cursor() as cursor:
                     cursor.execute(query, args)
                     conn.commit()
@@ -113,4 +116,18 @@ class StatusesRepository:
                         return None
             except psycopg2.Error as error:
                 logger.error(f"Error fetching status: {error.pgerror}")
+                traceback.format_exc()
+
+    def delete_status(self, person_uuid: str, tenant_id: str):
+        query = """
+            DELETE FROM statuses WHERE person_uuid = %s AND tenant_id = %s;
+        """
+        logger.info(f"Deleting status for person_uuid={person_uuid} and tenant_id={tenant_id}")
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (person_uuid, tenant_id))
+                    conn.commit()
+            except psycopg2.Error as error:
+                logger.error(f"Error deleting status: {error.pgerror}")
                 traceback.format_exc()
