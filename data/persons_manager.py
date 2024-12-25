@@ -7,7 +7,9 @@ from data.api_services.linkedin_scrape import HandleLinkedinScrape
 from pydantic import ValidationError
 
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
+from data.data_common.data_transfer_objects.status_dto import StatusDTO, StatusEnum
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+from data.data_common.repositories.statuses_repository import StatusesRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -35,7 +37,7 @@ from data.data_common.dependencies.dependencies import (
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
-from common.genie_logger import GenieLogger
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 linkedin_scrapper = HandleLinkedinScrape()
@@ -69,6 +71,7 @@ class PersonManager(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
+        self.statuses_repository = StatusesRepository()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.profiles_repository = profiles_repository()
@@ -299,6 +302,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -334,6 +338,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -375,6 +380,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -412,6 +418,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -529,6 +536,7 @@ class PersonManager(GenieConsumer):
         # Assuming the event body contains a JSON string with the processed data
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
+        event_topic = event.properties.get(b"topic").decode("utf-8")
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
@@ -538,6 +546,8 @@ class PersonManager(GenieConsumer):
         if isinstance(profile, str):
             profile = json.loads(profile)
         logger.info(f"Person: {person_dict},\n Profile: {str(profile)}")
+        tenant_id = logger.get_tenant_id()
+        self.statuses_repository.save_status(person_dict.get("uuid"), tenant_id, event_topic, StatusEnum.PROCESSING)
 
         person = PersonDTO.from_dict(person_dict)
         # person = self.validate_person(person)
@@ -598,6 +608,7 @@ class PersonManager(GenieConsumer):
         event = GenieEvent(Topic.FINISHED_NEW_PROFILE, {"profile_uuid": str(profile_dto.uuid)})
         event.send()
         self.persons_repository.remove_last_sent_message(person.uuid)
+        self.statuses_repository.save_status(person.uuid, tenant_id, event_topic, StatusEnum.COMPLETED)
         logger.info("Saved new processed data to profiles_repository")
         return {"status": "success"}
 
@@ -669,6 +680,7 @@ class PersonManager(GenieConsumer):
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
+        event_topic = event.properties.get(b"topic").decode("utf-8")
         person_dict = event_body.get("person")
         logger.info(f"Person: {person_dict}")
         if not person_dict:
@@ -677,6 +689,7 @@ class PersonManager(GenieConsumer):
         person = PersonDTO.from_dict(person_dict)
         linkedin = person.linkedin
         uuid = person.uuid
+        tenant_id = logger.get_tenant_id()
 
         if not uuid:
             logger.error("UUID is missing in the event data")
@@ -690,6 +703,11 @@ class PersonManager(GenieConsumer):
         #     logger.info(f"Person already in progress: {uuid}")
         #     return {"error": "Person already in progress"}
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
+        event_status = self.statuses_repository.get_status(uuid, tenant_id)
+        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+            logger.info(f"Event already in progress: {uuid}")
+            return {"error": "Event already in progress"}
+        self.statuses_repository.save_status(uuid, tenant_id, event_topic, StatusEnum.PROCESSING)
         news_in_database = self.personal_data_repository.get_news_data_by_uuid(uuid)
         if self.personal_data_repository.should_do_linkedin_posts_lookup(uuid):
             scraped_posts = linkedin_scrapper.fetch_and_process_posts(linkedin)
@@ -738,6 +756,7 @@ class PersonManager(GenieConsumer):
                 event = GenieEvent(Topic.FAILED_TO_GET_PERSONAL_NEWS,
                    {"person_uuid": uuid})
                 event.send()
+            self.statuses_repository.save_status(uuid, tenant_id, event_topic, StatusEnum.COMPLETED)
             return {"posts": news_data_objects}
         else:
             logger.info(f"No need to scrape LinkedIn posts for {uuid} as it was scraped recently or never")

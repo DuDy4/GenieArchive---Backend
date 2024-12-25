@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 from common.utils.news_utils import filter_not_reshared_social_media_news
 from data.data_common.data_transfer_objects.profile_dto import Phrase
+from data.data_common.data_transfer_objects.status_dto import StatusEnum
+from data.data_common.repositories.statuses_repository import StatusesRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
@@ -28,7 +30,7 @@ from data.data_common.dependencies.dependencies import (
     persons_repository,
     deals_repository,
 )
-from common.genie_logger import GenieLogger
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 load_dotenv()
@@ -59,6 +61,7 @@ class LangsmithConsumer(GenieConsumer):
         self.persons_repository = persons_repository()
         self.deals_repository = deals_repository()
         self.sales_action_items_service = SalesActionItemsService()
+        self.statuses_repository = StatusesRepository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -145,6 +148,19 @@ class LangsmithConsumer(GenieConsumer):
             raise Exception("Got event with uuid but no person data")
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
+        tenant_id = logger.get_tenant_id()
+        event_topic = event.properties.get(b"topic").decode("utf-8")
+        if not tenant_id or not event_topic:
+            logger.error(f"No tenant id or event topic found")
+            raise Exception("Got event with no tenant id or event topic")
+        event_status = self.statuses_repository.get_status(person_uuid, tenant_id)
+        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+            logger.info(f"Event already in progress: {person_uuid}")
+            return {"error": "Event already in progress"}
+        self.statuses_repository.update_status(person_uuid, tenant_id, event_topic, StatusEnum.PROCESSING)
+        # Should implement a check for linkedin scrapped data
+
+
         # Check if needs to proceed with the event
         if profile and profile.strengths and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
@@ -164,7 +180,9 @@ class LangsmithConsumer(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
                 event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
                 event.send()
+
             logger.info(f"Profile {person_uuid} has tenant sales criteria and action items under tenant {tenant_id}")
+            self.statuses_repository.update_status(person_uuid, tenant_id, event_topic, StatusEnum.COMPLETED)
             return {"status": "success"}
 
         # Gather person, personal_data, news_data, company_data and seller_context
@@ -226,6 +244,8 @@ class LangsmithConsumer(GenieConsumer):
         batch_manager.queue_event(GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public"))
         await batch_manager.send_batch()
 
+        self.statuses_repository.update_status(person_uuid, tenant_id, event_topic, StatusEnum.COMPLETED)
+
         return {"status": "success"}
     
     async def handle_new_base_profile(self, event):
@@ -239,6 +259,7 @@ class LangsmithConsumer(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
+
         personal_data = event_body.get("profile")
         strengths = personal_data.get("strengths")
         if isinstance(strengths, str):
@@ -251,9 +272,20 @@ class LangsmithConsumer(GenieConsumer):
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")
         email_address = person.get("email")
+        if not email_address and not person:
+            logger.error(f"No email address found in personal data")
+            raise Exception("Got base profile event with no email address and no person")
         forced_refresh = event_body.get("force_refresh")
         seller_tenant_id = logger.get_tenant_id()
-
+        event_topic = event.properties.get(b"topic").decode("utf-8")
+        if not tenant_id or not event_topic:
+            logger.error(f"No tenant id or event topic found")
+            raise Exception("Got event with no tenant id or event topic")
+        event_status = self.statuses_repository.get_status(person.get("uuid"), tenant_id)
+        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+            logger.info(f"Event already in progress: {person.get("uuid")}")
+            return {"error": "Event already in progress"}
+        self.statuses_repository.update_status(person.get("uuid"), tenant_id, event_topic, StatusEnum.PROCESSING)
         company_data = None
 
         existing_sales_criteria, existing_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person['uuid'], seller_tenant_id)
@@ -324,6 +356,7 @@ class LangsmithConsumer(GenieConsumer):
 
         event = GenieEvent(Topic.NEW_TENANT_PROFILE, {"profile_uuid": profile_uuid}, "public")
         event.send()
+        self.statuses_repository.update_status(person.get("uuid"), tenant_id, event_topic, StatusEnum.COMPLETED)
         return {"status": "success"}
 
     async def process_action_item(self, person, action_item, company_data, seller_context):
