@@ -1,7 +1,7 @@
 from common.utils.str_utils import get_uuid4
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Tuple, Dict, Any
 
@@ -20,7 +20,7 @@ class StatusDTO(BaseModel):
 
     @field_validator("person_uuid", "tenant_id")
     def not_empty(cls, value):
-        if not value.strip():
+        if not str(value).strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
 
@@ -29,7 +29,7 @@ class StatusDTO(BaseModel):
             str(self.person_uuid),
             self.tenant_id,
             self.current_event,
-            str(self.current_event_start_time),
+            self.current_event_start_time.isoformat(),
             self.status,
         )
 
@@ -39,7 +39,7 @@ class StatusDTO(BaseModel):
             person_uuid=UUID(data[0]),
             tenant_id=data[1],
             current_event=data[2],
-            current_event_start_time=datetime.fromisoformat(data[3]),
+            current_event_start_time=data[3].astimezone(timezone.utc) if isinstance(data[3], datetime) else datetime.fromisoformat(data[3]).astimezone(timezone.utc),
             status=StatusEnum(data[4]),
         )
 
