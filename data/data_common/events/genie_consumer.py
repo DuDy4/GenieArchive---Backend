@@ -107,7 +107,6 @@ class GenieConsumer:
                 topic = topic.decode("utf-8") if topic else None
                 logger.info(f"Skipping topic [{topic}]. Consumer group: {self.consumer_group}")
         except Exception as e:
-
             logger.error(f"Exception occurred: {e}")
             topic = topic.decode("utf-8") if topic else None
             if topic in Topic.PROFILE_CRITICAL:

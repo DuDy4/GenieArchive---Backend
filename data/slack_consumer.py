@@ -6,8 +6,10 @@ import time
 import traceback
 from datetime import timedelta, datetime
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
+from data.data_common.data_transfer_objects.status_dto import StatusEnum
 from data.data_common.repositories.tenants_repository import TenantsRepository
+from data.data_common.repositories.statuses_repository import StatusesRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
@@ -51,6 +53,7 @@ class SlackConsumer(GenieConsumer):
         self.company_repository: CompaniesRepository = companies_repository()
         self.persons_repository: PersonsRepository = persons_repository()
         self.tenants_repository: TenantsRepository = tenants_repository()
+        self.statuses_repository: StatusesRepository = StatusesRepository()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -115,6 +118,7 @@ class SlackConsumer(GenieConsumer):
             COMPANY= {company.name}.
             """
         send_message(message)
+        self.persons_repository.update_status(email, PersonStatus.FAILED)
         self.persons_repository.update_last_message_sent_at_by_email(email)
         return {"status": "ok"}
 
@@ -207,6 +211,8 @@ class SlackConsumer(GenieConsumer):
                    f" \nError: {error}."
                    f" \nTraceback: {traceback_logs}.")
         send_message(message, channel="bugs")
+        self.persons_repository.update_status(email, PersonStatus.FAILED)
+        self.statuses_repository.update_status(uuid, email, topic, StatusEnum.FAILED)
         return {"status": "ok"}
 
 
