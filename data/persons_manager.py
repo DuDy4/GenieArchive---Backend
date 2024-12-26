@@ -704,7 +704,7 @@ class PersonManager(GenieConsumer):
         #     return {"error": "Person already in progress"}
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
         event_status = self.statuses_repository.get_status(uuid, tenant_id)
-        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+        if event_status and event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
             logger.info(f"Event already in progress: {uuid}")
             return {"error": "Event already in progress"}
         self.statuses_repository.save_status(uuid, tenant_id, event_topic, StatusEnum.PROCESSING)
@@ -763,6 +763,7 @@ class PersonManager(GenieConsumer):
             event = GenieEvent(Topic.PERSONAL_NEWS_ARE_UP_TO_DATE,
                 {"person_uuid": uuid})
             event.send()
+            self.statuses_repository.save_status(uuid, tenant_id, event_topic, StatusEnum.COMPLETED)
             return {"error": "No need to scrape LinkedIn posts"}
 
     async def check_profile_data_from_person(self, person: PersonDTO):

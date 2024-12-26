@@ -30,7 +30,7 @@ from data.data_common.dependencies.dependencies import (
     persons_repository,
     deals_repository,
 )
-from common.genie_logger import GenieLogger, tenant_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 load_dotenv()
@@ -157,6 +157,10 @@ class LangsmithConsumer(GenieConsumer):
         if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
             logger.info(f"Event already in progress: {person_uuid}")
             return {"error": "Event already in progress"}
+        # if (event_status.current_event != Topic.NEW_PERSONAL_DATA or event_status.status != StatusEnum.COMPLETED) and not event_body.get("force"):
+        #     logger.info(f"Event NEW_PERSONAL_DATA not completed for person {person_uuid}")
+        #     logger.info(f"Event status: {event_status.current_event} - {event_status.status}")
+        #     return {"error": "Event NEW_PERSONAL_DATA not completed"}
         self.statuses_repository.update_status(person_uuid, tenant_id, event_topic, StatusEnum.PROCESSING)
         # Should implement a check for linkedin scrapped data
 
@@ -278,14 +282,14 @@ class LangsmithConsumer(GenieConsumer):
         forced_refresh = event_body.get("force_refresh")
         seller_tenant_id = logger.get_tenant_id()
         event_topic = event.properties.get(b"topic").decode("utf-8")
-        if not tenant_id or not event_topic:
+        if not seller_tenant_id or not event_topic:
             logger.error(f"No tenant id or event topic found")
             raise Exception("Got event with no tenant id or event topic")
-        event_status = self.statuses_repository.get_status(person.get("uuid"), tenant_id)
-        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+        event_status = self.statuses_repository.get_status(person.get("uuid"), seller_tenant_id)
+        if event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING and not forced_refresh:
             logger.info(f"Event already in progress: {person.get("uuid")}")
             return {"error": "Event already in progress"}
-        self.statuses_repository.update_status(person.get("uuid"), tenant_id, event_topic, StatusEnum.PROCESSING)
+        self.statuses_repository.update_status(person.get("uuid"), seller_tenant_id, event_topic, StatusEnum.PROCESSING)
         company_data = None
 
         existing_sales_criteria, existing_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person['uuid'], seller_tenant_id)
@@ -356,7 +360,7 @@ class LangsmithConsumer(GenieConsumer):
 
         event = GenieEvent(Topic.NEW_TENANT_PROFILE, {"profile_uuid": profile_uuid}, "public")
         event.send()
-        self.statuses_repository.update_status(person.get("uuid"), tenant_id, event_topic, StatusEnum.COMPLETED)
+        self.statuses_repository.update_status(person.get("uuid"), seller_tenant_id, event_topic, StatusEnum.COMPLETED)
         return {"status": "success"}
 
     async def process_action_item(self, person, action_item, company_data, seller_context):

@@ -21,8 +21,8 @@ configure_azure_monitor()
 logger = GenieLogger()
 
 consumers = [
-    PersonManager(),
-    LangsmithConsumer(),
+    # PersonManager(),
+    # LangsmithConsumer(),
     PDLConsumer(),
     MeetingManager(),
     SlackConsumer(),
