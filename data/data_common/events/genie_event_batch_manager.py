@@ -3,6 +3,8 @@ import asyncio
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+from common.utils.event_utils import extract_object_uuid
+from data.data_common.dependencies.dependencies import statuses_repository
 from data.data_common.events.genie_event import GenieEvent
 
 logger = GenieLogger()
@@ -21,6 +23,7 @@ class EventHubBatchManager:
         self.events = []
         self.batch = None
         self.batch_task = None  # Initialize batch_task as None
+        self.statuses_repository = statuses_repository()
 
         try:
             # Safely get the running loop and start the batch task if a loop exists
@@ -82,7 +85,22 @@ class EventHubBatchManager:
         if not self.batch:
             raise RuntimeError("No batch to send. Ensure batch creation succeeded.")
 
+        statuses_task = asyncio.create_task(self.update_status(self.events[:]))
+
         await asyncio.to_thread(self.producer.send_batch, self.batch)
         logger.info("Batch sent successfully.")
         self.batch = None
         self.batch_task = None  # Reset for future batches
+        await statuses_task
+
+    async def update_status(self, events):
+        for event in events:
+            object_uuid = extract_object_uuid(event.data)
+            if not object_uuid:
+                continue
+            self.statuses_repository.start_status(ctx_id=event.ctx_id, object_uuid=object_uuid, tenant_id=event.tenant_id,
+                                                  previous_event_topic=event.previous_topic,
+                                                  next_event_topic=event.topic)
+        logger.info("Statuses updated successfully.")
+
+

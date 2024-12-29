@@ -15,7 +15,7 @@ def test_start_status():
     try:
         status = statuses_repo.get_status("ctx_id","123e4567-e89b-12d3-a456-426614174000", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.person_uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
+        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"
@@ -31,7 +31,7 @@ def test_update_status():
     try:
         status = statuses_repo.get_status("ctx_id", "123e4567-e89b-12d3-a456-426614174001", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.person_uuid == UUID("123e4567-e89b-12d3-a456-426614174001")
+        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174001")
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"
@@ -56,7 +56,7 @@ def test_failed_status_with_error():
     try:
         status = statuses_repo.get_status("ctx_id", "123e4567-e89b-12d3-a456-426614174002", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.person_uuid == UUID("123e4567-e89b-12d3-a456-426614174002")
+        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174002")
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"

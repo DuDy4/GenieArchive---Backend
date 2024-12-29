@@ -13,6 +13,7 @@ from ..repositories.stats_repository import StatsRepository
 from ..repositories.badges_repository import BadgesRepository
 from ..repositories.file_upload_repository import FileUploadRepository
 from ..repositories.deals_repository import DealsRepository
+from ..repositories.statuses_repository import StatusesRepository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -31,6 +32,7 @@ s_repository = StatsRepository()
 b_repository = BadgesRepository()
 f_repository = FileUploadRepository()
 d_repository = DealsRepository()
+st_repository = StatusesRepository()
 
 
 
@@ -87,4 +89,7 @@ def hobbies_repository() -> HobbiesRepository:
 
 def file_upload_repository() -> FileUploadRepository:
     return f_repository
+
+def statuses_repository() -> StatusesRepository:
+    return st_repository
 

@@ -15,14 +15,14 @@ class StatusEnum(str, Enum):
 
 class StatusDTO(BaseModel):
     ctx_id: str
-    person_uuid: UUID
+    object_uuid: UUID
     tenant_id: str
     event_topic: str
     previous_event_topic: Optional[str | None] = None
     current_event_start_time: datetime
     status: StatusEnum
 
-    @field_validator("ctx_id", "person_uuid", "tenant_id")
+    @field_validator("ctx_id", "object_uuid", "tenant_id")
     def not_empty(cls, value):
         if not str(value).strip():
             raise ValueError("Field cannot be empty or whitespace")
@@ -31,7 +31,7 @@ class StatusDTO(BaseModel):
     def to_tuple(self) -> Tuple[str, str, str, str, str | None, str, str]:
         return (
             self.ctx_id,
-            str(self.person_uuid),
+            str(self.object_uuid),
             self.tenant_id,
             self.event_topic,
             self.previous_event_topic,
@@ -43,7 +43,7 @@ class StatusDTO(BaseModel):
     def from_tuple(cls, data: Tuple[str, str, str, str, str | None, str, str]) -> "StatusDTO":
         return cls(
             ctx_id=data[0],
-            person_uuid=UUID(data[1]),
+            object_uuid=UUID(data[1]),
             tenant_id=data[2],
             event_topic=data[3],
             previous_event_topic=data[4],
@@ -54,7 +54,7 @@ class StatusDTO(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "ctx_id": self.ctx_id,
-            "person_uuid": str(self.person_uuid),
+            "object_uuid": str(self.object_uuid),
             "tenant_id": self.tenant_id,
             "event_topic": self.event_topic,
             "previous_event_topic": self.previous_event_topic,
@@ -66,7 +66,7 @@ class StatusDTO(BaseModel):
     def from_dict(cls, data) -> "StatusDTO":
         return StatusDTO(
             ctx_id=data["ctx_id"],
-            person_uuid=UUID(data["person_uuid"]),
+            object_uuid=UUID(data["object_uuid"]),
             tenant_id=data["tenant_id"],
             event_topic=data["event_topic"],
             previous_event_topic=data["previous_event_topic"],
