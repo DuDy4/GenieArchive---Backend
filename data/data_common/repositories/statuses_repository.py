@@ -33,7 +33,7 @@ class StatusesRepository:
                 traceback.format_exc()
 
     def save_status(self, profile_uuid: str | UUID, tenant_id: str, event_topic: str, status: StatusEnum):
-        if self.exists(str(profile_uuid), tenant_id):
+        if self.exists(str(profile_uuid), tenant_id, event_topic):
             self.update_status(str(profile_uuid), tenant_id, event_topic, status)
 
         else:
@@ -47,14 +47,14 @@ class StatusesRepository:
             self.insert_status(status_dto)
 
 
-    def exists(self, person_uuid: str, tenant_id: str) -> bool:
+    def exists(self, person_uuid: str, tenant_id: str, topic: str) -> bool:
         query = """
-            SELECT EXISTS(SELECT 1 FROM statuses WHERE person_uuid = %s AND tenant_id = %s);
+            SELECT EXISTS(SELECT 1 FROM statuses WHERE person_uuid = %s AND tenant_id = %s and current_event = %s);
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(query, (person_uuid, tenant_id))
+                    cursor.execute(query, (person_uuid, tenant_id, topic))
                     result = cursor.fetchone()
                     return result[0]
             except psycopg2.Error as error:
@@ -70,7 +70,7 @@ class StatusesRepository:
         logger.info(f"Inserting status: {args}")
         with db_connection() as conn:
             try:
-                if self.exists(str(status_dto.person_uuid), status_dto.tenant_id):
+                if self.exists(str(status_dto.person_uuid), status_dto.tenant_id, status_dto.current_event):
                     logger.error(f"Status already exists for person_uuid={status_dto.person_uuid} and tenant_id={status_dto.tenant_id}")
                     return
                 with conn.cursor() as cursor:
@@ -83,10 +83,10 @@ class StatusesRepository:
     def update_status(self, person_uuid: str, tenant_id: str, event_topic: str, status: StatusEnum):
         query = """
             UPDATE statuses
-            SET current_event = %s, current_event_start_time = %s, status = %s
-            WHERE person_uuid = %s AND tenant_id = %s;
+            SET current_event_start_time = %s, status = %s
+            WHERE person_uuid = %s AND tenant_id = %s AND current_event = %s;
         """
-        args = (event_topic, datetime.now(timezone.utc), status.value, person_uuid, tenant_id)
+        args = (datetime.now(timezone.utc), status.value, person_uuid, tenant_id, event_topic)
         logger.info(f"Updating status: {args}")
         with db_connection() as conn:
             try:
@@ -97,16 +97,16 @@ class StatusesRepository:
                 logger.error(f"Error updating status: {error.pgerror}")
                 traceback.format_exc()
 
-    def get_status(self, person_uuid: str, tenant_id: str) -> StatusDTO:
+    def get_status(self, person_uuid: str, tenant_id: str, event_topic: str) -> StatusDTO:
         query = """
             SELECT person_uuid, tenant_id, current_event, current_event_start_time, status
-            FROM statuses WHERE person_uuid = %s AND tenant_id = %s;
+            FROM statuses WHERE person_uuid = %s AND tenant_id = %s AND current_event = %s;
         """
         logger.info(f"Fetching status for person_uuid={person_uuid} and tenant_id={tenant_id}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(query, (person_uuid, tenant_id))
+                    cursor.execute(query, (person_uuid, tenant_id, event_topic))
                     result = cursor.fetchone()
                     if result:
                         logger.info(f"Status fetched: {result}")
@@ -118,15 +118,15 @@ class StatusesRepository:
                 logger.error(f"Error fetching status: {error.pgerror}")
                 traceback.format_exc()
 
-    def delete_status(self, person_uuid: str, tenant_id: str):
+    def delete_status(self, person_uuid: str, tenant_id: str, event_topic: str):
         query = """
-            DELETE FROM statuses WHERE person_uuid = %s AND tenant_id = %s;
+            DELETE FROM statuses WHERE person_uuid = %s AND tenant_id = %s, event_topic = %s;
         """
         logger.info(f"Deleting status for person_uuid={person_uuid} and tenant_id={tenant_id}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(query, (person_uuid, tenant_id))
+                    cursor.execute(query, (person_uuid, tenant_id, event_topic))
                     conn.commit()
             except psycopg2.Error as error:
                 logger.error(f"Error deleting status: {error.pgerror}")
