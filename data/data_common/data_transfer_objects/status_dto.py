@@ -14,7 +14,7 @@ class StatusEnum(str, Enum):
 class StatusDTO(BaseModel):
     person_uuid: UUID
     tenant_id: str
-    current_event: str
+    event_topic: str
     current_event_start_time: datetime
     status: StatusEnum
 
@@ -28,7 +28,7 @@ class StatusDTO(BaseModel):
         return (
             str(self.person_uuid),
             self.tenant_id,
-            self.current_event,
+            self.event_topic,
             self.current_event_start_time.isoformat(),
             self.status,
         )
@@ -38,7 +38,7 @@ class StatusDTO(BaseModel):
         return cls(
             person_uuid=UUID(data[0]),
             tenant_id=data[1],
-            current_event=data[2],
+            event_topic=data[2],
             current_event_start_time=data[3].astimezone(timezone.utc) if isinstance(data[3], datetime) else datetime.fromisoformat(data[3]).astimezone(timezone.utc),
             status=StatusEnum(data[4]),
         )
@@ -47,7 +47,7 @@ class StatusDTO(BaseModel):
         return {
             "person_uuid": str(self.person_uuid),
             "tenant_id": self.tenant_id,
-            "current_event": self.current_event,
+            "event_topic": self.event_topic,
             "current_event_start_time": str(self.current_event_start_time),
             "status": self.status,
         }
@@ -57,7 +57,7 @@ class StatusDTO(BaseModel):
         return StatusDTO(
             person_uuid=UUID(data.get("person_uuid")),
             tenant_id=data.get("tenant_id"),
-            current_event=data.get("current_event"),
+            event_topic=data.get("event_topic"),
             current_event_start_time=datetime.fromisoformat(data.get("current_event_start_time")),
             status=StatusEnum(data.get("status"))
         )
