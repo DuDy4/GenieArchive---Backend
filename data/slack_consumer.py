@@ -212,7 +212,7 @@ class SlackConsumer(GenieConsumer):
                    f" \nTraceback: {traceback_logs}.")
         send_message(message, channel="bugs")
         self.persons_repository.update_status(email, PersonStatus.FAILED)
-        self.statuses_repository.update_status(uuid, email, topic, StatusEnum.FAILED)
+        self.statuses_repository.save_status(uuid, email, topic, StatusEnum.FAILED)
         return {"status": "ok"}
 
 

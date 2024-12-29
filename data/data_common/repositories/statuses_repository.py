@@ -33,8 +33,8 @@ class StatusesRepository:
                 traceback.format_exc()
 
     def save_status(self, profile_uuid: str | UUID, tenant_id: str, event_topic: str, status: StatusEnum):
-        if self.exists(str(profile_uuid), tenant_id, event_topic):
-            self.update_status(str(profile_uuid), tenant_id, event_topic, status)
+        if self._exists(str(profile_uuid), tenant_id, event_topic):
+            self._update_status(str(profile_uuid), tenant_id, event_topic, status)
 
         else:
             status_dto = StatusDTO(
@@ -44,10 +44,10 @@ class StatusesRepository:
                 current_event_start_time=datetime.now(timezone.utc),
                 status=status,
             )
-            self.insert_status(status_dto)
+            self._insert_status(status_dto)
 
 
-    def exists(self, person_uuid: str, tenant_id: str, topic: str) -> bool:
+    def _exists(self, person_uuid: str, tenant_id: str, topic: str) -> bool:
         query = """
             SELECT EXISTS(SELECT 1 FROM statuses WHERE person_uuid = %s AND tenant_id = %s and event_topic = %s);
         """
@@ -61,7 +61,7 @@ class StatusesRepository:
                 logger.error(f"Error checking if status exists: {error.pgerror}")
                 traceback.format_exc()
 
-    def insert_status(self, status_dto: StatusDTO):
+    def _insert_status(self, status_dto: StatusDTO):
         query = """
             INSERT INTO statuses (person_uuid, tenant_id, event_topic, current_event_start_time, status)
             VALUES (%s, %s, %s, %s, %s);
@@ -70,7 +70,7 @@ class StatusesRepository:
         logger.info(f"Inserting status: {args}")
         with db_connection() as conn:
             try:
-                if self.exists(str(status_dto.person_uuid), status_dto.tenant_id, status_dto.event_topic):
+                if self._exists(str(status_dto.person_uuid), status_dto.tenant_id, status_dto.event_topic):
                     logger.error(f"Status already exists for person_uuid={status_dto.person_uuid} and tenant_id={status_dto.tenant_id}")
                     return
                 with conn.cursor() as cursor:
@@ -80,7 +80,7 @@ class StatusesRepository:
                 logger.error(f"Error inserting status: {error.pgerror}")
                 traceback.format_exc()
 
-    def update_status(self, person_uuid: str, tenant_id: str, event_topic: str, status: StatusEnum):
+    def _update_status(self, person_uuid: str, tenant_id: str, event_topic: str, status: StatusEnum):
         query = """
             UPDATE statuses
             SET current_event_start_time = %s, status = %s

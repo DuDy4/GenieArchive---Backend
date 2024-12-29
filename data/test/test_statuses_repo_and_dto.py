@@ -17,7 +17,7 @@ def test_insert_status():
         current_event_start_time=datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc),
         status=StatusEnum.PROCESSING,
     )
-    statuses_repo.insert_status(status_dto)
+    statuses_repo._insert_status(status_dto)
     status = statuses_repo.get_status("123e4567-e89b-12d3-a456-426614174000", "tenant_id", "event_topic")
     assert status.person_uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
     assert status.tenant_id == "tenant_id"
@@ -36,8 +36,8 @@ def test_update_status():
         current_event_start_time=datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc),
         status=StatusEnum.PROCESSING,
     )
-    statuses_repo.insert_status(status_dto)
-    statuses_repo.update_status(
+    statuses_repo._insert_status(status_dto)
+    statuses_repo._update_status(
         "123e4567-e89b-12d3-a456-426614174001", "tenant_id", "event_topic", StatusEnum.COMPLETED
     )
     status = statuses_repo.get_status("123e4567-e89b-12d3-a456-426614174001", "tenant_id", "event_topic")
@@ -86,7 +86,7 @@ def test_get_status():
         current_event_start_time=datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc),
         status=StatusEnum.PROCESSING,
     )
-    statuses_repo.insert_status(status_dto)
+    statuses_repo._insert_status(status_dto)
     status = statuses_repo.get_status("123e4567-e89b-12d3-a456-426614174002", "tenant_id", "event_topic")
     assert status.person_uuid == UUID("123e4567-e89b-12d3-a456-426614174002")
     assert status.tenant_id == "tenant_id"

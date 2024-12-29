@@ -703,8 +703,8 @@ class PersonManager(GenieConsumer):
         #     logger.info(f"Person already in progress: {uuid}")
         #     return {"error": "Person already in progress"}
         logger.info(f"Calling LinkedIn scraper for URL: {linkedin}")
-        event_status = self.statuses_repository.get_status(uuid, tenant_id)
-        if event_status and event_status.current_event == event_topic and event_status.status == StatusEnum.PROCESSING:
+        event_status = self.statuses_repository.get_status(uuid, tenant_id, event_topic)
+        if event_status and event_status.status == StatusEnum.PROCESSING:
             logger.info(f"Event already in progress: {uuid}")
             return {"error": "Event already in progress"}
         self.statuses_repository.save_status(uuid, tenant_id, event_topic, StatusEnum.PROCESSING)
