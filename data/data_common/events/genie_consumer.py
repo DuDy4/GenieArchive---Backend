@@ -10,6 +10,9 @@ from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 
+from common.utils.event_utils import extract_object_id
+from data.data_common.data_transfer_objects.status_dto import StatusEnum
+from data.data_common.dependencies.dependencies import statuses_repository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
@@ -48,7 +51,8 @@ class GenieConsumer:
         self.topics = topics
         self.current_event = None
         self._shutdown_event = asyncio.Event()
-        self.is_healthy = True  
+        self.is_healthy = True
+        self.statuses_repository = statuses_repository()
 
         health_check_port = env_utils.get("HEALTH_CHECK_PORT")
         if health_check_port:
@@ -101,15 +105,22 @@ class GenieConsumer:
                         logger.set_tenant_id(decoded_tenant_id)
                 logger.set_topic(decoded_topic)
                 logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
+                object_id, object_type = extract_object_id(event.body_as_str())
+                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
+                                                       tenant_id=decoded_tenant_id, status=StatusEnum.PROCESSING)
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
+                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
+                                                       tenant_id=decoded_tenant_id, status=StatusEnum.COMPLETED)
             else:
                 topic = topic.decode("utf-8") if topic else None
                 logger.info(f"Skipping topic [{topic}]. Consumer group: {self.consumer_group}")
         except Exception as e:
-
             logger.error(f"Exception occurred: {e}")
             topic = topic.decode("utf-8") if topic else None
+            object_id, object_type = extract_object_id(event.body_as_str())
+            self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=topic,
+                                                   tenant_id=decoded_tenant_id, status=StatusEnum.FAILED, error_message=str(e))
             if topic in Topic.PROFILE_CRITICAL:
                 traceback_str = traceback.format_exc()
                 await self.handle_failed_processing_profile_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)

@@ -7,6 +7,7 @@ from data.api_services.linkedin_scrape import HandleLinkedinScrape
 from pydantic import ValidationError
 
 from data.data_common.data_transfer_objects.news_data_dto import NewsData, SocialMediaPost
+from data.data_common.data_transfer_objects.status_dto import StatusDTO, StatusEnum
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -35,7 +36,7 @@ from data.data_common.dependencies.dependencies import (
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
-from common.genie_logger import GenieLogger
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 linkedin_scrapper = HandleLinkedinScrape()
@@ -299,6 +300,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -334,6 +336,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -375,6 +378,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -412,6 +416,7 @@ class PersonManager(GenieConsumer):
                 {"person": person.to_dict()},
             )
             event.send()
+            self.persons_repository.update_status(person.uuid, PersonStatus.FAILED)
             logger.info("Sent 'failed_to_find_personal_data' event to the event queue")
             return {"status": "failed"}
         return {"status": "failed"}
@@ -529,6 +534,7 @@ class PersonManager(GenieConsumer):
         # Assuming the event body contains a JSON string with the processed data
         event_body_str = event.body_as_str()
         event_body = json.loads(event_body_str)
+        event_topic = event.properties.get(b"topic").decode("utf-8")
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         person_dict = event_body.get("person")
@@ -538,9 +544,9 @@ class PersonManager(GenieConsumer):
         if isinstance(profile, str):
             profile = json.loads(profile)
         logger.info(f"Person: {person_dict},\n Profile: {str(profile)}")
+        tenant_id = logger.get_tenant_id()
 
         person = PersonDTO.from_dict(person_dict)
-        # person = self.validate_person(person)
 
         self.persons_repository.save_person(person)
 
@@ -669,6 +675,7 @@ class PersonManager(GenieConsumer):
         event_body = json.loads(event_body_str)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
+        event_topic = event.properties.get(b"topic").decode("utf-8")
         person_dict = event_body.get("person")
         logger.info(f"Person: {person_dict}")
         if not person_dict:
@@ -677,6 +684,7 @@ class PersonManager(GenieConsumer):
         person = PersonDTO.from_dict(person_dict)
         linkedin = person.linkedin
         uuid = person.uuid
+        tenant_id = logger.get_tenant_id()
 
         if not uuid:
             logger.error("UUID is missing in the event data")
@@ -869,7 +877,6 @@ class PersonManager(GenieConsumer):
                 event = GenieEvent(Topic.FAILED_TO_GET_PROFILE_PICTURE, {"person": person.to_dict()})
                 event.send()
                 logger.info(f"Sent 'failed_to_upload_profile_picture' event to the event queue for {person.email}")
-
         return {"status": "failed"}
 
     async def handle_profile_error(self, event):

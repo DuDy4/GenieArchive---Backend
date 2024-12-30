@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from common.utils.news_utils import filter_not_reshared_social_media_news
 from data.data_common.data_transfer_objects.profile_dto import Phrase
+from data.data_common.data_transfer_objects.status_dto import StatusEnum
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
@@ -145,6 +146,12 @@ class LangsmithConsumer(GenieConsumer):
             raise Exception("Got event with uuid but no person data")
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
+        tenant_id = logger.get_tenant_id()
+        event_topic = event.properties.get(b"topic").decode("utf-8")
+        if not tenant_id or not event_topic:
+            logger.error(f"No tenant id or event topic found")
+            raise Exception("Got event with no tenant id or event topic")
+
         # Check if needs to proceed with the event
         if profile and profile.strengths and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
@@ -164,6 +171,7 @@ class LangsmithConsumer(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "profile": profile_to_send, "email": person.email}
                 event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
                 event.send()
+
             logger.info(f"Profile {person_uuid} has tenant sales criteria and action items under tenant {tenant_id}")
             return {"status": "success"}
 
@@ -226,6 +234,7 @@ class LangsmithConsumer(GenieConsumer):
         batch_manager.queue_event(GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public"))
         await batch_manager.send_batch()
 
+
         return {"status": "success"}
     
     async def handle_new_base_profile(self, event):
@@ -239,6 +248,7 @@ class LangsmithConsumer(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
+
         personal_data = event_body.get("profile")
         strengths = personal_data.get("strengths")
         if isinstance(strengths, str):
@@ -251,8 +261,15 @@ class LangsmithConsumer(GenieConsumer):
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")
         email_address = person.get("email")
+        if not email_address and not person:
+            logger.error(f"No email address found in personal data")
+            raise Exception("Got base profile event with no email address and no person")
         forced_refresh = event_body.get("force_refresh")
         seller_tenant_id = logger.get_tenant_id()
+        event_topic = event.properties.get(b"topic").decode("utf-8")
+        if not seller_tenant_id or not event_topic:
+            logger.error(f"No tenant id or event topic found")
+            raise Exception("Got event with no tenant id or event topic")
 
         company_data = None
 
@@ -271,7 +288,6 @@ class LangsmithConsumer(GenieConsumer):
                 company_dict.pop("logo")
 
         seller_context = None
-        # seller_tenant_id = logger.get_tenant_id()
         if seller_tenant_id:
             seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
             if seller_email:
@@ -318,6 +334,7 @@ class LangsmithConsumer(GenieConsumer):
                     action_items = specific_action_items
                 else:  
                     logger.warning(f"Failed to get specific action items for all action items for prospect: {person['name']}")
+                    raise Exception("Failed to get specific action items for all action items")
                 self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
         
         profile_uuid = person.get("uuid")

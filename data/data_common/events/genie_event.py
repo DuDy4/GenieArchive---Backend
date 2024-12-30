@@ -4,6 +4,8 @@ import os
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
+from data.data_common.dependencies.dependencies import statuses_repository
+from common.utils.event_utils import extract_object_id
 
 logger = GenieLogger()
 
@@ -26,11 +28,15 @@ class GenieEvent:
         cty_id = cty_id if cty_id else logger.get_cty_id()
         self.cty_id = cty_id if cty_id else None
         self.tenant_id = logger.get_tenant_id() or data.get("tenant_id")
+        self.previous_topic = logger.get_topic() or data.get("previous_topic")
+        self.statuses_repository = statuses_repository()
 
     def send(self):
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
         event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id, "tenant_id" : self.tenant_id}
+        if self.previous_topic:
+            event.properties["previous_topic"] = self.previous_topic
         if self.cty_id:
             event.properties["cty_id"] = self.cty_id
         logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope};TENANT_ID={self.tenant_id}]")
@@ -41,6 +47,13 @@ class GenieEvent:
         producer.send_batch(event_data_batch, timeout=send_timeout)
         logger.info(f"Batch sent successfully [TOPIC={self.topic}]")
         producer.close()
+
+        object_id, object_type = extract_object_id(self.data)
+        if not object_id:
+            return
+        self.statuses_repository.start_status(ctx_id=self.ctx_id, object_id=object_id, object_type=object_type,
+                                              tenant_id=self.tenant_id, previous_event_topic=self.previous_topic,
+                                              next_event_topic=self.topic)
 
     def ensure_json_format(self, data):
         """
@@ -65,3 +78,5 @@ class GenieEvent:
         else:
             logger.error("Data must be a dictionary or a JSON string")
             raise TypeError("Data must be a dictionary or a JSON string")
+
+
