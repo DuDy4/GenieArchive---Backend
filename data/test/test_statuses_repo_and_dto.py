@@ -11,11 +11,12 @@ statuses_repo = StatusesRepository()
 statuses_repo.create_table_if_not_exists()
 def test_start_status():
 
-    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174000", "tenant_id", "previous_event", "event_topic")
+    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174000", "PERSON","tenant_id", "previous_event", "event_topic")
     try:
         status = statuses_repo.get_status("ctx_id","123e4567-e89b-12d3-a456-426614174000", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
+        assert status.object_id == "123e4567-e89b-12d3-a456-426614174000"
+        assert status.object_type == "PERSON"
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"
@@ -27,11 +28,12 @@ def test_start_status():
         assert status is None
 
 def test_update_status():
-    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174001", "tenant_id", "previous_event", "event_topic")
+    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174001", "PERSON", "tenant_id", "previous_event", "event_topic")
     try:
         status = statuses_repo.get_status("ctx_id", "123e4567-e89b-12d3-a456-426614174001", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174001")
+        assert status.object_id == "123e4567-e89b-12d3-a456-426614174001"
+        assert status.object_type == "PERSON"
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"
@@ -52,11 +54,11 @@ def test_update_status():
 
 
 def test_failed_status_with_error():
-    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174002", "tenant_id", "previous_event", "event_topic")
+    statuses_repo.start_status("ctx_id", "123e4567-e89b-12d3-a456-426614174002", "PERSON", "tenant_id", "previous_event", "event_topic")
     try:
         status = statuses_repo.get_status("ctx_id", "123e4567-e89b-12d3-a456-426614174002", "tenant_id", "event_topic")
         assert status.ctx_id == "ctx_id"
-        assert status.object_uuid == UUID("123e4567-e89b-12d3-a456-426614174002")
+        assert status.object_id == "123e4567-e89b-12d3-a456-426614174002"
         assert status.tenant_id == "tenant_id"
         assert status.event_topic == "event_topic"
         assert status.previous_event_topic == "previous_event"

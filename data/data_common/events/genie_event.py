@@ -5,7 +5,7 @@ from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 from data.data_common.dependencies.dependencies import statuses_repository
-from common.utils.event_utils import extract_object_uuid
+from common.utils.event_utils import extract_object_id
 
 logger = GenieLogger()
 
@@ -34,7 +34,9 @@ class GenieEvent:
     def send(self):
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)
-        event.properties = {"topic": self.topic, "previous_topic": self.previous_topic, "scope": self.scope, "ctx_id": self.ctx_id, "tenant_id" : self.tenant_id}
+        event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id, "tenant_id" : self.tenant_id}
+        if self.previous_topic:
+            event.properties["previous_topic"] = self.previous_topic
         if self.cty_id:
             event.properties["cty_id"] = self.cty_id
         logger.info(f"Events sent successfully [TOPIC={self.topic};SCOPE={self.scope};TENANT_ID={self.tenant_id}]")
@@ -46,10 +48,12 @@ class GenieEvent:
         logger.info(f"Batch sent successfully [TOPIC={self.topic}]")
         producer.close()
 
-        object_uuid = extract_object_uuid(self.data)
-        if not object_uuid:
+        object_id, object_type = extract_object_id(self.data)
+        if not object_id:
             return
-        self.statuses_repository.start_status(ctx_id=self.ctx_id, object_uuid=object_uuid, tenant_id=self.tenant_id, previous_event_topic=self.previous_topic, next_event_topic=self.topic)
+        self.statuses_repository.start_status(ctx_id=self.ctx_id, object_id=object_id, object_type=object_type,
+                                              tenant_id=self.tenant_id, previous_event_topic=self.previous_topic,
+                                              next_event_topic=self.topic)
 
     def ensure_json_format(self, data):
         """

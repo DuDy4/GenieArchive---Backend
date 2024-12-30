@@ -3,7 +3,7 @@ import asyncio
 from azure.eventhub import EventHubProducerClient, EventData
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
-from common.utils.event_utils import extract_object_uuid
+from common.utils.event_utils import extract_object_id
 from data.data_common.dependencies.dependencies import statuses_repository
 from data.data_common.events.genie_event import GenieEvent
 
@@ -95,11 +95,11 @@ class EventHubBatchManager:
 
     async def update_status(self, events):
         for event in events:
-            object_uuid = extract_object_uuid(event.data)
-            if not object_uuid:
+            object_id, object_type = extract_object_id(event.data)
+            if not object_id:
                 continue
-            self.statuses_repository.start_status(ctx_id=event.ctx_id, object_uuid=object_uuid, tenant_id=event.tenant_id,
-                                                  previous_event_topic=event.previous_topic,
+            self.statuses_repository.start_status(ctx_id=event.ctx_id, object_id=object_id, object_type=object_type,
+                                                  tenant_id=event.tenant_id, previous_event_topic=event.previous_topic,
                                                   next_event_topic=event.topic)
         logger.info("Statuses updated successfully.")
 

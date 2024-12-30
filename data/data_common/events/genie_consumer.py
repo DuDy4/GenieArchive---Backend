@@ -10,7 +10,7 @@ from azure.eventhub.aio import EventHubConsumerClient
 from azure.eventhub import TransportType
 from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 
-from common.utils.event_utils import extract_object_uuid
+from common.utils.event_utils import extract_object_id
 from data.data_common.data_transfer_objects.status_dto import StatusEnum
 from data.data_common.dependencies.dependencies import statuses_repository
 from data.data_common.events.genie_event import GenieEvent
@@ -105,12 +105,12 @@ class GenieConsumer:
                         logger.set_tenant_id(decoded_tenant_id)
                 logger.set_topic(decoded_topic)
                 logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
-                object_uuid = extract_object_uuid(event.body_as_str())
-                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_uuid=object_uuid, event_topic=decoded_topic,
+                object_id, object_type = extract_object_id(event.body_as_str())
+                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
                                                        tenant_id=decoded_tenant_id, status=StatusEnum.PROCESSING)
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
-                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_uuid=object_uuid, event_topic=decoded_topic,
+                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
                                                        tenant_id=decoded_tenant_id, status=StatusEnum.COMPLETED)
             else:
                 topic = topic.decode("utf-8") if topic else None
@@ -118,8 +118,8 @@ class GenieConsumer:
         except Exception as e:
             logger.error(f"Exception occurred: {e}")
             topic = topic.decode("utf-8") if topic else None
-            object_uuid = extract_object_uuid(event.body_as_str())
-            self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_uuid=object_uuid, event_topic=topic,
+            object_id, object_type = extract_object_id(event.body_as_str())
+            self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=topic,
                                                    tenant_id=decoded_tenant_id, status=StatusEnum.FAILED, error_message=str(e))
             if topic in Topic.PROFILE_CRITICAL:
                 traceback_str = traceback.format_exc()

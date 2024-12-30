@@ -24,11 +24,11 @@ consumers = [
     # PersonManager(),
     # LangsmithConsumer(),
     PDLConsumer(),
-    MeetingManager(),
+    # MeetingManager(),
     SlackConsumer(),
     ApolloConsumer(),
     CompanyConsumer(),
-    SalesMaterialConsumer(),
+    # SalesMaterialConsumer(),
 ]
 
 
