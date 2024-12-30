@@ -84,6 +84,7 @@ class StatusesRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(query, args)
                     conn.commit()
+                    logger.info(f"Updated status")
             except psycopg2.Error as error:
                 logger.error(f"Error updating status: {error.pgerror}")
                 traceback.format_exc()

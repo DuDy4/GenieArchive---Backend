@@ -122,7 +122,7 @@ class AdminApiService:
                     "tenant_id": tenant,
                     "person": person.to_dict(),
                 }
-                event = GenieEvent(Topic.PDL_NEW_PERSON_TO_ENRICH, data_to_send, "public")
+                event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
                 event.send()
         else:
             logger.error(f"Person does not have a LinkedIn URL")

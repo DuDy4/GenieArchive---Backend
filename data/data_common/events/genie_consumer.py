@@ -118,7 +118,8 @@ class GenieConsumer:
         except Exception as e:
             logger.error(f"Exception occurred: {e}")
             topic = topic.decode("utf-8") if topic else None
-            self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_uuid=event.extract_object_uuid(), event_topic=topic,
+            object_uuid = extract_object_uuid(event.body_as_str())
+            self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_uuid=object_uuid, event_topic=topic,
                                                    tenant_id=decoded_tenant_id, status=StatusEnum.FAILED, error_message=str(e))
             if topic in Topic.PROFILE_CRITICAL:
                 traceback_str = traceback.format_exc()

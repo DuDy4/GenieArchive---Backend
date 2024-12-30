@@ -334,6 +334,7 @@ class LangsmithConsumer(GenieConsumer):
                     action_items = specific_action_items
                 else:  
                     logger.warning(f"Failed to get specific action items for all action items for prospect: {person['name']}")
+                    raise Exception("Failed to get specific action items for all action items")
                 self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
         
         profile_uuid = person.get("uuid")
