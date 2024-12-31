@@ -220,7 +220,7 @@ class LangsmithConsumer(GenieConsumer):
 
         profile_strengths_get_to_know_work_history_summary = {
             "strengths": response.get("strengths"),
-            "get_to_know": response.get("get_to_know"),
+            # "get_to_know": response.get("get_to_know"),
             "work_history_summary": response.get("work_history_summary"),
         }
 
@@ -257,7 +257,7 @@ class LangsmithConsumer(GenieConsumer):
         if not strengths:
             logger.error(f"No strengths found in personal data")
             raise Exception("Got base profile event with no strengths")
-        original_get_to_know = personal_data.get("get_to_know")
+        # original_get_to_know = personal_data.get("get_to_know")
         work_history_summary = personal_data.get("work_history_summary")
         person = event_body.get("person")
         email_address = person.get("email")

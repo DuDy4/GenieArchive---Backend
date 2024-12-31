@@ -39,15 +39,15 @@ class Langsmith:
         logger.info(f"Strengths from Langsmith: {strengths}")
 
         person_data["strengths"] = strengths.get("strengths") if isinstance(strengths, dict) and strengths.get("strengths") else strengths
-        get_to_know_task = asyncio.create_task(self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context))
+        # get_to_know_task = asyncio.create_task(self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context))
 
         work_history = await work_history_summary_task
         logger.info(f"Work history from Langsmith: {work_history}")
         person_data["work_history_summary"] = work_history
-
-        get_to_know = await get_to_know_task
-        logger.info(f"Get to know from Langsmith: {get_to_know}")
-        person_data["get_to_know"] = get_to_know
+        #
+        # get_to_know = await get_to_know_task
+        # logger.info(f"Get to know from Langsmith: {get_to_know}")
+        # person_data["get_to_know"] = get_to_know
 
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
