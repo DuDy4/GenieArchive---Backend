@@ -114,5 +114,4 @@ def check_db_connection():
         logger.warning(f"More than half of the connections are closed ({closed_connections}/{max_connections}). Consider corrective action.")
         return False
     else:
-        logger.info("Connections are active.")
         return True
