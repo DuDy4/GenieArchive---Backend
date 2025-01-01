@@ -53,7 +53,6 @@ class StatusesRepository:
                 with conn.cursor() as cursor:
                     cursor.execute(insert_query, args)
                     conn.commit()
-                    logger.info(f"Inserted status")
             except psycopg2.Error as error:
                 logger.error(f"Error starting status: {error.pgerror}")
                 traceback.format_exc()
@@ -66,13 +65,11 @@ class StatusesRepository:
             WHERE ctx_id = %s AND object_id = %s AND tenant_id = %s AND event_topic = %s;
         """
         args = (datetime.now(timezone.utc), status.value, error_message, str(ctx_id), object_id, tenant_id, event_topic)
-        logger.info(f"Updating status: {args}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     cursor.execute(query, args)
                     conn.commit()
-                    logger.info(f"Updated status")
             except psycopg2.Error as error:
                 logger.error(f"Error updating status: {error.pgerror}")
                 traceback.format_exc()
@@ -106,7 +103,6 @@ class StatusesRepository:
                     cursor.execute(query, (str(ctx_id), object_id, tenant_id, event_topic))
                     result = cursor.fetchone()
                     if result:
-                        logger.info(f"Status fetched: {result}")
                         return StatusDTO.from_tuple(result)
                     else:
                         logger.info(f"No status found for object_id={object_id} and tenant_id={tenant_id}")
@@ -119,7 +115,6 @@ class StatusesRepository:
         query = """
             SELECT error_message FROM statuses WHERE ctx_id = %s AND object_id = %s AND tenant_id = %s AND event_topic = %s;
         """
-        logger.info(f"Fetching error message for object_id={object_id} and tenant_id={tenant_id}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:

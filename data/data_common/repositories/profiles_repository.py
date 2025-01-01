@@ -148,7 +148,7 @@ class ProfilesRepository:
                         strengths = [Strength.from_dict(item) for item in row[4]]
                         hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                         connections = [Connection.from_dict(item) for item in row[6]]
-                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()} if row[7] else {}
                         work_history_summary = row[10] if row[10] else None
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
@@ -254,11 +254,12 @@ class ProfilesRepository:
                             else row[6]
                         )
                         # Ensure get_to_know is a dictionary with lists of Phrase objects
-                        get_to_know = (
-                            {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
-                            if isinstance(row[7], str)
-                            else row[7]
-                        )
+                        # get_to_know = (
+                        #     {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
+                        #     if isinstance(row[7], str)
+                        #     else row[7]
+                        # )
+                        get_to_know = {}
                         # Ensure picture_url is a valid URL or None
                         picture_url = AnyUrl(row[9]) if AnyUrl(row[9]) else None
                         if picture_url == "":
@@ -348,11 +349,12 @@ class ProfilesRepository:
                         )
 
                         # Ensure get_to_know is a dictionary with lists of Phrase objects
-                        get_to_know = (
-                            {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
-                            if isinstance(row[7], str)
-                            else row[7]
-                        )
+                        # get_to_know = (
+                        #     {k: [Phrase.from_dict(p) for p in v] for k, v in json.loads(row[7]).items()}
+                        #     if isinstance(row[7], str)
+                        #     else row[7]
+                        # )
+                        get_to_know = {}
 
                         # Ensure company field is present
 
@@ -411,7 +413,7 @@ class ProfilesRepository:
                         strengths = [Strength.from_dict(item) for item in row[4]]
                         hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                         connections = [Connection.from_dict(item) for item in row[6]]
-                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()} if row[7] else {}
                         work_history_summary = row[10] if row[10] else None
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
@@ -610,7 +612,7 @@ class ProfilesRepository:
                         strengths = [Strength.from_dict(item) for item in row[4]]
                         hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                         connections = [Connection.from_dict(item) for item in row[6]]
-                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()} if row[7] else {}
                         work_history_summary = row[10] if row[10] else None
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
@@ -690,7 +692,7 @@ class ProfilesRepository:
                         strengths = [Strength.from_dict(item) for item in row[5]]
                         hobbies = json.loads(row[6]) if isinstance(row[6], str) else row[6]
                         connections = [Connection.from_dict(item) for item in row[7]]
-                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()}
+                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[8].items()} if row[8] else {}
                         work_history_summary = row[11] if row[11] else None
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[12]) if row[12] else None
                         profile_data = (
@@ -742,7 +744,7 @@ class ProfilesRepository:
                         strengths = [Strength.from_dict(item) for item in row[4]]
                         hobbies = json.loads(row[5]) if isinstance(row[5], str) else row[5]
                         connections = [Connection.from_dict(item) for item in row[6]]
-                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()}
+                        get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[7].items()} if row[7] else {}
                         work_history_summary = row[10] if row[10] else None
                         sales_criteria = (SalesCriteria.from_dict(criteria) for criteria in row[11]) if row[11] else None
                         profile_data = (
@@ -857,7 +859,7 @@ class ProfilesRepository:
                     k: [p if isinstance(p, dict) else p.to_dict() for p in v]
                     for k, v in profile_dict["get_to_know"].items()
                 }
-            ),
+            ) if profile_dict.get("get_to_know") else json.dumps({}),
             profile_dict["summary"] if profile_dict["summary"] else "",
             str(profile_dict["picture_url"]) if profile_dict["picture_url"] else DEFAULT_PROFILE_PICTURE,
             profile_dict["work_history_summary"] if profile_dict["work_history_summary"] else None,
@@ -892,9 +894,9 @@ class ProfilesRepository:
             json.dumps(
                 {
                     k: [p if isinstance(p, dict) else p.to_dict() for p in v]
-                    for k, v in profile_dict["get_to_know"].items()
+                    for k, v in profile_dict.get("get_to_know").items()
                 }
-            ),
+            ) if profile_dict.get("get_to_know") else json.dumps({}),
             profile_dict["summary"],
             str(profile_dict["picture_url"]) if profile_dict["picture_url"] else None,
             profile_dict["work_history_summary"] if profile_dict["work_history_summary"] else None,

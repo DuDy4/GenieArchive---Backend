@@ -201,7 +201,6 @@ async def badge_notifications_stream(request: Request):
             if await request.is_disconnected():
                 break
 
-            logger.info("SSE Request Triggered. Fetching unseen badges")
             unseen_badge_ids = badges_api_service.get_unseen_badges(tenant_id)
 
             if unseen_badge_ids:

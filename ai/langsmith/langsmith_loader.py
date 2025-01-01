@@ -1,6 +1,6 @@
 import asyncio
 import json
-import os
+import logging
 import random
 
 from common.utils import env_utils
@@ -11,25 +11,49 @@ from langsmith.utils import LangSmithConnectionError
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 from data.api_services.embeddings import GenieEmbeddingsClient
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.topics import Topic
+
+load_dotenv()
 
 logger = GenieLogger()
-load_dotenv()
+
+OPENAI_API_VERSION = env_utils.get("OPENAI_API_VERSION", "2024-08-01-preview")
+
+class LoggerEventHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            log_entry = self.format(record)
+            # Send log_entry to log aggregator
+        except Exception:
+            self.handleError(record)
+
+    def handleError(self, record):
+        logger.error("Error in logging handler", exc_info=True)
+        event = GenieEvent(
+            topic=Topic.AI_TOKEN_ERROR,
+            data={"error": "Error in logging handler", "record": record},
+        )
+        event.send()
+
 
 
 class Langsmith:
     def __init__(self):
         self.api_key = env_utils.get("LANGSMITH_API_KEY")
         self.base_url = env_utils.get("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
-        self.model = ChatOpenAI(model="gpt-4o")
+        # self.model = ChatOpenAI(api_key=self.api_key, base_url=self.base_url)
         self.azure_model = AzureChatOpenAI(
             deployment_name="gpt-4o",
             model="gpt-4o",
-            #openai_api_version="2024-11-20",
+            openai_api_version=OPENAI_API_VERSION,
         )
+        self.model = self.azure_model
         self.embeddings_client = GenieEmbeddingsClient()
+        self.setup_custom_logging()
         
 
-    async def get_profile(self, person_data, company_data=None, news_data=None, seller_context=None):
+    async def get_profile(self, person_data,  news_data=None):
         # Run the two prompts concurrently
         logger.info("Running Langsmith prompts")
         # strengths = await self.run_prompt_strength(person_data, news_data)
@@ -39,15 +63,15 @@ class Langsmith:
         logger.info(f"Strengths from Langsmith: {strengths}")
 
         person_data["strengths"] = strengths.get("strengths") if isinstance(strengths, dict) and strengths.get("strengths") else strengths
-        get_to_know_task = asyncio.create_task(self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context))
+        # get_to_know_task = asyncio.create_task(self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context))
 
         work_history = await work_history_summary_task
         logger.info(f"Work history from Langsmith: {work_history}")
         person_data["work_history_summary"] = work_history
-
-        get_to_know = await get_to_know_task
-        logger.info(f"Get to know from Langsmith: {get_to_know}")
-        person_data["get_to_know"] = get_to_know
+        #
+        # get_to_know = await get_to_know_task
+        # logger.info(f"Get to know from Langsmith: {get_to_know}")
+        # person_data["get_to_know"] = get_to_know
 
         # news = self.run_prompt_news(person_data)
         # strengths, news = await asyncio.gather(strengths, news)
@@ -73,14 +97,16 @@ class Langsmith:
 
         try:
             response = await self._run_prompt_with_retry(runnable, arguments)
-            try:
-                if response and isinstance(response, dict):
-                    response = response.get("strengths")
-                if response and isinstance(response, list):
-                    if isinstance(response[0], str):
-                        response = await self._run_prompt_with_retry(runnable, arguments)
-            except Exception as e:
-                logger.error(f"Error parsing strengths from Langsmith: {e}")
+            for i in range(5):
+                try:
+                    if response and isinstance(response, dict):
+                        response = response.get("strengths")
+                    if response and isinstance(response, list):
+                        if isinstance(response[0], str):
+                            logger.error(f"Strengths from Langsmith got wrong: {response}")
+                            response = await self._run_prompt_with_retry(runnable, arguments)
+                except Exception as e:
+                    logger.error(f"Error parsing strengths from Langsmith: {e}")
         except Exception as e:
             logger.error(f"Error running strengths prompt: {e}")
         return response
@@ -434,6 +460,18 @@ class Langsmith:
         get_to_know = await self.run_prompt_get_to_know(person_data, company_data, news_data, seller_context)
         person_data["get_to_know"] = get_to_know
         return person_data
+
+    def setup_custom_logging(self):
+        logger = logging.getLogger("openai._base_client")
+        logger.setLevel(logging.INFO)  # Set level if not already set
+
+        # Create and attach the Slack notification handler
+        slack_handler = LoggerEventHandler()
+        slack_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        slack_handler.setFormatter(formatter)
+
+        logger.addHandler(slack_handler)
 
 
 

@@ -160,9 +160,7 @@ class ProfileDTO(BaseModel):
     position: Optional[str] = None
     summary: Optional[str] = None
     picture_url: Optional[HttpUrl] = None
-    get_to_know: Optional[Dict[str, List[Phrase]]] = Field(
-        {"avoid": [], "best_practices": [], "phrases_to_use": []}
-    )
+    get_to_know: Optional[Dict[str, List[Phrase]]] = {}
     connections: Optional[List[Connection]] = []
     strengths: Optional[List[Strength]] = []
     hobbies: Optional[List[UUID]] = []
@@ -175,17 +173,17 @@ class ProfileDTO(BaseModel):
             raise ValueError("Field cannot be empty or whitespace")
         return value
 
-    @field_validator("get_to_know")
-    def validate_phrases(cls, value):
-        for key in ["avoid", "best_practices", "phrases_to_use"]:
-            if key not in value:
-                raise ValueError(f"{key} must be present in get_to_know")
-            if not isinstance(value[key], list):
-                raise ValueError(f"{key} must be a list")
-            for item in value[key]:
-                if not isinstance(item, Phrase):
-                    raise ValueError(f"All items in {key} must be of type Phrase")
-        return value
+    # @field_validator("get_to_know")
+    # def validate_phrases(cls, value):
+    #     for key in ["avoid", "best_practices", "phrases_to_use"]:
+    #         if key not in value:
+    #             raise ValueError(f"{key} must be present in get_to_know")
+    #         if not isinstance(value[key], list):
+    #             raise ValueError(f"{key} must be a list")
+    #         for item in value[key]:
+    #             if not isinstance(item, Phrase):
+    #                 raise ValueError(f"All items in {key} must be of type Phrase")
+    #     return value
 
     def to_json(self) -> str:
         return self.model_dump_json()
@@ -195,6 +193,9 @@ class ProfileDTO(BaseModel):
         return cls.parse_raw(json_str)
 
     def to_dict(self) -> dict:
+        get_to_know = {
+            key: [phrase.to_dict() for phrase in phrases] for key, phrases in self.get_to_know.items()
+        } if self.get_to_know else {}
         profile_dict = {
             "uuid": str(self.uuid),
             "name": self.name,
@@ -202,9 +203,6 @@ class ProfileDTO(BaseModel):
             "position": self.position,
             "summary": self.summary,
             "picture_url": self.picture_url,
-            "get_to_know": {
-                key: [phrase.to_dict() for phrase in phrases] for key, phrases in self.get_to_know.items()
-            },
             "connections": [connection.to_dict() for connection in self.connections],
             "strengths": [strength.to_dict() for strength in self.strengths],
             "hobbies": [str(hobby) for hobby in self.hobbies],
@@ -215,6 +213,9 @@ class ProfileDTO(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict) -> "ProfileDTO":
+        get_to_know = {
+            key: [Phrase.from_dict(phrase) for phrase in phrases] for key, phrases in data["get_to_know"].items()
+        } if data.get("get_to_know") else {}
         return ProfileDTO(
             uuid=UUID(data["uuid"]),
             name=data["name"],
@@ -222,9 +223,7 @@ class ProfileDTO(BaseModel):
             position=data["position"],
             summary=data["summary"],
             picture_url=data["picture_url"],
-            get_to_know={
-                key: [Phrase.from_dict(phrase) for phrase in phrases] for key, phrases in data["get_to_know"].items()
-            },
+            get_to_know=get_to_know,
             connections=[Connection.from_dict(connection) for connection in data["connections"]],
             strengths=[Strength.from_dict(strength) for strength in data["strengths"]],
             hobbies=[UUID(hobby) for hobby in data["hobbies"]],
