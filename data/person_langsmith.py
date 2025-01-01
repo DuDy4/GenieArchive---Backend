@@ -195,27 +195,27 @@ class LangsmithConsumer(GenieConsumer):
         email_address = person.email
 
         logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
-        company_data = None
-        company_dict = {}
+        # company_data = None
+        # company_dict = {}
 
-        if email_address and isinstance(email_address, str) and "@" in email_address:
-            company_data = self.company_repository.get_company_from_domain(email_address.split("@")[1])
-        if company_data:
-            company_dict = company_data.to_dict()
-            company_dict.pop("uuid")
-            company_dict.pop("domain")
-            company_dict.pop("employees")
-            company_dict.pop("logo")
+        # if email_address and isinstance(email_address, str) and "@" in email_address:
+        #     company_data = self.company_repository.get_company_from_domain(email_address.split("@")[1])
+        # if company_data:
+        #     company_dict = company_data.to_dict()
+        #     company_dict.pop("uuid")
+        #     company_dict.pop("domain")
+        #     company_dict.pop("employees")
+        #     company_dict.pop("logo")
 
-        seller_context = None
-        seller_tenant_id = logger.get_tenant_id()
-        if seller_tenant_id:
-            seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
-            if seller_email:
-                seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
+        # seller_context = None
+        # seller_tenant_id = logger.get_tenant_id()
+        # if seller_tenant_id:
+        #     seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
+        #     if seller_email:
+        #         seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
 
         # Start cooking the profile - inside has strengths, get_to_know and work_history_summary
-        response = await self.langsmith.get_profile(personal_data, company_dict, news_data, seller_context)
+        response = await self.langsmith.get_profile(person_data=personal_data, news_data=news_data)
         logger.info(f"Response: {response.keys() if isinstance(response, dict) else response}")
 
         profile_strengths_get_to_know_work_history_summary = {

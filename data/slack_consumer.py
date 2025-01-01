@@ -45,7 +45,8 @@ class SlackConsumer(GenieConsumer):
                 Topic.FAILED_TO_GET_PROFILE_PICTURE,
                 Topic.EMAIL_SENDING_FAILED,
                 Topic.BUG_IN_TENANT_ID,
-                Topic.PROFILE_ERROR
+                Topic.PROFILE_ERROR,
+                Topic.AI_TOKEN_ERROR,
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -78,6 +79,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.PROFILE_ERROR:
                 logger.info("Handling profile error")
                 await self.handle_profile_error(event)
+            case Topic.AI_TOKEN_ERROR:
+                logger.info("Handling AI token error")
+                await self.handle_ai_error(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -212,6 +216,28 @@ class SlackConsumer(GenieConsumer):
                    f" \nTraceback: {traceback_logs}.")
         send_message(message, channel="bugs")
         self.persons_repository.update_status(email, PersonStatus.FAILED)
+        return {"status": "ok"}
+
+    async def handle_ai_error(self, event):
+        """
+        Should send a message to slack about the error
+        """
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+
+        logger_info = logger.get_extra()
+        logger_info_str = ", ".join(f"{k}: {v}" for k, v in logger_info.items())
+        error = event_body.get("error")
+        record = event_body.get("record")
+
+        message = (f"{logger_info_str} error occurred in AI processing."
+                     f"\nWhile processing {record}."
+                        f" \nError: {error}.")
+
+
+        send_message(message, channel="bugs")
         return {"status": "ok"}
 
 

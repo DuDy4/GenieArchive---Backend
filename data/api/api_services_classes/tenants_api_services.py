@@ -69,7 +69,7 @@ class TenantsApiService:
             logger.error(f"Error updating reminder subscription: {str(e)}")
             raise HTTPException(status_code=500, detail="Error updating reminder subscription")
 
-    def fetch_google_meetings(self, user_email, meetings_num=30):
+    def fetch_google_meetings(self, user_email, meetings_num=25):
         logger.info(f"Received Google meetings request for tenant: {user_email}")
 
         google_credentials = self.google_creds_repository.get_creds(user_email)

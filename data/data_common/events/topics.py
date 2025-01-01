@@ -121,5 +121,6 @@ class Topic:
     FAILED_TO_GET_COMPANY_NEWS = "failed-to-get-company-news"  # News scrapper failed to get news
 
     FILE_UPLOADED = "file-uploaded"
+    AI_TOKEN_ERROR = "ai-token-error"
 
 
