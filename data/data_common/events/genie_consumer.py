@@ -88,6 +88,8 @@ class GenieConsumer:
             if topic and (topic.decode("utf-8") in self.topics):
                 self.current_event = event
                 decoded_topic = topic.decode("utf-8")
+                decoded_ctx_id = None
+                decoded_tenant_id = None
                 if b"ctx_id" in event.properties:
                     ctx_id = event.properties.get(b"ctx_id")
                     if ctx_id:
@@ -106,8 +108,8 @@ class GenieConsumer:
                 logger.set_topic(decoded_topic)
                 logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
                 object_id, object_type = extract_object_id(event.body_as_str())
-                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
-                                                       tenant_id=decoded_tenant_id, status=StatusEnum.PROCESSING)
+                # self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
+                #                                        tenant_id=decoded_tenant_id, status=StatusEnum.PROCESSING)
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
                 self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,

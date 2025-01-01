@@ -37,7 +37,7 @@ class GenieLogger:
         return self.logger
 
     def get_ctx_id(self):
-        return context_id.get()
+        return context_id.get() or self.generate_short_context_id()
 
     def get_cty_id(self):
         return context_y_id.get()

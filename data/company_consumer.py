@@ -110,7 +110,7 @@ class CompanyConsumer(GenieConsumer):
         if not company:
             logger.info(f"Company not found in database for domain: {email_domain}. Fetching company data")
             company = await self.fetch_company_data(email_domain)
-            if not company:
+            if not company or not company.name or company.name == "None":
                 logger.error(f"Company not found for domain: {email_domain}")
                 event = GenieEvent(topic=Topic.FAILED_TO_GET_COMPANY_DATA, data={"email": email_address})
                 event.send()
@@ -159,7 +159,8 @@ class CompanyConsumer(GenieConsumer):
         company_data = await self.hunter_client.get_domain_info(email_domain)
         company = CompanyDTO.from_hunter_object(company_data["data"])
         company = self.validate_company_data(company, email_domain)
-        company = await self.fix_company_description(company)
+        if company and company.name:
+            company = await self.fix_company_description(company)
         logger.info(f"Company data fetched from Hunter: {str(company)[:300]}")
         self.companies_repository.save_company_without_news(company)
         return company
