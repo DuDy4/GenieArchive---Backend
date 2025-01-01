@@ -2,16 +2,14 @@ import json
 import os
 
 from azure.eventhub import EventHubProducerClient, EventData
-from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
 from data.data_common.dependencies.dependencies import statuses_repository
 from common.utils.event_utils import extract_object_id
+from common.utils import env_utils
 
 logger = GenieLogger()
 
-from common.utils import env_utils
 
-load_dotenv()
 
 connection_str = env_utils.get("EVENTHUB_CONNECTION_STRING", "")
 eventhub_name = env_utils.get("EVENTHUB_NAME", "")
@@ -27,8 +25,8 @@ class GenieEvent:
         self.ctx_id = ctx_id
         cty_id = cty_id if cty_id else logger.get_cty_id()
         self.cty_id = cty_id if cty_id else None
-        self.tenant_id = logger.get_tenant_id() or data.get("tenant_id")
-        self.previous_topic = logger.get_topic() or data.get("previous_topic")
+        self.tenant_id = logger.get_tenant_id() or (json.loads(data).get("tenant_id") if isinstance(data, str) else data.get("tenant_id"))
+        self.previous_topic = logger.get_topic() or (json.loads(data).get("previous_topic") if isinstance(data, str) else data.get("previous_topic"))
         self.statuses_repository = statuses_repository()
 
     def send(self):
