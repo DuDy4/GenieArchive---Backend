@@ -148,12 +148,12 @@ class MeetingsApiService:
 
         logger.info(f"Meeting participants: {mini_participants}")
 
-        mid_company = self.handle_company_overview(domain_emails)
+        mid_companies = self.handle_company_overview(domain_emails)
 
         try:
             mini_overview = MiniMeetingOverviewResponse(
                 meeting=mini_meeting,
-                company=mid_company,
+                companies=mid_companies,
                 participants=mini_participants,
             )
         except Exception as e:
@@ -171,18 +171,20 @@ class MeetingsApiService:
             company = self.companies_repository.get_company_from_domain(domain)
             logger.info(f"Company: {str(company)[:300]}")
             if company:
+                if not company.name or company.name == "None":
+                    continue
                 companies.append(company)
 
         if not companies:
             logger.error("No companies found in this meeting")
-            return MidMeetingCompany(
-                name="Unknown",
-            )
+            return []
 
-        company = companies[0] if companies else None
-        logger.info(f"Company: {str(company)[:300]}")
-        mid_company = None
-        if company:
+        # company = companies[0] if companies else None
+        # logger.info(f"Company: {str(company)[:300]}")
+        # mid_company = None
+
+        mid_companies = []
+        for company in companies:
             if company.news:
                 if len(company.news) > 3:
                     news = []
@@ -207,7 +209,8 @@ class MeetingsApiService:
             mid_company = titleize_values(MidMeetingCompany.from_company_dto(company))
 
             logger.info(f"Company: {str(mid_company)[:300]}")
-        return mid_company
+            mid_companies.append(mid_company)
+        return mid_companies
 
     def handle_participants_overview(self, participants_emails):
         participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
