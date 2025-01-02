@@ -46,16 +46,19 @@ class HandleLinkedinScrape:
             processed_posts = []
             for post in latest_posts:
                 logger.info(f"Processing post: {post}")
+
                 try:
                     images = post.get("images", [])
                     image_urls = [img["url"] for img in images if "url" in img]
 
+                    date = datetime.strptime(post.get("posted"), "%Y-%m-%d %H:%M:%S")
+
                     data_dict = {
-                        "date": datetime.strptime(post.get("posted"), "%Y-%m-%d %H:%M:%S").date(),
+                        "date": date.date() if date else None,
                         "link": post.get("post_url"),
                         "media": "LinkedIn",
-                        "title": post.get("article_title") or post.get("text", "")[:100],
-                        "text": post.get("text", None),
+                        "title": post.get("article_title") or (post.get("text", "")[:100] if post.get("text") else None),
+                        "text": post.get("text"),
                         "reshared": post.get("poster_linkedin_url")
                         if post.get("poster_linkedin_url") != linkedin_url
                         else None,
@@ -77,11 +80,16 @@ class HandleLinkedinScrape:
                         except ValidationError as e:
                             logger.error(f"Validation error for post {post.get('post_url')}: {e}")
                             continue
+                    except Exception as e:
+                        logger.error(f"Error processing post {post.get('post_url')}: {e}")
+                        continue
                     processed_posts.append(news_data)
                     logger.info(f"Processed post: {news_data}")
                 except Exception as e:
                     logger.error(f"Error processing post {post.get('post_url')}: {e}")
-            sorted_processed_posts = self.sort_data_by_preferences(processed_posts, linkedin_url)
+            logger.info(f"Processed successfully {len(processed_posts)} posts from {linkedin_url}")
+            processed_real_posts = [post for post in processed_posts if post]
+            sorted_processed_posts = self.sort_data_by_preferences(processed_real_posts, linkedin_url)
             return sorted_processed_posts
 
         except requests.exceptions.HTTPError as http_err:
