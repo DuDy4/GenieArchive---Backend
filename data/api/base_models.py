@@ -609,7 +609,7 @@ class MiniMeetingOverviewResponseOld(BaseModel):
 
 class MiniMeetingOverviewResponse(BaseModel):
     meeting: MiniMeeting
-    company: MidMeetingCompany
+    companies: List[MidMeetingCompany]
     participants: MiniProfilesAndPersonsListResponse
 
     @classmethod
