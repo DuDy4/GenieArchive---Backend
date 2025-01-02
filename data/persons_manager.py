@@ -712,6 +712,8 @@ class PersonManager(GenieConsumer):
                 self.personal_data_repository.update_news_to_db(
                     uuid, None, PersonalDataRepository.TRIED_BUT_FAILED
                 )
+                event = GenieEvent(Topic.FAILED_TO_GET_PERSONAL_NEWS, {"person_uuid": uuid})
+                event.send()
                 return {"error": "No posts found or an error occurred"}
 
             logger.info(f"Successfully scraped {len(scraped_posts)} posts from LinkedIn URL: {linkedin}")
