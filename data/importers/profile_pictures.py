@@ -204,4 +204,4 @@ def get_profile_picture(person: PersonDTO, social_links: list[SocialMediaLinks])
                     logger.warning(f"No {platform} profile picture found for {person.uuid}")
     # Step 5: No valid profile picture found
     logger.warning(f"No valid profile picture found for {person.uuid}")
-    return 'https://monomousumi.com/wp-content/uploads/anonymous-user-8.png'
+    return 'https://frontedresources.blob.core.windows.net/images/default-profile-picture.png'

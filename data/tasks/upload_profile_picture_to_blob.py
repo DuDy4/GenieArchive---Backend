@@ -13,7 +13,7 @@ logger = GenieLogger()
 AZURE_STORAGE_CONNECTION_STRING = env_utils.get("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_STORAGE_ACCOUNT_NAME = env_utils.get("AZURE_STORAGE_ACCOUNT_NAME")
 BLOB_CONTAINER_PICTURES_NAME = env_utils.get("BLOB_CONTAINER_PICTURES_NAME")
-DEFAULT_PROFILE_PICTURE = env_utils.get("DEFAULT_PROFILE_PICTURE", "https://monomousumi.com/wp-content/uploads/anonymous-user-8.png")
+DEFAULT_PROFILE_PICTURE = env_utils.get("DEFAULT_PROFILE_PICTURE", "https://frontedresources.blob.core.windows.net/images/default-profile-picture.png")
 
 
 def run():
