@@ -106,14 +106,14 @@ async def file_uploaded(background_tasks: BackgroundTasks, request: Request):
 
 @v1_router.get("/user-info/{user_id}")
 async def get_user_info(user_id: str):
-    """Returns the user info for a given tenant."""
+    """Returns the user info for a given user."""
     user_info = users_api_service.get_user_info(user_id)
     return JSONResponse(content=user_info)
 
 
 @v1_router.post("/unsubscribe/{user_id}")
 async def unsubscribe(user_id: str):
-    """Unsubscribes the tenant from the service."""
+    """Unsubscribes the user from the service."""
     response = users_api_service.update_user_reminder_subscription(user_id, False)
     return JSONResponse(content=response)
 
@@ -276,30 +276,30 @@ async def create_ticket(ticket_data: TicketData):
 
 
 @v1_router.get(
-    "/{tenant_id}/meetings",
+    "/{user_id}/meetings",
     response_model=MeetingsListResponse,
-    summary="Gets all *meeting* that the tenant has profiles participants in",
+    summary="Gets all *meeting* that the user has profiles participants in",
 )
 async def get_all_meetings(
     request: Request,
-    tenant_id: str,
-    impersonate_tenant_id: Optional[str] = Query(None),
+    user_id: str,
+    impersonate_user_id: Optional[str] = Query(None),
     name: str = Query(None, description="Partial text to search profile names"),
 ) -> MeetingsListResponse | JSONResponse:
     """
-    Gets all *meeting* that the tenant has profiles participants in.
+    Gets all *meeting* that the user has profiles participants in.
 
     Steps:
-    1. Get all persons for the tenant.
+    1. Get all persons for the user.
     2. Get all emails for the persons with name that includes the search text.
     3. Get all meetings with participants that have the emails.
 
     """
-    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
-    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
-    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
-    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
-    response = meetings_api_service.get_all_meetings(tenant_id)
+    logger.info(f"Received get profiles request, with user: {user_id}")
+    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
+    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
+    logger.info(f"Getting meetings for user ID: {user_id}")
+    response = meetings_api_service.get_all_meetings(user_id)
     return JSONResponse(content=response)
 
 
@@ -988,6 +988,23 @@ def get_tenant_id_to_impersonate(
         logger.info(f"User is impersonating tenant")
         return impersonate_tenant_id
     logger.info(f"User is not impersonating tenant")
+    return None
+
+
+def get_user_id_to_impersonate(
+        impersonate_user_id: str,
+        request: Request,
+):
+    logger.info(f"Checking if user is impersonating user")
+    if (
+            impersonate_user_id
+            and request.state
+            and hasattr(request.state, "user_email")
+            and email_utils.is_genie_admin(request.state.user_email)
+    ):
+        logger.info(f"User is impersonating user")
+        return impersonate_user_id
+    logger.info(f"User is not impersonating user")
     return None
 
 
