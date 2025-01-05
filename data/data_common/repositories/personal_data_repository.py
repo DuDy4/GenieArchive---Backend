@@ -210,7 +210,7 @@ class PersonalDataRepository:
                             else personal_data[0]
                         )
                     else:
-                        logger.warning(f"pdl personalData was not found in db by uuid {uuid}")
+                        logger.info(f"pdl personalData was not found in db by uuid {uuid}")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -271,7 +271,7 @@ class PersonalDataRepository:
                             else personal_data[0]
                         )
                     else:
-                        logger.warning("apollo personalData was not found in db by uuid")
+                        logger.info("apollo personalData was not found in db by uuid")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -333,7 +333,7 @@ class PersonalDataRepository:
                     if personal_data:
                         return personal_data[1:]
                     else:
-                        logger.warning("personalData was not found in db by linkedin url")
+                        logger.info("personalData was not found in db by linkedin url")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -362,7 +362,7 @@ class PersonalDataRepository:
                     if personal_data:
                         return personal_data[1:]
                     else:
-                        logger.warning("personalData was not found in db by linkedin url")
+                        logger.info("personalData was not found in db by linkedin url")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -390,7 +390,7 @@ class PersonalDataRepository:
                     if personal_data:
                         return personal_data[0]
                     else:
-                        logger.warning("personalData was not found in db by email address")
+                        logger.info("personalData was not found in db by email address")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -418,7 +418,7 @@ class PersonalDataRepository:
                     if personal_data:
                         return personal_data[0]
                     else:
-                        logger.warning("personalData was not found in db by email address")
+                        logger.info("personalData was not found in db by email address")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)
@@ -588,7 +588,7 @@ class PersonalDataRepository:
                     elif apollo_personal_data:
                         return apollo_personal_data
                     else:
-                        logger.warning("personalData was not found in db by email address")
+                        logger.info("personalData was not found in db by email address")
                         return None
             except Exception as e:
                 logger.error(f"Error retrieving personal data: {e}", e)

@@ -377,7 +377,7 @@ class MeetingManager(GenieConsumer):
                 if not personal_data:
                     personal_data = self.personal_data_repository.get_apollo_personal_data_by_email(email)
                 if not personal_data:
-                    logger.error(f"No personal data found for {email}")
+                    logger.info(f"No personal data found for {email}")
                     continue
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(
                     self_email, personal_data
