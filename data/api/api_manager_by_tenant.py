@@ -25,9 +25,8 @@ from data.api.api_services_classes.user_materials_services import UserMaterialSe
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
-from data.api.api_services_classes.users_api_services import UsersApiService
 
-from common.genie_logger import GenieLogger
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -48,7 +47,6 @@ user_materials_service = UserMaterialServices()
 stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
 params_api_service = ParamsApiService()
-users_api_service = UsersApiService()
 
 logger.info("Imported all services")
 
@@ -56,7 +54,7 @@ logger.info("Imported all services")
 @v1_router.get("/google-oauth/start")
 async def google_oauth_start():
     """Initiates the OAuth flow and returns an authorization URL."""
-    auth_url = users_api_service.start_google_oauth()
+    auth_url = tenants_api_service.start_google_oauth()
     return RedirectResponse(auth_url)
 
 
@@ -65,7 +63,7 @@ async def google_oauth_callback(request: Request, code: str = Query(...)):
     """Handles the OAuth callback and saves tokens to the database."""
     try:
         logger.info("Handling OAuth callback")
-        response = users_api_service.handle_google_oauth_callback(code)
+        response = tenants_api_service.handle_google_oauth_callback(code)
         if response:
             return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
         else:
@@ -104,17 +102,17 @@ async def file_uploaded(background_tasks: BackgroundTasks, request: Request):
         return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
 
 
-@v1_router.get("/user-info/{user_id}")
-async def get_user_info(user_id: str):
+@v1_router.get("/user-info/{tenant_id}")
+async def get_user_info(tenant_id: str):
     """Returns the user info for a given tenant."""
-    user_info = users_api_service.get_user_info(user_id)
+    user_info = tenants_api_service.get_user_info(tenant_id)
     return JSONResponse(content=user_info)
 
 
-@v1_router.post("/unsubscribe/{user_id}")
-async def unsubscribe(user_id: str):
+@v1_router.post("/unsubscribe/{tenant_id}")
+async def unsubscribe(tenant_id: str):
     """Unsubscribes the tenant from the service."""
-    response = users_api_service.update_user_reminder_subscription(user_id, False)
+    response = tenants_api_service.update_user_reminder_subscription(tenant_id, False)
     return JSONResponse(content=response)
 
 
@@ -187,7 +185,7 @@ async def post_successful_login(
     logger.info("Received JWT data")
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")
-    response = users_api_service.post_successful_login(auth_data)
+    response = tenants_api_service.post_successful_login(auth_data)
     return {"verdict": "allow", "response": response}
 
 @v1_router.get("/notifications/badges")
@@ -225,7 +223,7 @@ async def login_event(
     logger.info("Fetching user info")
     user_info = await request.json()
     logger.info(f"Received user info: {user_info}")
-    background_tasks.add_task(users_api_service.login_event, user_info)
+    background_tasks.add_task(tenants_api_service.login_event, user_info)
     background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("tenant_id"))
     return JSONResponse(content="Login event received. Updated credentials", status_code=200)
 
@@ -886,21 +884,21 @@ def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str
 
 
 @v1_router.get(
-    "/google/import-meetings/{user_id}",
+    "/google/import-meetings/{tenant_id}",
     response_class=JSONResponse,
     summary="Fetches all Google Calendar meetings for a tenant",
     include_in_schema=False,
 )
 def import_google_meetings(
-    user_id: str,
+    tenant_id: str,
     meetings_number: Optional[int] = Query(30, description="Number of meetings to fetch"),
 ) -> JSONResponse:
     """
     Fetches all Google Calendar meetings for a given tenant.
     """
     logger.info(f"Meeting number: {meetings_number}")
-    logger.info(f"Received Google meetings request for tenant: {user_id}")
-    response = users_api_service.import_google_meetings(user_id, meetings_number)
+    logger.info(f"Received Google meetings request for tenant: {tenant_id}")
+    response = tenants_api_service.import_google_meetings(tenant_id, meetings_number)
     logger.info(f"Finished fetching meetings")
     return JSONResponse(content=response)
 
