@@ -22,6 +22,7 @@ class MeetingsRepository:
             id SERIAL PRIMARY KEY,
             uuid VARCHAR UNIQUE NOT NULL,
             google_calendar_id VARCHAR,
+            user_id VARCHAR,
             tenant_id VARCHAR,
             participants_emails JSONB,
             participants_hash VARCHAR,
@@ -33,7 +34,7 @@ class MeetingsRepository:
             goals JSONB,
             agenda JSONB,
             classification VARCHAR,
-            reminder_sent BOOLEAN DEFAULT FALSE,
+            reminder_sent TIMESTAMPTZ DEFAULT NULL,
             reminder_schedule TIMESTAMPTZ DEFAULT NULL
         );
         """

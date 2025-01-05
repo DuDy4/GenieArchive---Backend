@@ -77,6 +77,7 @@ class OwnershipsRepository:
         CREATE TABLE IF NOT EXISTS ownerships (
             id SERIAL PRIMARY KEY,
             person_uuid VARCHAR NOT NULL,
+            user_id VARCHAR,
             tenant_id VARCHAR
         );
         """
