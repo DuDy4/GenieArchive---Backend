@@ -69,7 +69,8 @@ class UsersRepository:
 
     def exists(self, user: UserDTO) -> bool:
         select_query = """
-            SELECT * FROM users WHERE user_id = %s or email = %s
+            SELECT uuid, user_id, user_name, email, tenant_id
+            FROM users WHERE user_id = %s or email = %s
             """
         with db_connection() as conn:
             with conn.cursor() as cursor:
@@ -78,7 +79,7 @@ class UsersRepository:
 
     def get_user_by_id(self, user_id: str) -> Optional[UserDTO]:
         select_query = """
-            SELECT * FROM users WHERE user_id = %s
+            SELECT uuid, user_id, user_name, email, tenant_id FROM users WHERE user_id = %s
             """
         with db_connection() as conn:
             with conn.cursor() as cursor:
@@ -88,7 +89,7 @@ class UsersRepository:
 
     def get_user_by_email(self, email: str) -> Optional[UserDTO]:
         select_query = """
-            SELECT * FROM users WHERE email = %s
+            SELECT uuid, user_id, user_name, email, tenant_id FROM users WHERE email = %s
             """
         with db_connection() as conn:
             with conn.cursor() as cursor:
