@@ -64,12 +64,29 @@ class OwnershipsRepository:
                 traceback.print_exc()
                 return []
 
-    def save_ownership(self, uuid, tenant_id):
+    def get_users_for_person(self, user_id):
+        self.create_table_if_not_exists()
+        select_query = """
+        SELECT person_uuid FROM ownerships WHERE user_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (user_id,))
+                    users = cursor.fetchall()
+                    users = [user[0] for user in users]
+                    return users
+            except psycopg2.Error as error:
+                logger.error(f"Error getting all users for tenant: {error.pgerror}")
+                traceback.print_exc()
+                return []
+
+    def save_ownership(self, uuid, user_id, tenant_id):
         self.create_table_if_not_exists()
         logger.info(f"About to save ownership: {uuid}, for tenant: {tenant_id}")
-        if self.exists(uuid, tenant_id):
+        if self.exists(uuid, user_id, tenant_id):
             return "Ownership already exists in database"
-        self.insert(uuid, tenant_id)
+        self.insert(uuid, user_id, tenant_id)
         return "Ownership saved successfully"
 
     def create_table_if_not_exists(self):
@@ -90,17 +107,17 @@ class OwnershipsRepository:
                 logger.error(f"Error: {error}")
                 traceback.print_exc()
 
-    def insert(self, uuid, tenant_id):
+    def insert(self, uuid, user_id, tenant_id):
         insert_query = """
-        INSERT INTO ownerships (person_uuid, tenant_id)
-        VALUES (%s, %s)
+        INSERT INTO ownerships (person_uuid, user_id, tenant_id)
+        VALUES (%s, %s, %s)
         RETURNING id;
         """
         logger.info(f"About to insert ownership: {uuid}")
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(insert_query, (uuid, tenant_id))
+                    cursor.execute(insert_query, (uuid, user_id, tenant_id))
                     conn.commit()
                     ownership_id = cursor.fetchone()[0]
                     logger.info(f"Inserted ownership to database. Ownership id: {ownership_id}")
@@ -109,14 +126,14 @@ class OwnershipsRepository:
                 logger.error(f"Error inserting ownership: {error.pgerror}")
                 traceback.print_exc()
 
-    def exists(self, uuid, tenant_id):
+    def exists(self, uuid, user_id, tenant_id):
         select_query = """
-        SELECT id FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
+        SELECT id FROM ownerships WHERE person_uuid = %s AND user_id = %s AND tenant_id = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id, tenant_id))
                     ownership = cursor.fetchone()
                     if ownership:
                         return True
@@ -126,17 +143,17 @@ class OwnershipsRepository:
                 traceback.print_exc()
                 return False
 
-    def check_ownership(self, tenant_id, uuid):
+    def check_ownership(self, user_id, uuid):
         """
         Check if the ownership exists in the database
         """
         select_query = """
-        SELECT id FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
+        SELECT id FROM ownerships WHERE person_uuid = %s AND user_id = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id))
                     ownership = cursor.fetchone()
                     if ownership:
                         return True
@@ -146,17 +163,17 @@ class OwnershipsRepository:
                 traceback.print_exc()
                 return False
 
-    def delete_ownership(self, tenant_id, uuid):
+    def delete_ownership(self, user_id, tenant_id, uuid):
         """
         Delete ownership from the database
         """
         delete_query = """
-        DELETE FROM ownerships WHERE person_uuid = %s AND tenant_id = %s;
+        DELETE FROM ownerships WHERE person_uuid = %s AND user_id = %s AND tenant_id = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(delete_query, (uuid, tenant_id))
+                    cursor.execute(delete_query, (uuid, user_id, tenant_id))
                     conn.commit()
                     logger.info(f"Deleted ownership from database")
                     return True

@@ -183,7 +183,7 @@ class MeetingManager(GenieConsumer):
             meeting
         )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
         meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-            meeting.google_calendar_id, tenant_id
+            meeting.google_calendar_id, meeting.user_id
         )
         if meeting_in_database:
             if tenant_id != meeting_in_database.tenant_id:
@@ -215,7 +215,7 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Person processing event: {str(event)[:300]}")
         meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
         meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-            meeting.google_calendar_id, meeting.tenant_id
+            meeting.google_calendar_id, meeting.user_id
         )
         if self.check_same_meeting(meeting, meeting_in_database):
             logger.info("Meeting already in database")
@@ -556,14 +556,17 @@ class MeetingManager(GenieConsumer):
 
     def handle_check_meetings_to_delete(self, meetings_imported: list[MeetingDTO], tenant_id: str):
         logger.info(f"Checking for meetings to delete")
+        if not meetings_imported:
+            logger.error(f"No meetings imported found")
+            return
         last_date_imported = meetings_imported[-1].start_time
         if not last_date_imported:
             logger.error(f"No last date imported found")
             return
         logger.info(f"Last date imported: {last_date_imported}")
         meetings_from_database = (
-            self.meetings_repository.get_all_meetings_by_tenant_id_that_should_be_imported(
-                len(meetings_imported), tenant_id
+            self.meetings_repository.get_all_meetings_by_user_id_that_should_be_imported(
+                len(meetings_imported), user_id=meetings_imported[0].user_id
             )
         )
         if not meetings_from_database:

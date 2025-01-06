@@ -162,7 +162,7 @@ async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str]
     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
     if allowed_impersonate_tenant_id:
         tenant_id = allowed_impersonate_tenant_id
-    badges_progress = badges_api_service.get_user_badges_status(tenant_id=tenant_id)
+    badges_progress = badges_api_service.get_user_badges_status(user_id=tenant_id)
     return JSONResponse(content=badges_progress)
 
 @v1_router.post("/badge-seen")

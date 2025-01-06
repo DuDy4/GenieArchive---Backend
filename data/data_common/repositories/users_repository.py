@@ -116,6 +116,15 @@ class UsersRepository:
                 result = cursor.fetchone()
                 return result[0], result[1] if result else None
 
+    def get_all_users(self) -> List[UserDTO]:
+        select_query = """
+            SELECT uuid, user_id, user_name, email, tenant_id FROM users
+            """
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(select_query)
+                return [UserDTO.from_tuple(row) for row in cursor.fetchall()]
+
     def update_reminder_subscription(self, user_id: str, subscription: bool):
         update_query = """
             UPDATE users SET reminder_subscription = %s WHERE user_id = %s

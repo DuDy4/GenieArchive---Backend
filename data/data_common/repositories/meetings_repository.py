@@ -52,15 +52,16 @@ class MeetingsRepository:
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
         insert_query = """
-        INSERT INTO meetings (uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link,
+        INSERT INTO meetings (uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link,
          subject, location, start_time, end_time, classification, reminder_schedule, fake)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
         meeting_data = (
             meeting.uuid,
             meeting.google_calendar_id,
+            meeting.user_id,
             meeting.tenant_id,
             json.dumps(meeting.participants_emails),
             meeting.participants_hash,
@@ -90,7 +91,7 @@ class MeetingsRepository:
 
     def get_meeting_data(self, uuid: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE uuid = %s AND classification != %s;
         """
@@ -109,16 +110,16 @@ class MeetingsRepository:
                 traceback.print_exc()
             return None
 
-    def get_meeting_by_google_calendar_id(self, google_calendar_id: str, tenant_id: str) -> Optional[MeetingDTO]:
+    def get_meeting_by_google_calendar_id(self, google_calendar_id: str, user_id: str) -> Optional[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
-        WHERE google_calendar_id = %s AND tenant_id = %s AND classification != %s;
+        WHERE google_calendar_id = %s AND user_id = %s AND classification != %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (google_calendar_id, tenant_id, MeetingClassification.DELETED.value))
+                    cursor.execute(select_query, (google_calendar_id, user_id, MeetingClassification.DELETED.value))
                     row = cursor.fetchone()
                     if row:
                         return MeetingDTO.from_tuple(row)
@@ -132,7 +133,7 @@ class MeetingsRepository:
 
     def get_all_meetings_by_tenant_id(self, tenant_id: str) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE tenant_id = %s AND classification != %s;
         """
@@ -153,7 +154,30 @@ class MeetingsRepository:
                 traceback.print_exception(error)
                 return []
 
-    def get_all_meetings_to_search(self, tenant_id: str) -> list[dict]:
+    def get_all_meetings_by_user_id(self, user_id: str) -> list[MeetingDTO]:
+        select_query = """
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE user_id = %s AND classification != %s;
+        """
+        with db_connection() as conn:
+            try:
+                self.create_table_if_not_exists()
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (user_id, MeetingClassification.DELETED.value))
+                    meetings = cursor.fetchall()
+                    if meetings:
+                        logger.info(f"Got {len(meetings)} meetings from database")
+                        return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+                    else:
+                        logger.error(f"No meetings found for tenant_id: {user_id}")
+                        return []
+            except Exception as error:
+                logger.error("Error fetching meeting data by tenant_id:", error)
+                traceback.print_exception(error)
+                return []
+
+    def get_all_meetings_to_search(self, user_id: str) -> list[dict]:
         select_query = """
         WITH expanded_participants AS (
             SELECT 
@@ -171,7 +195,7 @@ class MeetingsRepository:
             ON 
                 participant->>'email' = p.email
             WHERE
-                m.tenant_id = %s and classification = %s
+                m.user_id = %s and classification = %s
             ),
             aggregated_participants AS (
                 SELECT
@@ -202,7 +226,7 @@ class MeetingsRepository:
             try:
                 self.create_table_if_not_exists()
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (tenant_id, MeetingClassification.EXTERNAL.value))
+                    cursor.execute(select_query, (user_id, MeetingClassification.EXTERNAL.value))
                     meetings = cursor.fetchall()
                     if meetings:
                         dict_meetings = []
@@ -217,22 +241,51 @@ class MeetingsRepository:
                             dict_meetings.append(dict_meeting)
                         return dict_meetings
                     else:
-                        logger.error(f"No meetings found for tenant_id: {tenant_id}")
+                        logger.error(f"No meetings found for tenant_id: {user_id}")
                         return []
             except Exception as error:
                 logger.error("Error fetching meeting data by tenant_id:", error)
                 traceback.print_exception(error)
                 return []
 
-    def get_all_meetings_by_tenant_id_in_datetime(self, tenant_id: str, selected_datetime: datetime) -> list[MeetingDTO]:
+    # def get_all_meetings_by_tenant_id_in_datetime(self, tenant_id: str, selected_datetime: datetime) -> list[MeetingDTO]:
+    #     start_range = (selected_datetime - timedelta(weeks=2)).isoformat()
+    #     end_range = (selected_datetime + timedelta(weeks=2)).isoformat()
+    #
+    #     # SQL query to filter within the date range
+    #     select_query = """
+    #         SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+    #         FROM meetings
+    #         WHERE tenant_id = %s
+    #           AND classification != %s
+    #           AND to_timestamp(start_time, 'YYYY-MM-DD"T"HH24:MI:SS') AT TIME ZONE 'UTC' BETWEEN %s AND %s;
+    #         """
+    #     with db_connection() as conn:
+    #         try:
+    #             self.create_table_if_not_exists()
+    #             with conn.cursor() as cursor:
+    #                 cursor.execute(select_query, (tenant_id, MeetingClassification.DELETED.value, start_range, end_range))
+    #                 meetings = cursor.fetchall()
+    #                 if meetings:
+    #                     logger.info(f"Got {len(meetings)} meetings from database")
+    #                     return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+    #                 else:
+    #                     logger.error(f"No meetings found for tenant_id: {tenant_id}")
+    #                     return []
+    #         except Exception as error:
+    #             logger.error("Error fetching meeting data by tenant_id:", error)
+    #             traceback.print_exception(error)
+    #             return []
+
+    def get_all_meetings_by_user_id_in_datetime(self, user_id: str, selected_datetime: datetime) -> list[MeetingDTO]:
         start_range = (selected_datetime - timedelta(weeks=2)).isoformat()
         end_range = (selected_datetime + timedelta(weeks=2)).isoformat()
 
         # SQL query to filter within the date range
         select_query = """
-            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+            SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
             FROM meetings
-            WHERE tenant_id = %s 
+            WHERE user_id = %s 
               AND classification != %s
               AND to_timestamp(start_time, 'YYYY-MM-DD"T"HH24:MI:SS') AT TIME ZONE 'UTC' BETWEEN %s AND %s;
             """
@@ -240,13 +293,13 @@ class MeetingsRepository:
             try:
                 self.create_table_if_not_exists()
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (tenant_id, MeetingClassification.DELETED.value, start_range, end_range))
+                    cursor.execute(select_query, (user_id, MeetingClassification.DELETED.value, start_range, end_range))
                     meetings = cursor.fetchall()
                     if meetings:
                         logger.info(f"Got {len(meetings)} meetings from database")
                         return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
                     else:
-                        logger.error(f"No meetings found for tenant_id: {tenant_id}")
+                        logger.error(f"No meetings found for tenant_id: {user_id}")
                         return []
             except Exception as error:
                 logger.error("Error fetching meeting data by tenant_id:", error)
@@ -255,7 +308,7 @@ class MeetingsRepository:
 
     def get_all_future_meetings_for_tenant(self, tenant_id):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE tenant_id = %s
         AND (
@@ -279,9 +332,35 @@ class MeetingsRepository:
                 logger.error("Error fetching future meetings for tenant:", exc_info=True)
                 return []
 
+    def get_all_future_meetings_for_user(self, user_id):
+        select_query = """
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE user_id = %s
+        AND (
+            CASE
+                WHEN start_time ~ 'T' THEN TO_TIMESTAMP(SPLIT_PART(start_time, '+', 1), 'YYYY-MM-DD"T"HH24:MI:SS')
+                ELSE TO_TIMESTAMP(start_time, 'YYYY-MM-DD')
+            END > %s
+        )
+        AND classification != %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        select_query, (user_id, datetime.now(timezone.utc), MeetingClassification.DELETED.value)
+                    )
+                    meetings = cursor.fetchall()
+                    logger.info(f"Got {len(meetings)} future meetings for user {user_id}")
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+            except Exception as error:
+                logger.error("Error fetching future meetings for user:", exc_info=True)
+                return []
+
     def get_meetings_without_goals_by_email(self, email: str) -> list[MeetingDTO]:
         query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE (participants_emails @> %s::jsonb AND (goals IS NULL OR goals = '[]' or agenda = 'null')) AND classification = %s;
         """
@@ -304,7 +383,7 @@ class MeetingsRepository:
 
     def get_meetings_without_goals_by_company_domain(self, domain: str) -> list[MeetingDTO]:
         query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE EXISTS (
                 SELECT 1
@@ -351,7 +430,7 @@ class MeetingsRepository:
 
     def get_all_external_meetings_without_agenda(self):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location,
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location,
          start_time, end_time, agenda, classification
         FROM meetings
         WHERE (agenda IS NULL OR agenda = '[]' or agenda = 'null') AND classification = %s;
@@ -370,7 +449,7 @@ class MeetingsRepository:
 
     def get_all_meetings_without_classification(self):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE classification IS NULL or classification = 'null';
         """
@@ -386,9 +465,9 @@ class MeetingsRepository:
                 traceback.print_exception(error)
                 return []
 
-    def get_all_meetings(self):
+    def _get_all_meetings(self):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings WHERE classification != %s;
         """
         with db_connection() as conn:
@@ -421,7 +500,7 @@ class MeetingsRepository:
         UPDATE meetings
         SET participants_emails = %s, participants_hash = %s, link = %s, subject = %s, location = %s,
         start_time = %s, end_time = %s, agenda = %s, classification = %s, reminder_schedule = %s
-        WHERE google_calendar_id = %s AND tenant_id = %s;
+        WHERE google_calendar_id = %s AND user_id = %s;
         """
 
         agenda = meeting.agenda
@@ -443,7 +522,7 @@ class MeetingsRepository:
             meeting.classification.value,
             reminder_schedule,
             meeting.google_calendar_id,
-            meeting.tenant_id,
+            meeting.user_id,
         )
         with db_connection() as conn:
             try:
@@ -515,9 +594,9 @@ class MeetingsRepository:
                 logger.error(f"Unexpected error: {e}")
                 return
 
-    def exists(self, google_calendar_id: str, tenant_id=None) -> bool:
-        exists_query = f"SELECT 1 FROM meetings WHERE google_calendar_id = %s{"AND tenant_id = %s" if tenant_id else ''};"
-        args = (google_calendar_id,) if not tenant_id else (google_calendar_id, tenant_id)
+    def exists(self, google_calendar_id: str, user_id=None) -> bool:
+        exists_query = f"SELECT 1 FROM meetings WHERE google_calendar_id = %s{"AND user_id = %s" if user_id else ''};"
+        args = (google_calendar_id,) if not user_id else (google_calendar_id, user_id)
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
@@ -578,39 +657,39 @@ class MeetingsRepository:
                 traceback.print_exc()
                 return False
 
-    def get_all_meetings_by_tenant_id_that_should_be_imported(
-        self, number_of_imported_meetings: int, tenant_id: str
-    ) -> list[MeetingDTO]:
-        ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
-        cutoff_time = ten_hours_ago.isoformat()
-
-        select_query = f"""
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
-        FROM meetings
-        WHERE classification NOT IN (%s)
-        AND fake = FALSE
-        AND start_time > %s
-        AND tenant_id = %s
-        ORDER BY start_time ASC
-        {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
-        """
-        with db_connection() as conn:
-            try:
-                with conn.cursor() as cursor:
-                    if number_of_imported_meetings > 0:
-                        cursor.execute(
-                            select_query,
-                            (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
-                        )
-                    else:
-                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
-
-                    meetings = cursor.fetchall()
-                    logger.info(f"Got {len(meetings)} meetings from database")
-                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
-            except Exception as error:
-                logger.error("Error fetching all meetings:", exc_info=True)
-                return []
+    # def get_all_meetings_by_tenant_id_that_should_be_imported(
+    #     self, number_of_imported_meetings: int, tenant_id: str
+    # ) -> list[MeetingDTO]:
+    #     ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
+    #     cutoff_time = ten_hours_ago.isoformat()
+    #
+    #     select_query = f"""
+    #     SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+    #     FROM meetings
+    #     WHERE classification NOT IN (%s)
+    #     AND fake = FALSE
+    #     AND start_time > %s
+    #     AND tenant_id = %s
+    #     ORDER BY start_time ASC
+    #     {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
+    #     """
+    #     with db_connection() as conn:
+    #         try:
+    #             with conn.cursor() as cursor:
+    #                 if number_of_imported_meetings > 0:
+    #                     cursor.execute(
+    #                         select_query,
+    #                         (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
+    #                     )
+    #                 else:
+    #                     cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
+    #
+    #                 meetings = cursor.fetchall()
+    #                 logger.info(f"Got {len(meetings)} meetings from database")
+    #                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+    #         except Exception as error:
+    #             logger.error("Error fetching all meetings:", exc_info=True)
+    #             return []
 
     def hard_delete(self, google_calendar_id: str):
         delete_query = "DELETE FROM meetings WHERE google_calendar_id = %s;"
@@ -640,7 +719,7 @@ class MeetingsRepository:
 
     def get_meetings_with_missing_classification(self) -> list[MeetingDTO]:
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE classification IS NULL or classification = 'null';
         """
@@ -658,7 +737,7 @@ class MeetingsRepository:
 
     def get_all_future_external_meetings_for_tenant(self, tenant_id):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE tenant_id = %s
         AND (
@@ -683,9 +762,36 @@ class MeetingsRepository:
                 traceback.print_exception(error)
                 return []
 
+    def get_all_future_external_meetings_for_user(self, user_id):
+        select_query = """
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE user_id = %s
+        AND (
+        CASE
+            WHEN start_time ~ 'T' THEN TO_TIMESTAMP(SPLIT_PART(start_time, '+', 1), 'YYYY-MM-DD"T"HH24:MI:SS')
+            ELSE TO_TIMESTAMP(start_time, 'YYYY-MM-DD')
+        END > %s)
+        AND classification = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        select_query,
+                        (user_id, datetime.now(timezone.utc).isoformat(), MeetingClassification.EXTERNAL.value),
+                    )
+                    meetings = cursor.fetchall()
+                    logger.info(f"Got {len(meetings)} future meetings for user {user_id}")
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+            except Exception as error:
+                logger.error("Error fetching future meetings for user:", error)
+                traceback.print_exception(error)
+                return []
+
     def get_meetings_with_goals_without_agenda_by_email(self, email):
         select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE (participants_emails @> %s::jsonb AND (agenda IS NULL OR agenda = '[]' OR agenda != 'null')) AND (goals IS NOT NULL OR goals != '[]' OR goals = 'null') AND classification = 'external';
         """
@@ -730,7 +836,7 @@ class MeetingsRepository:
         if not emails:
             return []
         query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
         FROM meetings
         WHERE participants_emails ?| array[%s] AND classification != 'deleted';
         """
@@ -757,10 +863,10 @@ class MeetingsRepository:
         and have not yet had a reminder sent, for tenants with reminder_subscription = TRUE.
         """
         select_query = """
-            SELECT m.uuid, m.google_calendar_id, m.tenant_id, m.participants_emails, m.participants_hash, m.link, 
+            SELECT m.uuid, m.google_calendar_id, m.user_id, m.tenant_id, m.participants_emails, m.participants_hash, m.link, 
                    m.subject, m.location, m.start_time, m.end_time, m.agenda, m.classification, m.reminder_schedule
             FROM meetings m
-            INNER JOIN tenants t ON m.tenant_id = t.tenant_id
+            INNER JOIN tenants t ON m.user_id = t.user_id
             WHERE (m.reminder_schedule AT TIME ZONE 'UTC') BETWEEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - INTERVAL '25 minutes') 
                   AND (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' + INTERVAL '5 minutes')
               AND m.classification = %s 
@@ -798,45 +904,43 @@ class MeetingsRepository:
                 logger.debug(traceback.format_exc())  # Logs the traceback for general exceptions
                 return []
 
-    def get_next_meeting(self):
-        select_query = """
-        SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
-               subject, location, start_time,
-               end_time, agenda, classification, (start_time::timestamp AT TIME ZONE 'UTC') as start_time_utc, 
-               (reminder_schedule::timestamp AT TIME ZONE 'UTC') as reminder_schedule_utc
-        FROM meetings
-        WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-          AND classification = %s
-        ORDER BY start_time
-        LIMIT 1;
-        """
-        with db_connection() as conn:
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
-                    meeting = cursor.fetchone()
-
-                    if meeting:
-                        logger.info(f"Got next meeting: {meeting[0]}")
-
-                        # Parse meeting data correctly
-                        meeting_dto = MeetingDTO.from_tuple(meeting[:-2])  # All fields except parsed `start_time_utc` and `reminder_schedule_utc`
-                        start_time_utc = meeting[-2]  # Parsed start_time in UTC
-                        reminder_schedule_utc = meeting[-1]  # Parsed reminder_schedule in UTC
-
-                        return meeting_dto, start_time_utc, reminder_schedule_utc
-                    else:
-                        logger.info("No upcoming meeting found")
-                        return None, None, None
-            except psycopg2.Error as db_error:
-                logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
-                logger.debug(traceback.format_exc())
-
-
+    # def get_next_meeting(self):
+    #     select_query = """
+    #     SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link,
+    #            subject, location, start_time,
+    #            end_time, agenda, classification, (start_time::timestamp AT TIME ZONE 'UTC') as start_time_utc,
+    #            (reminder_schedule::timestamp AT TIME ZONE 'UTC') as reminder_schedule_utc
+    #     FROM meetings
+    #     WHERE (start_time::timestamp AT TIME ZONE 'UTC') > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+    #       AND classification = %s
+    #     ORDER BY start_time
+    #     LIMIT 1;
+    #     """
+    #     with db_connection() as conn:
+    #         try:
+    #             with conn.cursor() as cursor:
+    #                 cursor.execute(select_query, (MeetingClassification.EXTERNAL.value,))
+    #                 meeting = cursor.fetchone()
+    #
+    #                 if meeting:
+    #                     logger.info(f"Got next meeting: {meeting[0]}")
+    #
+    #                     # Parse meeting data correctly
+    #                     meeting_dto = MeetingDTO.from_tuple(meeting[:-2])  # All fields except parsed `start_time_utc` and `reminder_schedule_utc`
+    #                     start_time_utc = meeting[-2]  # Parsed start_time in UTC
+    #                     reminder_schedule_utc = meeting[-1]  # Parsed reminder_schedule in UTC
+    #
+    #                     return meeting_dto, start_time_utc, reminder_schedule_utc
+    #                 else:
+    #                     logger.info("No upcoming meeting found")
+    #                     return None, None, None
+    #         except psycopg2.Error as db_error:
+    #             logger.error(f"Database error fetching next meeting: {db_error.pgerror}")
+    #             logger.debug(traceback.format_exc())
 
     def get_all_meetings_without_reminders(self):
         select_query = """
-            SELECT uuid, google_calendar_id, tenant_id, participants_emails, participants_hash, link, 
+            SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, 
                    subject, location, start_time, end_time, agenda, classification
             FROM meetings
             WHERE reminder_schedule IS NULL AND classification = %s;

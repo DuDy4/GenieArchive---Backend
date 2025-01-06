@@ -91,6 +91,7 @@ class MeetingDTO:
         self,
         uuid: str,
         google_calendar_id: str,
+        user_id: str,
         tenant_id: str,
         participants_emails: List[dict],
         participants_hash: Optional[str],
@@ -105,6 +106,7 @@ class MeetingDTO:
     ):
         self.uuid = uuid
         self.google_calendar_id = google_calendar_id
+        self.user_id = user_id
         self.tenant_id = tenant_id
         self.participants_emails = participants_emails
         self.participants_hash = (
@@ -123,6 +125,7 @@ class MeetingDTO:
         return {
             "uuid": self.uuid,
             "google_calendar_id": self.google_calendar_id,
+            "user_id": self.user_id,
             "tenant_id": self.tenant_id,
             "participants_emails": self.participants_emails,
             "participants_hash": self.participants_hash,
@@ -141,6 +144,7 @@ class MeetingDTO:
         return MeetingDTO(
             uuid=data.get("uuid", ""),
             google_calendar_id=data.get("google_calendar_id", ""),
+            user_id=data.get("user_id", ""),
             tenant_id=data.get("tenant_id", ""),
             participants_emails=data.get("participants_emails", []),
             participants_hash=data.get(
@@ -166,6 +170,7 @@ class MeetingDTO:
         return (
             self.uuid,
             self.google_calendar_id,
+            self.user_id,
             self.tenant_id,
             self.participants_emails,
             self.participants_hash,
@@ -184,18 +189,18 @@ class MeetingDTO:
         return MeetingDTO(
             uuid=row[0],
             google_calendar_id=row[1],
-            tenant_id=row[2],
-            participants_emails=row[3],
-            participants_hash=row[4],
-            link=row[5],
-            subject=row[6],
-            location=row[7],
-            start_time=row[8],
-            end_time=row[9],
-            agenda=[AgendaItem.from_dict(agenda) for agenda in row[10]] if row[10] else None,
-            classification=MeetingClassification(row[11])
-            if row[11]
-            else evaluate_meeting_classification(row[3]),
+            user_id=row[2],
+            tenant_id=row[3],
+            participants_emails=row[4],
+            participants_hash=row[5],
+            link=row[6],
+            subject=row[7],
+            location=row[8],
+            start_time=row[9],
+            end_time=row[10],
+            agenda=[AgendaItem.from_dict(agenda) for agenda in row[11]] if row[11] else None,
+            classification=MeetingClassification.from_str(row[12]) if row[12]
+            else evaluate_meeting_classification(row[4]),
         )
 
     def to_json(self):
@@ -209,11 +214,12 @@ class MeetingDTO:
         return MeetingDTO.from_dict(data)
 
     @staticmethod
-    def from_google_calendar_event(event, tenant_id):
+    def from_google_calendar_event(event, tenant_id, user_id):
         participants = event.get("attendees", [])
         return MeetingDTO(
             uuid=event.get("uuid", get_uuid4()),
             google_calendar_id=event.get("id", ""),
+            user_id=user_id,
             tenant_id=tenant_id,
             participants_emails=participants,
             participants_hash=event.get("participants_hash", hash_participants(event.get("attendees", []))),
@@ -229,7 +235,8 @@ class MeetingDTO:
 
     def __str__(self):
         return (
-            f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id}, tenant_id={self.tenant_id}, "
+            f"MeetingDTO(uuid={self.uuid}, google_calendar_id={self.google_calendar_id},"
+            f"user_id={self.user_id}, tenant_id={self.tenant_id}, "
             f"participants_emails={self.participants_emails}, link={self.link}, "
             f"subject={self.subject}, location={self.location}, start_time={self.start_time}, end_time={self.end_time}"
             f"agenda={self.agenda}), classification={self.classification}, fake={self.fake}"

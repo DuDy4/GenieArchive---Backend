@@ -47,13 +47,13 @@ class UserProfilesRepository:
                 logger.error(f"Error creating table: {error}")
                 traceback.print_exc()
 
-    def exists(self, profile_uuid: str, tenant_id: str) -> bool:
-        logger.info(f"About to check if exists uuid: {profile_uuid} and tenant_id: {tenant_id}")
-        exists_query = "SELECT 1 FROM user_profiles WHERE profile_uuid = %s AND tenant_id = %s;"
+    def exists(self, profile_uuid: str, user_id: str) -> bool:
+        logger.info(f"About to check if exists uuid: {profile_uuid} and user_id: {user_id}")
+        exists_query = "SELECT 1 FROM user_profiles WHERE profile_uuid = %s AND user_id = %s;"
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(exists_query, (profile_uuid, tenant_id))
+                    cursor.execute(exists_query, (profile_uuid, user_id))
                     result = cursor.fetchone() is not None
                     logger.info(f"{profile_uuid} existence in database: {result}")
                     return result
@@ -78,17 +78,17 @@ class UserProfilesRepository:
             except psycopg2.Error as error:
                 raise Exception(f"Error deleting profile, because: {error.pgerror}")
 
-    def get_get_to_know(self, uuid: str, tenant_id: str) -> dict:
+    def get_get_to_know(self, uuid: str, user_id: str) -> dict:
         select_query = """
             SELECT get_to_know
             FROM user_profiles
             WHERE profile_uuid = %s
-            AND tenant_id = %s;
+            AND user_id = %s;
             """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id))
                     row = cursor.fetchone()
                     if row:
                         get_to_know = {k: [Phrase.from_dict(p) for p in v] for k, v in row[0].items()}
@@ -101,17 +101,17 @@ class UserProfilesRepository:
         return None
 
 
-    def get_sales_criteria(self, uuid: str, tenant_id: str) -> list[SalesCriteria]:
+    def get_sales_criteria(self, uuid: str, user_id: str) -> list[SalesCriteria]:
         select_query = """
             SELECT sales_criteria
             FROM user_profiles
             WHERE profile_uuid = %s
-            AND tenant_id = %s;
+            AND user_id = %s;
             """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id))
                     row = cursor.fetchone()
                     logger.info(f"Row: {row}")
                     if row and row[0]:
@@ -124,17 +124,17 @@ class UserProfilesRepository:
                 traceback.print_exception(error)
         return None
 
-    def get_sales_action_items(self, uuid: str, tenant_id: str) -> list[SalesActionItem]:
+    def get_sales_action_items(self, uuid: str, user_id: str) -> list[SalesActionItem]:
         select_query = """
             SELECT action_items
             FROM user_profiles
             WHERE profile_uuid = %s
-            AND tenant_id = %s;
+            AND user_id = %s;
             """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id))
                     row = cursor.fetchone()
                     if row and row[0]:
                         action_items = [SalesActionItem.from_dict(item) for item in row[0]]
@@ -146,17 +146,17 @@ class UserProfilesRepository:
                 traceback.print_exception(error)
         return None
 
-    def get_sales_criteria_and_action_items(self, uuid: str, tenant_id: str) -> (
+    def get_sales_criteria_and_action_items(self, uuid: str, user_id: str) -> (
             tuple)[list[SalesCriteria] | None, list[SalesActionItem] | None]:
         select_query = """
             SELECT sales_criteria, action_items
             FROM user_profiles
-            WHERE profile_uuid = %s AND tenant_id = %s;
+            WHERE profile_uuid = %s AND user_id = %s;
             """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (uuid, tenant_id))
+                    cursor.execute(select_query, (uuid, user_id))
                     row = cursor.fetchone()
                     if row:
                         sales_criteria = [SalesCriteria.from_dict(criteria) for criteria in row[0]]
@@ -170,49 +170,48 @@ class UserProfilesRepository:
                 traceback.print_exception(error)
                 return None, None
 
-    def get_all_uuids_and_tenants_id_without_action_items(self, forced: bool = False):
-        select_query = f"""
-            SELECT o.person_uuid, o.tenant_id FROM ownerships o
-            join tenants t on t.tenant_id = o.tenant_id
-            join persons p on p.uuid = o.person_uuid
-            join profiles pr on pr.uuid = p.uuid
-            left join user_profiles tp on p.uuid = tp.profile_uuid AND o.tenant_id = tp.tenant_id
-            {f"WHERE tp.action_items = '[]' OR tp.action_items IS NULL" if not forced else ""}
-            ORDER BY o.id desc;            
-            """
-        with db_connection() as conn:
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute(select_query)
-                    rows = cursor.fetchall()
-                    result_object_list = []
-                    for row in rows:
-                        result_object_list.append({
-                            "profile_uuid": row[0],
-                            "tenant_id": row[1]
-                        })
-                    return result_object_list
-            except psycopg2.Error as error:
-                raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
+    # def get_all_uuids_and_users_id_without_action_items(self, forced: bool = False):
+    #     select_query = f"""
+    #         SELECT o.person_uuid, o.user_id FROM ownerships o
+    #         join users u on u.user_id = o.user_id
+    #         join persons p on p.uuid = o.person_uuid
+    #         join profiles pr on pr.uuid = p.uuid
+    #         left join user_profiles up on p.uuid = up.profile_uuid AND o.user_id = up.user_id
+    #         {f"WHERE up.action_items = '[]' OR up.action_items IS NULL" if not forced else ""}
+    #         ORDER BY o.id desc;
+    #         """
+    #     with db_connection() as conn:
+    #         try:
+    #             with conn.cursor() as cursor:
+    #                 cursor.execute(select_query)
+    #                 rows = cursor.fetchall()
+    #                 result_object_list = []
+    #                 for row in rows:
+    #                     result_object_list.append({
+    #                         "profile_uuid": row[0],
+    #                         "user_id": row[1]
+    #                     })
+    #                 return result_object_list
+    #         except psycopg2.Error as error:
+    #             raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
 
-    def update_sales_criteria(self, uuid: str, tenant_id, sales_criteria: list[SalesCriteria]):
+    def update_sales_criteria(self, uuid: str, user_id: str, sales_criteria: list[SalesCriteria]):
         update_query = """
                 UPDATE user_profiles
                 SET sales_criteria = %s
-                FROM persons
-                WHERE user_profiles.profile_uuid = %s AND user_profiles.tenant_id = %s;
+                WHERE profile_uuid = %s AND user_id = %s;
                 """
         with db_connection() as conn:
             try:
-                if not self.exists(uuid, tenant_id):
-                    self._insert(uuid, tenant_id)
+                if not self.exists(uuid, user_id):
+                    self._insert(uuid, user_id)
                 with conn.cursor() as cursor:
                     cursor.execute(
                         update_query,
                         (
                             json.dumps([sc.to_dict() for sc in sales_criteria]),
                             uuid,
-                            tenant_id,
+                            user_id,
                         ),
                     )
                     conn.commit()
@@ -221,24 +220,24 @@ class UserProfilesRepository:
                 raise Exception(f"Error updating sales criteria, because: {error.pgerror}")
 
 
-    def update_sales_action_items(self, uuid: str, tenant_id: str, action_items: list[SalesActionItem]):
+    def update_sales_action_items(self, uuid: str, user_id: str, action_items: list[SalesActionItem]):
         update_query = """
             UPDATE user_profiles
             SET action_items = %s
             WHERE profile_uuid = %s
-            AND tenant_id = %s;
+            AND user_id = %s;
             """
         with db_connection() as conn:
             try:
-                if not self.exists(uuid, tenant_id):
-                    self._insert(uuid, tenant_id)
+                if not self.exists(uuid, user_id):
+                    self._insert(uuid, user_id)
                 with conn.cursor() as cursor:
                     cursor.execute(
                         update_query,
                         (
                             json.dumps([action_item.to_dict() for action_item in action_items]),
                             uuid,
-                            tenant_id,
+                            user_id,
                         ),
                     )
                     conn.commit()
@@ -247,16 +246,16 @@ class UserProfilesRepository:
                 raise Exception(f"Error updating action items, because: {error.pgerror}")
 
 
-    def update_get_to_know(self, uuid, get_to_know, tenant_id):
+    def update_get_to_know(self, uuid, get_to_know, user_id):
         update_query = """
             UPDATE user_profiles
             SET get_to_know = %s
-            WHERE profile_uuid = %s;
+            WHERE profile_uuid = %s AND user_id = %s;
             """
         with db_connection() as conn:
             try:
-                if not self.exists(uuid, tenant_id):
-                    self._insert(uuid, tenant_id)
+                if not self.exists(uuid, user_id):
+                    self._insert(uuid, user_id)
                 with conn.cursor() as cursor:
                     cursor.execute(update_query, (json.dumps(get_to_know), uuid))
                     conn.commit()
@@ -264,7 +263,7 @@ class UserProfilesRepository:
             except psycopg2.Error as error:
                 raise Exception(f"Error updating get to know, because: {error.pgerror}")
 
-    def update_sales_action_item_description(self, tenant_id: str, uuid: str, criteria: str, action_item: str):
+    def update_sales_action_item_description(self, user_id: str, uuid: str, criteria: str, action_item: str):
         update_query = """
         UPDATE user_profiles
         SET action_items = (
@@ -279,27 +278,29 @@ class UserProfilesRepository:
             FROM jsonb_array_elements(action_items) AS item
         )
         WHERE profile_uuid = %s
-        AND tenant_id = %s;
+        AND user_id = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     # Ensure action_item is a valid JSON string
                     action_item_json = json.dumps(action_item)
-                    cursor.execute(update_query, (criteria, action_item_json, uuid, tenant_id))
+                    cursor.execute(update_query, (criteria, action_item_json, uuid, user_id))
                     conn.commit()
                     logger.info(f"Updated action item description for {uuid}")
                     return True
             except psycopg2.Error as error:
                 raise Exception(f"Error updating action item description, because: {error.pgerror}")
 
-    def _insert(self, profile_uuid: str, tenant_id: str) -> Union[str, None]:
+    def _insert(self, profile_uuid: str, user_id: str, tenant_id: str = None) -> Union[str, None]:
         insert_query = """
-                    INSERT INTO user_profiles (uuid, profile_uuid, tenant_id)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO user_profiles (uuid, profile_uuid, user_id, tenant_id)
+                    VALUES (%s, %s, %s, %s)
                     RETURNING id;
                     """
-        profile_data = (get_uuid4(), profile_uuid, tenant_id)
+        if not tenant_id:
+            tenant_id = logger.get_tenant_id()
+        profile_data = (get_uuid4(), profile_uuid, user_id, tenant_id)
 
         with db_connection() as conn:
             try:
@@ -312,26 +313,25 @@ class UserProfilesRepository:
             except psycopg2.Error as error:
                 raise Exception(f"Error inserting profile, because: {error.pgerror}")
 
-    def _update(self, profile: ProfileDTO, tenant_id: str):
-        update_query = """
-            UPDATE user_profiles
-            SET connections = %s, get_to_know = %s, sales_criteria = %s
-            WHERE profile_uuid = %s
-            AND tenant_id = %s;
-            """
-        profile_dict = profile.to_dict()
-        profile_data = (
-            json.dumps([c if isinstance(c, dict) else c.to_dict() for c in profile_dict["connections"]]),
-            json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["get_to_know"].items()}),
-            json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["sales_criteria"].items()}),
-            str(profile_dict["uuid"]),
-            tenant_id
-        )
-        with db_connection() as conn:
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute(update_query, profile_data)
-                    conn.commit()
-                    logger.info(f"Updated profile with uuid: {profile.uuid}")
-            except psycopg2.Error as error:
-                raise Exception(f"Error updating profile, because: {error.pgerror}")
+    # def _update(self, profile: ProfileDTO, user_id: str):
+    #     update_query = """
+    #         UPDATE user_profiles
+    #         SET connections = %s, get_to_know = %s, sales_criteria = %s
+    #         WHERE profile_uuid = %s AND user_id = %s;
+    #         """
+    #     profile_dict = profile.to_dict()
+    #     profile_data = (
+    #         json.dumps([c if isinstance(c, dict) else c.to_dict() for c in profile_dict["connections"]]),
+    #         json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["get_to_know"].items()}),
+    #         json.dumps({k: [p if isinstance(p, dict) else p.to_dict() for p in v] for k, v in profile_dict["sales_criteria"].items()}),
+    #         str(profile_dict["uuid"]),
+    #         user_id
+    #     )
+    #     with db_connection() as conn:
+    #         try:
+    #             with conn.cursor() as cursor:
+    #                 cursor.execute(update_query, profile_data)
+    #                 conn.commit()
+    #                 logger.info(f"Updated profile with uuid: {profile.uuid}")
+    #         except psycopg2.Error as error:
+    #             raise Exception(f"Error updating profile, because: {error.pgerror}")
