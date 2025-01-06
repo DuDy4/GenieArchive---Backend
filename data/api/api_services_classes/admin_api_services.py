@@ -115,20 +115,28 @@ class AdminApiService:
             return {"error": "Person not found"}
         logger.info(f"Got person: {person}")
         if person.linkedin:
-            all_tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+            # all_tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
             all_users = self.ownerships_repository.get_users_for_person(person_uuid)
-            logger.info(f"Got tenants: {all_tenants}, users: {all_users}")
-            # needs to change here
-            if not all_tenants or len(all_tenants) == 0:
-                logger.error(f"Person does not have any tenants: {person_uuid}")
-                return {"error": "Person does not have any tenants"}
-            for tenant in all_tenants:
+            # logger.info(f"Got tenants: {all_tenants}, users: {all_users}")
+            # if not all_tenants or len(all_tenants) == 0:
+            #     logger.error(f"Person does not have any tenants: {person_uuid}")
+            #     return {"error": "Person does not have any tenants"}
+            for user in all_users:
                 data_to_send ={
-                    "tenant_id": tenant,
+                    "user_id": user.get("user_id"),
+                    "tenant_id": user.get("tenant_id"),
                     "person": person.to_dict(),
                 }
                 event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
                 event.send()
+
+            # for tenant in all_tenants:
+            #     data_to_send ={
+            #         "tenant_id": tenant,
+            #         "person": person.to_dict(),
+            #     }
+            #     event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
+            #     event.send()
         else:
             logger.error(f"Person does not have a LinkedIn URL")
             return {"error": "Person does not have a LinkedIn URL"}
@@ -141,16 +149,16 @@ class AdminApiService:
             logger.error(f"Person not found: {person_uuid}")
             return {"error": "Person not found"}
         logger.info(f"Got person: {person}")
-        tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+        # tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
         users = self.ownerships_repository.get_users_for_person(person_uuid)
         # needs to change here
-        if not tenants or len(tenants) == 0:
-            logger.error(f"Person does not have any tenants: {person_uuid}")
-            return {"error": "Person does not have any tenants"}
-        for tenant_id in tenants:
+        # if not tenants or len(tenants) == 0:
+        #     logger.error(f"Person does not have any tenants: {person_uuid}")
+        #     return {"error": "Person does not have any tenants"}
+        for user in users:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": tenant_id, "email": person.email},
+                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "email": person.email},
             )
             event.send()
         return {"message": "Email sync initiated for " + person.email}
