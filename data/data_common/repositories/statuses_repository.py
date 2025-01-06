@@ -21,7 +21,7 @@ class StatusesRepository:
                 object_id VARCHAR NOT NULL,
                 object_type VARCHAR,
                 user_id VARCHAR NOT NULL,
-                tenant_id VARCHAR NOT NULL,
+                tenant_id VARCHAR,
                 event_topic VARCHAR,
                 previous_event_topic VARCHAR,
                 current_event_start_time TIMESTAMP WITH TIME ZONE,

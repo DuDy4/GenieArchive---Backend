@@ -64,17 +64,15 @@ class OwnershipsRepository:
                 traceback.print_exc()
                 return []
 
-    def get_users_for_person(self, user_id):
+    def get_users_for_person(self, person_uuid: str) -> list[dict]:
         self.create_table_if_not_exists()
-        select_query = """
-        SELECT person_uuid FROM ownerships WHERE user_id = %s;
-        """
+        select_query = """SELECT user_id, tenant_id FROM ownerships WHERE person_uuid = %s;"""
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (user_id,))
+                    cursor.execute(select_query, (person_uuid,))
                     users = cursor.fetchall()
-                    users = [user[0] for user in users]
+                    users = [{"user_id": user[0], "tenant_id": user[1]} for user in users]
                     return users
             except psycopg2.Error as error:
                 logger.error(f"Error getting all users for tenant: {error.pgerror}")
@@ -83,7 +81,7 @@ class OwnershipsRepository:
 
     def save_ownership(self, uuid, user_id, tenant_id):
         self.create_table_if_not_exists()
-        logger.info(f"About to save ownership: {uuid}, for tenant: {tenant_id}")
+        logger.info(f"About to save ownership: {uuid}, for user: {user_id}")
         if self.exists(uuid, user_id, tenant_id):
             return "Ownership already exists in database"
         self.insert(uuid, user_id, tenant_id)
@@ -113,6 +111,8 @@ class OwnershipsRepository:
         VALUES (%s, %s, %s)
         RETURNING id;
         """
+        if not uuid or not user_id or not tenant_id:
+            raise Exception("Missing fields for ownership insertion")
         logger.info(f"About to insert ownership: {uuid}")
         with db_connection() as conn:
             try:

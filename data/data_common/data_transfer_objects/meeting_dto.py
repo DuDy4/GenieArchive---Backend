@@ -214,7 +214,7 @@ class MeetingDTO:
         return MeetingDTO.from_dict(data)
 
     @staticmethod
-    def from_google_calendar_event(event, tenant_id, user_id):
+    def from_google_calendar_event(event, user_id: str, tenant_id: str) -> "MeetingDTO":
         participants = event.get("attendees", [])
         return MeetingDTO(
             uuid=event.get("uuid", get_uuid4()),

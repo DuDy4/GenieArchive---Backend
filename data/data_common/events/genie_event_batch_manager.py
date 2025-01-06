@@ -57,6 +57,7 @@ class EventHubBatchManager:
             "scope": event.scope,
             "ctx_id": event.ctx_id,
             "tenant_id": event.tenant_id,
+            "user_id": event.user_id,
         }
         if event.cty_id:
             event_data.properties["cty_id"] = event.cty_id
@@ -99,8 +100,8 @@ class EventHubBatchManager:
             if not object_id:
                 continue
             self.statuses_repository.start_status(ctx_id=event.ctx_id, object_id=object_id, object_type=object_type,
-                                                  tenant_id=event.tenant_id, previous_event_topic=event.previous_topic,
-                                                  next_event_topic=event.topic)
+                                                  user_id=event.user_id, tenant_id=event.tenant_id,
+                                                  previous_event_topic=event.previous_topic, next_event_topic=event.topic)
         logger.info("Statuses updated successfully.")
 
 

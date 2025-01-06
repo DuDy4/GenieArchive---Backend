@@ -126,6 +126,16 @@ class UsersRepository:
                 cursor.execute(select_query)
                 return [UserDTO.from_tuple(row) for row in cursor.fetchall()]
 
+    def get_email_by_tenant_id(self, tenant_id: str) -> Optional[str]:
+        select_query = """
+            SELECT email FROM users WHERE tenant_id = %s
+            """
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(select_query, (tenant_id,))
+                result = cursor.fetchone()
+                return result[0] if result else None
+
     def update_reminder_subscription(self, user_id: str, subscription: bool):
         update_query = """
             UPDATE users SET reminder_subscription = %s WHERE user_id = %s

@@ -35,7 +35,8 @@ class MeetingsRepository:
             agenda JSONB,
             classification VARCHAR,
             reminder_sent TIMESTAMPTZ DEFAULT NULL,
-            reminder_schedule TIMESTAMPTZ DEFAULT NULL
+            reminder_schedule TIMESTAMPTZ DEFAULT NULL,
+            fake BOOLEAN DEFAULT FALSE
         );
         """
         with db_connection() as conn:
@@ -48,7 +49,7 @@ class MeetingsRepository:
                 traceback.print_exc()
 
     def insert_meeting(self, meeting: MeetingDTO) -> Optional[str]:
-        if self.exists(meeting.google_calendar_id, meeting.tenant_id):
+        if self.exists(meeting.google_calendar_id, meeting.user_id):
             logger.info(f"Meeting with google_calendar_id {meeting.google_calendar_id} already exists")
             return None
         insert_query = """
@@ -536,7 +537,7 @@ class MeetingsRepository:
                 raise Exception(f"Error updating meeting, because: {error.pgerror}")
 
     def save_meeting(self, meeting: MeetingDTO):
-        if self.exists(meeting.google_calendar_id, meeting.tenant_id):
+        if self.exists(meeting.google_calendar_id, meeting.user_id):
             if self.exists_without_changes(meeting):
                 logger.info(
                     f"Meeting with google_calendar_id {meeting.google_calendar_id} "
@@ -657,39 +658,70 @@ class MeetingsRepository:
                 traceback.print_exc()
                 return False
 
-    # def get_all_meetings_by_tenant_id_that_should_be_imported(
-    #     self, number_of_imported_meetings: int, tenant_id: str
-    # ) -> list[MeetingDTO]:
-    #     ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
-    #     cutoff_time = ten_hours_ago.isoformat()
-    #
-    #     select_query = f"""
-    #     SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
-    #     FROM meetings
-    #     WHERE classification NOT IN (%s)
-    #     AND fake = FALSE
-    #     AND start_time > %s
-    #     AND tenant_id = %s
-    #     ORDER BY start_time ASC
-    #     {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
-    #     """
-    #     with db_connection() as conn:
-    #         try:
-    #             with conn.cursor() as cursor:
-    #                 if number_of_imported_meetings > 0:
-    #                     cursor.execute(
-    #                         select_query,
-    #                         (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
-    #                     )
-    #                 else:
-    #                     cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
-    #
-    #                 meetings = cursor.fetchall()
-    #                 logger.info(f"Got {len(meetings)} meetings from database")
-    #                 return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
-    #         except Exception as error:
-    #             logger.error("Error fetching all meetings:", exc_info=True)
-    #             return []
+    def get_all_meetings_by_tenant_id_that_should_be_imported(
+        self, number_of_imported_meetings: int, tenant_id: str
+    ) -> list[MeetingDTO]:
+        ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
+        cutoff_time = ten_hours_ago.isoformat()
+
+        select_query = f"""
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification NOT IN (%s)
+        AND fake = FALSE
+        AND start_time > %s
+        AND tenant_id = %s
+        ORDER BY start_time ASC
+        {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    if number_of_imported_meetings > 0:
+                        cursor.execute(
+                            select_query,
+                            (MeetingClassification.DELETED.value, cutoff_time, tenant_id, number_of_imported_meetings),
+                        )
+                    else:
+                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, tenant_id))
+
+                    meetings = cursor.fetchall()
+                    logger.info(f"Got {len(meetings)} meetings from database")
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+            except Exception as error:
+                logger.error("Error fetching all meetings:", exc_info=True)
+                return []
+
+    def get_all_meetings_by_user_id_that_should_be_imported(self, number_of_imported_meetings: int, user_id: str) -> list[MeetingDTO]:
+        ten_hours_ago = datetime.now(timezone.utc) - timedelta(hours=10)
+        cutoff_time = ten_hours_ago.isoformat()
+        select_query = f"""
+        SELECT uuid, google_calendar_id, user_id, tenant_id, participants_emails, participants_hash, link, subject, location, start_time, end_time, agenda, classification
+        FROM meetings
+        WHERE classification NOT IN (%s)
+        AND fake = FALSE
+        AND start_time > %s
+        AND user_id = %s
+        ORDER BY start_time ASC
+        {"LIMIT %s" if number_of_imported_meetings > 0 else ""};
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    if number_of_imported_meetings > 0:
+                        cursor.execute(
+                            select_query,
+                            (MeetingClassification.DELETED.value, cutoff_time, user_id, number_of_imported_meetings),
+                        )
+                    else:
+                        cursor.execute(select_query, (MeetingClassification.DELETED.value, cutoff_time, user_id))
+
+                    meetings = cursor.fetchall()
+                    logger.info(f"Got {len(meetings)} meetings from database")
+                    return [MeetingDTO.from_tuple(meeting) for meeting in meetings]
+            except Exception as error:
+                logger.error("Error fetching all meetings:", exc_info=True)
+                return []
 
     def hard_delete(self, google_calendar_id: str):
         delete_query = "DELETE FROM meetings WHERE google_calendar_id = %s;"

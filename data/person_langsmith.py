@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from common.utils.news_utils import filter_not_reshared_social_media_news
 from data.data_common.data_transfer_objects.profile_dto import Phrase
 from data.data_common.data_transfer_objects.status_dto import StatusEnum
+from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
+from data.data_common.repositories.users_repository import UsersRepository
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from common.utils import env_utils
@@ -53,9 +55,11 @@ class LangsmithConsumer(GenieConsumer):
         self.langsmith = Langsmith()
         self.company_repository = companies_repository()
         self.profiles_repository = profiles_repository()
-        self.tenants_repository = tenants_repository()
+        # self.tenants_repository = tenants_repository()
+        self.users_repository = UsersRepository()
         self.personal_data_repository = personal_data_repository()
-        self.tenant_profiles_repository = tenant_profiles_repository()
+        # self.tenant_profiles_repository = tenant_profiles_repository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.embeddings_client = GenieEmbeddingsClient()
         self.persons_repository = persons_repository()
         self.deals_repository = deals_repository()
@@ -101,10 +105,6 @@ class LangsmithConsumer(GenieConsumer):
         # Check if needs to proceed with the event
         if profile:
             logger.info(f"Profile already exists: {profile}")
-            tenant_id = logger.get_tenant_id()
-            if not tenant_id:
-                logger.error(f"No tenant id found")
-                raise Exception("Got event with no tenant id")
             logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
             person = self.persons_repository.get_person(person_uuid)
             profile_to_send = {
@@ -146,21 +146,16 @@ class LangsmithConsumer(GenieConsumer):
             raise Exception("Got event with uuid but no person data")
         profile = self.profiles_repository.get_profile_data(person_uuid)
 
-        tenant_id = logger.get_tenant_id()
-        event_topic = event.properties.get(b"topic").decode("utf-8")
-        if not tenant_id or not event_topic:
-            logger.error(f"No tenant id or event topic found")
-            raise Exception("Got event with no tenant id or event topic")
-
         # Check if needs to proceed with the event
         if profile and profile.strengths and not event_body.get("force"):
             logger.info(f"Profile already exists: {profile}")
-            tenant_id = logger.get_tenant_id()
-            if not tenant_id:
+            user_id = logger.get_user_id()
+            if not user_id:
                 logger.error(f"No tenant id found")
                 raise Exception("Got event with no tenant id")
-            tenant_sales_criteria, tenant_sales_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person_uuid, tenant_id)
-            if not tenant_sales_criteria or not tenant_sales_action_items:
+            user_sales_criteria, user_sales_action_items = (
+                self.user_profiles_repository.get_sales_criteria_and_action_items(uuid=person_uuid, user_id=user_id))
+            if not user_sales_criteria or not user_sales_action_items:
                 logger.info(f"Creating event NEW_BASE_PROFILE for person {profile.name}")
                 person = self.persons_repository.get_person(person_uuid)
                 profile_to_send = {
@@ -172,7 +167,7 @@ class LangsmithConsumer(GenieConsumer):
                 event = GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public")
                 event.send()
 
-            logger.info(f"Profile {person_uuid} has tenant sales criteria and action items under tenant {tenant_id}")
+            logger.info(f"Profile {person_uuid} has tenant sales criteria and action items under tenant {user_id}")
             return {"status": "success"}
 
         # Gather person, personal_data, news_data, company_data and seller_context
@@ -195,24 +190,6 @@ class LangsmithConsumer(GenieConsumer):
         email_address = person.email
 
         logger.info(f"Person from NEW_PERSONAL_DATA event: {email_address}")
-        # company_data = None
-        # company_dict = {}
-
-        # if email_address and isinstance(email_address, str) and "@" in email_address:
-        #     company_data = self.company_repository.get_company_from_domain(email_address.split("@")[1])
-        # if company_data:
-        #     company_dict = company_data.to_dict()
-        #     company_dict.pop("uuid")
-        #     company_dict.pop("domain")
-        #     company_dict.pop("employees")
-        #     company_dict.pop("logo")
-
-        # seller_context = None
-        # seller_tenant_id = logger.get_tenant_id()
-        # if seller_tenant_id:
-        #     seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
-        #     if seller_email:
-        #         seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, personal_data)
 
         # Start cooking the profile - inside has strengths, get_to_know and work_history_summary
         response = await self.langsmith.get_profile(person_data=personal_data, news_data=news_data)
@@ -230,11 +207,9 @@ class LangsmithConsumer(GenieConsumer):
 
         batch_manager = EventHubBatchManager()
         await batch_manager.start_batch()
-        batch_manager.queue_event(GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send, "public"))
-        batch_manager.queue_event(GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send, "public"))
+        batch_manager.queue_event(GenieEvent(Topic.NEW_BASE_PROFILE, data_to_send))
+        batch_manager.queue_event(GenieEvent(Topic.NEW_PROCESSED_PROFILE, data_to_send))
         await batch_manager.send_batch()
-
-
         return {"status": "success"}
     
     async def handle_new_base_profile(self, event):
@@ -265,17 +240,17 @@ class LangsmithConsumer(GenieConsumer):
             logger.error(f"No email address found in personal data")
             raise Exception("Got base profile event with no email address and no person")
         forced_refresh = event_body.get("force_refresh")
-        seller_tenant_id = logger.get_tenant_id()
+        seller_user_id = logger.get_user_id()
         event_topic = event.properties.get(b"topic").decode("utf-8")
-        if not seller_tenant_id or not event_topic:
+        if not seller_user_id or not event_topic:
             logger.error(f"No tenant id or event topic found")
             raise Exception("Got event with no tenant id or event topic")
 
         company_data = None
 
-        existing_sales_criteria, existing_action_items = self.tenant_profiles_repository.get_sales_criteria_and_action_items(person['uuid'], seller_tenant_id)
+        existing_sales_criteria, existing_action_items = self.user_profiles_repository.get_sales_criteria_and_action_items(person['uuid'], seller_user_id)
         if existing_action_items and existing_sales_criteria and not forced_refresh:
-            logger.info(f"Sales criteria and action items already exist for person {person['uuid']} and tenant {seller_tenant_id}")
+            logger.info(f"Sales criteria and action items already exist for person {person['uuid']} and tenant {seller_user_id}")
             return {"status": "success"}
 
         if email_address and isinstance(email_address, str) and "@" in email_address:
@@ -288,8 +263,8 @@ class LangsmithConsumer(GenieConsumer):
                 company_dict.pop("logo")
 
         seller_context = None
-        if seller_tenant_id:
-            seller_email = self.tenants_repository.get_tenant_email(seller_tenant_id)
+        if seller_user_id:
+            seller_email = self.users_repository.get_email_by_user_id(seller_user_id)
             if seller_email:
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, person)
 
@@ -300,17 +275,15 @@ class LangsmithConsumer(GenieConsumer):
         person['news'] = personal_news
 
         # Get/create sales criteria
-        # existing_sales_criteria = self.tenant_profiles_repository.get_sales_criteria(person['uuid'], seller_tenant_id)
         profile_category = determine_profile_category(strengths)
         if not existing_sales_criteria or forced_refresh:
             sales_criterias = get_default_individual_sales_criteria(profile_category)
-            self.tenant_profiles_repository.update_sales_criteria(person['uuid'],  seller_tenant_id, sales_criterias)
+            self.user_profiles_repository.update_sales_criteria(person['uuid'], seller_user_id, sales_criterias)
         else:
             sales_criterias = existing_sales_criteria
 
         # Get/create sales action items
-        # existing_action_items = self.tenant_profiles_repository.get_sales_action_items(person['uuid'], seller_tenant_id)
-        specific_action_items = [] 
+        specific_action_items = []
         if not existing_action_items or forced_refresh:
             action_items = self.sales_action_items_service.get_action_items(sales_criterias)
             if action_items:
@@ -329,13 +302,13 @@ class LangsmithConsumer(GenieConsumer):
 
 
                 # Filter out None values and collect specific action items
-                logger.info(f"Specific action items for {person['uuid']} and tenant {seller_tenant_id}: {specific_action_items}")
+                logger.info(f"Specific action items for {person['uuid']} and tenant {seller_user_id}: {specific_action_items}")
                 if specific_action_items and len(specific_action_items) == len(action_items):
                     action_items = specific_action_items
                 else:  
                     logger.warning(f"Failed to get specific action items for all action items for prospect: {person['name']}")
                     raise Exception("Failed to get specific action items for all action items")
-                self.tenant_profiles_repository.update_sales_action_items(person['uuid'], seller_tenant_id, action_items)
+                self.user_profiles_repository.update_sales_action_items(person['uuid'], seller_user_id, action_items)
         
         profile_uuid = person.get("uuid")
 

@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from dateutil import parser
 import pytz
 
+from data.data_common.repositories.users_repository import UsersRepository
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
@@ -78,7 +80,8 @@ class MeetingManager(GenieConsumer):
         self.meetings_repository = meetings_repository()
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
-        self.tenant_repository = tenants_repository()
+        # self.tenant_repository = tenants_repository()
+        self.users_repository = UsersRepository()
         self.profiles_repository = profiles_repository()
         self.ownerships_repository = ownerships_repository()
         self.langsmith = Langsmith()
@@ -94,9 +97,9 @@ class MeetingManager(GenieConsumer):
             case Topic.NEW_MEETINGS_TO_PROCESS:
                 logger.info("Handling new meetings to process")
                 await self.handle_new_meetings_to_process(event)
-            case Topic.NEW_MEETING:
-                logger.info("Handling new person")
-                await self.handle_new_meeting(event)
+            # case Topic.NEW_MEETING:
+            #     logger.info("Handling new person")
+            #     await self.handle_new_meeting(event)
             case Topic.PDL_UP_TO_DATE_ENRICHED_DATA:
                 logger.info("Handling PDL up to date enriched data")
                 await self.create_goals_from_new_personal_data(event)
@@ -134,8 +137,10 @@ class MeetingManager(GenieConsumer):
             event_body = json.loads(event_body)
         meetings = event_body.get("meetings")
 
-        tenant_id = event_body.get("tenant_id")
-        self_email = self.tenant_repository.get_tenant_email(tenant_id)
+        # tenant_id = event_body.get("tenant_id")
+        user_id = event_body.get("user_id") or logger.get_user_id()
+        tenant_id = event_body.get("tenant_id") or logger.get_tenant_id()
+        self_email = self.users_repository.get_email_by_user_id(user_id)
         emails_to_send_events = []
         meetings_dto_to_check_deletion = []  # List of meetings to check if they need to be deleted
 
@@ -149,42 +154,40 @@ class MeetingManager(GenieConsumer):
 
         # Sort meetings by the start time
         meetings = sorted(meetings, key=lambda m: get_start_time(m) or datetime.max.replace(tzinfo=pytz.UTC))
-        tasks = [self.handle_meeting_to_process(meeting, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id) for meeting in meetings]
+        tasks = [self.handle_meeting_to_process(meeting, emails_to_send_events, meetings_dto_to_check_deletion, user_id, tenant_id) for meeting in meetings]
         await asyncio.gather(*tasks)
         event_batch = EventHubBatchManager()
 
         logger.info(f"Emails to send events: {emails_to_send_events}")
         event = GenieEvent(
             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-            data={"tenant_id": tenant_id, "email": self_email},
+            data={"user_id": user_id, "email": self_email},
         )
         event_batch.queue_event(event)
 
         for email in emails_to_send_events:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data={"tenant_id": tenant_id, "email": email},
+                data={"user_id": user_id, "email": email},
             )
             event_batch.queue_event(event)
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": tenant_id, "email": email},
+                data={"user_id": user_id, "email": email},
             )
             event_batch.queue_event(event)
         await event_batch.send_batch()
         self.handle_check_meetings_to_delete(meetings_dto_to_check_deletion, tenant_id)
         return {"status": "success"}
 
-    async def handle_meeting_to_process(self, meeting: MeetingDTO, emails_to_send_events, meetings_dto_to_check_deletion, tenant_id):
+    async def handle_meeting_to_process(self, meeting: MeetingDTO, emails_to_send_events, meetings_dto_to_check_deletion,
+                                        user_id, tenant_id):
         if isinstance(meeting, str):
             meeting = json.loads(meeting)
-        meeting = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-        meetings_dto_to_check_deletion.append(
-            meeting
-        )  # Save the meeting to the list of meetings that we later verify if they need to be deleted
+        meeting = MeetingDTO.from_google_calendar_event(event=meeting, user_id=user_id, tenant_id=tenant_id)
+        meetings_dto_to_check_deletion.append(meeting)  # Save the meeting to the list of meetings that we later verify if they need to be deleted
         meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-            meeting.google_calendar_id, meeting.user_id
-        )
+            meeting.google_calendar_id, meeting.user_id)
         if meeting_in_database:
             if tenant_id != meeting_in_database.tenant_id:
                 logger.info(f"Meeting exists in another tenant: {meeting_in_database.tenant_id}")
@@ -211,51 +214,51 @@ class MeetingManager(GenieConsumer):
         logger.info(f"Emails to process: {emails_to_process}")
         emails_to_send_events.extend(emails_to_process)
 
-    async def handle_new_meeting(self, event):
-        logger.info(f"Person processing event: {str(event)[:300]}")
-        meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
-        meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
-            meeting.google_calendar_id, meeting.user_id
-        )
-        if self.check_same_meeting(meeting, meeting_in_database):
-            logger.info("Meeting already in database")
-            return
-        self.meetings_repository.save_meeting(meeting)
-        participant_emails = meeting.participants_emails
-        try:
-            self_email = [email for email in participant_emails if email.get("self")][0].get("email")
-        except IndexError:
-            logger.error(f"Could not find self email in {participant_emails}")
-            return
-        self_domain = self_email.split("@")[1] if "@" in self_email else None
-        if self_domain:
-            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
-            emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
-        else:
-            emails_to_process = email_utils.filter_emails(self_email, participant_emails)
-        logger.info(f"Emails to process: {emails_to_process}")
-        for email in emails_to_process:
-            event = GenieEvent(
-                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-            )
-            event.send()
-            event = GenieEvent(
-                topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
-            )
-            event.send()
-        event = GenieEvent(
-            topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-            data={"tenant_id": meeting.tenant_id, "email": self_email},
-        )
-        event.send()
-        event = GenieEvent(
-            topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-            data={"tenant_id": meeting.tenant_id, "email": self_email},
-        )
-        event.send()
-        return {"status": "success"}
+    # async def handle_new_meeting(self, event):
+    #     logger.info(f"Person processing event: {str(event)[:300]}")
+    #     meeting = MeetingDTO.from_json(json.loads(event.body_as_str()))
+    #     meeting_in_database = self.meetings_repository.get_meeting_by_google_calendar_id(
+    #         meeting.google_calendar_id, meeting.user_id
+    #     )
+    #     if self.check_same_meeting(meeting, meeting_in_database):
+    #         logger.info("Meeting already in database")
+    #         return
+    #     self.meetings_repository.save_meeting(meeting)
+    #     participant_emails = meeting.participants_emails
+    #     try:
+    #         self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+    #     except IndexError:
+    #         logger.error(f"Could not find self email in {participant_emails}")
+    #         return
+    #     self_domain = self_email.split("@")[1] if "@" in self_email else None
+    #     if self_domain:
+    #         additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+    #         emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
+    #     else:
+    #         emails_to_process = email_utils.filter_emails(self_email, participant_emails)
+    #     logger.info(f"Emails to process: {emails_to_process}")
+    #     for email in emails_to_process:
+    #         event = GenieEvent(
+    #             topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+    #             data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
+    #         )
+    #         event.send()
+    #         event = GenieEvent(
+    #             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+    #             data={"tenant_id": meeting.tenant_id, "email": email.get("email")},
+    #         )
+    #         event.send()
+    #     event = GenieEvent(
+    #         topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+    #         data={"tenant_id": meeting.tenant_id, "email": self_email},
+    #     )
+    #     event.send()
+    #     event = GenieEvent(
+    #         topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+    #         data={"tenant_id": meeting.tenant_id, "email": self_email},
+    #     )
+    #     event.send()
+    #     return {"status": "success"}
 
     async def create_goals_from_new_personal_data(self, event):
         logger.clean_cty_id()
@@ -263,10 +266,13 @@ class MeetingManager(GenieConsumer):
         event_body = json.loads(event.body_as_str())
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        tenant_id = event_body.get("tenant_id")
-        if not tenant_id:
-            tenant_id = logger.get_tenant_id()
-        seller_email = self.tenant_repository.get_tenant_email(tenant_id)
+        user_id = event_body.get("user_id")
+        if not user_id:
+            user_id = logger.get_user_id()
+        # tenant_id = event_body.get("tenant_id")
+        # if not tenant_id:
+        #     tenant_id = logger.get_tenant_id()
+        seller_email = self.users_repository.get_email_by_user_id(user_id)
         person = event_body.get("person")
         if not person:
             logger.error("No person in event")
@@ -283,7 +289,7 @@ class MeetingManager(GenieConsumer):
             self_email = self_email_list[0].get("email") if self_email_list else None
             if not self_email:
                 logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
-                self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+                self_email = seller_email
                 if not self_email:
                     logger.error(f"CRITICAL ERROR: No self email found for tenant: {meeting.tenant_id}")
                     continue
@@ -331,7 +337,8 @@ class MeetingManager(GenieConsumer):
             event_body = json.loads(event_body)
         company_uuid = event_body.get("company_uuid")
         force_refresh_goals = event_body.get("force_refresh_goals")
-        tenant_id = event_body.get("tenant_id")
+        # tenant_id = event_body.get("tenant_id")
+        user_id = event_body.get("user_id") or logger.get_user_id()
         if not company_uuid:
             logger.error("No company uuid in event")
             return
@@ -343,7 +350,8 @@ class MeetingManager(GenieConsumer):
         meetings_list = (
             self.meetings_repository.get_meetings_without_goals_by_company_domain(company.domain)
             if not force_refresh_goals
-            else self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
+            # else self.meetings_repository.get_all_future_external_meetings_for_tenant(tenant_id)
+            else self.meetings_repository.get_all_future_external_meetings_for_user(user_id)
         )
         if not meetings_list:
             logger.error(f"No meetings found for {company.domain}")
@@ -357,7 +365,7 @@ class MeetingManager(GenieConsumer):
             self_email = self_email_list[0].get("email") if self_email_list else None
             if not self_email:
                 logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
-                self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+                self_email = self.users_repository.get_email_by_user_id(meeting.user_id)
             self_domain = self_email.split("@")[1] if self_email else None
             if self_domain != company.domain:
                 logger.info(
@@ -435,10 +443,11 @@ class MeetingManager(GenieConsumer):
                 logger.error(f"No meeting goals found for {meeting.uuid}")
                 continue
             meeting_details = meeting.to_dict()
-            tenant_id = logger.get_tenant_id()
+            # tenant_id = logger.get_tenant_id()
+            user_id = meeting.user_id or logger.get_user_id()
             seller_context = None
-            if tenant_id:
-                seller_email = self.tenant_repository.get_tenant_email(tenant_id)
+            if user_id:
+                seller_email = self.users_repository.get_email_by_user_id(user_id)
                 seller_context = self.embeddings_client.search_materials_by_prospect_data(seller_email, profile)
                 seller_context = " || ".join(seller_context) if seller_context else None
             logger.info("About to run ask langsmith for guidelines")
@@ -493,7 +502,7 @@ class MeetingManager(GenieConsumer):
         self_email = self_email_list[0].get("email") if self_email_list else None
         if not self_email:
             logger.error(f"No self email found in for meeting: {meeting.uuid}, {meeting.subject}")
-            self_email = self.tenant_repository.get_tenant_email(meeting.tenant_id)
+            self_email = self.users_repository.get_email_by_user_id(meeting.user_id)
         self_domain = self_email.split("@")[1] if "@" in self_email else None
         if self_domain:
             additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
@@ -610,7 +619,7 @@ class MeetingManager(GenieConsumer):
         if not tenant_id:
             tenant_id = logger.get_tenant_id()
         logger.info(f"Tenant ID: {tenant_id}")
-        user_email = self.tenant_repository.get_tenant_email(tenant_id)
+        user_email = self.users_repository.get_email_by_tenant_id(tenant_id)
         if not user_email:
             logger.error(f"No user email found for tenant {tenant_id}")
             return
@@ -628,12 +637,12 @@ class MeetingManager(GenieConsumer):
             for person_id in unique_person_ids:
                 GenieEvent(
                     topic=Topic.NEW_PERSON_CONTEXT,
-                    data={"tenant_id": tenant_id, "company_uuid": company.uuid, "person_id": person_id, "force": True},
+                    data={"user_id": user_id, "company_uuid": company.uuid, "person_id": person_id, "force": True},
                 ).send()
 
         event = GenieEvent(
             topic=Topic.COMPANY_NEWS_UP_TO_DATE,
-            data={"tenant_id": tenant_id, "company_uuid": company.uuid, "force_refresh_goals": True},
+            data={"user_id": user_id, "company_uuid": company.uuid, "force_refresh_goals": True},
         )
         event.send()
         logger.info(f"Finished processing meetings for new embedded document: {tenant_id}")

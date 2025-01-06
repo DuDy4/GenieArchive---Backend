@@ -151,15 +151,7 @@ class TenantsApiService:
         )
         logger.info(f"Sending {len(meetings)} meetings to the processing queue")
         event.send()
-        # meetings_batch = EventHubBatchManager()
-        # for meeting in meetings:
-        #     meeting_dto = MeetingDTO.from_google_calendar_event(meeting, tenant_id)
-        #     event = GenieEvent(
-        #         topic=Topic.NEW_MEETING,
-        #         data=meeting_dto.to_dict(),
-        #     )
-        #     meetings_batch.queue_event(event)
-        # asyncio.run(meetings_batch.send_batch())
+
 
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")
