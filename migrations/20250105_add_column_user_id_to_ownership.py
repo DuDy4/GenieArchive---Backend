@@ -73,10 +73,10 @@ def upgrade():
             # Step 6: Copy rows back from ownerships_temp to ownerships
             cursor.execute("""
                 INSERT INTO ownerships (
-                    id, person_uuid, user_id, tenant_id
+                    person_uuid, user_id, tenant_id
                 )
                 SELECT
-                    id, person_uuid, user_id, tenant_id
+                    person_uuid, user_id, tenant_id
                 FROM 
                     ownerships_temp;
             """)

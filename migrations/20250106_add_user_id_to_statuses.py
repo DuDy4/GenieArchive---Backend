@@ -82,7 +82,7 @@ def upgrade():
                     object_id VARCHAR NOT NULL,
                     object_type VARCHAR,
                     user_id VARCHAR NOT NULL,
-                    tenant_id VARCHAR NOT NULL,
+                    tenant_id VARCHAR,
                     event_topic VARCHAR,
                     previous_event_topic VARCHAR,
                     current_event_start_time TIMESTAMPTZ,
@@ -94,11 +94,11 @@ def upgrade():
             # Step 6: Copy rows back from statuses_temp to statuses
             cursor.execute("""
                 INSERT INTO statuses (
-                    id, ctx_id, object_id, object_type, user_id, tenant_id,
+                    ctx_id, object_id, object_type, user_id, tenant_id,
                     event_topic, previous_event_topic, current_event_start_time, status, error_message
                 )
                 SELECT
-                    id, ctx_id, object_id, object_type, user_id, tenant_id,
+                    ctx_id, object_id, object_type, user_id, tenant_id,
                     event_topic, previous_event_topic, current_event_start_time, status, error_message
                 FROM 
                     statuses_temp;
