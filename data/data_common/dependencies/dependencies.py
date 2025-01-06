@@ -35,7 +35,6 @@ d_repository = DealsRepository()
 st_repository = StatusesRepository()
 
 
-
 def tenants_repository() -> TenantsRepository:
     return t_repository
 

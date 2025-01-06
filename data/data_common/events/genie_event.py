@@ -3,7 +3,7 @@ import os
 
 from azure.eventhub import EventHubProducerClient, EventData
 from common.genie_logger import GenieLogger
-from data.data_common.dependencies.dependencies import statuses_repository
+from data.data_common.repositories.statuses_repository import StatusesRepository
 from common.utils.event_utils import extract_object_id
 from common.utils import env_utils
 
@@ -27,7 +27,7 @@ class GenieEvent:
         self.cty_id = cty_id if cty_id else None
         self.tenant_id = logger.get_tenant_id() or (json.loads(data).get("tenant_id") if isinstance(data, str) else data.get("tenant_id"))
         self.previous_topic = logger.get_topic() or (json.loads(data).get("previous_topic") if isinstance(data, str) else data.get("previous_topic"))
-        self.statuses_repository = statuses_repository()
+        self.statuses_repository = StatusesRepository()
 
     def send(self):
         event_data_batch = producer.create_batch()
