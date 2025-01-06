@@ -155,9 +155,11 @@ class UsersApiService:
             self.google_creds_repository.update_last_fetch_meetings(user_email)
             return {"message": "No upcoming events found."}
         tenant_id = self.users_repository.get_user_by_email(user_email).tenant_id
+        user_id = self.users_repository.get_user_by_email(user_email).user_id
         logger.set_tenant_id(tenant_id)
+        logger.set_user_id(user_id)
         event = GenieEvent(
-            topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
+            topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "user_id": user_id, "meetings": meetings}
         )
         logger.info(f"Sending {len(meetings)} meetings to the processing queue")
         event.send()
