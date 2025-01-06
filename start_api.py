@@ -61,6 +61,7 @@ class JWTValidationMiddleware(BaseHTTPMiddleware):
             if payload:
                 request.state.user_email = jwt_utils.get_user_email(payload)
                 request.state.tenant_id = jwt_utils.get_tenant_id(payload)
+                request.state.user_id = jwt_utils.get_user_id(payload)
 
         response = await call_next(request)
         return response

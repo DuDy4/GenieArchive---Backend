@@ -12,6 +12,7 @@ ALGORITHMS = ["RS256"]
 CLAIM_NAMESPACE = "https://claims.genieai.ai/"
 EMAIL_CLAIM = CLAIM_NAMESPACE + "user_email"
 TENANT_ID_CLAIM = CLAIM_NAMESPACE + "tenant_id"
+USER_ID_CLAIM = "sub"
 
 
 
@@ -71,4 +72,9 @@ def get_user_email(payload: dict):
 def get_tenant_id(payload: dict):
     if payload:
         return get_claims(payload).get(TENANT_ID_CLAIM)
+    return None
+
+def get_user_id(payload: dict):
+    if payload:
+        return get_claims(payload).get(USER_ID_CLAIM)
     return None
