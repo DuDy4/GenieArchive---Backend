@@ -2,7 +2,7 @@ import json
 import os
 
 from azure.eventhub import EventHubProducerClient, EventData
-from common.genie_logger import GenieLogger, user_id
+from common.genie_logger import GenieLogger
 from data.data_common.repositories.statuses_repository import StatusesRepository
 from common.utils.event_utils import extract_object_id
 from common.utils import env_utils
@@ -52,7 +52,7 @@ class GenieEvent:
         if not object_id:
             return
         self.statuses_repository.start_status(ctx_id=self.ctx_id, object_id=object_id, object_type=object_type,
-                                              user_id=self.user_id, previous_event_topic=self.previous_topic,
+                                              user_id=self.user_id, tenant_id=self.tenant_id, previous_event_topic=self.previous_topic,
                                               next_event_topic=self.topic)
 
     def ensure_json_format(self, data):
