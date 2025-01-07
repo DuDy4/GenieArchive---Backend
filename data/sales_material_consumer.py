@@ -87,7 +87,7 @@ class SalesMaterialConsumer(GenieConsumer):
 
         file_uploaded_in_db = self.file_upload_repository.exists(file_upload_dto.file_hash)
         if file_uploaded_in_db:
-            logger.info(f"File already exists in the database")
+            logger.info(f"File already exists in the database. Deleting duplicates...")
             self.file_upload_repository.delete(file_upload_dto.uuid)
             return {"status": "error", "message": "File already exists in the database"}
 
@@ -101,6 +101,7 @@ class SalesMaterialConsumer(GenieConsumer):
         if file_categories:
             self.file_upload_repository.update_file_categories(str(file_upload_dto.uuid), file_categories)
             self.stats_api_service.file_category_uploaded_event(file_categories=file_categories,
+                                                                user_id=file_upload_dto.user_id,
                                                                 tenant_id=file_upload_dto.tenant_id,
                                                                 email=file_upload_dto.email)
         try:

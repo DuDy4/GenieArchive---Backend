@@ -10,7 +10,6 @@ from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 from sse_starlette.sse import EventSourceResponse
 
-
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse, RedirectResponse
 from fastapi import HTTPException
@@ -27,7 +26,7 @@ from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
 
-from common.genie_logger import GenieLogger
+from common.genie_logger import GenieLogger, tenant_id
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -226,7 +225,7 @@ async def login_event(
     user_info = await request.json()
     logger.info(f"Received user info: {user_info}")
     background_tasks.add_task(users_api_service.login_event, user_info)
-    background_tasks.add_task(stats_api_service.login_event, user_id=user_info.get("user_id"))
+    background_tasks.add_task(stats_api_service.login_event, user_id=user_info.get("user_id"), tenant_id=user_info.get("tenant_id"))
     return JSONResponse(content="Login event received. Updated credentials", status_code=200)
 
 

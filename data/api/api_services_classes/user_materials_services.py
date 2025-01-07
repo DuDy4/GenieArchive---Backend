@@ -9,6 +9,7 @@ from data.data_common.dependencies.dependencies import (
 )
 from common.utils.file_utils import get_file_name_from_url
 from common.genie_logger import GenieLogger
+from data.data_common.repositories.users_repository import UsersRepository
 from data.internal_services.files_upload_service import FileUploadService
 from fastapi import HTTPException
 from data.data_common.utils.str_utils import (
@@ -24,6 +25,7 @@ logger = GenieLogger()
 
 class UserMaterialServices:
     def __init__(self):
+        self.users_repository = UsersRepository()
         self.tenants_repository = tenants_repository()
         self.file_upload_repository = file_upload_repository()
 
@@ -55,6 +57,10 @@ class UserMaterialServices:
             if not tenant_id:
                 logger.error(f"Tenant ID not found the email: {user_email}")
                 continue
+            user_id = self.users_repository.get_user_by_email(user_email)
+            if not user_id:
+                logger.error(f"User ID not found the email: {user_email}")
+                continue
             upload_time_str = file.get("eventTime")
             if not upload_time_str:
                 logger.error(f"Upload time not found in the event data")
@@ -76,13 +82,14 @@ class UserMaterialServices:
                 file_content=None,
                 email=user_email,
                 tenant_id=tenant_id,
+                user_id=user_id.user_id,
                 upload_time=upload_time,
             )
 
             if self.file_upload_repository.exists_metadata(file_upload_dto):
                 logger.info(f"File already exists in the database")
                 continue
-            if file.file_name == "placeholder.txt":
+            if file_upload_dto.file_name == "placeholder.txt":
                 logger.info(f"Placeholder file uploaded. Skipping")
                 continue
             self.file_upload_repository.insert(file_upload_dto)
