@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from data.api.base_models import *
 
 from data.api.api_services_classes.meetings_api_services import MeetingsApiService
-from data.api.api_services_classes.tenants_api_services import TenantsApiService
+# from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
@@ -41,7 +41,7 @@ INTERNAL_API_KEY = env_utils.get("INTERNAL_API_KEY")
 v1_router = APIRouter(prefix="/v1")
 
 meetings_api_service = MeetingsApiService()
-tenants_api_service = TenantsApiService()
+# tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
@@ -893,12 +893,16 @@ def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str
     include_in_schema=False,
 )
 def import_google_meetings(
+    request: Request,
     user_id: str,
-    meetings_number: Optional[int] = Query(30, description="Number of meetings to fetch"),
+    meetings_number: Optional[int] = Query(20, description="Number of meetings to fetch"),
+    impersonate_user_id: Optional[str] = Query(None),
 ) -> JSONResponse:
     """
     Fetches all Google Calendar meetings for a given tenant.
     """
+    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
+    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
     logger.info(f"Meeting number: {meetings_number}")
     logger.info(f"Received Google meetings request for tenant: {user_id}")
     response = users_api_service.import_google_meetings(user_id, meetings_number)
