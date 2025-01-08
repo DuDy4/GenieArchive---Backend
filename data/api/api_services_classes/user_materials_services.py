@@ -82,9 +82,6 @@ class UserMaterialServices:
             if self.file_upload_repository.exists_metadata(file_upload_dto):
                 logger.info(f"File already exists in the database")
                 continue
-            if file.file_name == "placeholder.txt":
-                logger.info(f"Placeholder file uploaded. Skipping")
-                continue
             self.file_upload_repository.insert(file_upload_dto)
 
             logger.info(f"File upload DTO: {file_upload_dto}")
