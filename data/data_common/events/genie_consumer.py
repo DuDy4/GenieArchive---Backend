@@ -131,7 +131,9 @@ class GenieConsumer:
             if topic in Topic.PROFILE_CRITICAL:
                 traceback_str = traceback.format_exc()
                 await self.handle_failed_processing_profile_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)
-
+            if topic == Topic.NEW_MEETING_GOALS:
+                traceback_str = traceback.format_exc()
+                await self.handle_failed_processing_meeting_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)
             logger.error("Detailed traceback information:")
             traceback.print_exc()
         finally:
@@ -170,7 +172,22 @@ class GenieConsumer:
         event = GenieEvent(topic=Topic.PROFILE_ERROR, data=data_to_send)
         event.send()
 
-
+    async def handle_failed_processing_meeting_event(self, event, error_message, topic, traceback_logs):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        meeting_uuid = event_body.get("meeting_uuid")
+        data_to_send = {
+            "error": str(error_message),
+            "traceback": str(traceback_logs),
+            "event": event.body_as_str(),
+            "topic": str(topic),
+            "consumer_group": self.consumer_group,
+            "meeting_uuid": meeting_uuid,
+        }
+        event = GenieEvent(topic=Topic.MEETING_ERROR, data=data_to_send)
+        event.send()
 
     async def start(self):
         logger.info(f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}")
@@ -226,3 +243,5 @@ class GenieConsumer:
         except KeyboardInterrupt:
             logger.info("Received KeyboardInterrupt, stopping consumers.")
             await self.cleanup()
+
+

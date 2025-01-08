@@ -489,7 +489,7 @@ class MeetingManager(GenieConsumer):
         meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
         if not meeting:
             logger.error(f"No meeting found for {meeting_uuid}")
-            return
+            raise Exception(f"No meeting found for {meeting_uuid}")
         if not force_refresh_agenda and meeting.agenda:
             logger.error(f"Meeting {meeting.uuid} already has an agenda")
             return
