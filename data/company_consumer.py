@@ -101,7 +101,7 @@ class CompanyConsumer(GenieConsumer):
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
         email_address = event_body.get("email")
-        tenant_id = event_body.get("tenant_id")
+        # tenant_id = event_body.get("tenant_id")
         if not email_address:
             logger.error(f"Email address not found in event: {event_body}")
             return
