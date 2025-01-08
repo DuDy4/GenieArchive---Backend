@@ -122,7 +122,7 @@ class ProfilesApiService:
                     person_response = MiniPersonResponse.from_dict(person.to_dict())
                 mini_persons.append(person_response)
 
-        if not mini_profiles and not mini_persons:
+        if not mini_profiles and not mini_persons and meeting.classification.value == "external":
             logger.error("No profiles found in this meeting")
             raise HTTPException(
                 status_code=404,
