@@ -28,14 +28,15 @@ class StatsDTO(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     email: EmailStr
     tenant_id: str = Field(default="")
+    user_id: str = Field(default="")
 
-    @field_validator("entity_id", "email", "tenant_id")
+    @field_validator("entity_id", "email", "tenant_id", "user_id")
     def not_empty(cls, value):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
 
-    def to_tuple(self) -> Tuple[str, str, str, str, datetime, str, str]:
+    def to_tuple(self) -> Tuple[str, str, str, str, datetime, str, str, str]:
         return (
             str(self.uuid),
             self.action.value,
@@ -44,10 +45,11 @@ class StatsDTO(BaseModel):
             self.timestamp,
             self.email,
             self.tenant_id,
+            self.user_id
         )
 
     @classmethod
-    def from_tuple(cls, data: Tuple[UUID, str, str, str, datetime, str, str]) -> "StatsDTO":
+    def from_tuple(cls, data: Tuple[UUID, str, str, str, datetime, str, str, str]) -> "StatsDTO":
         return cls(
             uuid=data[0],
             action=ActionEnum(data[1]),
@@ -56,14 +58,33 @@ class StatsDTO(BaseModel):
             timestamp=data[4],
             email=data[5],
             tenant_id=data[6],
+            user_id=data[7]
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump()
+        return {
+            "uuid": str(self.uuid),
+            "action": self.action.value,
+            "entity": self.entity.value,
+            "entity_id": self.entity_id,
+            "timestamp": self.timestamp,
+            "email": self.email,
+            "tenant_id": self.tenant_id,
+            "user_id": self.user_id
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "StatsDTO":
-        return cls(**data)
+        return StatsDTO(
+            uuid=UUID(data.get("uuid")),
+            action=ActionEnum(data.get("action")),
+            entity=EntityEnum(data.get("entity")),
+            entity_id=data.get("entity_id"),
+            timestamp=data.get("timestamp"),
+            email=data.get("email"),
+            tenant_id=data.get("tenant_id"),
+            user_id=data.get("user_id")
+        )
 
     def to_json(self) -> str:
         return self.model_dump_json()

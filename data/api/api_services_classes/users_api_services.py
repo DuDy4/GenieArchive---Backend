@@ -3,18 +3,19 @@ import asyncio
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
-from data.data_common.dependencies.dependencies import tenants_repository, google_creds_repository
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+
+from data.data_common.data_transfer_objects.user_dto import UserDTO
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
 import datetime
-
-from data.internal_services.tenant_service import TenantService
+from data.data_common.repositories.users_repository import UsersRepository
+from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
 logger = GenieLogger()
 
@@ -22,10 +23,10 @@ REDIRECT_URI = env_utils.get("SELF_URL") + "/v1/google-oauth/callback"
 DEV_MODE = env_utils.get("DEV_MODE", "")
 
 
-class TenantsApiService:
+class UsersApiService:
     def __init__(self):
-        self.tenants_repository = tenants_repository()
-        self.google_creds_repository = google_creds_repository()
+        self.users_repository = UsersRepository()
+        self.google_creds_repository = GoogleCredsRepository()
         self.google_client_id = env_utils.get(f"GOOGLE_CLIENT_ID")
         self.google_client_secret = env_utils.get(f"GOOGLE_CLIENT_SECRET")
         self.email_google_client_id = env_utils.get(f"EMAIL_GOOGLE_CLIENT_ID")
@@ -42,13 +43,21 @@ class TenantsApiService:
         user_tenant_id = auth_claims.get("tenantId")
         user_name = auth_claims.get("userId")
         logger.info(f"Fetching google meetings for user email: {user_email}, tenant ID: {user_tenant_id}")
-        tenant_data = {
-            "tenantId": user_tenant_id,
-            "name": user_name,
-            "email": user_email,
-            "user_id": user_name,
-        }
-        self.tenants_repository.insert(tenant_data)
+        # tenant_data = {
+        #     "tenantId": user_tenant_id,
+        #     "name": user_name,
+        #     "email": user_email,
+        #     "user_id": user_name,
+        # }
+        # self.tenants_repository.insert(tenant_data)
+        user_data = UserDTO(
+            uuid=get_uuid4(),
+            user_id=user_name,
+            name=user_name,
+            email=user_email,
+            tenant_id=user_tenant_id,
+        )
+        self.users_repository.insert(user_data)
         self.fetch_google_meetings(user_email)
         response = {
             "claims": {
@@ -57,13 +66,14 @@ class TenantsApiService:
         }
         return response
 
-    def get_user_info(self, tenant_id):
-        tenant_email, tenant_name = self.tenants_repository.get_tenant_email_and_name(tenant_id)
-        return {"email": tenant_email, "name": tenant_name}
+    def get_user_info(self, user_id: str):
+        # tenant_email, tenant_name = self.tenants_repository.get_tenant_email_and_name(tenant_id)
+        user_email, user_name = self.users_repository.get_user_email_and_name(user_id)
+        return {"email": user_email, "name": user_name}
 
-    def update_user_reminder_subscription(self, tenant_id: str, reminder_subscription: bool):
+    def update_user_reminder_subscription(self, user_id: str, reminder_subscription: bool):
         try:
-            self.tenants_repository.update_reminder_subscription(tenant_id, reminder_subscription)
+            self.users_repository.update_reminder_subscription(user_id, reminder_subscription)
             return {"status": "success", "message": "Reminder subscription updated successfully"}
         except Exception as e:
             logger.error(f"Error updating reminder subscription: {str(e)}")
@@ -144,25 +154,18 @@ class TenantsApiService:
         if not meetings:
             self.google_creds_repository.update_last_fetch_meetings(user_email)
             return {"message": "No upcoming events found."}
-        tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
-        logger.set_tenant_id(tenant_id)
-        event = GenieEvent(
-            topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
-        )
+        user = self.users_repository.get_user_by_email(user_email)
+        logger.set_tenant_id(user.tenant_id)
+        logger.set_user_id(user.user_id)
+        event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": user.tenant_id,
+                                                                      "user_id": user.user_id, "meetings": meetings})
         logger.info(f"Sending {len(meetings)} meetings to the processing queue")
         event.send()
-
 
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")
 
         return {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
-
-    def create_tenant(self, tenant_data):
-        tenant_id = tenant_data.get("tenantId")
-        if not tenant_id:
-            raise HTTPException(status_code=400, detail="Missing tenant ID")
-        self.tenants_repository.insert(tenant_data)
 
     def login_event(self, user_info):
         try:
@@ -174,46 +177,41 @@ class TenantsApiService:
             tenant_id = user_info.get("tenant_id")
             tenant_name = user_info.get("tenant_name")
 
+            user_dto = UserDTO(
+                uuid=get_uuid4(),
+                user_id=user_id,
+                name=user_name,
+                email=user_email,
+                tenant_id=tenant_id,
+            )
+
             if not user_email or not tenant_id:
                 raise HTTPException(status_code=400, detail="Missing user email or tenant ID")
 
-            if self.tenants_repository.exists(tenant_id):
+            if self.users_repository.exists(user_id):
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
                 self.fetch_google_meetings(user_email)
-            elif self.tenants_repository.email_exists(user_email):
-
-                old_tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
-                TenantService.changed_old_tenant_to_new_tenant(
-                    new_tenant_id=tenant_id, old_tenant_id=old_tenant_id, user_id=user_id, user_name=user_name
-                )
+            elif self.users_repository.email_exists(user_email):
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
             else:
-                if not tenant_id or (not user_name and not user_email and not user_id):
+                if not user_id or (not user_name and not user_email and not tenant_id):
                     raise HTTPException(
                         status_code=400,
                         detail="Missing tenant ID or Credentials",
                     )
                 # Signup new user
-                self.tenants_repository.insert(
-                    {
-                        "uuid": get_uuid4(),
-                        "tenantId": tenant_id,
-                        "user_name": user_name,
-                        "email": user_email,
-                        "user_id": user_id,
-                    }
-                )
+                self.users_repository.insert(user_dto)
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
 
         except Exception as e:
             logger.error(f"Error during login event: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-    def import_google_meetings(self, tenant_id, meetings_num=30):
-        tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
-        if not tenant_email:
+    def import_google_meetings(self, user_id, meetings_num=30):
+        user_id = self.users_repository.get_email_by_user_id(user_id)
+        if not user_id:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        return self.fetch_google_meetings(tenant_email, meetings_num)
+        return self.fetch_google_meetings(user_id, meetings_num)
 
     def start_google_oauth(self):
         """Initiates the OAuth flow and returns an authorization URL."""

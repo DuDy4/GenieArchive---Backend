@@ -14,6 +14,8 @@ from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
+from data.data_common.data_transfer_objects.user_dto import UserDTO
+from data.data_common.repositories.users_repository import UsersRepository
 from data.internal_scripts.fetch_social_media_news import (
     fetch_linkedin_posts,
     get_all_uuids_that_should_try_posts,
@@ -45,6 +47,7 @@ logger = GenieLogger()
 
 class AdminApiService:
     def __init__(self):
+        self.users_repository = UsersRepository()
         self.tenants_repository = tenants_repository()
         self.google_creds_repo = google_creds_repository()
         self.persons_repository = persons_repository()
@@ -112,18 +115,28 @@ class AdminApiService:
             return {"error": "Person not found"}
         logger.info(f"Got person: {person}")
         if person.linkedin:
-            all_tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
-            logger.info(f"Got tenants: {all_tenants}")
-            if not all_tenants or len(all_tenants) == 0:
-                logger.error(f"Person does not have any tenants: {person_uuid}")
-                return {"error": "Person does not have any tenants"}
-            for tenant in all_tenants:
+            # all_tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+            all_users = self.ownerships_repository.get_users_for_person(person_uuid)
+            # logger.info(f"Got tenants: {all_tenants}, users: {all_users}")
+            # if not all_tenants or len(all_tenants) == 0:
+            #     logger.error(f"Person does not have any tenants: {person_uuid}")
+            #     return {"error": "Person does not have any tenants"}
+            for user in all_users:
                 data_to_send ={
-                    "tenant_id": tenant,
+                    "user_id": user.get("user_id"),
+                    "tenant_id": user.get("tenant_id"),
                     "person": person.to_dict(),
                 }
                 event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
                 event.send()
+
+            # for tenant in all_tenants:
+            #     data_to_send ={
+            #         "tenant_id": tenant,
+            #         "person": person.to_dict(),
+            #     }
+            #     event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
+            #     event.send()
         else:
             logger.error(f"Person does not have a LinkedIn URL")
             return {"error": "Person does not have a LinkedIn URL"}
@@ -136,14 +149,16 @@ class AdminApiService:
             logger.error(f"Person not found: {person_uuid}")
             return {"error": "Person not found"}
         logger.info(f"Got person: {person}")
-        tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
-        if not tenants or len(tenants) == 0:
-            logger.error(f"Person does not have any tenants: {person_uuid}")
-            return {"error": "Person does not have any tenants"}
-        for tenant_id in tenants:
+        # tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+        users = self.ownerships_repository.get_users_for_person(person_uuid)
+        # needs to change here
+        # if not tenants or len(tenants) == 0:
+        #     logger.error(f"Person does not have any tenants: {person_uuid}")
+        #     return {"error": "Person does not have any tenants"}
+        for user in users:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": tenant_id, "email": person.email},
+                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "email": person.email},
             )
             event.send()
         return {"message": "Email sync initiated for " + person.email}
@@ -158,6 +173,11 @@ class AdminApiService:
     def fetch_all_tenants(self):
         all_tenants = self.tenants_repository.get_all_tenants()
         response = {"admin": True, "tenants": [tenant.to_dict() for tenant in all_tenants]}
+        return response
+
+    def fetch_all_users(self):
+        all_users = self.users_repository.get_all_users()
+        response = {"admin": True, "users": [user.to_dict() for user in all_users]}
         return response
 
     def process_meeting_from_scratch(self, meeting: MeetingDTO):
@@ -223,7 +243,7 @@ class AdminApiService:
         return {"status": f"success. evaluated classification for {len(meetings)} meetings"}
 
     def process_new_classification_to_all_meetings(self):
-        meetings = self.meetings_repository.get_all_meetings()
+        meetings = self.meetings_repository._get_all_meetings()
         for meeting in meetings:
             classification = evaluate_meeting_classification(meeting.participants_emails)
             meeting.classification = classification
@@ -408,3 +428,5 @@ class AdminApiService:
     def update_action_item(self, tenant_id, uuid, criteria, description):
         result = self.tenant_profiles_repository.update_sales_action_item_description(tenant_id, uuid, criteria, description)
         return {"status": "success"} if result else {"error": str(result)}
+
+

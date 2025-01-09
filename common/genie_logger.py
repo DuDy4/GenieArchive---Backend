@@ -28,6 +28,7 @@ endpoint = ContextVar("endpoint", default=None)
 email = ContextVar("email", default=None)
 function = ContextVar("function_name", default=None)
 tenant_id = ContextVar("tenant_id", default=None)
+user_id = ContextVar("user_id", default=None)
 
 class GenieLogger:
     def __init__(self):
@@ -56,6 +57,9 @@ class GenieLogger:
     
     def get_tenant_id(self):
         return tenant_id.get()
+
+    def get_user_id(self):
+        return user_id.get()
 
     def generate_short_context_id(self):
         full_uuid = str(uuid.uuid4())
@@ -101,6 +105,10 @@ class GenieLogger:
     def set_tenant_id(self, tenant_id_value):
         if tenant_id_value:
             tenant_id.set(tenant_id_value)
+
+    def set_user_id(self, user_id_value):
+        if user_id_value:
+            user_id.set(user_id_value)
 
     def bind_context(self, ctx_id=None):
         if ctx_id is None:

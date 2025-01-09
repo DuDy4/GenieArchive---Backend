@@ -9,6 +9,7 @@ from data.data_common.data_transfer_objects.badges_dto import (
 )
 from common.utils.str_utils import get_uuid4
 from common.genie_logger import GenieLogger
+from data.data_common.repositories.users_repository import UsersRepository
 
 logger = GenieLogger()
 
@@ -17,16 +18,17 @@ class BadgesApiService:
     def __init__(self):
         self.badges_repository = badges_repository()
         self.stats_repository = stats_repository()
-        self.tenants_repository = tenants_repository()
+        # self.tenants_repository = tenants_repository()
+        self.users_repository = UsersRepository()
 
-    def get_user_badges_status(self, tenant_id: str) -> list[DetailedUserBadgeProgressDTO]:
+    def get_user_badges_status(self, user_id: str) -> list[DetailedUserBadgeProgressDTO]:
         """
         Get all badges for a user.
 
-        :param tenant_id: The ID of the tenant/user.
+        :param user_id: The ID of the tenant/user.
         :return: A list of badge DTOs.
         """
-        email = self.tenants_repository.get_tenant_email(tenant_id)
+        email = self.users_repository.get_email_by_user_id(user_id)
         badges_progress = self.badges_repository.get_user_all_current_badges_progress(email)
         logger.info(f"User {email} has {badges_progress}")
         formatted_badges = []
@@ -50,26 +52,26 @@ class BadgesApiService:
         logger.info(f"User {email} has {len(formatted_badges)} badges")
         return formatted_badges
     
-    def mark_badges_as_seen(self, tenant_id: str):
+    def mark_badges_as_seen(self, user_id: str):
         """
         Marks a badge as seen by the user.
 
-        :param tenant_id: The ID of the tenant/user.
+        :param user_id: The ID of the tenant/user.
         :param badge_id: The ID of the badge to mark as seen.
         """
-        email = self.tenants_repository.get_tenant_email(tenant_id)
+        email = self.users_repository.get_email_by_user_id(user_id)
         if self.badges_repository.mark_badges_as_seen(email):
             logger.info(f"Marked badges as seen for user {email}")
 
 
-    def get_unseen_badges(self, tenant_id: str) -> list[str]:
+    def get_unseen_badges(self, user_id: str) -> list[str]:
         """
         Returns any unseen badges for a user.
 
-        :param tenant_id: The ID of the tenant/user.
+        :param user_id: The ID of the tenant/user.
         :return: list of unseen badges
         """
-        email = self.tenants_repository.get_tenant_email(tenant_id)
+        email = self.users_repository.get_email_by_user_id(user_id)
         return self.badges_repository.get_unseen_badges(email)
 
     def handle_event(self, email: str, action: str, entity: str, entity_id: str):

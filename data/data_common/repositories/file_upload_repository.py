@@ -22,6 +22,7 @@ class FileUploadRepository:
             upload_time_epoch BIGINT,
             upload_timestamp TIMESTAMP,
             email VARCHAR,
+            user_id VARCHAR NOT NULL,
             tenant_id VARCHAR,
             status VARCHAR DEFAULT 'UPLOADED' NOT NULL,
             categories JSONB DEFAULT '[]'::JSONB NOT NULL
@@ -37,8 +38,8 @@ class FileUploadRepository:
 
     def insert(self, file_upload: FileUploadDTO) -> str | None:
         insert_query = """
-        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO file_uploads (uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, user_id, tenant_id, status, categories)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         file_data = (
@@ -48,6 +49,7 @@ class FileUploadRepository:
             file_upload.upload_time_epoch,
             file_upload.upload_timestamp,
             file_upload.email,
+            file_upload.user_id,
             file_upload.tenant_id,
             file_upload.status.value,
             file_upload.categories,
@@ -84,7 +86,7 @@ class FileUploadRepository:
 
     def get_files_by_email(self, email: str) -> list[FileUploadDTO] | None:
         select_query = """
-        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, user_id, tenant_id, status, categories
         FROM file_uploads
         WHERE email = %s;
         """
@@ -102,8 +104,10 @@ class FileUploadRepository:
                                 upload_time_epoch=file[3],
                                 upload_timestamp=file[4],
                                 email=file[5],
-                                tenant_id=file[6],
-                                status=file[7],
+                                user_id=file[6],
+                                tenant_id=file[7],
+                                status=file[8],
+                                categories=file[9] if file[9] else [],
                             )
                             for file in files
                         ]
@@ -133,7 +137,7 @@ class FileUploadRepository:
 
     def get_all_files_by_tenant_id(self, tenant_id: str) -> list[FileUploadDTO] | None:
         select_query = """
-        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, user_id, tenant_id, status, categories
         FROM file_uploads
         WHERE tenant_id = %s
         AND file_name <> 'placeholder.txt';
@@ -152,9 +156,10 @@ class FileUploadRepository:
                                 upload_time_epoch=file[3],
                                 upload_timestamp=file[4],
                                 email=file[5],
-                                tenant_id=file[6],
-                                status=file[7],
-                                categories=file[8] if file[8] else [],
+                                user_id=file[6],
+                                tenant_id=file[7],
+                                status=file[8],
+                                categories=file[9] if file[9] else [],
                             )
                             for file in files
                         ]
@@ -164,9 +169,42 @@ class FileUploadRepository:
                 traceback.print_exc()
                 return None
 
+    def get_all_files_by_user_id(self, user_id: str) -> list[FileUploadDTO] | None:
+        select_query = """
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, user_id, tenant_id, status, categories
+        FROM file_uploads
+        WHERE user_id = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (user_id,))
+                    files = cursor.fetchall()
+                    if files:
+                        return [
+                            FileUploadDTO(
+                                uuid=file[0],
+                                file_name=file[1],
+                                file_hash=file[2],
+                                upload_time_epoch=file[3],
+                                upload_timestamp=file[4],
+                                email=file[5],
+                                user_id=file[6],
+                                tenant_id=file[7],
+                                status=file[8],
+                                categories=file[9] if file[9] else [],
+                            )
+                            for file in files
+                        ]
+                    return None
+            except psycopg2.Error as error:
+                logger.error(f"Error getting all files by user id: {error}")
+                traceback.print_exc()
+                return None
+
     def get_all_files(self) -> list[FileUploadDTO] | None:
         select_query = """
-        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, tenant_id, status, categories
+        SELECT uuid, file_name, file_hash, upload_time_epoch, upload_timestamp, email, user_id, tenant_id, status, categories
         FROM file_uploads;
         """
         with db_connection() as conn:
@@ -183,9 +221,10 @@ class FileUploadRepository:
                                 upload_time_epoch=file[3],
                                 upload_timestamp=file[4],
                                 email=file[5],
-                                tenant_id=file[6],
-                                status=file[7],
-                                categories=file[8] if file[8] else [],
+                                user_id=file[6],
+                                tenant_id=file[7],
+                                status=file[8],
+                                categories=file[9] if file[9] else [],
                             )
                             for file in files
                         ]

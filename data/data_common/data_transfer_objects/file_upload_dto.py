@@ -35,16 +35,17 @@ class FileUploadDTO(BaseModel):
     upload_time_epoch: int  # Epoch time in seconds
     email: EmailStr
     tenant_id: str
+    user_id: str
     status: FileStatusEnum
     categories: List[FileCategoryEnum] = []
 
-    @field_validator("file_name", "email", "tenant_id")
+    @field_validator("file_name", "email", "tenant_id", "user_id")
     def not_empty(cls, value):
         if not value.strip():
             raise ValueError("Field cannot be empty or whitespace")
         return value
 
-    def to_tuple(self) -> Tuple[str, str, Optional[str], datetime, int, str, str, str, List[str]]:
+    def to_tuple(self) -> Tuple[str, str, Optional[str], datetime, int, str, str, str, str, List[str]]:
         return (
             str(self.uuid),
             self.file_name,
@@ -53,13 +54,14 @@ class FileUploadDTO(BaseModel):
             self.upload_time_epoch,
             self.email,
             self.tenant_id,
+            self.user_id,
             str(self.status),
             self.categories,
         )
 
     @classmethod
     def from_tuple(
-        cls, data: Tuple[UUID, str, Optional[str], datetime, int, str, str, List[str]]
+        cls, data: Tuple[UUID, str, Optional[str], datetime, int, str, str, str, List[str]]
     ) -> "FileUploadDTO":
         return cls(
             uuid=data[0],
@@ -69,8 +71,9 @@ class FileUploadDTO(BaseModel):
             upload_time_epoch=data[4],
             email=data[5],
             tenant_id=data[6],
-            status=FileStatusEnum(data[7]),
-            categories=data[8] if data[8] else [],
+            user_id=data[7],
+            status=FileStatusEnum(data[8]),
+            categories=data[9] if data[9] else [],
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -82,13 +85,25 @@ class FileUploadDTO(BaseModel):
             "upload_time_epoch": self.upload_time_epoch,
             "email": self.email,
             "tenant_id": self.tenant_id,
+            "user_id": self.user_id,
             "status": self.status,
             "categories": self.categories if self.categories else [],
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "FileUploadDTO":
-        return cls(**data)
+        return FileUploadDTO(
+            uuid=UUID(data.get("uuid")),
+            file_name=data.get("file_name"),
+            file_hash=data.get("file_hash"),
+            upload_timestamp=datetime.fromisoformat(data.get("upload_timestamp")),
+            upload_time_epoch=data.get("upload_time_epoch"),
+            email=data.get("email"),
+            tenant_id=data.get("tenant_id"),
+            user_id=data.get("user_id"),
+            status=FileStatusEnum(data.get("status")),
+            categories=data.get("categories") if data.get("categories") else [],
+        )
 
     @staticmethod
     def from_file(
@@ -96,6 +111,7 @@ class FileUploadDTO(BaseModel):
         file_content: Optional[str],
         email: EmailStr,
         tenant_id: str,
+        user_id: str,
         upload_time=datetime.now(),
     ) -> "FileUploadDTO":
         file_hash = FileUploadDTO.calculate_hash(file_content) if file_content else None
@@ -108,6 +124,7 @@ class FileUploadDTO(BaseModel):
             upload_time_epoch=int(upload_timestamp.timestamp()),
             email=email,
             tenant_id=tenant_id,
+            user_id=user_id,
             status=FileStatusEnum.UPLOADED,
             categories=[],
         )

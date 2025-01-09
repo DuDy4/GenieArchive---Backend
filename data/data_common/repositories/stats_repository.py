@@ -26,7 +26,8 @@ class StatsRepository:
             entity_id VARCHAR,
             timestamp TIMESTAMP,
             email VARCHAR,
-            tenant_id VARCHAR
+            tenant_id VARCHAR,
+            user_id VARCHAR NOT NULL
         );
         """
         with db_connection() as conn:
@@ -39,8 +40,8 @@ class StatsRepository:
 
     def insert(self, stats: StatsDTO) -> str | None | UUID:
         insert_query = """
-        INSERT INTO stats (uuid, action, entity, entity_id, timestamp, email, tenant_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO stats (uuid, action, entity, entity_id, timestamp, email, tenant_id, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
         stats_data = stats.to_tuple()

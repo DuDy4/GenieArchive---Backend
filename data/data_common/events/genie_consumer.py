@@ -89,7 +89,7 @@ class GenieConsumer:
                 self.current_event = event
                 decoded_topic = topic.decode("utf-8")
                 decoded_ctx_id = None
-                decoded_tenant_id = None
+                decoded_user_id = None
                 if b"ctx_id" in event.properties:
                     ctx_id = event.properties.get(b"ctx_id")
                     if ctx_id:
@@ -105,15 +105,20 @@ class GenieConsumer:
                     if tenant_id:
                         decoded_tenant_id = tenant_id.decode("utf-8")
                         logger.set_tenant_id(decoded_tenant_id)
+                if b"user_id" in event.properties:
+                    user_id = event.properties.get(b"user_id")
+                    if user_id:
+                        decoded_user_id = user_id.decode("utf-8")
+                        logger.set_user_id(decoded_user_id)
                 logger.set_topic(decoded_topic)
                 logger.info(f"TOPIC={decoded_topic} | About to process event: {str(event)[:300]}")
                 object_id, object_type = extract_object_id(event.body_as_str())
-                # self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
-                #                                        tenant_id=decoded_tenant_id, status=StatusEnum.PROCESSING)
+                self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
+                                                       user_id=decoded_user_id, status=StatusEnum.PROCESSING)
                 event_result = await self.process_event(event)
                 logger.info(f"Event processed. Result: {event_result}")
                 self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=decoded_topic,
-                                                       tenant_id=decoded_tenant_id, status=StatusEnum.COMPLETED)
+                                                       user_id=decoded_user_id, status=StatusEnum.COMPLETED)
             else:
                 topic = topic.decode("utf-8") if topic else None
                 logger.info(f"Skipping topic [{topic}]. Consumer group: {self.consumer_group}")
@@ -122,11 +127,13 @@ class GenieConsumer:
             topic = topic.decode("utf-8") if topic else None
             object_id, object_type = extract_object_id(event.body_as_str())
             self.statuses_repository.update_status(ctx_id=decoded_ctx_id, object_id=object_id, event_topic=topic,
-                                                   tenant_id=decoded_tenant_id, status=StatusEnum.FAILED, error_message=str(e))
+                                                   user_id=decoded_user_id, status=StatusEnum.FAILED, error_message=str(e))
             if topic in Topic.PROFILE_CRITICAL:
                 traceback_str = traceback.format_exc()
                 await self.handle_failed_processing_profile_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)
-
+            if topic == Topic.NEW_MEETING_GOALS:
+                traceback_str = traceback.format_exc()
+                await self.handle_failed_processing_meeting_event(event=event, error_message=e, topic=topic, traceback_logs=traceback_str)
             logger.error("Detailed traceback information:")
             traceback.print_exc()
         finally:
@@ -165,7 +172,22 @@ class GenieConsumer:
         event = GenieEvent(topic=Topic.PROFILE_ERROR, data=data_to_send)
         event.send()
 
-
+    async def handle_failed_processing_meeting_event(self, event, error_message, topic, traceback_logs):
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        meeting_uuid = event_body.get("meeting_uuid")
+        data_to_send = {
+            "error": str(error_message),
+            "traceback": str(traceback_logs),
+            "event": event.body_as_str(),
+            "topic": str(topic),
+            "consumer_group": self.consumer_group,
+            "meeting_uuid": meeting_uuid,
+        }
+        event = GenieEvent(topic=Topic.MEETING_ERROR, data=data_to_send)
+        event.send()
 
     async def start(self):
         logger.info(f"Starting consumer for topics: {self.topics} on group: {self.consumer_group}")
@@ -221,3 +243,5 @@ class GenieConsumer:
         except KeyboardInterrupt:
             logger.info("Received KeyboardInterrupt, stopping consumers.")
             await self.cleanup()
+
+

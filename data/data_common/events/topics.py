@@ -122,5 +122,7 @@ class Topic:
 
     FILE_UPLOADED = "file-uploaded"
     AI_TOKEN_ERROR = "ai-token-error"
+    MEETING_ERROR = "meeting-error"
+
 
 

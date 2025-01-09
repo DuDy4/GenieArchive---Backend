@@ -14,6 +14,8 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
     hobbies_repository,
 )
+from data.data_common.repositories.users_repository import UsersRepository
+from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
 from fastapi import HTTPException
 
 from common.genie_logger import GenieLogger
@@ -25,58 +27,60 @@ logger = GenieLogger()
 class ProfilesApiService:
     def __init__(self):
         self.profiles_repository = profiles_repository()
-        self.tenant_profiles_repository = tenant_profiles_repository()
+        # self.tenant_profiles_repository = tenant_profiles_repository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
-        self.tenants_repository = tenants_repository()
+        # self.tenants_repository = tenants_repository()
+        self.users_repository = UsersRepository()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.hobbies_repository = hobbies_repository()
 
-    def get_profiles_for_meeting(self, tenant_id, meeting_id):
+    # def get_profiles_for_meeting(self, user_id, meeting_uuid):
+    #     meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
+    #     if not meeting:
+    #         logger.error(f"Meeting not found for meeting_id: {meeting_uuid}")
+    #         raise HTTPException(status_code=404, detail="Meeting not found")
+    #     if meeting.user_id != user_id:
+    #         logger.error(f"Tenant mismatch for meeting_id: {meeting_uuid}, tenant_id: {user_id}")
+    #         raise HTTPException(status_code=403, detail="Tenant mismatch")
+    #
+    #     user_email = self.users_repository.get_email_by_user_id(user_id)
+    #     logger.info(f"User email: {user_email}")
+    #     participants_emails = meeting.participants_emails
+    #     user_domain = user_email.split("@")[1]
+    #
+    #     # Get additional domains in case the same company has multiple domains (or old ones)
+    #     additional_domains = self.companies_repository.get_additional_domains(user_domain)
+    #     filtered_participants_emails = filter_emails_with_additional_domains(user_email, participants_emails, additional_domains)
+    #     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
+    #     filtered_emails = filtered_participants_emails
+    #     logger.info(f"Filtered emails: {filtered_emails}")
+    #     persons = []
+    #     for email in filtered_emails:
+    #         person = self.persons_repository.find_person_by_email(email)
+    #         if person:
+    #             persons.append(person)
+    #     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
+    #     profiles = []
+    #     for person in persons:
+    #         profile = self.profiles_repository.get_profile_data(person.uuid)
+    #         logger.info(f"Got profile: {str(profile)[:300]}")
+    #         if profile:
+    #             profiles.append(profile)
+    #     persons_to_send = [person for person in persons if person.uuid not in [profile.uuid for profile in profiles]]
+    #     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
+    #     return [MiniProfileResponse.from_profile_dto(profiles[i], persons_to_send[i]) for i in range(len(profiles))]
+
+    def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
         if not meeting:
             logger.error(f"Meeting not found for meeting_id: {meeting_id}")
             raise HTTPException(status_code=404, detail="Meeting not found")
-        if meeting.tenant_id != tenant_id:
-            logger.error(f"Tenant mismatch for meeting_id: {meeting_id}, tenant_id: {tenant_id}")
-            raise HTTPException(status_code=403, detail="Tenant mismatch")
-
-        tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
-        logger.info(f"Tenant email: {tenant_email}")
-        participants_emails = meeting.participants_emails
-        tenant_domain = tenant_email.split("@")[1]
-
-        # Get additional domains in case the same company has multiple domains (or old ones)
-        additional_domains = self.companies_repository.get_additional_domains(tenant_domain)
-        filtered_participants_emails = filter_emails_with_additional_domains(tenant_email, participants_emails, additional_domains)
-        logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-        filtered_emails = filtered_participants_emails
-        logger.info(f"Filtered emails: {filtered_emails}")
-        persons = []
-        for email in filtered_emails:
-            person = self.persons_repository.find_person_by_email(email)
-            if person:
-                persons.append(person)
-        logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
-        profiles = []
-        for person in persons:
-            profile = self.profiles_repository.get_profile_data(person.uuid)
-            logger.info(f"Got profile: {str(profile)[:300]}")
-            if profile:
-                profiles.append(profile)
-        persons_to_send = [person for person in persons if person.uuid not in [profile.uuid for profile in profiles]]
-        logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-        return [MiniProfileResponse.from_profile_dto(profiles[i], persons[i]) for i in range(len(profiles))]
-
-    def get_profiles_and_persons_for_meeting(self, tenant_id, meeting_id):
-        meeting = self.meetings_repository.get_meeting_data(meeting_id)
-        if not meeting:
-            logger.error(f"Meeting not found for meeting_id: {meeting_id}")
-            raise HTTPException(status_code=404, detail="Meeting not found")
-        if meeting.tenant_id != tenant_id:
-            logger.error(f"Tenant mismatch for meeting_id: {meeting_id}, tenant_id: {tenant_id}")
+        if meeting.user_id != user_id:
+            logger.error(f"Tenant mismatch for meeting_id: {meeting_id}, user_id: {user_id}")
             raise HTTPException(status_code=403, detail="Tenant mismatch")
         participants_emails = meeting.participants_emails
         participants = [ParticipantEmail.from_dict(email) for email in participants_emails]
@@ -118,7 +122,7 @@ class ProfilesApiService:
                     person_response = MiniPersonResponse.from_dict(person.to_dict())
                 mini_persons.append(person_response)
 
-        if not mini_profiles and not mini_persons:
+        if not mini_profiles and not mini_persons and meeting.classification.value == "external":
             logger.error("No profiles found in this meeting")
             raise HTTPException(
                 status_code=404,
@@ -131,9 +135,9 @@ class ProfilesApiService:
         }
         return mini_participants
 
-    def get_profile_info(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"No access to profile with uuid: {uuid} for tenant_id: {tenant_id}")
+    def get_profile_info(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"No access to profile with uuid: {uuid} for user_id: {user_id}")
             raise HTTPException(status_code=403, detail="No access to this profile")
 
         profile = self.profiles_repository.get_profile_data(uuid)
@@ -143,9 +147,9 @@ class ProfilesApiService:
 
         return profile
 
-    def get_profile_attendee_info(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+    def get_profile_attendee_info(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
             raise HTTPException(status_code=404, detail="Profile not found under this tenant")
 
         profile = self.profiles_repository.get_profile_data(uuid)
@@ -173,36 +177,36 @@ class ProfilesApiService:
         logger.info(f"Attendee info: {profile}")
         return AttendeeInfo(**profile)
 
-    def get_profile_strengths(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            email = self.tenants_repository.get_tenant_email(tenant_id)
+    def get_profile_strengths(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            email = self.users_repository.get_email_by_user_id(user_id)
             if email and email_utils.is_genie_admin(email):
                 logger.info(f"Genie admin has access to profile with uuid: {uuid}")
             else:
-                logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
-                raise HTTPException(status_code=404, detail="Profile not found under this tenant")
+                logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
+                raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
-            sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id) or profile.sales_criteria
+            sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id) or profile.sales_criteria
             return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
 
-    def get_profile_get_to_know(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
-            raise HTTPException(status_code=404, detail="Profile not found under this tenant")
+    def get_profile_get_to_know(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
+            raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
-        tenant_specific_get_to_know = self.tenant_profiles_repository.get_get_to_know(uuid, tenant_id)
-        if tenant_specific_get_to_know:
-            logger.info(f"Got tenant specific get to know for : {profile.name}")
-            profile.get_to_know = tenant_specific_get_to_know   
+        user_specific_get_to_know = self.user_profiles_repository.get_get_to_know(uuid, user_id)
+        if user_specific_get_to_know:
+            logger.info(f"Got user specific get to know for : {profile.name}")
+            profile.get_to_know = user_specific_get_to_know
         logger.info(f"Got profile: {str(profile)[:300]}")
         if profile:
             for category, phrases in profile.get_to_know.items():
@@ -219,13 +223,13 @@ class ProfilesApiService:
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
 
-    def get_profile_action_items(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
-            raise HTTPException(status_code=404, detail="Profile not found under this tenant")
+    def get_profile_action_items(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
+            raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         # profile = self.profiles_repository.get_profile_data(uuid)
-        action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
+        action_items = self.user_profiles_repository.get_sales_action_items(uuid, user_id)
         if action_items:
             logger.info(f"Got tenant specific action items: {action_items}")
             return ActionItemsResponse.from_action_items_list(action_items=action_items)
@@ -240,9 +244,9 @@ class ProfilesApiService:
         logger.error(f"Could not find profile action items with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile action items")
 
-    def get_profile_good_to_know(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+    def get_profile_good_to_know(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
             raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
 
         profile = self.profiles_repository.get_profile_data(uuid)
@@ -287,12 +291,12 @@ class ProfilesApiService:
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
 
-    def get_sales_criteria(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile not found under tenant_id: {tenant_id} for uuid: {uuid}")
+    def get_sales_criteria(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
             raise HTTPException(status_code=404, detail={"error": "Could not find profile"})
 
-        sales_criteria = self.tenant_profiles_repository.get_sales_criteria(uuid, tenant_id)
+        sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id)
         if not sales_criteria:
             logger.info(f"No tenant's sales criteria found for {uuid}, getting profile's default sales criteria")
             profile_dto = self.profiles_repository.get_profile_data(uuid)
@@ -306,11 +310,11 @@ class ProfilesApiService:
             return SalesCriteriaResponse.from_list([])
         return SalesCriteriaResponse.from_list(sales_criteria)
 
-    def get_work_experience(self, tenant_id, uuid):
-        if not self.ownerships_repository.check_ownership(tenant_id, uuid):
-            logger.error(f"Profile {uuid} was not found under tenant {tenant_id}")
+    def get_work_experience(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            logger.error(f"Profile {uuid} was not found under user: {user_id}")
             raise HTTPException(
-                status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {tenant_id}"}
+                status_code=404, detail={"error": f"Profile {uuid} was not found under user {user_id}"}
             )
 
         personal_data = self.personal_data_repository.get_pdl_personal_data(uuid)
@@ -348,9 +352,9 @@ class ProfilesApiService:
             # Convert to custom title case for consistency
             return to_custom_title_case(final_experience)
 
-        logger.error(f"Profile {uuid} was not found under tenant {tenant_id}")
+        logger.error(f"Profile {uuid} was not found under tenant {user_id}")
         raise HTTPException(
-            status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {tenant_id}"}
+            status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {user_id}"}
         )
     
     def get_profile_category_stats(self):

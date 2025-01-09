@@ -10,6 +10,7 @@ from fastapi.routing import APIRouter
 from deep_translator import GoogleTranslator
 from sse_starlette.sse import EventSourceResponse
 
+
 from common.utils import env_utils, email_utils
 from starlette.responses import JSONResponse, RedirectResponse
 from fastapi import HTTPException
@@ -17,14 +18,13 @@ from fastapi import HTTPException
 from data.api.base_models import *
 
 from data.api.api_services_classes.meetings_api_services import MeetingsApiService
-# from data.api.api_services_classes.tenants_api_services import TenantsApiService
+from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
-from data.api.api_services_classes.users_api_services import UsersApiService
 
 from common.genie_logger import GenieLogger, tenant_id
 
@@ -40,14 +40,13 @@ INTERNAL_API_KEY = env_utils.get("INTERNAL_API_KEY")
 v1_router = APIRouter(prefix="/v1")
 
 meetings_api_service = MeetingsApiService()
-# tenants_api_service = TenantsApiService()
+tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
 params_api_service = ParamsApiService()
-users_api_service = UsersApiService()
 
 logger.info("Imported all services")
 
@@ -55,7 +54,7 @@ logger.info("Imported all services")
 @v1_router.get("/google-oauth/start")
 async def google_oauth_start():
     """Initiates the OAuth flow and returns an authorization URL."""
-    auth_url = users_api_service.start_google_oauth()
+    auth_url = tenants_api_service.start_google_oauth()
     return RedirectResponse(auth_url)
 
 
@@ -64,7 +63,7 @@ async def google_oauth_callback(request: Request, code: str = Query(...)):
     """Handles the OAuth callback and saves tokens to the database."""
     try:
         logger.info("Handling OAuth callback")
-        response = users_api_service.handle_google_oauth_callback(code)
+        response = tenants_api_service.handle_google_oauth_callback(code)
         if response:
             return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
         else:
@@ -103,17 +102,17 @@ async def file_uploaded(background_tasks: BackgroundTasks, request: Request):
         return JSONResponse(content={"status": "error", "message": "Error handling file upload"})
 
 
-@v1_router.get("/user-info/{user_id}")
-async def get_user_info(user_id: str):
-    """Returns the user info for a given user."""
-    user_info = users_api_service.get_user_info(user_id)
+@v1_router.get("/user-info/{tenant_id}")
+async def get_user_info(tenant_id: str):
+    """Returns the user info for a given tenant."""
+    user_info = tenants_api_service.get_user_info(tenant_id)
     return JSONResponse(content=user_info)
 
 
-@v1_router.post("/unsubscribe/{user_id}")
-async def unsubscribe(user_id: str):
-    """Unsubscribes the user from the service."""
-    response = users_api_service.update_user_reminder_subscription(user_id, False)
+@v1_router.post("/unsubscribe/{tenant_id}")
+async def unsubscribe(tenant_id: str):
+    """Unsubscribes the tenant from the service."""
+    response = tenants_api_service.update_user_reminder_subscription(tenant_id, False)
     return JSONResponse(content=response)
 
 
@@ -154,26 +153,26 @@ async def get_file_upload_url(request: Request, impersonate_tenant_id: Optional[
 
 
 @v1_router.get("/user-badges")
-async def get_user_badges(request: Request, impersonate_user_id: Optional[str] = Query(None)):
-    user_id = get_request_state_value(request, "user_id")
-    if not user_id:
+async def get_user_badges(request: Request, impersonate_tenant_id: Optional[str] = Query(None)):
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
         raise HTTPException(
-            status_code=401, detail=f"""Unauthorized request. JWT is missing user user_id or user_id invalid"""
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"""
         )
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    if allowed_impersonate_user_id:
-        user_id = allowed_impersonate_user_id
-    badges_progress = badges_api_service.get_user_badges_status(user_id=user_id)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    if allowed_impersonate_tenant_id:
+        tenant_id = allowed_impersonate_tenant_id
+    badges_progress = badges_api_service.get_user_badges_status(user_id=tenant_id)
     return JSONResponse(content=badges_progress)
 
 @v1_router.post("/badge-seen")
 def mark_badge_as_seen(request: Request):
-    user_id = get_request_state_value(request, "user_id")
-    if not user_id:
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
         raise HTTPException(
-            status_code=401, detail=f"""Unauthorized request. JWT is missing user user_id or user_id invalid"""
+            status_code=401, detail=f"""Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"""
         )
-    badges_api_service.mark_badges_as_seen(user_id)
+    badges_api_service.mark_badges_as_seen(tenant_id)
     return JSONResponse(content={"status": "success", "message": "Badge marked as seen"})
 
 @v1_router.post("/successful-login")
@@ -186,15 +185,15 @@ async def post_successful_login(
     logger.info("Received JWT data")
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")
-    response = users_api_service.post_successful_login(auth_data)
+    response = tenants_api_service.post_successful_login(auth_data)
     return {"verdict": "allow", "response": response}
 
 @v1_router.get("/notifications/badges")
 async def badge_notifications_stream(request: Request):
-    user_id = get_request_state_value(request, "user_id")
-    if not user_id:
+    tenant_id = get_request_state_value(request, "tenant_id")
+    if not tenant_id:
         raise HTTPException(
-            status_code=401, detail="Unauthorized request. JWT is missing user user_id or user_id invalid"
+            status_code=401, detail="Unauthorized request. JWT is missing user tenant_id or tenant_id invalid"
         )
 
     async def event_generator():
@@ -202,7 +201,7 @@ async def badge_notifications_stream(request: Request):
             if await request.is_disconnected():
                 break
 
-            unseen_badge_ids = badges_api_service.get_unseen_badges(user_id)
+            unseen_badge_ids = badges_api_service.get_unseen_badges(tenant_id)
 
             if unseen_badge_ids:
                 yield json.dumps(unseen_badge_ids)
@@ -224,8 +223,8 @@ async def login_event(
     logger.info("Fetching user info")
     user_info = await request.json()
     logger.info(f"Received user info: {user_info}")
-    background_tasks.add_task(users_api_service.login_event, user_info)
-    background_tasks.add_task(stats_api_service.login_event, user_id=user_info.get("user_id"), tenant_id=user_info.get("tenant_id"))
+    background_tasks.add_task(tenants_api_service.login_event, user_info)
+    background_tasks.add_task(stats_api_service.login_event, tenant_id=user_info.get("tenant_id"))
     return JSONResponse(content="Login event received. Updated credentials", status_code=200)
 
 
@@ -275,43 +274,42 @@ async def create_ticket(ticket_data: TicketData):
 
 
 @v1_router.get(
-    "/{user_id}/meetings",
+    "/{tenant_id}/meetings",
     response_model=MeetingsListResponse,
-    summary="Gets all *meeting* that the user has profiles participants in",
+    summary="Gets all *meeting* that the tenant has profiles participants in",
 )
 async def get_all_meetings(
     request: Request,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
     name: str = Query(None, description="Partial text to search profile names"),
 ) -> MeetingsListResponse | JSONResponse:
     """
-    Gets all *meeting* that the user has profiles participants in.
+    Gets all *meeting* that the tenant has profiles participants in.
 
     Steps:
-    1. Get all persons for the user.
+    1. Get all persons for the tenant.
     2. Get all emails for the persons with name that includes the search text.
     3. Get all meetings with participants that have the emails.
 
     """
-    logger.info(f"Received get profiles request, with user: {user_id}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    logger.info(f"Allowed impersonate user ID: {allowed_impersonate_user_id}")
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    logger.info(f"Getting meetings for user ID: {user_id}")
-    response = meetings_api_service.get_all_meetings(user_id)
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
+    response = meetings_api_service.get_all_meetings(tenant_id)
     return JSONResponse(content=response)
 
 
 @v1_router.get(
-    "/{user_id}/meetings-search",
+    "/{tenant_id}/meetings-search",
     response_model=List[SearchMeeting],
     summary="Gets all *meeting* for the search attendees",
 )
 async def get_all_meetings_to_search(
         request: Request,
-        user_id: str,
-        impersonate_user_id: Optional[str] = Query(None),
+        tenant_id: str,
+        impersonate_tenant_id: Optional[str] = Query(None),
 ) ->List[SearchMeeting] | JSONResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
@@ -322,24 +320,24 @@ async def get_all_meetings_to_search(
     3. Get all meetings with participants that have the emails.
 
     """
-    logger.info(f"Received get profiles request, with user: {user_id}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    logger.info(f"Getting meetings for tenant ID: {user_id}")
-    response = meetings_api_service.handle_search_meetings(user_id)
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
+    response = meetings_api_service.handle_search_meetings(tenant_id)
     return response
 
 
 @v1_router.get(
-    "/{user_id}/meetings/{selected_date}",
+    "/{tenant_id}/meetings/{selected_date}",
     response_model=MeetingsListResponse,
     summary="Gets all *meeting* that the tenant has profiles participants in",
 )
 async def get_all_meetings_with_selected_date(
         request: Request,
-        user_id: str,
+        tenant_id: str,
         selected_date: str,
-        impersonate_user_id: Optional[str] = Query(None),
+        impersonate_tenant_id: Optional[str] = Query(None),
 ) -> MeetingsListResponse | JSONResponse:
     """
     Gets all *meeting* that the tenant has profiles participants in.
@@ -350,70 +348,70 @@ async def get_all_meetings_with_selected_date(
     3. Get all meetings with participants that have the emails.
 
     """
-    logger.info(f"Received get profiles request, with user: {user_id}")
+    logger.info(f"Received get profiles request, with tenant: {tenant_id}")
     if selected_date:
         selected_datetime = datetime.fromisoformat(selected_date)
         logger.info(f"Selected Date: {selected_datetime}, type: {type(selected_datetime)}")
     else:
         selected_datetime = datetime.utcnow()  # Default to current date/time
     logger.info(f"Selected Date: {selected_datetime}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    logger.info(f"Getting meetings for tenant ID: {user_id}")
-    response = meetings_api_service.get_all_meetings_with_selected_date(user_id, selected_datetime)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting meetings for tenant ID: {tenant_id}")
+    response = meetings_api_service.get_all_meetings_with_selected_date(tenant_id, selected_datetime)
     return JSONResponse(content=response)
 
 
-# @v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
+# @v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
 # def get_all_profiles_for_meeting(
-#     request: Request, user_id: str, meeting_id: str, impersonate_user_id: Optional[str] = Query(None)
+#     request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
 # ) -> Union[List[MiniProfileResponse], JSONResponse]:
 #     """
 #     Get all profile IDs and names for a specific meeting.
 #
-#     - **user_id**: Tenant ID - the right one is 'abcde'
+#     - **tenant_id**: Tenant ID - the right one is 'abcde'
 #     - **meeting_id**: Meeting ID
 #     """
 #     logger.info(f"Received profiles request for meeting: {meeting_id}")
-#     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-#     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-#     logger.info(f"Getting profile for user ID: {user_id}")
-#     response = profiles_api_service.get_profiles_for_meeting(user_id, meeting_id)
+#     allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+#     tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+#     logger.info(f"Getting profile for tenant ID: {tenant_id}")
+#     response = profiles_api_service.get_profiles_for_meeting(tenant_id, meeting_id)
 #     logger.info(f"About to send response: {response}")
 #     return response
 
 
-@v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=MiniProfilesAndPersonsListResponse)
+@v1_router.get("/{tenant_id}/{meeting_id}/profiles", response_model=MiniProfilesAndPersonsListResponse)
 def get_all_profiles_and_persons_for_meeting(
-        request: Request, user_id: str, meeting_id: str, impersonate_user_id: Optional[str] = Query(None)
+        request: Request, tenant_id: str, meeting_id: str, impersonate_tenant_id: Optional[str] = Query(None)
                                              ):
     """
     Get all profile IDs and persons (without profiles) for a specific meeting.
 
-    - **user_id**: Tenant ID - the right one is 'abcde'
+    - **tenant_id**: Tenant ID - the right one is 'abcde'
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Received profiles request for meeting: {meeting_id}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    logger.info(f"Getting profile for tenant ID: {user_id}")
-    response = profiles_api_service.get_profiles_and_persons_for_meeting(user_id, meeting_id)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    logger.info(f"Getting profile for tenant ID: {tenant_id}")
+    response = profiles_api_service.get_profiles_and_persons_for_meeting(tenant_id, meeting_id)
     logger.info(f"About to send response: {response}")
     return response
 
 
 
-@v1_router.get("/{user_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/attendee-info", response_model=AttendeeInfo)
 def get_profile_attendee_info(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> AttendeeInfo:
     """
     Get the attendee-info of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
 
     returns:
@@ -427,28 +425,28 @@ def get_profile_attendee_info(
             - **url**: Social media URL
     """
     logger.info(f"Received attendee-info request for profile: {uuid}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_attendee_info(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_attendee_info(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 
 @v1_router.get(
-    "/{user_id}/profiles/{uuid}/strengths",
+    "/{tenant_id}/profiles/{uuid}/strengths",
     response_model=StrengthsListResponse,
     summary="Fetches strengths of a profile",
 )
 def get_profile_strengths(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> StrengthsListResponse | JSONResponse:
     """
     Get the strengths of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: The uuid of the requested profile
 
     returns:
@@ -458,159 +456,159 @@ def get_profile_strengths(
         - **reason**: Reasons for choosing the strength and the score
     """
     logger.info(f"Received strengths request for profile: {uuid}")
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_strengths(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_strengths(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 
 @v1_router.get(
-    "/{user_id}/profiles/{uuid}/get-to-know",
+    "/{tenant_id}/profiles/{uuid}/get-to-know",
     response_model=GetToKnowResponse,
     summary="Fetches 'get-to-know' information of a profile",
 )
 def get_profile_get_to_know(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> GetToKnowResponse:
     """
     Get the 'get-to-know' information of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got get-to-know request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_get_to_know(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_get_to_know(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 
 @v1_router.get(
-    "/{user_id}/profiles/{uuid}/action-items",
+    "/{tenant_id}/profiles/{uuid}/action-items",
     response_model=ActionItemsResponse,
     summary="Fetches action items information of a profile",
 )
 def get_profile_action_items(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> ActionItemsResponse:
     """
     Get the action items information of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got action items request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_action_items(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_action_items(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 
-@v1_router.get("/{user_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
 def get_profile_good_to_know(
     background_tasks: BackgroundTasks,
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> GoodToKnowResponse:
     """
     Get the 'good-to-know' information of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got good-to-know request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_good_to_know(user_id, uuid)
-    if not allowed_impersonate_user_id:
-        background_tasks.add_task(stats_api_service.view_profile_event, user_id=user_id, profile_id=uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_good_to_know(tenant_id, uuid)
+    if not allowed_impersonate_tenant_id:
+        background_tasks.add_task(stats_api_service.view_profile_event, tenant_id=tenant_id, profile_id=uuid)
     return response
 
 
-@v1_router.get("/{user_id}/profiles/{uuid}/sales-criteria", response_model=SalesCriteriaResponse)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/sales-criteria", response_model=SalesCriteriaResponse)
 def get_profile_sales_criteria(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> SalesCriteriaResponse:
     """
     Get the sales criteria of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got sales criteria request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_sales_criteria(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_sales_criteria(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 
-@v1_router.get("/{user_id}/profiles/{uuid}/action-items", response_model=ActionItemsResponse)
+@v1_router.get("/{tenant_id}/profiles/{uuid}/action-items", response_model=ActionItemsResponse)
 def get_profile_action_items(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> ActionItemsResponse:
     """
     Get the action items of a profile - Mock version.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got action items request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_action_items(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_profile_action_items(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return response
 
 @v1_router.get(
-    "/{user_id}/profiles/{uuid}/work-experience",
-    response_class=JSONResponse,
+    "/{tenant_id}/profiles/{uuid}/work-experience",
+    response_model=WorkExperienceResponse,
 )
 def get_work_experience(
     request: Request,
     uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
-) -> JSONResponse:
+    tenant_id: str,
+    impersonate_tenant_id: Optional[str] = Query(None),
+) -> WorkExperienceResponse:
     """
     Get the work experience of a profile - *Mock version*.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **uuid**: Profile UUID
     """
     logger.info(f"Got work experience request for profile: {uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_work_experience(user_id, uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = profiles_api_service.get_work_experience(tenant_id, uuid)
     logger.info(f"About to send response: {response}")
     return JSONResponse(content=response)
 
 
 @v1_router.get(
-    "/{user_id}/{meeting_uuid}/meeting-overview",
+    "/{tenant_id}/{meeting_uuid}/meeting-overview",
     response_model=Union[
         MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse
     ],
@@ -618,49 +616,49 @@ def get_work_experience(
 def get_meeting_overview(
     background_tasks: BackgroundTasks,
     request: Request,
-    user_id: str,
+    tenant_id: str,
     meeting_uuid: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> Union[
     MiniMeetingOverviewResponse, InternalMeetingOverviewResponse, PrivateMeetingOverviewResponse, JSONResponse
 ]:
     """
     Get the meeting information.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **meeting_id**: Meeting ID
     """
     logger.info(f"Got meeting info request for meeting: {meeting_uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = meetings_api_service.get_meeting_overview(user_id, meeting_uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = meetings_api_service.get_meeting_overview(tenant_id, meeting_uuid)
     logger.info(f"About to send response: {response}")
-    if not allowed_impersonate_user_id:
+    if not allowed_impersonate_tenant_id:
         background_tasks.add_task(
-            stats_api_service.view_meeting_event, user_id=user_id, meeting_id=meeting_uuid
+            stats_api_service.view_meeting_event, tenant_id=tenant_id, meeting_id=meeting_uuid
         )
     return response
 
 
-@v1_router.delete("/{user_id}/{meeting_uuid}", response_class=JSONResponse)
+@v1_router.delete("/{tenant_id}/{meeting_uuid}", response_class=JSONResponse)
 def delete_meeting(
     request: Request,
-    user_id: str,
+    tenant_id: str,
     meeting_uuid: str,
-    impersonate_user_id: Optional[str] = Query(None),
+    impersonate_tenant_id: Optional[str] = Query(None),
 ) -> JSONResponse:
     """
     Delete a meeting.
 
-    - **user_id**: Tenant ID
+    - **tenant_id**: Tenant ID
     - **meeting_uuid**: Meeting UUID
     """
     logger.info(f"Got delete meeting request for meeting: {meeting_uuid}")
 
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = meetings_api_service.delete_meeting(user_id, meeting_uuid)
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
+    response = meetings_api_service.delete_meeting(tenant_id, meeting_uuid)
     logger.info(f"About to send response: {response}")
     return JSONResponse(content=response)
 
@@ -673,14 +671,14 @@ async def create_fake_meeting(request: Request) -> JSONResponse:
     if (
         request.state
         and hasattr(request.state, "user_email")
-        and hasattr(request.state, "user_id")
+        and hasattr(request.state, "tenant_id")
         and email_utils.is_genie_admin(request.state.user_email)
     ):
         body = await request.json()
-        user_id = request.state.user_id
+        tenant_id = request.state.tenant_id
         emails = body.get("emails")
-        logger.info(f"Creating fake meeting for user: {user_id} and emails: {emails}")
-        meetings_api_service.create_fake_meeting(user_id, emails)
+        logger.info(f"Creating fake meeting for tenant: {tenant_id} and emails: {emails}")
+        meetings_api_service.create_fake_meeting(tenant_id, emails)
         return JSONResponse(content={"status": "success", "message": "Fake meeting created"})
     else:
         raise HTTPException(status_code=403, detail="Forbidden endpoint")
@@ -718,20 +716,20 @@ def get_latest_profiles(request: Request, limit: int = 3, search_term: str = Non
         raise HTTPException(status_code=403, detail="Forbidden endpoint")
 
 
-@v1_router.post("/{user_id}/{uuid}/update-action-item", response_class=JSONResponse)
+@v1_router.post("/{tenant_id}/{uuid}/update-action-item", response_class=JSONResponse)
 async def update_action_item(
-        user_id: str,
+        tenant_id: str,
         uuid: str,
         request: Request,
-        impersonate_user_id: Optional[str] = Query(None),
+        impersonate_tenant_id: Optional[str] = Query(None),
 ):
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
+    allowed_impersonate_tenant_id = get_tenant_id_to_impersonate(impersonate_tenant_id, request)
+    tenant_id = allowed_impersonate_tenant_id if allowed_impersonate_tenant_id else tenant_id
     body = await request.json()
     criteria = body.get("criteria")
     description = body.get("description")
-    logger.info(f"Updating action item for tenant: {user_id}, uuid: {uuid}, criteria: {criteria}, description: {description}")
-    response = admin_api_service.update_action_item(user_id, uuid, criteria, description)
+    logger.info(f"Updating action item for tenant: {tenant_id}, uuid: {uuid}, criteria: {criteria}, description: {description}")
+    response = admin_api_service.update_action_item(tenant_id, uuid, criteria, description)
     return JSONResponse(content=response)
 
 
@@ -886,25 +884,21 @@ def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str
 
 
 @v1_router.get(
-    "/google/import-meetings/{user_id}",
+    "/google/import-meetings/{tenant_id}",
     response_class=JSONResponse,
     summary="Fetches all Google Calendar meetings for a tenant",
     include_in_schema=False,
 )
 def import_google_meetings(
-    request: Request,
-    user_id: str,
-    meetings_number: Optional[int] = Query(20, description="Number of meetings to fetch"),
-    impersonate_user_id: Optional[str] = Query(None),
+    tenant_id: str,
+    meetings_number: Optional[int] = Query(30, description="Number of meetings to fetch"),
 ) -> JSONResponse:
     """
     Fetches all Google Calendar meetings for a given tenant.
     """
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
     logger.info(f"Meeting number: {meetings_number}")
-    logger.info(f"Received Google meetings request for tenant: {user_id}")
-    response = users_api_service.import_google_meetings(user_id, meetings_number)
+    logger.info(f"Received Google meetings request for tenant: {tenant_id}")
+    response = tenants_api_service.import_google_meetings(tenant_id, meetings_number)
     logger.info(f"Finished fetching meetings")
     return JSONResponse(content=response)
 
@@ -953,50 +947,25 @@ async def handle_form(
     return JSONResponse(content=response)
 
 
-# @v1_router.get(
-#     "/admin/tenants",
-#     response_class=JSONResponse,
-#     summary="Fetches all tenants for an admin",
-#     include_in_schema=False,
-# )
-# def fetch_all_tenants(
-#     request: Request,
-# ) -> JSONResponse:
-#     """
-#     Fetches all tenants for an admin
-#     """
-#     if (
-#         request.state
-#         and hasattr(request.state, "user_email")
-#         and email_utils.is_genie_admin(request.state.user_email)
-#     ):
-#         response = admin_api_service.fetch_all_tenants()
-#         logger.info(f"Returning tenants: {response}")
-#         return JSONResponse(content=response)
-#
-#     else:
-#         raise HTTPException(status_code=403, detail="Forbidden endpoint")
-
-
 @v1_router.get(
-    "/admin/users",
+    "/admin/tenants",
     response_class=JSONResponse,
-    summary="Fetches all users for an admin",
+    summary="Fetches all tenants for an admin",
     include_in_schema=False,
 )
-def fetch_all_users(
+def fetch_all_tenants(
     request: Request,
 ) -> JSONResponse:
     """
-    Fetches all users for an admin
+    Fetches all tenants for an admin
     """
     if (
         request.state
         and hasattr(request.state, "user_email")
         and email_utils.is_genie_admin(request.state.user_email)
     ):
-        response = admin_api_service.fetch_all_users()
-        logger.info(f"Returning users: {response}")
+        response = admin_api_service.fetch_all_tenants()
+        logger.info(f"Returning tenants: {response}")
         return JSONResponse(content=response)
 
     else:
@@ -1017,23 +986,6 @@ def get_tenant_id_to_impersonate(
         logger.info(f"User is impersonating tenant")
         return impersonate_tenant_id
     logger.info(f"User is not impersonating tenant")
-    return None
-
-
-def get_user_id_to_impersonate(
-        impersonate_user_id: str,
-        request: Request,
-):
-    logger.info(f"Checking if user is impersonating user")
-    if (
-            impersonate_user_id
-            and request.state
-            and hasattr(request.state, "user_email")
-            and email_utils.is_genie_admin(request.state.user_email)
-    ):
-        logger.info(f"User is impersonating user")
-        return impersonate_user_id
-    logger.info(f"User is not impersonating user")
     return None
 
 

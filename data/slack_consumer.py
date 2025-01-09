@@ -47,6 +47,7 @@ class SlackConsumer(GenieConsumer):
                 Topic.BUG_IN_TENANT_ID,
                 Topic.PROFILE_ERROR,
                 Topic.AI_TOKEN_ERROR,
+                Topic.MEETING_ERROR,
                 # Should implement Topic.FAILED_TO_GET_COMPANY_DATA
             ],
             consumer_group=CONSUMER_GROUP,
@@ -82,6 +83,9 @@ class SlackConsumer(GenieConsumer):
             case Topic.AI_TOKEN_ERROR:
                 logger.info("Handling AI token error")
                 await self.handle_ai_error(event)
+            case Topic.MEETING_ERROR:
+                logger.info("Handling meeting error")
+                await self.handle_meeting_error(event)
             case _:
                 logger.info(f"Unknown topic: {topic}")
 
@@ -218,6 +222,30 @@ class SlackConsumer(GenieConsumer):
         self.persons_repository.update_status(email, PersonStatus.FAILED)
         return {"status": "ok"}
 
+    async def handle_meeting_error(self, event):
+        """
+        Should send a message to slack about the error
+        """
+        event_body_str = event.body_as_str()
+        event_body = json.loads(event_body_str)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+
+        logger_info = logger.get_extra()
+        logger_info_str = ", ".join(f"{k}: {v}" for k, v in logger_info.items())
+        error = event_body.get("error")
+        traceback_logs = event_body.get("traceback")
+        meeting_uuid = event_body.get("meeting_uuid")
+        topic = event_body.get("topic")
+        consumer_group = event_body.get("consumer_group")
+        message = (f"{logger_info_str} error occurred in topic: {topic} and consumer_group: {consumer_group}."
+                   f"\nWhile processing meeting: {meeting_uuid}."
+                   f" \nError: {error}."
+                   f" \nTraceback: {traceback_logs}.")
+        send_message(message, channel="bugs")
+        return {"status": "ok"}
+
+
     async def handle_ai_error(self, event):
         """
         Should send a message to slack about the error
@@ -239,6 +267,9 @@ class SlackConsumer(GenieConsumer):
 
         send_message(message, channel="bugs")
         return {"status": "ok"}
+
+
+
 
 
 if __name__ == "__main__":
