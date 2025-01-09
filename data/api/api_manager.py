@@ -894,7 +894,7 @@ def process_personal_data_apollo(background_tasks: BackgroundTasks, api_key: str
 def import_google_meetings(
     request: Request,
     user_id: str,
-    meetings_number: Optional[int] = Query(20, description="Number of meetings to fetch"),
+    meetings_number: Optional[int] = Query(30, description="Number of meetings to fetch"),
     impersonate_user_id: Optional[str] = Query(None),
 ) -> JSONResponse:
     """
