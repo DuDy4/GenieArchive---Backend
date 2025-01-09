@@ -30,7 +30,6 @@ from fastapi import HTTPException
 from common.genie_logger import GenieLogger
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.utils.str_utils import titleize_values
-from data.test.data_test_meetings import tenant_id
 
 logger = GenieLogger()
 
