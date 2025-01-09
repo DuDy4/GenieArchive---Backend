@@ -84,6 +84,8 @@ class GenieLogger:
             extra_object["function"] = self.get_function()
         if self.get_tenant_id():
             extra_object["tenant_id"] = self.get_tenant_id()
+        if self.get_user_id():
+            extra_object["user_id"] = self.get_user_id()
         return extra_object
 
     def set_topic(self, topic_name):

@@ -297,11 +297,11 @@ class MeetingsApiService:
         for email in emails:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data={"tenant_id": tenant_id, "email": email},
+                data={"tenant_id": tenant_id, "user_id": user_id, "email": email},
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": tenant_id, "email": email},
+                data={"tenant_id": tenant_id, "user_id": user_id, "email": email},
             )
             event.send()
