@@ -30,6 +30,7 @@ from fastapi import HTTPException
 from common.genie_logger import GenieLogger
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.utils.str_utils import titleize_values
+from data.test.data_test_meetings import tenant_id
 
 logger = GenieLogger()
 
@@ -271,6 +272,7 @@ class MeetingsApiService:
         attendee_template = "{'email': '%s', 'responseStatus': 'accepted'}"
         self_attendee_template = "{'email': '%s', 'responseStatus': 'accepted', 'self': True}"
         self_email = self.users_repository.get_email_by_user_id(user_id)
+        tenant_id = self.users_repository.get_tenant_id_by_user_id(user_id)
         combined = user_id + "|" + "|".join(sorted(emails))
         hash = hashlib.sha256(combined.encode()).hexdigest()
         attendees = [eval(attendee_template % email) for email in emails]
@@ -281,7 +283,7 @@ class MeetingsApiService:
             uuid=get_uuid4(),
             google_calendar_id=hash,
             user_id=user_id,
-            tenant_id="No tenant for fake meeting!",
+            tenant_id=tenant_id,
             link="https://dino-chrome.com",
             location="https://dino-chrome.com",
             subject="My Genie Meeting",
@@ -296,11 +298,11 @@ class MeetingsApiService:
         for email in emails:
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-                data={"tenant_id": "No tenant for fake meeting!", "email": email},
+                data={"tenant_id": tenant_id, "email": email},
             )
             event.send()
             event = GenieEvent(
                 topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": "No tenant for fake meeting!", "email": email},
+                data={"tenant_id": tenant_id, "email": email},
             )
             event.send()

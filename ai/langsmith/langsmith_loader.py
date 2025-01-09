@@ -101,7 +101,7 @@ class Langsmith:
                 try:
                     if response and isinstance(response, dict):
                         response = response.get("strengths")
-                    if response and isinstance(response, list):
+                    if response and isinstance(response, list) and len(response) > 0:
                         if isinstance(response[0], str):
                             logger.error(f"Strengths from Langsmith got wrong: {response}")
                             response = await self._run_prompt_with_retry(runnable, arguments)

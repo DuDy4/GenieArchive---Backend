@@ -61,7 +61,7 @@ class StatsApiService:
         """
         if not user_id or not meeting_id:
             return
-        email = self.tenants_repository.get
+        email = self.users_repository.get_email_by_user_id(user_id)
         tenant_id = self.tenants_repository.get_tenant_id_by_email(email)
         # self.badges_api_service.handle_event(email, "VIEW_MEETING", meeting_id)
         stats_data = {
