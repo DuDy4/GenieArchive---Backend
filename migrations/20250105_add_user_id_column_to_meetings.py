@@ -25,7 +25,9 @@ def upgrade():
                     agenda JSONB,
                     classification VARCHAR,
                     reminder_sent TIMESTAMPTZ DEFAULT NULL,
-                    reminder_schedule TIMESTAMPTZ DEFAULT NULL
+                    reminder_schedule TIMESTAMPTZ DEFAULT NULL,
+                    fake BOOLEAN DEFAULT FALSE
+
                 );
             """)
 
@@ -106,7 +108,8 @@ def upgrade():
                     agenda JSONB,
                     classification VARCHAR,
                     reminder_sent TIMESTAMPTZ DEFAULT NULL,
-                    reminder_schedule TIMESTAMPTZ DEFAULT NULL
+                    reminder_schedule TIMESTAMPTZ DEFAULT NULL,
+                    fake BOOLEAN DEFAULT FALSE
                 );
             """)
 
