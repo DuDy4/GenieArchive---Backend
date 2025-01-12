@@ -55,6 +55,7 @@ class Topic:
     NEW_COMPANY_DATA = "new-company-data"
     NEW_PERSON = "new-person"
     NEW_CONTACT = "new-contact"  # Also used for new person
+    NEW_SF_CONTACTS = "new-sf-contacts"
     NEW_INTERACTION = "new-interaction"
     NEW_EMAIL_ADDRESS_TO_PROCESS = (
         "new-email-address-to-process"  # Derived from new meetings and listened to by PersonManager

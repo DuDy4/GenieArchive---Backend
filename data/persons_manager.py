@@ -37,7 +37,7 @@ from data.data_common.dependencies.dependencies import (
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
-from common.genie_logger import GenieLogger, user_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 linkedin_scrapper = HandleLinkedinScrape()

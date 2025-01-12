@@ -17,7 +17,6 @@ from fastapi import HTTPException
 from data.api.base_models import *
 
 from data.api.api_services_classes.meetings_api_services import MeetingsApiService
-# from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
@@ -41,7 +40,6 @@ INTERNAL_API_KEY = env_utils.get("INTERNAL_API_KEY")
 v1_router = APIRouter(prefix="/v1")
 
 meetings_api_service = MeetingsApiService()
-# tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
@@ -61,26 +59,6 @@ async def google_oauth_start():
     return RedirectResponse(auth_url)
 
 
-@v1_router.get("/salesforce-oauth/callback")
-async def salesforce_oauth_callback(request: Request, code: str = Query(...), state: str = Query(...)):
-    """Handles the OAuth callback and saves tokens to the database."""
-    try:
-        logger.info("Handling Salesforce OAuth callback")
-        response = users_api_service.handle_salesforce_oauth_callback(code, state)
-        if response:
-            return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
-        else:
-            return JSONResponse(content={"status": "error", "message": "Error saving tokens to database."})
-
-    except Exception as e:
-        logger.error(f"Error during Salesforce OAuth callback: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error during Salesforce OAuth callback")
-    
-@v1_router.get("/salesforce-oauth")
-async def salesforce_oauth(request: Request):
-    oauth_url = users_api_service.generate_salesforce_oauth_url()
-    return RedirectResponse(oauth_url)
-
 @v1_router.get("/google-oauth/callback")
 async def google_oauth_callback(request: Request, code: str = Query(...)):
     """Handles the OAuth callback and saves tokens to the database."""
@@ -95,6 +73,29 @@ async def google_oauth_callback(request: Request, code: str = Query(...)):
     except Exception as e:
         logger.error(f"Error during OAuth callback: {str(e)}")
         raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+
+@v1_router.get("/salesforce-oauth")
+async def salesforce_oauth(request: Request):
+    oauth_url = salesforce_api_service.generate_salesforce_oauth_url()
+    return RedirectResponse(oauth_url)
+
+
+@v1_router.get("/salesforce-oauth/callback")
+async def salesforce_oauth_callback(background_tasks: BackgroundTasks, request: Request, code: str = Query(...), state: str = Query(...)):
+    """Handles the OAuth callback and saves tokens to the database."""
+    try:
+        logger.info("Handling Salesforce OAuth callback")
+        response = await salesforce_api_service.handle_salesforce_oauth_callback(code, state)
+        if response:
+            background_tasks.add_task(salesforce_api_service.handle_new_salesforce_auth, response)
+            return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
+        else:
+            return JSONResponse(content={"status": "error", "message": "Error saving tokens to database."})
+
+    except Exception as e:
+        logger.error(f"Error during Salesforce OAuth callback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error during Salesforce OAuth callback")
 
 
 @v1_router.post("/file-uploaded")

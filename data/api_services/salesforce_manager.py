@@ -2,11 +2,18 @@ import requests
 import jwt
 import datetime
 
-from data.api.api_services_classes.tenants_api_services import consumer_key, consumer_secret, salesforce_redirect_uri
+from common.genie_logger import GenieLogger
+from data.data_common.events.genie_event import GenieEvent
+from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
+from data.data_common.events.topics import Topic
+from data.data_common.repositories.users_repository import UsersRepository
+
+logger = GenieLogger()
 
 class SalesforceManager:
 
     def __init__(self, client_id, client_secret, redirect_uri):
+        self.users_repository = UsersRepository()
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
@@ -41,25 +48,70 @@ class SalesforceManager:
         return signed_jwt
 
             
-    def fetch_contacts(self, headers, instance_url):
-        """
-        Fetch contacts from Salesforce using the access token.
+    # def fetch_contacts(self, headers, instance_url):
+    #     """
+    #     Fetch contacts from Salesforce using the access token.
+    #
+    #     Args:
+    #         access_token (str): Salesforce access token.
+    #         instance_url (str): The Salesforce instance URL.
+    #
+    #     Returns:
+    #         dict: A dictionary containing the contacts.
+    #     """
+    #
+    #     try:
+    #         response = requests.get(f"{instance_url}/services/data/v57.0/sobjects/Contact/0039k000000EZ4RAAW", headers=headers)
+    #         response.raise_for_status()
+    #         return response.json()
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Error fetching contacts: {e}")
+    #         return {"error": str(e)}
 
-        Args:
-            access_token (str): Salesforce access token.
-            instance_url (str): The Salesforce instance URL.
+    async def get_contacts(self, salesforce_tenant_id, instance_url, access_token):
+        """
+        Retrieve contacts from salesforce.
 
         Returns:
-            dict: A dictionary containing the contacts.
+        list: List of contact records.
         """
+        url = f"{instance_url}/services/data/v61.0/query/"
+        query = """
+            SELECT Id, Name, Email, 
+                   (SELECT Owner.Email FROM Opportunities) 
+            FROM Contact 
+            ORDER BY CreatedDate DESC 
+            LIMIT 10
+            """
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        params = {"q": query}
 
         try:
-            response = requests.get(f"{instance_url}/services/data/v57.0/sobjects/Contact/0039k000000EZ4RAAW", headers=headers)
+            response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching contacts: {e}")
-            return {"error": str(e)}
+            res_contacts = response.json()["records"]
+            logger.info(f"Retrieved contacts: {len(res_contacts)}")
+            logger.info(res_contacts)
+            contacts = []
+            for contact in res_contacts:
+                opportunities = contact.get('Opportunities', {})
+                records = opportunities.get('records', []) if opportunities else []
+                owner_email = records[0]['Owner']['Email'] if records else None
+
+                contacts.append({
+                    "id": contact.get("Id"),
+                    "name": contact.get("Name"),
+                    "email": contact.get("Email"),
+                    "owner_email": owner_email,
+                })
+            logger.info(f"Processed contacts: {contacts}")
+            return contacts
+        except Exception as e:
+            print(f"Failed to retrieve contacts: {e}")
+            return []
         
     def update_contact(self, headers, instance_url):
         contact_id = "0039k000000EZ4RAAW" 
@@ -70,9 +122,8 @@ class SalesforceManager:
         }
 
         response = requests.patch(endpoint, headers=headers, json=payload)
-        print(response.status_code)  # Should return 204 for a successful update
+        logger.info(response.status_code)  # Should return 204 for a successful update
 
-        
         
     def get_access_token(self, jwt_token, login_url):
         """
@@ -134,12 +185,3 @@ class SalesforceManager:
             print("Contacts:", contacts)
         else:
             print("Error:", token_response)
-
-
-
-
-
-# if __name__ == "__main__":
-#     client_id = consumer_key
-#     salesforce_manager = SalesforceManager(client_id, consumer_secret, salesforce_redirect_uri)
-#     salesforce_manager.test_flow()
