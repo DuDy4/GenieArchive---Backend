@@ -108,7 +108,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://localhost:5173", "https://alpha.genieai.ai"],
+    allow_origins=["http://localhost:5173", "https://localhost:5173", "https://alpha.genieai.ai", "https://orgfarm-63f84e80e6-dev-ed.develop.lightning.force.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -59,6 +59,26 @@ async def google_oauth_start():
     return RedirectResponse(auth_url)
 
 
+@v1_router.get("/salesforce-oauth/callback")
+async def salesforce_oauth_callback(request: Request, code: str = Query(...), state: str = Query(...)):
+    """Handles the OAuth callback and saves tokens to the database."""
+    try:
+        logger.info("Handling Salesforce OAuth callback")
+        response = tenants_api_service.handle_salesforce_oauth_callback(code, state)
+        if response:
+            return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
+        else:
+            return JSONResponse(content={"status": "error", "message": "Error saving tokens to database."})
+
+    except Exception as e:
+        logger.error(f"Error during Salesforce OAuth callback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error during Salesforce OAuth callback")
+    
+@v1_router.get("/salesforce-oauth")
+async def salesforce_oauth(request: Request):
+    oauth_url = tenants_api_service.generate_salesforce_oauth_url()
+    return RedirectResponse(oauth_url)
+
 @v1_router.get("/google-oauth/callback")
 async def google_oauth_callback(request: Request, code: str = Query(...)):
     """Handles the OAuth callback and saves tokens to the database."""
@@ -183,6 +203,8 @@ async def post_successful_login(
     """
     Returns a tenant ID.
     """
+    consumer_key = "3MVG9uq9ANVdsbAW4kjddHk9hFp6uB1LARAPKa4Qdmc30o1opMVaFK91jHCorAMBC.OT37Um3q4nAATDnCV0u"
+    consumer_secret = "C196892FDED6DF704A5D5C356113937993D4309827530A82B17312AEE801943D"
     logger.info("Received JWT data")
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")

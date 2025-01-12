@@ -1,4 +1,8 @@
-import asyncio
+import base64
+import hashlib
+import os
+import requests
+import datetime
 
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
@@ -12,7 +16,6 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
-import datetime
 
 from data.internal_services.tenant_service import TenantService
 
@@ -20,6 +23,9 @@ logger = GenieLogger()
 
 REDIRECT_URI = env_utils.get("SELF_URL") + "/v1/google-oauth/callback"
 DEV_MODE = env_utils.get("DEV_MODE", "")
+consumer_key = "z"
+consumer_secret = "y"
+salesforce_redirect_uri = "https://delicate-rested-adder.ngrok-free.app/v1/salesforce-oauth/callback"
 
 
 class TenantsApiService:
@@ -235,6 +241,53 @@ class TenantsApiService:
             prompt="consent"
         )
         return authorization_url
+    
+    def generate_salesforce_oauth_url(self):
+        """Generates the Salesforce OAuth URL for the user to authenticate."""
+        base_url = "https://login.salesforce.com/services/oauth2/authorize"
+        response_type = "code"
+        code_verifier, code_challenge = self.generate_pkce_pair()
+        oauth_url = f"{base_url}?response_type={response_type}&client_id={consumer_key}&redirect_uri={salesforce_redirect_uri}&code_challenge={code_challenge}&code_challenge_method=S256&state={code_verifier}"
+        return oauth_url
+
+    def handle_salesforce_oauth_callback(self, code: str, state: str):
+        auth_response = self.exchange_salesforce_code(code, state)
+        logger.info(f"Salesforce auth response: {auth_response}")
+        return auth_response
+
+    def exchange_salesforce_code(self, auth_code: str, auth_state: str) -> dict:
+        """
+        Exchange Salesforce authorization code for access and refresh tokens.
+
+        Args:
+            auth_code (str): The authorization code received from Salesforce.
+            redirect_uri (str): The callback URL configured in the Connected App.
+            client_id (str): The Salesforce Connected App's Consumer Key.
+            client_secret (str): The Salesforce Connected App's Consumer Secret.
+
+        Returns:
+            Dict: A dictionary containing the access token, refresh token, and other metadata.
+        """
+        token_endpoint = "https://login.salesforce.com/services/oauth2/token"
+        
+        payload = {
+            "grant_type": "authorization_code",
+            "code": auth_code,
+            "redirect_uri": salesforce_redirect_uri,
+            "client_id": consumer_key,
+            "client_secret": consumer_secret,
+            "code_verifier": auth_state,
+        }
+
+        try:
+            response = requests.post(token_endpoint, data=payload, timeout=10)
+            response.raise_for_status()  # Raise HTTPError for bad responses
+            return response.json()  # Parse and return the JSON response
+        except requests.exceptions.RequestException as e:
+            print(f"Error during Salesforce token exchange: {e}")
+            return {"error": str(e)}
+        
+
 
     def handle_google_oauth_callback(self, code: str):
         """Handles the OAuth callback, exchanges code for tokens, and saves to the database."""
@@ -274,3 +327,14 @@ class TenantsApiService:
         except Exception as e:
             logger.error(f"Error during OAuth callback: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+    def generate_pkce_pair(self):
+        # Generate a code_verifier  
+        code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8').rstrip('=')
+
+        # Generate a code_challenge using SHA-256
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode('utf-8')).digest()
+        ).decode('utf-8').rstrip('=')
+
+        return code_verifier, code_challenge
