@@ -52,9 +52,3 @@ class SalesforceApiService:
         await event_batch.send_batch()
         logger.info(f"Sent events for contact email: {contact_email}")
         return {"message": f"Sent events for {contact_email}"}
-
-
-
-
-sf_api_service = SalesforceApiService()
-asyncio.run(sf_api_service.handle_new_contact("asaf@genieai.ai", "0052v00000B2Z3AAAV"))
