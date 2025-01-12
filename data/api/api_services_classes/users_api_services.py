@@ -18,6 +18,7 @@ from data.data_common.events.genie_event_batch_manager import EventHubBatchManag
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
 
+from data.data_common.repositories.sf_creds_repository import SalesforceUsersRepository
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
@@ -34,6 +35,7 @@ class UsersApiService:
     def __init__(self):
         self.users_repository = UsersRepository()
         self.google_creds_repository = GoogleCredsRepository()
+        self.sf_creds_repository = SalesforceUsersRepository()
         self.google_client_id = env_utils.get(f"GOOGLE_CLIENT_ID")
         self.google_client_secret = env_utils.get(f"GOOGLE_CLIENT_SECRET")
         self.email_google_client_id = env_utils.get(f"EMAIL_GOOGLE_CLIENT_ID")
@@ -298,8 +300,20 @@ class UsersApiService:
         access_token = auth_response.get("access_token")
         refresh_token = auth_response.get("refresh_token")
         instance_url = auth_response.get("instance_url")
-        salesforce_user_id_url = auth_response.get("id")
-        salesforce_user_id = salesforce_user_id_url.split("/")[-1]
+        salesforce_id_url = auth_response.get("id")
+        if not access_token or not instance_url or not salesforce_id_url:
+            logger.error("Missing access token, instance URL, or Salesforce ID URL")
+            return {"error": "Missing access token, instance URL, or Salesforce ID URL"}
+        salesforce_user_id = salesforce_id_url.split("/")[-1]
+        salesforce_tenant_id = salesforce_id_url.split("/")[-2]
+        self.sf_creds_repository.save_user_creds(
+            salesforce_user_id=salesforce_user_id,
+            salesforce_tenant_id=salesforce_tenant_id,
+            salesforce_instance_url=instance_url,
+            salesforce_refresh_token=refresh_token,
+            salesforce_access_token=access_token,
+        )
+        logger.info(f"Saved Salesforce credentials for user {salesforce_user_id}")
         logger.info(f"Salesforce user ID: {salesforce_user_id}, instance URL: {instance_url}, access token: {access_token}, refresh token: {refresh_token}")
         return auth_response
 

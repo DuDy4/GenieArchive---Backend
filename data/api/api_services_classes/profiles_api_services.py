@@ -5,10 +5,8 @@ from data.api.base_models import *
 from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria, profiles_description
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
-    tenant_profiles_repository,
     ownerships_repository,
     meetings_repository,
-    tenants_repository,
     persons_repository,
     personal_data_repository,
     companies_repository,
@@ -27,52 +25,14 @@ logger = GenieLogger()
 class ProfilesApiService:
     def __init__(self):
         self.profiles_repository = profiles_repository()
-        # self.tenant_profiles_repository = tenant_profiles_repository()
         self.user_profiles_repository = UserProfilesRepository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
-        # self.tenants_repository = tenants_repository()
         self.users_repository = UsersRepository()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.hobbies_repository = hobbies_repository()
-
-    # def get_profiles_for_meeting(self, user_id, meeting_uuid):
-    #     meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
-    #     if not meeting:
-    #         logger.error(f"Meeting not found for meeting_id: {meeting_uuid}")
-    #         raise HTTPException(status_code=404, detail="Meeting not found")
-    #     if meeting.user_id != user_id:
-    #         logger.error(f"Tenant mismatch for meeting_id: {meeting_uuid}, tenant_id: {user_id}")
-    #         raise HTTPException(status_code=403, detail="Tenant mismatch")
-    #
-    #     user_email = self.users_repository.get_email_by_user_id(user_id)
-    #     logger.info(f"User email: {user_email}")
-    #     participants_emails = meeting.participants_emails
-    #     user_domain = user_email.split("@")[1]
-    #
-    #     # Get additional domains in case the same company has multiple domains (or old ones)
-    #     additional_domains = self.companies_repository.get_additional_domains(user_domain)
-    #     filtered_participants_emails = filter_emails_with_additional_domains(user_email, participants_emails, additional_domains)
-    #     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-    #     filtered_emails = filtered_participants_emails
-    #     logger.info(f"Filtered emails: {filtered_emails}")
-    #     persons = []
-    #     for email in filtered_emails:
-    #         person = self.persons_repository.find_person_by_email(email)
-    #         if person:
-    #             persons.append(person)
-    #     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
-    #     profiles = []
-    #     for person in persons:
-    #         profile = self.profiles_repository.get_profile_data(person.uuid)
-    #         logger.info(f"Got profile: {str(profile)[:300]}")
-    #         if profile:
-    #             profiles.append(profile)
-    #     persons_to_send = [person for person in persons if person.uuid not in [profile.uuid for profile in profiles]]
-    #     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    #     return [MiniProfileResponse.from_profile_dto(profiles[i], persons_to_send[i]) for i in range(len(profiles))]
 
     def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
@@ -378,6 +338,3 @@ class ProfilesApiService:
         for key, value in categories_count.items():
             print(f"{key} - {value}")
 
-if __name__ == "__main__":
-    profiles_api_service = ProfilesApiService()
-    profiles_api_service.get_profile_category_stats()

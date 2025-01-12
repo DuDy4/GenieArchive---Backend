@@ -15,6 +15,7 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 from data.data_common.data_transfer_objects.user_dto import UserDTO
+from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
 from data.data_common.repositories.users_repository import UsersRepository
 from data.internal_scripts.fetch_social_media_news import (
     fetch_linkedin_posts,
@@ -32,7 +33,6 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     companies_repository,
     personal_data_repository,
-    tenant_profiles_repository,
 )
 from common.genie_logger import GenieLogger
 import uuid
@@ -55,7 +55,7 @@ class AdminApiService:
         self.meetings_repository = meetings_repository()
         self.profiles_repository = profiles_repository()
         self.companies_repository = companies_repository()
-        self.tenant_profiles_repository = tenant_profiles_repository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.personal_data_repository = personal_data_repository()
         self.embeddings_client = GenieEmbeddingsClient()
         self.langsmith = Langsmith()
@@ -90,7 +90,7 @@ class AdminApiService:
             if not profile:
                 logger.error(f"Profile not found: {profile_uuid}")
                 continue
-            # specific_get_to_know = self.tenant_profiles_repository.get_get_to_know(profile_uuid)
+            # specific_get_to_know = self.user_profiles_repository.get_get_to_know(profile_uuid)
             # if specific_get_to_know:
             #     profile.get_to_know = specific_get_to_know
 
@@ -426,7 +426,7 @@ class AdminApiService:
                 break
 
     def update_action_item(self, tenant_id, uuid, criteria, description):
-        result = self.tenant_profiles_repository.update_sales_action_item_description(tenant_id, uuid, criteria, description)
+        result = self.user_profiles_repository.update_sales_action_item_description(tenant_id, uuid, criteria, description)
         return {"status": "success"} if result else {"error": str(result)}
 
 
