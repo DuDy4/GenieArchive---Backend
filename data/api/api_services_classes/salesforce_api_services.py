@@ -3,6 +3,7 @@ import requests
 from common.utils import env_utils
 from common.utils.jwt_utils import generate_pkce_pair
 from data.api_services.salesforce_manager import SalesforceManager
+from data.data_common.data_transfer_objects.sf_creds_dto import SalesforceCredsDTO
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
@@ -17,13 +18,16 @@ DEV_MODE = env_utils.get("DEV_MODE", "")
 consumer_key = env_utils.get("SALESFORCE_CONSUMER_KEY")
 consumer_secret = env_utils.get("SALESFORCE_CONSUMER_SECRET")
 salesforce_redirect_uri = f"{env_utils.get("SELF_URL")}/v1/salesforce-oauth/callback"
+key_file = "./salesforce-genie-private.pem"
+public_key_file = "./salesforce-genie-public.pem"
+
 
 class SalesforceApiService:
     def __init__(self):
         self.users_repository = UsersRepository()
         self.sf_creds_repository = SalesforceUsersRepository()
         self.salesforce_creds_repository = SalesforceUsersRepository()
-        self.sf_manager = SalesforceManager(consumer_key, consumer_secret, salesforce_redirect_uri)
+        self.sf_manager = SalesforceManager(consumer_key, consumer_secret, salesforce_redirect_uri, key_file, public_key_file)
 
     async def get_user_contacts(self, user_creds):
         if not user_creds:
@@ -88,13 +92,14 @@ class SalesforceApiService:
             return {"error": "Missing access token, instance URL, or Salesforce ID URL"}
         salesforce_user_id = salesforce_id_url.split("/")[-1]
         salesforce_tenant_id = salesforce_id_url.split("/")[-2]
-        self.sf_creds_repository.save_user_creds(
+        sf_creds = SalesforceCredsDTO(
             salesforce_user_id=salesforce_user_id,
             salesforce_tenant_id=salesforce_tenant_id,
-            salesforce_instance_url=instance_url,
-            salesforce_refresh_token=refresh_token,
-            salesforce_access_token=access_token,
+            instance_url=instance_url,
+            access_token=access_token,
+            refresh_token=refresh_token,
         )
+        self.salesforce_creds_repository.save_user_creds(sf_creds)
         logger.info(f"Saved Salesforce credentials for user {salesforce_user_id}")
         logger.info(f"Salesforce user ID: {salesforce_user_id}, instance URL: {instance_url}, access token: {access_token}, refresh token: {refresh_token}")
         result = {
@@ -142,7 +147,7 @@ class SalesforceApiService:
         contacts = await self.get_user_contacts(user_creds)
         event = GenieEvent(
             topic=Topic.NEW_SF_CONTACTS,
-            data={"contacts": contacts},
+            data={"contacts": contacts, "salesforce_user_id": user_creds.get("salesforce_user_id")},
         )
         event.send()
 

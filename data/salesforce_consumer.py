@@ -4,7 +4,9 @@ import os
 import sys
 
 from common.genie_logger import GenieLogger, tenant_id
+from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
+from data.api_services.salesforce_manager import SalesforceManager
 from data.data_common.data_transfer_objects.user_dto import UserDTO
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
@@ -19,6 +21,13 @@ from data.data_common.repositories.users_repository import UsersRepository
 logger = GenieLogger()
 
 CONSUMER_GROUP = "salesforce_consumer_group"
+
+sf_client_id = env_utils.get("SALESFORCE_CLIENT_ID")
+sf_client_secret = env_utils.get("SALESFORCE_CLIENT_SECRET")
+SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")
+sf_redirect_uri = SELF_URL + "/v1/salesforce/callback"
+key_file = "../salesforce-genie-private.pem"
+public_key_file = "../salesforce-genie-public.pem"
 
 
 class SalesforceConsumer(GenieConsumer):
@@ -37,6 +46,9 @@ class SalesforceConsumer(GenieConsumer):
         self.tenants_repository = TenantsRepository()
         self.profiles_repository = ProfilesRepository()
         self.sf_creds_repository = SalesforceUsersRepository()
+        self.salesforce_manager = SalesforceManager(client_id=sf_client_id, client_secret=sf_client_secret,
+                                                    redirect_uri=sf_redirect_uri, key_file=key_file,
+                                                    public_key_file=public_key_file)
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -64,6 +76,7 @@ class SalesforceConsumer(GenieConsumer):
                 logger.error(f"Invalid JSON: {event_body}")
                 return {"error": "Invalid JSON"}
         contacts = event_body.get("contacts")
+        salesforce_user_id = event_body.get("salesforce_user_id")
         if not contacts:
             logger.error("No contacts")
             return
@@ -83,7 +96,7 @@ class SalesforceConsumer(GenieConsumer):
                 if not user:
                     logger.error(f"Failed to create user for email: {owner_email}")
                     continue
-            self.contacts_repository.save_contact(salesforce_id=id, name=name, email=contact_email, user_id=user.user_id)
+            self.contacts_repository.save_contact(salesforce_id=id, name=name, email=contact_email, user_id=user.user_id, salesforce_user_id=salesforce_user_id)
             event_batch.queue_event(GenieEvent(topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
                 data={"email": contact_email, "user_id": user.user_id, "tenant_id": user.tenant_id}))
             event_batch.queue_event(GenieEvent(topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
@@ -92,7 +105,30 @@ class SalesforceConsumer(GenieConsumer):
 
 
     async def handle_finished_profile(self, event):
-        pass
+        event_body = event.body_as_str()
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            try:
+                event_body = json.loads(event_body)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON: {event_body}")
+                return {"error": "Invalid JSON"}
+        profile_uuid = event_body.get("profile_uuid")
+        if not profile_uuid:
+            logger.error("No profile_uuid")
+            return
+
+        profile_category = self.profiles_repository.get_profile_category(profile_uuid)
+        profile_email = self.profiles_repository.get_email_by_uuid(profile_uuid)
+        if not profile_email:
+            logger.error(f"No email found for profile: {profile_uuid}")
+            return
+        contact = self.contacts_repository.get_contact_by_email(profile_email)
+        sf_creds = self.sf_creds_repository.get_sf_creds_by_salesforce_user_id(contact.salesforce_user_id)
+        if not contact:
+            logger.error(f"No contact found for email: {profile_email}")
+            return
+        self.salesforce_manager.update_contact(contact=contact, sf_creds=sf_creds, payload={"profile_category": profile_category})
 
     def create_sf_user(self, owner_email):
         user_id = get_uuid4()

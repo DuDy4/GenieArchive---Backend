@@ -3,6 +3,7 @@ import psycopg2
 from common.genie_logger import GenieLogger
 from common.utils.str_utils import get_uuid4
 from data.data_common.utils.postgres_connector import db_connection
+from data.data_common.data_transfer_objects.sf_creds_dto import SalesforceCredsDTO
 
 logger = GenieLogger()
 
@@ -33,30 +34,33 @@ class SalesforceUsersRepository:
             except Exception as error:
                 logger.error("Error creating table:", error)
 
-    def save_user_creds(self, salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token, user_id=None, tenant_id=None):
-        if self.exists_salesforce_id(salesforce_user_id):
+    def save_user_creds(self, salesforce_creds_dto: SalesforceCredsDTO):
+        if self.exists_salesforce_id(salesforce_creds_dto.salesforce_user_id):
             logger.info("Updating user credentials")
-            self._update(salesforce_user_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token)
+            self._update(salesforce_creds_dto)
         else:
             logger.info("Inserting user credentials")
-            self._insert(salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token, user_id, tenant_id)
+            self._insert(salesforce_creds_dto)
 
 
-    def _insert(self, salesforce_user_id, salesforce_tenant_id, instance_url, refresh_token, access_token, user_id=None, tenant_id=None):
+    def _insert(self, salesforce_creds_dto: SalesforceCredsDTO):
         self.create_table_if_not_exists()
         insert_query = """
         INSERT INTO sf_users (user_id, tenant_id, salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        if not user_id:
-            user_id = get_uuid4()
-        if not tenant_id:
-            tenant_id = self.get_tenant_id_by_sf_tenant_id(salesforce_tenant_id) or get_uuid4()
+        if not salesforce_creds_dto.user_id:
+            salesforce_creds_dto.user_id = get_uuid4()
+        if not salesforce_creds_dto.tenant_id:
+            salesforce_creds_dto.tenant_id = self.get_tenant_id_by_sf_tenant_id(salesforce_tenant_id) or get_uuid4()
         with db_connection() as conn:
             try:
 
                 with conn.cursor() as cursor:
-                    cursor.execute(insert_query, (user_id, tenant_id, salesforce_user_id, salesforce_tenant_id, instance_url, refresh_token, access_token))
+                    cursor.execute(insert_query, (
+                        salesforce_creds_dto.user_id, salesforce_creds_dto.tenant_id,
+                        salesforce_creds_dto.salesforce_user_id, salesforce_creds_dto.salesforce_tenant_id,
+                        salesforce_creds_dto.instance_url, salesforce_creds_dto.refresh_token, salesforce_creds_dto.access_token))
                     conn.commit()
                     logger.info("Inserted salesforce user into database")
             except psycopg2.Error as error:
@@ -66,7 +70,7 @@ class SalesforceUsersRepository:
                     f"Specific error message: {error.pgerror}"
                 )  # Log specific error message
 
-    def _update(self, salesforce_user_id, instance_url, refresh_token, access_token):
+    def _update(self, salesforce_cred_dto: SalesforceCredsDTO):
         update_query = """
         UPDATE sf_users
         SET salesforce_instance_url = %s, salesforce_refresh_token = %s, salesforce_access_token = %s
@@ -75,7 +79,7 @@ class SalesforceUsersRepository:
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(update_query, (instance_url, refresh_token, access_token, salesforce_user_id))
+                    cursor.execute(update_query, (salesforce_cred_dto.instance_url, salesforce_cred_dto.refresh_token, salesforce_cred_dto.access_token, salesforce_cred_dto.salesforce_user_id))
                     conn.commit()
                     logger.info("Updated salesforce user in database")
             except psycopg2.Error as error:
@@ -188,4 +192,35 @@ class SalesforceUsersRepository:
                         return None
             except psycopg2.Error as error:
                 logger.error("Error getting refresh token:", error)
+                logger.error(f"Specific error message: {error.pgerror}")
+
+    def get_instance_url(self, user_id):
+        select_query = """SELECT salesforce_instance_url FROM sf_users WHERE user_id = %s"""
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (user_id,))
+                    result = cursor.fetchone()
+                    if result is not None:
+                        return result[0]
+                    else:
+                        return None
+            except psycopg2.Error as error:
+                logger.error("Error getting instance url:", error)
+                logger.error(f"Specific error message: {error.pgerror}")
+
+    def get_sf_creds_by_salesforce_user_id(self, salesforce_user_id):
+        select_query = """SELECT salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token, user_id, tenant_id
+         FROM sf_users WHERE salesforce_user_id = %s"""
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (salesforce_user_id,))
+                    result = cursor.fetchone()
+                    if result:
+                        return SalesforceCredsDTO.from_tuple(result)
+                    else:
+                        return None
+            except psycopg2.Error as error:
+                logger.error("Error getting sf creds by salesforce user id:", error)
                 logger.error(f"Specific error message: {error.pgerror}")

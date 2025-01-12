@@ -3,23 +3,27 @@ import jwt
 import datetime
 
 from common.genie_logger import GenieLogger
-from data.data_common.events.genie_event import GenieEvent
-from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
-from data.data_common.events.topics import Topic
+from common.utils import env_utils
+from data.data_common.data_transfer_objects.contact_dto import ContactDTO
 from data.data_common.repositories.users_repository import UsersRepository
 
 logger = GenieLogger()
+sf_client_id = env_utils.get("SALESFORCE_CLIENT_ID")
+sf_client_secret = env_utils.get("SALESFORCE_CLIENT_SECRET")
+SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")
+SALESFORCE_REDIRECT_URI = SELF_URL + "/v1/salesforce/callback"
+
 
 class SalesforceManager:
 
-    def __init__(self, client_id, client_secret, redirect_uri):
+    def __init__(self, client_id, client_secret, redirect_uri, key_file='', public_key_file=''):
         self.users_repository = UsersRepository()
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
-        with open("salesforce-genie-private.pem", "r") as key_file:
+        with open(key_file, "r") as key_file:
             self.private_key = key_file.read()
-        with open("salesforce-genie-public.pem", "r") as public_key_file:
+        with open(public_key_file, "r") as public_key_file:
             self.public_key = public_key_file.read()
 
     def create_signed_jwt(self, client_id, user_email, private_key, login_url):
@@ -113,13 +117,14 @@ class SalesforceManager:
             print(f"Failed to retrieve contacts: {e}")
             return []
         
-    def update_contact(self, headers, instance_url):
-        contact_id = "0039k000000EZ4RAAW" 
-        endpoint = f"{instance_url}/services/data/v57.0/sobjects/Contact/{contact_id}"
-
-        payload = {
-            "Email": "updated.email@example.com",
+    def update_contact(self, contact: ContactDTO, sf_creds, payload):
+        headers = {
+            "Authorization": f"Bearer {sf_creds.access_token}",
+            "Content-Type": "application/json"
         }
+        for key, value in payload.items():
+            self.add_genie_category_field(sf_creds.instance_url, headers, key)
+        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
 
         response = requests.patch(endpoint, headers=headers, json=payload)
         logger.info(response.status_code)  # Should return 204 for a successful update
@@ -185,3 +190,16 @@ class SalesforceManager:
             print("Contacts:", contacts)
         else:
             print("Error:", token_response)
+
+    def add_genie_category_field(self, instance_url, headers, field_name):
+        endpoint = f"{instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
+        payload = {
+            "fullName": f"Contact.{field_name}",
+            "label": field_name,
+            "type": "Text",
+        }
+        response = requests.post(endpoint, headers=headers, json=payload)
+        if response.status_code == 201:
+            logger.info(f"Field {field_name} created successfully.")
+        else:
+            logger.error(f"Failed to create field {field_name}: {response.status_code} - {response.text}")
