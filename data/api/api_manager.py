@@ -26,7 +26,7 @@ from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
 
-from common.genie_logger import GenieLogger, tenant_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -64,7 +64,7 @@ async def salesforce_oauth_callback(request: Request, code: str = Query(...), st
     """Handles the OAuth callback and saves tokens to the database."""
     try:
         logger.info("Handling Salesforce OAuth callback")
-        response = tenants_api_service.handle_salesforce_oauth_callback(code, state)
+        response = users_api_service.handle_salesforce_oauth_callback(code, state)
         if response:
             return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
         else:
@@ -76,7 +76,7 @@ async def salesforce_oauth_callback(request: Request, code: str = Query(...), st
     
 @v1_router.get("/salesforce-oauth")
 async def salesforce_oauth(request: Request):
-    oauth_url = tenants_api_service.generate_salesforce_oauth_url()
+    oauth_url = users_api_service.generate_salesforce_oauth_url()
     return RedirectResponse(oauth_url)
 
 @v1_router.get("/google-oauth/callback")

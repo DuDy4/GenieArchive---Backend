@@ -1,3 +1,6 @@
+import hashlib
+import os
+
 import requests
 import base64
 import json
@@ -78,3 +81,14 @@ def get_user_id(payload: dict):
     if payload:
         return get_claims(payload).get(USER_ID_CLAIM)
     return None
+
+def generate_pkce_pair():
+    # Generate a code_verifier
+    code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8').rstrip('=')
+
+    # Generate a code_challenge using SHA-256
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    ).decode('utf-8').rstrip('=')
+
+    return code_verifier, code_challenge

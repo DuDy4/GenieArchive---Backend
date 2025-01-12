@@ -1,7 +1,11 @@
-import asyncio
+import datetime
+
+import requests
+
 
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
+from common.utils.jwt_utils import generate_pkce_pair
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.oauth2.credentials import Credentials
@@ -13,7 +17,7 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
-import datetime
+
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
@@ -21,6 +25,9 @@ logger = GenieLogger()
 
 REDIRECT_URI = env_utils.get("SELF_URL") + "/v1/google-oauth/callback"
 DEV_MODE = env_utils.get("DEV_MODE", "")
+consumer_key = env_utils.get("SALESFORCE_CONSUMER_KEY")
+consumer_secret = env_utils.get("SALESFORCE_CONSUMER_SECRET")
+salesforce_redirect_uri = f"{env_utils.get("SELF_URL")}/v1/salesforce-oauth/callback"
 
 
 class UsersApiService:
@@ -272,3 +279,63 @@ class UsersApiService:
         except Exception as e:
             logger.error(f"Error during OAuth callback: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+
+    def generate_salesforce_oauth_url(self):
+        """Generates the Salesforce OAuth URL for the user to authenticate."""
+        base_url = "https://login.salesforce.com/services/oauth2/authorize"
+        response_type = "code"
+        code_verifier, code_challenge = generate_pkce_pair()
+        oauth_url = f"{base_url}?response_type={response_type}&client_id={consumer_key}&redirect_uri={salesforce_redirect_uri}&code_challenge={code_challenge}&code_challenge_method=S256&state={code_verifier}"
+        return oauth_url
+
+    def handle_salesforce_oauth_callback(self, code: str, state: str):
+        auth_response = self.exchange_salesforce_code(code, state)
+        if not auth_response or not auth_response.get("access_token"):
+            return {"error": "Error exchanging Salesforce code for tokens."}
+
+        logger.info(f"Salesforce auth response: {auth_response}")
+        access_token = auth_response.get("access_token")
+        refresh_token = auth_response.get("refresh_token")
+        instance_url = auth_response.get("instance_url")
+        salesforce_user_id_url = auth_response.get("id")
+        salesforce_user_id = salesforce_user_id_url.split("/")[-1]
+        logger.info(f"Salesforce user ID: {salesforce_user_id}, instance URL: {instance_url}, access token: {access_token}, refresh token: {refresh_token}")
+        return auth_response
+
+    def exchange_salesforce_code(self, auth_code: str, auth_state: str) -> dict:
+        """
+        Exchange Salesforce authorization code for access and refresh tokens.
+
+        Args:
+            auth_code (str): The authorization code received from Salesforce.
+            redirect_uri (str): The callback URL configured in the Connected App.
+            client_id (str): The Salesforce Connected App's Consumer Key.
+            client_secret (str): The Salesforce Connected App's Consumer Secret.
+
+        Returns:
+            Dict: A dictionary containing the access token, refresh token, and other metadata.
+        """
+        token_endpoint = "https://login.salesforce.com/services/oauth2/token"
+
+        payload = {
+            "grant_type": "authorization_code",
+            "code": auth_code,
+            "redirect_uri": salesforce_redirect_uri,
+            "client_id": consumer_key,
+            "client_secret": consumer_secret,
+            "code_verifier": auth_state,
+        }
+
+        try:
+            response = requests.post(token_endpoint, data=payload, timeout=10)
+            response.raise_for_status()  # Raise HTTPError for bad responses
+            return response.json()  # Parse and return the JSON response
+        except requests.exceptions.RequestException as e:
+            print(f"Error during Salesforce token exchange: {e}")
+            return {"error": str(e)}
+
+
+
+
+
