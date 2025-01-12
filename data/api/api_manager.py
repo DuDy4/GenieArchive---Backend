@@ -25,6 +25,7 @@ from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
+from data.api.api_services_classes.salesforce_api_services import SalesforceApiService
 
 from common.genie_logger import GenieLogger
 
@@ -48,6 +49,7 @@ stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
 params_api_service = ParamsApiService()
 users_api_service = UsersApiService()
+salesforce_api_service = SalesforceApiService()
 
 logger.info("Imported all services")
 
@@ -384,25 +386,6 @@ async def get_all_meetings_with_selected_date(
     logger.info(f"Getting meetings for tenant ID: {user_id}")
     response = meetings_api_service.get_all_meetings_with_selected_date(user_id, selected_datetime)
     return JSONResponse(content=response)
-
-
-# @v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
-# def get_all_profiles_for_meeting(
-#     request: Request, user_id: str, meeting_id: str, impersonate_user_id: Optional[str] = Query(None)
-# ) -> Union[List[MiniProfileResponse], JSONResponse]:
-#     """
-#     Get all profile IDs and names for a specific meeting.
-#
-#     - **user_id**: Tenant ID - the right one is 'abcde'
-#     - **meeting_id**: Meeting ID
-#     """
-#     logger.info(f"Received profiles request for meeting: {meeting_id}")
-#     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-#     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-#     logger.info(f"Getting profile for user ID: {user_id}")
-#     response = profiles_api_service.get_profiles_for_meeting(user_id, meeting_id)
-#     logger.info(f"About to send response: {response}")
-#     return response
 
 
 @v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=MiniProfilesAndPersonsListResponse)
@@ -972,6 +955,20 @@ async def handle_form(
     response = await params_api_service.evaluate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
 
     # Return parsed data
+    return JSONResponse(content=response)
+
+
+@v1_router.post("/salesforce/contact", response_class=JSONResponse)
+async def new_contact(request: Request):
+    """
+    Get new contact from salesforce and start the process of creating a new profile.
+    """
+    body = await request.json()
+    contact_email = body.get("email")
+    logger.info(f"Received new contact request for email: {contact_email}")
+    salesforce_id = body.get("salesforce_id")
+    logger.info(f"Received new contact request for salesforce_id: {salesforce_id}")
+    response = await salesforce_api_service.handle_new_contact(contact_email=contact_email, salesforce_user_id=salesforce_id)
     return JSONResponse(content=response)
 
 
