@@ -300,7 +300,7 @@ class ProfileDTO(BaseModel):
             work_history_summary=data[10],
             sales_criteria=[(SalesCriteria.from_dict(criteria) if isinstance(criteria, dict) else criteria)
                             for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]) if data[11] else [])],
-            profile_category=data[12] or determine_profile_category(data[8]).category if data[8] else None,
+            profile_category=data[12] if len(data) > 11 else None or determine_profile_category(data[8]).category if data[8] else None,
         )
 
     @staticmethod

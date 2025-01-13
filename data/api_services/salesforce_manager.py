@@ -100,9 +100,9 @@ class SalesforceManager:
             return []
         
     def update_contact(self, contact: ContactDTO, sf_creds: SalesforceCredsDTO, payload):
-        logger.info(f"Updating contact {contact.id} with payload: {payload} and sf_creds: {sf_creds}")
-        for key, value in payload.items():
-            self.add_genie_category_field(sf_creds, key)
+        logger.info(f"Updating contact {contact.id} with payload: {payload}")
+        # for key, value in payload.items():
+        #     self.add_genie_category_field(sf_creds, key)
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
 
         response = self.request_with_refresh_token(sf_creds, endpoint, payload, method="PATCH")
@@ -197,23 +197,36 @@ class SalesforceManager:
             print("Error:", token_response)
 
     def add_genie_category_field(self, sf_creds: SalesforceCredsDTO, field_name):
+        # Clean up the field name to match Salesforce's requirements
+        cleaned_field_name = ''.join(char for char in field_name if char.isalnum()).capitalize()
+
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
         payload = {
-            "fullName": f"Contact.{field_name}__c",  # Ensure the field name follows Salesforce naming conventions
+            "fullName": f"Contact.{cleaned_field_name}__c",
             "metadata": {
-                "label": field_name.replace('_', ' ').title(),  # Convert field_name to a more readable label
-                "type": "Text",  # Specify the field type
-                "length": 255  # Required for Text fields
+                "label": field_name.replace('_', ' ').title(),
+                "type": "Text",
+                "length": 255
             }
         }
-        response = self.request_with_refresh_token(sf_creds, endpoint, payload)
-        if response.status_code == 201:
-            logger.info(f"Field {field_name} created successfully.")
-        elif response.status_code == 400 and response.json()[0]['errorCode'] == "DUPLICATE_DEVELOPER_NAME":
-            logger.info(f"Field {field_name} already exists.")
-        else:
-            logger.error(f"Failed to create field {field_name}: {response.status_code} - {response.text}")
 
+        try:
+            response = self.request_with_refresh_token(sf_creds, endpoint, payload)
+            logger.info(f"Payload sent: {payload}")
+            if response.status_code == 201:
+                logger.info(f"Field {cleaned_field_name} created successfully.")
+            elif response.status_code == 400:
+                error_message = response.json()[0]
+                if error_message.get('errorCode') == "DUPLICATE_DEVELOPER_NAME":
+                    logger.info(f"Field {cleaned_field_name} already exists.")
+                elif error_message.get('errorCode') == "FIELD_INTEGRITY_EXCEPTION":
+                    logger.error(f"Field name validation failed: {error_message.get('message')}")
+                else:
+                    logger.error(f"Failed to create field {cleaned_field_name}: {response.text}")
+            else:
+                logger.error(f"Unexpected response: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.error(f"Exception while creating field {field_name}: {e}")
 
     def refresh_access_token(self, refresh_token):
         token_url = SALESFORCE_TOKEN_URL
@@ -234,3 +247,25 @@ class SalesforceManager:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error refreshing access token: {e}")
             return None
+
+    def test_add_fields(self):
+        # Fetch the Salesforce credentials (assuming you've already stored them)
+        sf_creds = self.sf_creds_repository.get_sf_creds_by_salesforce_user_id("0059k0000001Vo9AAE")
+
+        if sf_creds:
+            # Add fields to the Contact object
+            self.add_fields_to_contact(sf_creds)
+        else:
+            logger.error("Salesforce credentials not found for the user.")
+
+    def add_fields_to_contact(self, sf_creds):
+        fields_to_add = ["NextActionItem", "SalesCriteria"]
+        for field_name in fields_to_add:
+            logger.info(f"Adding field: {field_name}")
+            self.add_genie_category_field(sf_creds, field_name)
+
+
+
+if __name__ == "__main__":
+    manager = SalesforceManager(key_file="../../salesforce-genie-private.pem", public_key_file="../../salesforce-genie-public.pem")
+    manager.test_add_fields()

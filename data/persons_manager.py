@@ -787,6 +787,9 @@ class PersonManager(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
                 event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send)
                 event.send()
+            # If the profile is full, send finished profile event
+            event = GenieEvent(Topic.FINISHED_NEW_PROFILE, {"profile_uuid": str(person.uuid)})
+            event.send()
             return {"status": "success"}
         else:
             logger.warning("Profile does not exist in database")
