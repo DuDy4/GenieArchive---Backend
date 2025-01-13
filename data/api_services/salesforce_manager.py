@@ -1,26 +1,31 @@
 import requests
 import jwt
 import datetime
+from requests_oauthlib import OAuth2Session
 
 from common.genie_logger import GenieLogger
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.contact_dto import ContactDTO
+from data.data_common.data_transfer_objects.sf_creds_dto import SalesforceCredsDTO
+from data.data_common.repositories.sf_creds_repository import SalesforceUsersRepository
 from data.data_common.repositories.users_repository import UsersRepository
 
 logger = GenieLogger()
-sf_client_id = env_utils.get("SALESFORCE_CLIENT_ID")
-sf_client_secret = env_utils.get("SALESFORCE_CLIENT_SECRET")
+sf_client_id = env_utils.get("SALESFORCE_CONSUMER_KEY")
+sf_client_secret = env_utils.get("SALESFORCE_CONSUMER_SECRET")
 SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")
 SALESFORCE_REDIRECT_URI = SELF_URL + "/v1/salesforce/callback"
+SALESFORCE_TOKEN_URL = env_utils.get("SALESFORCE_TOKEN_URL")
 
 
 class SalesforceManager:
 
-    def __init__(self, client_id, client_secret, redirect_uri, key_file='', public_key_file=''):
+    def __init__(self, key_file='', public_key_file=''):
         self.users_repository = UsersRepository()
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
+        self.sf_creds_repository = SalesforceUsersRepository()
+        self.client_id = sf_client_id
+        self.client_secret = sf_client_secret
+        self.redirect_uri = SALESFORCE_REDIRECT_URI
         with open(key_file, "r") as key_file:
             self.private_key = key_file.read()
         with open(public_key_file, "r") as public_key_file:
@@ -51,26 +56,6 @@ class SalesforceManager:
         signed_jwt = jwt.encode(payload, private_key, algorithm="RS256")
         return signed_jwt
 
-            
-    # def fetch_contacts(self, headers, instance_url):
-    #     """
-    #     Fetch contacts from Salesforce using the access token.
-    #
-    #     Args:
-    #         access_token (str): Salesforce access token.
-    #         instance_url (str): The Salesforce instance URL.
-    #
-    #     Returns:
-    #         dict: A dictionary containing the contacts.
-    #     """
-    #
-    #     try:
-    #         response = requests.get(f"{instance_url}/services/data/v57.0/sobjects/Contact/0039k000000EZ4RAAW", headers=headers)
-    #         response.raise_for_status()
-    #         return response.json()
-    #     except requests.exceptions.RequestException as e:
-    #         print(f"Error fetching contacts: {e}")
-    #         return {"error": str(e)}
 
     async def get_contacts(self, salesforce_tenant_id, instance_url, access_token):
         """
@@ -117,18 +102,32 @@ class SalesforceManager:
             print(f"Failed to retrieve contacts: {e}")
             return []
         
-    def update_contact(self, contact: ContactDTO, sf_creds, payload):
+    def update_contact(self, contact: ContactDTO, sf_creds: SalesforceCredsDTO, payload):
+        logger.info(f"Updating contact {contact.id} with payload: {payload} and sf_creds: {sf_creds}")
+        for key, value in payload.items():
+            self.add_genie_category_field(sf_creds, key)
+        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
+
+        response = self.request_with_refresh_token(sf_creds, endpoint, payload)
+        logger.info(response.status_code)  # Should return 204 for a successful update
+
+    def request_with_refresh_token(self, sf_creds: SalesforceCredsDTO, endpoint, payload=None):
         headers = {
             "Authorization": f"Bearer {sf_creds.access_token}",
             "Content-Type": "application/json"
         }
-        for key, value in payload.items():
-            self.add_genie_category_field(sf_creds.instance_url, headers, key)
-        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
-
-        response = requests.patch(endpoint, headers=headers, json=payload)
-        logger.info(response.status_code)  # Should return 204 for a successful update
-
+        try:
+            response = requests.post(endpoint, headers=headers, json=payload)
+            if response.status_code == 401:
+                logger.info("Access token expired. Refreshing token...")
+                new_access_token = self.refresh_access_token(sf_creds.refresh_token)
+                if new_access_token:
+                    headers["Authorization"] = f"Bearer {new_access_token}"
+                    response = requests.post(endpoint, headers=headers, json=payload)
+            return response
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error updating contact: {e}")
+            return None
         
     def get_access_token(self, jwt_token, login_url):
         """
@@ -191,15 +190,40 @@ class SalesforceManager:
         else:
             print("Error:", token_response)
 
-    def add_genie_category_field(self, instance_url, headers, field_name):
-        endpoint = f"{instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
+    def add_genie_category_field(self, sf_creds: SalesforceCredsDTO, field_name):
+        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
         payload = {
-            "fullName": f"Contact.{field_name}",
-            "label": field_name,
-            "type": "Text",
+            "fullName": f"Contact.{field_name}",  # Object and API field name
+            "type": "Text",  # Field type
+            "length": 255,  # Length for Text fields (required)
+            "inlineHelpText": f"This is the {field_name} field for GenieAI.",
+            "metadata": {
+                "label": field_name,  # Label for the field
+            },
         }
-        response = requests.post(endpoint, headers=headers, json=payload)
+        response = self.request_with_refresh_token(sf_creds, endpoint, payload)
         if response.status_code == 201:
             logger.info(f"Field {field_name} created successfully.")
         else:
             logger.error(f"Failed to create field {field_name}: {response.status_code} - {response.text}")
+
+
+    def refresh_access_token(self, refresh_token):
+        token_url = SALESFORCE_TOKEN_URL
+        payload = {
+            'grant_type': 'refresh_token',
+            'refresh_token': refresh_token,
+            'client_id': self.client_id,
+            'client_secret': self.client_secret
+        }
+        logger.info(f"Refreshing access token with payload: {payload}")
+        try:
+            response = requests.post(token_url, data=payload)
+            response.raise_for_status()
+            new_tokens = response.json()
+            new_access_token = new_tokens.get('access_token')
+            self.sf_creds_repository.update_access_token(refresh_token, new_access_token)
+            return new_access_token
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error refreshing access token: {e}")
+            return None

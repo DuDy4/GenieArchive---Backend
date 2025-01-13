@@ -210,7 +210,7 @@ class SalesforceUsersRepository:
                 logger.error(f"Specific error message: {error.pgerror}")
 
     def get_sf_creds_by_salesforce_user_id(self, salesforce_user_id):
-        select_query = """SELECT salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_refresh_token, salesforce_access_token, user_id, tenant_id
+        select_query = """SELECT salesforce_user_id, salesforce_tenant_id, salesforce_instance_url, salesforce_access_token, salesforce_refresh_token, user_id, tenant_id
          FROM sf_users WHERE salesforce_user_id = %s"""
         with db_connection() as conn:
             try:
@@ -223,4 +223,15 @@ class SalesforceUsersRepository:
                         return None
             except psycopg2.Error as error:
                 logger.error("Error getting sf creds by salesforce user id:", error)
+                logger.error(f"Specific error message: {error.pgerror}")
+
+    def update_access_token(self, refresh_token, access_token):
+        update_query = """UPDATE sf_users SET salesforce_access_token = %s WHERE salesforce_refresh_token = %s"""
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, (access_token, refresh_token))
+                    conn.commit()
+            except psycopg2.Error as error:
+                logger.error("Error updating access token:", error)
                 logger.error(f"Specific error message: {error.pgerror}")

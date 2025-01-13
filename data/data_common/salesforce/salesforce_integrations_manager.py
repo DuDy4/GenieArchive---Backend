@@ -339,7 +339,7 @@ def get_new_access_token(refresh_token: str) -> str:
         client_secret=SALESFORCE_CLIENT_SECRET,
     )
     access_token = token_data["access_token"]
-    logger.debug(f"New access token: {access_token}")
+    logger.info(f"New access token: {access_token}")
     return access_token
 
 

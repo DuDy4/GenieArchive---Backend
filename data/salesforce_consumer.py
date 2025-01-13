@@ -22,8 +22,8 @@ logger = GenieLogger()
 
 CONSUMER_GROUP = "salesforce_consumer_group"
 
-sf_client_id = env_utils.get("SALESFORCE_CLIENT_ID")
-sf_client_secret = env_utils.get("SALESFORCE_CLIENT_SECRET")
+sf_client_id = env_utils.get("SALESFORCE_CONSUMER_KEY")
+sf_client_secret = env_utils.get("SALESFORCE_CONSUMER_SECRET")
 SELF_URL = env_utils.get("SELF_URL", "https://localhost:8000")
 sf_redirect_uri = SELF_URL + "/v1/salesforce/callback"
 key_file = "../salesforce-genie-private.pem"
@@ -46,9 +46,7 @@ class SalesforceConsumer(GenieConsumer):
         self.tenants_repository = TenantsRepository()
         self.profiles_repository = ProfilesRepository()
         self.sf_creds_repository = SalesforceUsersRepository()
-        self.salesforce_manager = SalesforceManager(client_id=sf_client_id, client_secret=sf_client_secret,
-                                                    redirect_uri=sf_redirect_uri, key_file=key_file,
-                                                    public_key_file=public_key_file)
+        self.salesforce_manager = SalesforceManager(key_file=key_file, public_key_file=public_key_file)
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
