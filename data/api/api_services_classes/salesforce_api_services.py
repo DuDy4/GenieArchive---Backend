@@ -27,17 +27,13 @@ class SalesforceApiService:
         self.users_repository = UsersRepository()
         self.sf_creds_repository = SalesforceUsersRepository()
         self.salesforce_creds_repository = SalesforceUsersRepository()
-        self.sf_manager = SalesforceManager(consumer_key, consumer_secret, salesforce_redirect_uri, key_file, public_key_file)
+        self.sf_manager = SalesforceManager(key_file, public_key_file)
 
-    async def get_user_contacts(self, user_creds):
+    async def get_user_contacts(self, user_creds: SalesforceCredsDTO):
         if not user_creds:
             logger.error("No user creds")
             return
-        salesforce_tenant_id = user_creds.get("salesforce_tenant_id")
-        instance_url = user_creds.get("instance_url")
-        access_token = user_creds.get("access_token")
-
-        contacts = await (self.sf_manager.get_contacts(salesforce_tenant_id=salesforce_tenant_id, instance_url=instance_url, access_token=access_token))
+        contacts = await (self.sf_manager.get_contacts(user_creds))
         logger.info(f"Fetched {len(contacts)} contacts from Salesforce")
         return contacts
 
@@ -102,14 +98,7 @@ class SalesforceApiService:
         self.salesforce_creds_repository.save_user_creds(sf_creds)
         logger.info(f"Saved Salesforce credentials for user {salesforce_user_id}")
         logger.info(f"Salesforce user ID: {salesforce_user_id}, instance URL: {instance_url}, access token: {access_token}, refresh token: {refresh_token}")
-        result = {
-            "salesforce_user_id": salesforce_user_id,
-            "salesforce_tenant_id": salesforce_tenant_id,
-            "instance_url": instance_url,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-        }
-        return result
+        return sf_creds
 
     def exchange_salesforce_code(self, auth_code: str, auth_state: str) -> dict:
         """
@@ -143,11 +132,11 @@ class SalesforceApiService:
             print(f"Error during Salesforce token exchange: {e}")
             return {"error": str(e)}
 
-    async def handle_new_salesforce_auth(self, user_creds):
+    async def handle_new_salesforce_auth(self, user_creds: SalesforceCredsDTO):
         contacts = await self.get_user_contacts(user_creds)
         event = GenieEvent(
             topic=Topic.NEW_SF_CONTACTS,
-            data={"contacts": contacts, "salesforce_user_id": user_creds.get("salesforce_user_id")},
+            data={"contacts": contacts, "salesforce_user_id": user_creds.salesforce_user_id},
         )
         event.send()
 

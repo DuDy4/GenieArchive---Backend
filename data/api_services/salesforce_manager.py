@@ -57,29 +57,25 @@ class SalesforceManager:
         return signed_jwt
 
 
-    async def get_contacts(self, salesforce_tenant_id, instance_url, access_token):
+    async def get_contacts(self, sf_creds: SalesforceCredsDTO):
         """
         Retrieve contacts from salesforce.
 
         Returns:
         list: List of contact records.
         """
-        url = f"{instance_url}/services/data/v61.0/query/"
+        url = f"{sf_creds.instance_url}/services/data/v61.0/query/"
         query = """
-            SELECT Id, Name, Email, 
+            SELECT Id, Name, Email, ProfileCategory__c,
                    (SELECT Owner.Email FROM Opportunities) 
             FROM Contact 
             ORDER BY CreatedDate DESC 
             LIMIT 10
             """
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        }
         params = {"q": query}
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = self.request_with_refresh_token(sf_creds=sf_creds, endpoint=url, payload=params, method="GET")
             response.raise_for_status()
             res_contacts = response.json()["records"]
             logger.info(f"Retrieved contacts: {len(res_contacts)}")
@@ -94,6 +90,7 @@ class SalesforceManager:
                     "id": contact.get("Id"),
                     "name": contact.get("Name"),
                     "email": contact.get("Email"),
+                    "profile_category": contact.get("ProfileCategory__c"),
                     "owner_email": owner_email,
                 })
             logger.info(f"Processed contacts: {contacts}")
@@ -108,16 +105,25 @@ class SalesforceManager:
             self.add_genie_category_field(sf_creds, key)
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
 
-        response = self.request_with_refresh_token(sf_creds, endpoint, payload)
+        response = self.request_with_refresh_token(sf_creds, endpoint, payload, method="PATCH")
+        logger.info(f"Update contact response: {response.text}")
         logger.info(response.status_code)  # Should return 204 for a successful update
 
-    def request_with_refresh_token(self, sf_creds: SalesforceCredsDTO, endpoint, payload=None):
+    def request_with_refresh_token(self, sf_creds: SalesforceCredsDTO, endpoint, payload=None, method="POST"):
         headers = {
             "Authorization": f"Bearer {sf_creds.access_token}",
             "Content-Type": "application/json"
         }
         try:
-            response = requests.post(endpoint, headers=headers, json=payload)
+            if method == "GET":
+                response = requests.get(endpoint, headers=headers, params=payload)
+            elif method == "POST":
+                response = requests.post(endpoint, headers=headers, json=payload)
+            elif method == "PATCH":
+                response = requests.patch(endpoint, headers=headers, json=payload)
+            else:
+                logger.error(f"Unsupported method: {method}")
+                return None
             if response.status_code == 401:
                 logger.info("Access token expired. Refreshing token...")
                 new_access_token = self.refresh_access_token(sf_creds.refresh_token)
@@ -193,17 +199,18 @@ class SalesforceManager:
     def add_genie_category_field(self, sf_creds: SalesforceCredsDTO, field_name):
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
         payload = {
-            "fullName": f"Contact.{field_name}",  # Object and API field name
-            "type": "Text",  # Field type
-            "length": 255,  # Length for Text fields (required)
-            "inlineHelpText": f"This is the {field_name} field for GenieAI.",
+            "fullName": f"Contact.{field_name}__c",  # Ensure the field name follows Salesforce naming conventions
             "metadata": {
-                "label": field_name,  # Label for the field
-            },
+                "label": field_name.replace('_', ' ').title(),  # Convert field_name to a more readable label
+                "type": "Text",  # Specify the field type
+                "length": 255  # Required for Text fields
+            }
         }
         response = self.request_with_refresh_token(sf_creds, endpoint, payload)
         if response.status_code == 201:
             logger.info(f"Field {field_name} created successfully.")
+        elif response.status_code == 400 and response.json()[0]['errorCode'] == "DUPLICATE_DEVELOPER_NAME":
+            logger.info(f"Field {field_name} already exists.")
         else:
             logger.error(f"Failed to create field {field_name}: {response.status_code} - {response.text}")
 

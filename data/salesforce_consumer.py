@@ -126,7 +126,7 @@ class SalesforceConsumer(GenieConsumer):
         if not contact:
             logger.error(f"No contact found for email: {profile_email}")
             return
-        self.salesforce_manager.update_contact(contact=contact, sf_creds=sf_creds, payload={"profile_category": profile_category})
+        self.salesforce_manager.update_contact(contact=contact, sf_creds=sf_creds, payload={"ProfileCategory__c": profile_category})
 
     def create_sf_user(self, owner_email):
         user_id = get_uuid4()
