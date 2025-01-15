@@ -100,9 +100,9 @@ class SalesforceManager:
             return []
         
     def update_contact(self, contact: ContactDTO, sf_creds: SalesforceCredsDTO, payload):
-        logger.info(f"Updating contact {contact.id} with payload: {payload}")
-        # for key, value in payload.items():
-        #     self.add_genie_category_field(sf_creds, key)
+        logger.info(f"Updating contact {contact.id}")
+        for key, value in payload.items():
+            self.add_genie_category_field(sf_creds, key)
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
 
         response = self.request_with_refresh_token(sf_creds, endpoint, payload, method="PATCH")
@@ -236,7 +236,7 @@ class SalesforceManager:
             'client_id': self.client_id,
             'client_secret': self.client_secret
         }
-        logger.info(f"Refreshing access token with payload: {payload}")
+        logger.info(f"Refreshing access token")
         try:
             response = requests.post(token_url, data=payload)
             response.raise_for_status()
