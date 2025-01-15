@@ -52,7 +52,7 @@ class SalesforceUsersRepository:
         if not salesforce_creds_dto.user_id:
             salesforce_creds_dto.user_id = get_uuid4()
         if not salesforce_creds_dto.tenant_id:
-            salesforce_creds_dto.tenant_id = self.get_tenant_id_by_sf_tenant_id(salesforce_tenant_id) or get_uuid4()
+            salesforce_creds_dto.tenant_id = self.get_tenant_id_by_sf_tenant_id(salesforce_creds_dto.salesforce_tenant_id) or get_uuid4()
         with db_connection() as conn:
             try:
 
