@@ -17,9 +17,7 @@ from data.data_common.data_transfer_objects.company_dto import CompanyDTO
 from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO, MeetingClassification
 from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.dependencies.dependencies import (
-    google_creds_repository,
     meetings_repository,
-    tenants_repository,
     profiles_repository,
     companies_repository,
 )
@@ -29,7 +27,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
 from common.utils import env_utils
-
+from data.data_common.repositories.users_repository import UsersRepository
 
 logger = GenieLogger()
 
@@ -45,7 +43,8 @@ class EmailManager(GenieConsumer):
             consumer_group=CONSUMER_GROUP,
         )
         self.meetings_repository = meetings_repository()
-        self.tenants_repository = tenants_repository()
+        # self.tenants_repository = tenants_repository()
+        self.users_repository = UsersRepository()
         self.companies_repository = companies_repository()
         self.profiles_repository = profiles_repository()
         self.email_sender = GmailSender()
@@ -85,16 +84,16 @@ class EmailManager(GenieConsumer):
             logger.error(f"Meeting with UUID {meeting_uuid} not found")
             return {"status": "error", "message": f"Meeting with UUID {meeting_uuid} not found"}
         logger.info(f"Sending reminder for meeting with UUID {meeting_uuid}")
-        tenant_id = meeting.tenant_id
-        if not tenant_id:
-            logger.error(f"Tenant ID not found for meeting with UUID {meeting_uuid}")
-            return {"status": "error", "message": f"Tenant ID not found for meeting with UUID {meeting_uuid}"}
-        tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
-        if not tenant_email:
-            logger.error(f"Tenant email not found for tenant ID {tenant_id}")
-            return {"status": "error", "message": f"Tenant email not found for tenant ID {tenant_id}"}
-        additional_domains = self.companies_repository.get_additional_domains(tenant_id)
-        filtered_emails = filter_emails_with_additional_domains(tenant_email, meeting.participants_emails, additional_domains)
+        user_id = meeting.user_id
+        if not user_id:
+            logger.error(f"user ID not found for meeting with UUID {meeting_uuid}")
+            return {"status": "error", "message": f"user ID not found for meeting with UUID {meeting_uuid}"}
+        user_email = self.users_repository.get_email_by_user_id(user_id)
+        if not user_email:
+            logger.error(f"user email not found for user ID {user_id}")
+            return {"status": "error", "message": f"user email not found for user ID {user_id}"}
+        additional_domains = self.companies_repository.get_additional_domains(user_id)
+        filtered_emails = filter_emails_with_additional_domains(user_email, meeting.participants_emails, additional_domains)
         logger.info(f"Filtered emails: {filtered_emails}")
         filtered_profiles = self.profiles_repository.get_profiles_dto_by_email_list(filtered_emails)
         if not filtered_profiles:
@@ -108,9 +107,9 @@ class EmailManager(GenieConsumer):
         target_company.employees = None
 
         seller_context = None
-        if tenant_email:
+        if user_email:
             seller_context = self.embeddings_client.search_materials_by_prospect_data(
-                tenant_email, filtered_profiles[0]
+                user_email, filtered_profiles[0]
             )
             if seller_context and isinstance(seller_context, list):
                 seller_context = " || ".join(seller_context)
@@ -129,7 +128,7 @@ class EmailManager(GenieConsumer):
                                                                              target_company, filtered_profiles)
         result = self.email_sender.send_email(
             user_email=self.email_address,
-            recipient=tenant_email if tenant_email else 'asaf@genieai.ai',
+            recipient=user_email if user_email else 'asaf@genieai.ai',
             subject="Meeting Reminder",
             body_text=email_content  # Pass the HTML content here
         )
@@ -318,7 +317,7 @@ class GmailSender:
         return f"{APP_URL}/meeting/{meeting.uuid}?name={encoded_subject}"
 
     def create_unsubscribe_link(self, meeting):
-        return f"{APP_URL}/unsubscribe/{meeting.tenant_id}"
+        return f"{APP_URL}/unsubscribe/{meeting.user_id}"
 
 
 if __name__ == "__main__":
