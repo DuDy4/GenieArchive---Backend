@@ -190,7 +190,7 @@ class UsersApiService:
             if not user_email or not tenant_id:
                 raise HTTPException(status_code=400, detail="Missing user email or tenant ID")
 
-            if self.users_repository.exists(user_id):
+            if self.users_repository.exists(user_dto):
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
                 self.fetch_google_meetings(user_email)
             elif self.users_repository.email_exists(user_email):

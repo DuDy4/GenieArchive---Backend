@@ -77,6 +77,16 @@ class UsersRepository:
                 cursor.execute(select_query, (user.user_id, user.email))
                 return cursor.fetchone() is not None
 
+    def email_exists(self, email: str) -> bool:
+        select_query = """
+            SELECT uuid, user_id, user_name, email, tenant_id
+            FROM users WHERE email = %s
+            """
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(select_query, (email,))
+                return cursor.fetchone() is not None
+
     def get_user_by_id(self, user_id: str) -> Optional[UserDTO]:
         select_query = """
             SELECT uuid, user_id, user_name, email, tenant_id FROM users WHERE user_id = %s
