@@ -6,8 +6,7 @@ import asyncio
 from dotenv import load_dotenv
 
 from common.utils.news_utils import filter_not_reshared_social_media_news
-from data.data_common.data_transfer_objects.profile_dto import Phrase
-from data.data_common.data_transfer_objects.status_dto import StatusEnum
+
 from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
 from data.data_common.repositories.users_repository import UsersRepository
 
