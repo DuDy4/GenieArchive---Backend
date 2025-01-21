@@ -16,47 +16,33 @@ profiles = ["The Analytical", "The connector", "The Driver", "The Innovator", "T
 
 sales_criteria_mapping = {
     profiles[0]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
-    profiles[1]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=30),],
-    profiles[2]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
-    profiles[3]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
-    profiles[4]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=40),],
-    profiles[5]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=40),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),],
+    profiles[1]: [
+        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=40),],
+    profiles[2]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=35),
+        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=25),],
+    profiles[3]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=50),],
+    profiles[4]: [
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=50),],
+    profiles[5]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),],
     profiles[6]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=25),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=25),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=35),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=50),],
 }
 
 criteria_icon_mapping = {
