@@ -4,7 +4,7 @@ from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
 from typing import List, Optional
 from data.data_common.data_transfer_objects.artifact_dto import (
-    ArtifactScoreDTO,
+    ArtifactDTO, ArtifactScoreDTO, ArtifactType, ArtifactSource
 )
 
 logger = GenieLogger()
@@ -16,16 +16,18 @@ class ArtifactRepository:
 
     def create_tables_if_not_exists(self):
         artifact_query = """
-            CREATE TABLE IF NOT EXISTS artifact (
+            CREATE TABLE IF NOT EXISTS artifacts (
                 id SERIAL PRIMARY KEY,
                 uuid UUID,
                 artifact_type VARCHAR NOT NULL,
-                profile_uuid VARCHAR NOT NULL,
                 source VARCHAR NOT NULL,
+                profile_uuid VARCHAR NOT NULL,
                 artifact_url VARCHAR NOT NULL,
-                metadata JSONB,
+                text TEXT,
+                summary TEXT,
                 published_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                metadata JSONB,
             );
         """
 
@@ -38,26 +40,52 @@ class ArtifactRepository:
                 logger.error(f"Error creating tables: {error}")
                 traceback.print_exc()
 
-    def get_user_artifacts(self, profile_uuid: str) -> List[ArtifactScoreDTO]:
+    def get_artifact(self, uuid: str) -> Optional[ArtifactDTO]:
         select_query = """
-        SELECT uuid, artifact_type, profile_uuid, source, artifact_url, metadata, published_date
-        FROM artifact
-        WHERE profile_uuid = %s;
+        SELECT uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, created_at, metadata
+        FROM artifacts
+        WHERE uuid = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (profile_uuid,))
+                    cursor.execute(select_query, (uuid,))
+                    return ArtifactDTO.from_tuple(cursor.fetchone())
+            except psycopg2.Error as error:
+                logger.error(f"Error getting artifact: {error.pgerror}")
+                traceback.print_exc()
+                return None
+
+    def get_user_artifacts(self, profile_uuid: str, artifact_type: ArtifactType) -> List[ArtifactScoreDTO]:
+        select_query = """
+        SELECT uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, created_at, metadata
+        FROM artifacts
+        WHERE profile_uuid = %s
+        """
+        if artifact_type:
+            select_query += "AND artifact_type = %s"
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    if artifact_type:
+                        cursor.execute(select_query, (profile_uuid, artifact_type.value))
+                    else:
+                        cursor.execute(select_query, (profile_uuid,))
                     return [ArtifactScoreDTO.from_tuple(row) for row in cursor.fetchall()]
             except psycopg2.Error as error:
                 logger.error(f"Error getting artifacts: {error.pgerror}")
                 traceback.print_exc()
                 return []
             
+    def save_artifact(self, artifact: ArtifactScoreDTO) -> Optional[str]:
+        if self.exists(artifact.uuid):
+            return None
+        return self.insert_artifact(artifact)
+            
 
-    def insert_artifact(self, artifact: ArtifactScoreDTO) -> Optional[str]:
+    def _insert_artifact(self, artifact: ArtifactScoreDTO) -> Optional[str]:
         insert_query = """
-        INSERT INTO artifact (uuid, artifact_type, profile_uuid, source, artifact_url, metadata, published_date, created_at)
+        INSERT INTO artifacts (uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, metadata)
         VALUES (%s, %s, %s, %s, %s, %s, %s, current_timestamp)
         RETURNING uuid;
         """
@@ -80,7 +108,7 @@ class ArtifactRepository:
 
     def exists(self, uuid: str):
         select_query = """
-        SELECT uuid FROM artifact_scores WHERE uuid = %s;
+        SELECT uuid FROM artifacts WHERE uuid = %s;
         """
         with db_connection() as conn:
             try:

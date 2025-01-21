@@ -14,6 +14,8 @@ from ..repositories.badges_repository import BadgesRepository
 from ..repositories.file_upload_repository import FileUploadRepository
 from ..repositories.deals_repository import DealsRepository
 from ..repositories.statuses_repository import StatusesRepository
+from ..repositories.artifact_repository import ArtifactRepository
+from ..repositories.artifact_scores_repository import ArtifactScoresRepository
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -33,7 +35,15 @@ b_repository = BadgesRepository()
 f_repository = FileUploadRepository()
 d_repository = DealsRepository()
 st_repository = StatusesRepository()
+a_repository = ArtifactRepository()
+as_repository = ArtifactScoresRepository()
 
+
+def artifact_repository() -> ArtifactRepository:
+    return a_repository
+
+def artifact_scores_repository() -> ArtifactScoresRepository:
+    return as_repository
 
 def tenants_repository() -> TenantsRepository:
     return t_repository

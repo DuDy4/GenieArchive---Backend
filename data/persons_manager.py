@@ -31,7 +31,7 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     meetings_repository,
     companies_repository,
-    tenant_profiles_repository,
+    artifact_repository,
 )
 
 from data.importers.profile_pictures import get_profile_picture
@@ -737,6 +737,7 @@ class PersonManager(GenieConsumer):
             final_news_data_list = list(set(news_data_objects + news_in_database))
             if final_news_data_list:
                 self.personal_data_repository.update_news_list_to_db(uuid, final_news_data_list, PersonalDataRepository.FETCHED)
+                self.artifacts_repository.save_artifacts(uuid, final_news_data_list)
             if news_data_objects:
                 event = GenieEvent(Topic.NEW_PERSONAL_NEWS, {"person_uuid": uuid, "force": True})
                 event.send()

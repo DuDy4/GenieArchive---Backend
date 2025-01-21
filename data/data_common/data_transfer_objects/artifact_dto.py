@@ -8,34 +8,38 @@ from typing import Tuple, Dict, Any
 
 class ArtifactType(Enum):
     POST = "post"
+    OTHER = "other"
 
 
 class ArtifactSource(Enum):
     LINKEDIN = "linkedin"
+    OTHER = "other"
 
 
 
 class ArtifactDTO(BaseModel):
     uuid: UUID
-    name: str
     artifact_type: ArtifactType
-    profile_id: str
-    published_date: datetime
-    creation_date: datetime
     source: ArtifactSource
+    profile_uuid: str
     artifact_url: str
+    text: str
+    summary: str
+    published_date: datetime
+    created_at: datetime
     metadata: Dict[str, Any]
 
     def to_tuple(self) -> Tuple:
         return (
             str(self.uuid),
-            self.name,
             self.artifact_type.value,
-            self.profile_id,
-            self.published_date,
-            self.creation_date,
             self.source.value,
+            self.profile_uuid,
             self.artifact_url,
+            self.text,
+            self.summary,
+            self.published_date,
+            self.created_at,
             self.metadata
         )
     
@@ -43,40 +47,43 @@ class ArtifactDTO(BaseModel):
     def from_tuple(cls, data: Tuple) -> 'ArtifactDTO':
         return cls(
             uuid=data[0],
-            name=data[1],
-            artifact_type=ArtifactType(data[2]),
-            profile_id=data[3],
-            published_date=data[4],
-            creation_date=data[5],
-            source=ArtifactSource(data[6]),
-            artifact_url=data[7],
-            metadata=data[8]
+            artifact_type=ArtifactType(data[1]) if data[1] else ArtifactType.OTHER,
+            source=ArtifactSource(data[2]) if data[2] else ArtifactSource.OTHER,
+            profile_uuid=data[3],
+            artifact_url=data[4],
+            text=data[5],
+            summary=data[6],
+            published_date=data[7],
+            created_at=data[8],
+            metadata=data[9]
         )
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ArtifactDTO':
         return cls(
             uuid=data['uuid'],
-            name=data['name'],
-            artifact_type=ArtifactType(data['artifact_type']),
-            profile_id=data['profile_id'],
-            published_date=data['published_date'],
-            creation_date=data['creation_date'],
-            source=ArtifactSource(data['source']),
+            artifact_type=ArtifactType(data['artifact_type']) if data['artifact_type'] else ArtifactType.OTHER,
+            source=ArtifactSource(data['source']) if data['source'] else ArtifactSource.OTHER,
+            profile_uuid=data['profile_uuid'],
             artifact_url=data['artifact_url'],
+            text=data['text'],
+            summary=data['summary'],
+            published_date=data['published_date'],
+            created_at=data['created_at'],
             metadata=data['metadata']
         )
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             'uuid': self.uuid,
-            'name': self.name,
-            'artifact_type': self.artifact_type.value,
-            'profile_id': self.profile_id,
-            'published_date': self.published_date,
-            'creation_date': self.creation_date,
-            'source': self.source.value,
+            'artifact_type': self.artifact_type,
+            'source': self.source,
+            'profile_uuid': self.profile_uuid,
             'artifact_url': self.artifact_url,
+            'text': self.text,
+            'summary': self.summary,
+            'published_date': self.published_date,
+            'created_at': self.created_at,
             'metadata': self.metadata
         }
 
@@ -84,7 +91,7 @@ class ArtifactDTO(BaseModel):
 class ArtifactScoreDTO(BaseModel):
     uuid: UUID
     artifact_uuid: str
-    param_score: str
+    param: str
     score: int
     clues_scores: Dict[str, int]
     created_at: datetime
@@ -93,10 +100,10 @@ class ArtifactScoreDTO(BaseModel):
         return (
             str(self.uuid),
             self.artifact_uuid,
-            self.param_score,
+            self.param,
             self.score,
-            self.clues_scores     
-            self.created_at      
+            self.clues_scores,
+            self.created_at
         )
     
     @classmethod
@@ -125,7 +132,7 @@ class ArtifactScoreDTO(BaseModel):
         return {
             'uuid': self.uuid,
             'artifact_uuid': self.artifact_uuid,
-            'param': self.param_score,
+            'param': self.param,
             'score': self.score,
             'clues_scores': self.clues_scores,
             'created_at': self.created_at
