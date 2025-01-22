@@ -172,7 +172,7 @@ class SlackConsumer(GenieConsumer):
         if user_id:
             user_email = self.users_repository.get_email_by_user_id(user_id)
             if user_email:
-                message += f"""Originating user: {user_email}."""
+                message += f""" \nOriginating user: {user_email}."""
         send_message(message)
         self.persons_repository.update_last_message_sent_at_by_email(person.email)
         return {"status": "ok"}
