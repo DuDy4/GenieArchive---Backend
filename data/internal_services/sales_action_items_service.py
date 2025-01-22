@@ -1,6 +1,7 @@
 import json
 import base64
 import random
+from itertools import cycle
 from data.data_common.utils.persons_utils import get_default_individual_sales_criteria
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -99,14 +100,51 @@ class SalesActionItemsService:
         """
         try:
             # Attempt to fetch action items
-            return self._fetch_action_items(sales_criteria)
+            return self._fetch_x_action_items(sales_criteria)
         except Exception as e:
             if "401" in str(e):  # Example: Handle token expiration
                 print("Refreshing credentials due to 401 error...")
                 self.refresh_credentials()
-                return self._fetch_action_items(sales_criteria)
+                return self._fetch_x_action_items(sales_criteria)
             else:
                 raise e
+            
+    def _fetch_x_action_items(self, sales_criteria: list[SalesCriteria], num_items = 5) -> list[SalesActionItem]:
+        action_items = []
+        descending_sales_criteria = sorted(sales_criteria, key=lambda x: x.target_score, reverse=True)
+        criteria_cycle = cycle(descending_sales_criteria) 
+        used_suggestions = set()
+        for i in range(num_items):
+            sale_criteria = next(criteria_cycle)
+            normalized_criteria = sale_criteria.criteria.value.strip().lower().replace("_", " ")
+
+            # Filter rows matching the criteria
+            suggestions = [
+                (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None)
+                for row in self.data_rows
+                if len(row) > self.criteria_index
+                and row[self.criteria_index].strip().lower().replace("_", " ") == normalized_criteria
+                and len(row) > self.action_item_index
+                and row[self.action_item_index].strip()  # Exclude rows with empty Action Item
+                and (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None) not in used_suggestions
+            ]
+
+            if suggestions:
+                action_item_tuple = random.choice(suggestions) 
+                used_suggestions.add(action_item_tuple)  
+                action_item, detailed_item, category = action_item_tuple
+                if category:
+                    category = category.strip().upper().replace(" ", "_")
+                    action_item_category = SalesActionItemCategory(category)
+                action_items.append(SalesActionItem(
+                    criteria=sale_criteria.criteria,
+                    action_item=action_item,
+                    detailed_action_item=detailed_item,
+                    score=int(sale_criteria.target_score * 0.25),  # Placeholder - 25% of the target score
+                    category=action_item_category if category else SalesActionItemCategory.GENERIC
+                ))
+
+        return action_items
 
     def _fetch_action_items(self, sales_criteria: list[SalesCriteria]) -> list[SalesActionItem]:
         """
@@ -138,17 +176,6 @@ class SalesActionItemsService:
                     score=int(sale_criteria.target_score * 0.25),  # Placeholder - 25% of the target score
                     category=action_item_category if category else SalesActionItemCategory.GENERIC
                 ))
-        # normalized_criteria = criteria.strip().lower().replace("_", " ")
-        #
-        # # Filter rows matching the criteria
-        # suggestions = [
-        #     (row[self.action_item_index], row[self.detailed_item_index] if len(row) > self.detailed_item_index else None)
-        #     for row in self.data_rows
-        #     if len(row) > self.criteria_index
-        #     and row[self.criteria_index].strip().lower().replace("_", " ") == normalized_criteria
-        #     and len(row) > self.action_item_index
-        #     and row[self.action_item_index].strip()  # Exclude rows with empty Action Item
-        # ]
 
         return action_items
     

@@ -40,6 +40,7 @@ def create_fake_data():
     }
 
     logger.set_tenant_id('org_RPLWQRTI8t7EWU1L')
+    logger.set_user_id('google-oauth2|102736324632194671211')
 
     return data_to_send
 
