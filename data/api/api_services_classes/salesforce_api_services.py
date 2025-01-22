@@ -70,7 +70,9 @@ class SalesforceApiService:
         base_url = "https://login.salesforce.com/services/oauth2/authorize"
         response_type = "code"
         code_verifier, code_challenge = generate_pkce_pair()
-        oauth_url = f"{base_url}?response_type={response_type}&client_id={consumer_key}&redirect_uri={salesforce_redirect_uri}&code_challenge={code_challenge}&code_challenge_method=S256&state={code_verifier}"
+        scope = "id api web refresh_token"
+        oauth_url = (f"{base_url}?response_type={response_type}&client_id={consumer_key}&redirect_uri={salesforce_redirect_uri}"
+                     f"&code_challenge={code_challenge}&code_challenge_method=S256&state={code_verifier}&scope={scope}")
         return oauth_url
 
     async def handle_salesforce_oauth_callback(self, code: str, state: str):
