@@ -38,7 +38,7 @@ sales_criteria_mapping = {
     profiles[5]: [
         SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=30),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),],
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),],
     profiles[6]: [
         SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=25),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=25),
