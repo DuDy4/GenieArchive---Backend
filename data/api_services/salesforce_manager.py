@@ -64,9 +64,10 @@ class SalesforceManager:
         Returns:
         list: List of contact records.
         """
+
         url = f"{sf_creds.instance_url}/services/data/v61.0/query/"
         query = """
-            SELECT Id, Name, Email, ProfileCategory__c,
+            SELECT Id, Name, Email, genieai__ProfileCategory__c,
                    (SELECT Owner.Email FROM Opportunities) 
             FROM Contact 
             ORDER BY CreatedDate DESC 
@@ -96,7 +97,7 @@ class SalesforceManager:
             logger.info(f"Processed contacts: {contacts}")
             return contacts
         except Exception as e:
-            print(f"Failed to retrieve contacts: {e}")
+            logger.error(f"Failed to retrieve contacts: {e}")
             return []
         
     def update_contact(self, contact: ContactDTO, sf_creds: SalesforceCredsDTO, payload):

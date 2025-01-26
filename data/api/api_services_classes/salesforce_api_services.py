@@ -67,7 +67,7 @@ class SalesforceApiService:
 
     def generate_salesforce_oauth_url(self):
         """Generates the Salesforce OAuth URL for the user to authenticate."""
-        base_url = "https://login.salesforce.com/services/oauth2/authorize"
+        base_url = "https://test.salesforce.com/services/oauth2/authorize"
         response_type = "code"
         code_verifier, code_challenge = generate_pkce_pair()
         scope = "id api web refresh_token"
@@ -78,8 +78,7 @@ class SalesforceApiService:
     async def handle_salesforce_oauth_callback(self, code: str, state: str):
         auth_response = self.exchange_salesforce_code(code, state)
         if not auth_response or not auth_response.get("access_token"):
-            return {"error": "Error exchanging Salesforce code for tokens."}
-
+            return
         logger.info(f"Salesforce auth response: {auth_response}")
         access_token = auth_response.get("access_token")
         refresh_token = auth_response.get("refresh_token")
@@ -87,7 +86,7 @@ class SalesforceApiService:
         salesforce_id_url = auth_response.get("id")
         if not access_token or not instance_url or not salesforce_id_url:
             logger.error("Missing access token, instance URL, or Salesforce ID URL")
-            return {"error": "Missing access token, instance URL, or Salesforce ID URL"}
+            return
         salesforce_user_id = salesforce_id_url.split("/")[-1]
         salesforce_tenant_id = salesforce_id_url.split("/")[-2]
         sf_creds = SalesforceCredsDTO(
@@ -115,7 +114,7 @@ class SalesforceApiService:
         Returns:
             Dict: A dictionary containing the access token, refresh token, and other metadata.
         """
-        token_endpoint = "https://login.salesforce.com/services/oauth2/token"
+        token_endpoint = "https://test.salesforce.com/services/oauth2/token"
 
         payload = {
             "grant_type": "authorization_code",
@@ -136,11 +135,12 @@ class SalesforceApiService:
 
     async def handle_new_salesforce_auth(self, user_creds: SalesforceCredsDTO):
         contacts = await self.get_user_contacts(user_creds)
-        event = GenieEvent(
-            topic=Topic.NEW_SF_CONTACTS,
-            data={"contacts": contacts, "salesforce_user_id": user_creds.salesforce_user_id},
-        )
-        event.send()
+        if contacts:
+            event = GenieEvent(
+                topic=Topic.NEW_SF_CONTACTS,
+                data={"contacts": contacts, "salesforce_user_id": user_creds.salesforce_user_id},
+            )
+            event.send()
 
 
 
