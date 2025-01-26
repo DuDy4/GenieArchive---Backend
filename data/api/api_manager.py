@@ -88,6 +88,7 @@ async def salesforce_oauth_callback(background_tasks: BackgroundTasks, request: 
         logger.info("Handling Salesforce OAuth callback")
         response = await salesforce_api_service.handle_salesforce_oauth_callback(code, state)
         if response:
+            logger.info(f"About to start new Salesforce auth with: {response}")
             background_tasks.add_task(salesforce_api_service.handle_new_salesforce_auth, response)
             return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
         else:
@@ -496,31 +497,31 @@ def get_profile_get_to_know(
     logger.info(f"About to send response: {response}")
     return response
 
-
-@v1_router.get(
-    "/{user_id}/profiles/{uuid}/action-items",
-    response_model=ActionItemsResponse,
-    summary="Fetches action items information of a profile",
-)
-def get_profile_action_items(
-    request: Request,
-    uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
-) -> ActionItemsResponse:
-    """
-    Get the action items information of a profile - Mock version.
-
-    - **user_id**: Tenant ID
-    - **uuid**: Profile UUID
-    """
-    logger.info(f"Got action items request for profile: {uuid}")
-
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_action_items(user_id, uuid)
-    logger.info(f"About to send response: {response}")
-    return response
+#
+# @v1_router.get(
+#     "/{user_id}/profiles/{uuid}/action-items",
+#     response_model=ActionItemsResponse,
+#     summary="Fetches action items information of a profile",
+# )
+# def get_profile_action_items(
+#     request: Request,
+#     uuid: str,
+#     user_id: str,
+#     impersonate_user_id: Optional[str] = Query(None),
+# ) -> ActionItemsResponse:
+#     """
+#     Get the action items information of a profile - Mock version.
+#
+#     - **user_id**: Tenant ID
+#     - **uuid**: Profile UUID
+#     """
+#     logger.info(f"Got action items request for profile: {uuid}")
+#
+#     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
+#     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
+#     response = profiles_api_service.get_profile_action_items(user_id, uuid)
+#     logger.info(f"About to send response: {response}")
+#     return response
 
 
 @v1_router.get("/{user_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
