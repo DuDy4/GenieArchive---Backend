@@ -62,7 +62,6 @@ class ProfileParamsService:
         self.linkedin_scrapper = HandleLinkedinScrape()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
-        self._initialize_sheet()
 
     def refresh_credentials(self):
         """
@@ -115,12 +114,17 @@ class ProfileParamsService:
             # Just in very rare cases, the sheet might not have been initialized
             await self._initialize_sheet()
         all_params = []
+        count = 0
         for row in self.data_rows:
             param_id = row[self.id_column_index]
-            if param_id and param_id > 0:
-                param_response = self.evaluate_param(post, name, position, company, param_id)
-                if param_response:
-                    all_params.append(param_response)
+            if param_id and param_id != '0' and count < 6:
+                count = count + 1
+                try: 
+                    param_response = await self.evaluate_param(post, name, position, company, param_id)
+                    if param_response:
+                        all_params.append(param_response)
+                except Exception as e:
+                    logger.error(f"Failed to evaluate parameter {param_id} for person {name}. Error: {e}")
         return all_params
 
     async def evaluate_param(self, post, name, position, company, param_id):
@@ -153,6 +157,8 @@ class ProfileParamsService:
                 response_clue['clue'] = clues_list[i]
             response_dict.update(response)
             return response_dict
+        else:
+            logger.error(f"Failed to evaluate parameter {param_name} for person {name}")
         return {}
     
     async def evaluate_posts(self, linkedin_url, num_posts, name, selected_params):

@@ -30,6 +30,16 @@ class GenieEvent:
         self.previous_topic = logger.get_topic() or (json.loads(data).get("previous_topic") if isinstance(data, str) else data.get("previous_topic"))
         self.statuses_repository = StatusesRepository()
 
+    def prepare_event(self):
+        event = EventData(body=self.data)
+        event.properties = {"topic": self.topic, "scope": self.scope, "ctx_id": self.ctx_id,
+                            "tenant_id": self.tenant_id, "user_id": self.user_id}
+        if self.previous_topic:
+            event.properties["previous_topic"] = self.previous_topic
+        if self.cty_id:
+            event.properties["cty_id"] = self.cty_id
+        return event
+
     def send(self):
         event_data_batch = producer.create_batch()
         event = EventData(body=self.data)

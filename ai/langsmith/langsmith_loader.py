@@ -422,9 +422,11 @@ class Langsmith:
                     response = response.replace("```json", "").strip("`").strip()
                     response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
                     response = json.loads(response)
+            else:
+                logger.error(f"Error parsing param evaluation from Langsmith: {response}")
         except Exception as e:
             logger.error(f"Error running param evaluation: {e}")          
-            response = f"Error: {e}"
+            return {}
         return response
 
     async def get_summary(self, data, max_words=50):

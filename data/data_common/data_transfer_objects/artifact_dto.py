@@ -1,9 +1,12 @@
+import json
+from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
 from data.data_common.data_transfer_objects.profile_dto import SalesCriteria
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, HttpUrl
 from uuid import UUID
 from enum import Enum
 from datetime import datetime
 from typing import Tuple, Dict, Any
+from data.data_common.utils.str_utils import get_uuid4
 
 
 class ArtifactType(Enum):
@@ -18,35 +21,35 @@ class ArtifactSource(Enum):
 
 
 class ArtifactDTO(BaseModel):
-    uuid: UUID
+    uuid: str
     artifact_type: ArtifactType
     source: ArtifactSource
     profile_uuid: str
-    artifact_url: str
+    artifact_url: HttpUrl
     text: str
-    summary: str
+    summary: str = None
     published_date: datetime
-    created_at: datetime
+    created_at: datetime = datetime.now()
     metadata: Dict[str, Any]
 
     def to_tuple(self) -> Tuple:
         return (
-            str(self.uuid),
+            self.uuid,
             self.artifact_type.value,
             self.source.value,
             self.profile_uuid,
-            self.artifact_url,
+            str(self.artifact_url),
             self.text,
             self.summary,
             self.published_date,
             self.created_at,
-            self.metadata
+            json.dumps(self.metadata)
         )
     
     @classmethod
     def from_tuple(cls, data: Tuple) -> 'ArtifactDTO':
         return cls(
-            uuid=data[0],
+            uuid=str(data[0]),
             artifact_type=ArtifactType(data[1]) if data[1] else ArtifactType.OTHER,
             source=ArtifactSource(data[2]) if data[2] else ArtifactSource.OTHER,
             profile_uuid=data[3],
@@ -73,43 +76,58 @@ class ArtifactDTO(BaseModel):
             metadata=data['metadata']
         )
     
+    @classmethod
+    def from_social_media_post(cls, post: SocialMediaPost, profile_uuid) -> 'ArtifactDTO':
+        return cls(
+            uuid=get_uuid4(),
+            artifact_type=ArtifactType.POST,
+            source=ArtifactSource.LINKEDIN if post.media == "linkedin" else ArtifactSource.OTHER,
+            profile_uuid=profile_uuid,
+            artifact_url=post.link,
+            text=post.text,
+            summary=post.summary if post.summary else post.text[:100],
+            published_date=post.date,
+            created_at=datetime.now(),
+            metadata= post.to_dict()
+        )
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             'uuid': self.uuid,
-            'artifact_type': self.artifact_type,
-            'source': self.source,
+            'artifact_type': self.artifact_type.value,
+            'source': self.source.value,
             'profile_uuid': self.profile_uuid,
-            'artifact_url': self.artifact_url,
+            'artifact_url': str(self.artifact_url),
             'text': self.text,
             'summary': self.summary,
-            'published_date': self.published_date,
-            'created_at': self.created_at,
+            'published_date': str(self.published_date),
+            'created_at': str(self.created_at),
             'metadata': self.metadata
         }
 
 
 class ArtifactScoreDTO(BaseModel):
-    uuid: UUID
+    uuid: str
     artifact_uuid: str
     param: str
     score: int
-    clues_scores: Dict[str, int]
+    clues_scores: Dict[str, Any]
     created_at: datetime
 
     def to_tuple(self) -> Tuple:
         return (
-            str(self.uuid),
+            self.uuid,
             self.artifact_uuid,
             self.param,
             self.score,
-            self.clues_scores,
+            json.dumps(self.clues_scores),
             self.created_at
         )
     
     @classmethod
     def from_tuple(cls, data: Tuple) -> 'ArtifactScoreDTO':
         return cls(
-            uuid=data[0],
+            uuid=str(data[0]),
             artifact_uuid=data[1],
             param=data[2],
             score=data[3],
@@ -126,6 +144,17 @@ class ArtifactScoreDTO(BaseModel):
             score=data['score'],
             clues_scores=data['clues_scores'],
             created_at=data['created_at']
+        )
+    
+    @classmethod
+    def from_evaluation_dict(cls, artifact_uuid, data: Dict[str, Any]) -> 'ArtifactScoreDTO':
+        return cls(
+            uuid=get_uuid4(),
+            artifact_uuid=artifact_uuid,
+            param=data['param'],
+            score=data['score'],
+            clues_scores=data,
+            created_at=datetime.now()
         )
     
     def to_dict(self) -> Dict[str, Any]:

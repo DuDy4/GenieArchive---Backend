@@ -10,7 +10,7 @@ from data.data_common.data_transfer_objects.artifact_dto import (
 logger = GenieLogger()
 
 
-class ArtifactRepository:
+class ArtifactsRepository:
     def __init__(self):
         self.create_tables_if_not_exists()
 
@@ -26,8 +26,8 @@ class ArtifactRepository:
                 text TEXT,
                 summary TEXT,
                 published_date TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                metadata JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata JSONB
             );
         """
 
@@ -56,7 +56,7 @@ class ArtifactRepository:
                 traceback.print_exc()
                 return None
 
-    def get_user_artifacts(self, profile_uuid: str, artifact_type: ArtifactType) -> List[ArtifactScoreDTO]:
+    def get_user_artifacts(self, profile_uuid: str, artifact_type: ArtifactType = None) -> List[ArtifactScoreDTO]:
         select_query = """
         SELECT uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, created_at, metadata
         FROM artifacts
@@ -71,22 +71,22 @@ class ArtifactRepository:
                         cursor.execute(select_query, (profile_uuid, artifact_type.value))
                     else:
                         cursor.execute(select_query, (profile_uuid,))
-                    return [ArtifactScoreDTO.from_tuple(row) for row in cursor.fetchall()]
+                    return [ArtifactDTO.from_tuple(row) for row in cursor.fetchall()]
             except psycopg2.Error as error:
                 logger.error(f"Error getting artifacts: {error.pgerror}")
                 traceback.print_exc()
                 return []
             
-    def save_artifact(self, artifact: ArtifactScoreDTO) -> Optional[str]:
+    def save_artifact(self, artifact: ArtifactDTO) -> Optional[str]:
         if self.exists(artifact.uuid):
             return None
-        return self.insert_artifact(artifact)
+        return self._insert_artifact(artifact)
             
 
-    def _insert_artifact(self, artifact: ArtifactScoreDTO) -> Optional[str]:
+    def _insert_artifact(self, artifact: ArtifactDTO) -> Optional[str]:
         insert_query = """
-        INSERT INTO artifacts (uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, metadata)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, current_timestamp)
+        INSERT INTO artifacts (uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, created_at, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING uuid;
         """
         artifact_data = artifact.to_tuple()

@@ -1,7 +1,9 @@
 import datetime
 from typing import Any, Dict, List
+from collections import defaultdict
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
-from data.data_common.dependencies.dependencies import artifact_repository, artifact_scores_repository
+from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
+from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
 from data.data_common.services.profile_params_service import ProfileParamsService
 from common.genie_logger import GenieLogger
 
@@ -11,11 +13,11 @@ logger = GenieLogger()
 class ArtifactSerivce():
 
     def __init__(self):
-        self.artifact_repository = artifact_repository()
+        self.artifacts_repository = artifacts_repository()
         self.artifact_scores_repository = artifact_scores_repository()
         self.profile_params_service = ProfileParamsService()    
 
-    def save_linkedin_posts(self, profile_uuid, posts: List[Dict[str, Any]]) -> List[str]:
+    def save_linkedin_posts(self, profile_uuid, posts: List[SocialMediaPost]) -> List[str]:
         """
         Save linkedin posts to database
         :param posts: List of posts
@@ -23,11 +25,10 @@ class ArtifactSerivce():
         """
         uuids = []
         for post in posts:
-            artifact = ArtifactDTO.from_dict(post)
+            artifact = ArtifactDTO.from_social_media_post(post, profile_uuid)
             artifact.source = ArtifactSource.LINKEDIN
             artifact.artifact_type = ArtifactType.POST
-            artifact.profile_uuid = profile_uuid
-            uuid = self.artifact_repository.save_artifact(artifact)
+            uuid = self.artifacts_repository.save_artifact(artifact)
             uuids.append(uuid)
         return uuids
     
@@ -37,10 +38,11 @@ class ArtifactSerivce():
         :param profile_uuid: Profile UUID
         :return: List of self written posts
         """
-        all_posts =  self.artifact_repository.get_user_artifacts(profile_uuid, ArtifactType.POST)
+        all_posts =  self.artifacts_repository.get_user_artifacts(profile_uuid, ArtifactType.POST)
         self_written_posts = []
         for post in all_posts:
-            if post.source == ArtifactSource.LINKEDIN and post.metadata and post.metadata.get('reshared') and post.metadata.get('reshared').contains(linkedin_url):
+            if post.source == ArtifactSource.LINKEDIN and post.metadata and post.metadata.get('reshared') \
+            and linkedin_url in post.metadata.get('reshared'):
                 self_written_posts.append(post)
         return self_written_posts
     
@@ -50,7 +52,7 @@ class ArtifactSerivce():
         :param artifact_uuid: UUID of artifact
         :return: Artifact
         """
-        return self.artifact_repository.get_artifact(artifact_uuid)
+        return self.artifacts_repository.get_artifact(artifact_uuid)
     
 
     async def calculate_artifact_scores(self, artifact: ArtifactDTO, person):
@@ -62,4 +64,54 @@ class ArtifactSerivce():
         logger.info(f"Calculating scores for artifact {artifact.uuid}")
         param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name, person.position, person.company)
         logger.info(f"Calculated scores for artifact {artifact.uuid}. Duration: {datetime.datetime.now() - timestamp} ms")
-        self.artifact_scores_repository.upsert_artifact_scores(param_scores)
+        param_scores_to_persist = []
+        for param_score in param_scores:
+            if param_score.get("score"):
+                score_dto = ArtifactScoreDTO.from_evaluation_dict(artifact.uuid, param_score)
+                param_scores_to_persist.append(score_dto)
+        self.artifact_scores_repository.upsert_artifact_scores(param_scores_to_persist)
+
+
+    async def calculate_overall_params(self, perosn):
+        """
+        Calculate overall params for profile
+        :param profile_uuid: UUID of profile
+        """
+        timestamp = datetime.datetime.now()
+        logger.info(f"Calculating overall params for person {perosn.email}")
+        artifacts = self.artifacts_repository.get_user_artifacts(perosn.uuid)
+        all_artifacts_scores = []
+        for artifact in artifacts:
+            artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
+            artifact_weight = 1 # Placeholder for Mazgan
+            all_artifacts_scores.extend(artifact_scores)
+        param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
+        for param, avg_score in param_averages.items():
+            logger.info(f"{param}: {avg_score}")
+        logger.info(f"Calculated overall params for profile {perosn}. Duration: {datetime.datetime.now() - timestamp} ms")
+        return {"status": "success"}
+    
+    
+    def calculate_average_scores_per_param(self, artifact_scores: List[ArtifactScoreDTO]) -> Dict[str, float]:
+        """
+        Calculate the average score per parameter from a list of ArtifactScoreDTO objects.
+
+        :param artifact_scores: List of ArtifactScoreDTO objects
+        :return: A dictionary with parameters as keys and their average scores as values
+        """
+        score_sums = defaultdict(int)  # To store the sum of scores for each param
+        score_counts = defaultdict(int)  # To store the count of scores for each param
+
+        for artifact_score in artifact_scores:
+            param = artifact_score.param
+            score = artifact_score.score
+            score_sums[param] += score
+            score_counts[param] += 1
+
+        # Calculate averages
+        average_scores = {
+            param: score_sums[param] / score_counts[param]
+            for param in score_sums
+        }
+
+        return average_scores
