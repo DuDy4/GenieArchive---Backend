@@ -588,9 +588,6 @@ class PersonManager(GenieConsumer):
                 "work_history_summary": profile.get("work_history_summary", ""),
             }
         )
-        profile_details = "\n".join(
-            [f"{k}: {len(v) if isinstance(v, list) else v}" for k, v in profile_dto.__dict__.items()]
-        )
         self.profiles_repository.save_profile(profile_dto)
         if profile.get("tenant_get_to_know"):
             user_id = logger.get_user_id()

@@ -12,51 +12,33 @@ companies_repository = CompaniesRepository()
 
 logger = GenieLogger()
 
-profiles = ["The Analytical", "The connector", "The Driver", "The Innovator", "The Skeptic", "The Practical", "The Curious"]
+profiles = ["The Analytical", "The Social", "The Innovator", "The Thorough", "The Go-Getter", "The Emotional"]
 
 sales_criteria_mapping = {
     profiles[0]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
-    profiles[1]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=30),],
-    profiles[2]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
-    profiles[3]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
-    profiles[4]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=15),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=40),],
-    profiles[5]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=40),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
-        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),
-        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.RESPONSIVENESS, score=0, target_score=10),],
-    profiles[6]: [
-        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=10),
-        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),],
+    profiles[1]: [
+        SalesCriteria(criteria=SalesCriteriaType.TRUST, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=40),],
+    profiles[2]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=50),],
+    profiles[3]: [
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=20),
+        SalesCriteria(criteria=SalesCriteriaType.REPUTATION, score=0, target_score=50),],
+    profiles[4]: [
+        SalesCriteria(criteria=SalesCriteriaType.BUDGET, score=0, target_score=30),
+        SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=40),
+        SalesCriteria(criteria=SalesCriteriaType.VALUE_PROPOSITION, score=0, target_score=20),],
+    profiles[5]: [
+        SalesCriteria(criteria=SalesCriteriaType.TECHNICAL_FIT, score=0, target_score=25),
         SalesCriteria(criteria=SalesCriteriaType.BUSINESS_FIT, score=0, target_score=25),
-        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=35),
-        SalesCriteria(criteria=SalesCriteriaType.LONG_TERM_PROFESSIONAL_ADVISOR, score=0, target_score=10),],
+        SalesCriteria(criteria=SalesCriteriaType.INNOVATION, score=0, target_score=50),],
 }
 
 criteria_icon_mapping = {
@@ -73,50 +55,49 @@ criteria_icon_mapping = {
 
 strengths_mapping = {
     # "Achiever": [4, 6, 1, 3, 7, 2, 5],
-    "Achiever":            [7, 7, 7, 7, 7, 7, 7],
-    "Activator":           [5, 7, 3, 3, 6, 1, 4],
-    "Adaptability":        [6, 2, 5, 3, 6, 3, 3],
-    "Analytical":          [1, 10, 4, 6, 2, 5, 3],
-    "Arranger":            [5, 4, 3, 7, 1, 6, 2],
-    "Belief":              [7, 1, 6, 3, 4, 2, 5],
-    "Command":             [6, 3, 2, 5, 7, 1, 4],
-    "Communication":       [6, 1, 5, 4, 10, 2, 3],
-    "Competition":         [5, 7, 2, 4, 10, 1, 3],
-    "Connectedness":       [7, 1, 5, 2, 6, 4, 3],
-    "Consistency":         [2, 1, 3, 10, 6, 4, 5],
-    "Context":             [2, 10, 1, 10, 3, 5, 4],
-    "Deliberative":        [2, 6, 3, 7, 1, 4, 5],
-    "Developer":           [10, 1, 4, 2, 3, 10, 10],
-    "Discipline":          [4, 10, 2, 6, 5, 1, 3],
-    "Empathy":             [10, 1, 10, 2, 10, 10, 10],
-    "Focus":               [3, 10, 2, 10, 5, 1, 4],
-    "Futuristic":          [10, 3, 10, 1, 10, 6, 2],
-    "Harmony":             [10, 2, 10, 10, 1, 10, 10],
-    "Ideation":            [10, 10, 3, 1, 10, 10, 2],
-    "Includer":            [10, 1, 10, 10, 10, 2, 10],
-    "Individualization":   [3, 1, 2, 10, 10, 5, 4],
-    "Input":               [1, 7, 5, 3, 4, 6, 2],
-    "Intellection":        [4, 3, 5, 2, 7, 6, 1],
-    "Learner":             [5, 7, 4, 4, 5, 6, 3],
-    "Maximizer":           [4, 1, 3, 10, 10, 2, 5],
-    "Positivity":          [10, 1, 10, 2, 10, 10, 10],
-    "Relator":             [5, 1, 6, 4, 3, 7, 2],
-    "Responsibility":      [3, 6, 1, 10, 4, 2, 5],
-    "Restorative":         [5, 7, 3, 2, 4, 6, 1],
-    "Self-Assurance":      [3, 10, 2, 10, 7, 1, 10],
-    "Significance":        [6, 7, 4, 3, 5, 1, 2],
-    "Strategic":           [7, 7, 7, 7, 7, 7, 7],
-    "Woo":                 [5, 1, 4, 3, 10, 2, 10],
+    "Achiever":            [7, 7, 7, 7, 7, 7],
+    "Activator":           [5, 7, 3, 6, 1, 4],
+    "Adaptability":        [6, 2, 3, 6, 3, 3],
+    "Analytical":          [1, 10, 6, 2, 5, 3],
+    "Arranger":            [5, 4, 7, 1, 6, 2],
+    "Belief":              [7, 1, 3, 4, 2, 5],
+    "Command":             [6, 3, 5, 7, 1, 4],
+    "Communication":       [6, 1, 4, 10, 2, 3],
+    "Competition":         [5, 7, 4, 10, 1, 3],
+    "Connectedness":       [7, 1, 2, 6, 4, 3],
+    "Consistency":         [2, 1, 10, 6, 4, 5],
+    "Context":             [2, 10, 10, 3, 5, 4],
+    "Deliberative":        [2, 6, 3, 1, 4, 5],
+    "Developer":           [10, 1, 2, 3, 10, 10],
+    "Discipline":          [4, 10, 6, 5, 1, 3],
+    "Empathy":             [10, 1, 2, 10, 10, 10],
+    "Focus":               [3, 10, 10, 5, 1, 4],
+    "Futuristic":          [10, 3, 1, 10, 6, 2],
+    "Harmony":             [10, 2, 10, 1, 10, 10],
+    "Ideation":            [10, 10, 1, 10, 10, 2],
+    "Includer":            [10, 1, 10, 10, 2, 10],
+    "Individualization":   [3, 1, 10, 10, 5, 4],
+    "Input":               [1, 7, 3, 4, 6, 2],
+    "Intellection":        [4, 3, 2, 7, 6, 1],
+    "Learner":             [5, 7, 4, 5, 6, 3],
+    "Maximizer":           [4, 1, 10, 10, 2, 5],
+    "Positivity":          [10, 1, 2, 10, 10, 10],
+    "Relator":             [5, 1, 4, 3, 7, 2],
+    "Responsibility":      [3, 6, 10, 4, 2, 5],
+    "Restorative":         [5, 7, 2, 4, 6, 1],
+    "Self-Assurance":      [3, 10, 10, 7, 1, 10],
+    "Significance":        [6, 7, 3, 5, 1, 2],
+    "Strategic":           [7, 7, 7, 7, 7, 7],
+    "Woo":                 [5, 1, 3, 10, 2, 10],
 }
 
 profiles_description = {
     "The Analytical": "Seeks in-depth understanding and relies on data, facts, and logic. They value detailed explanations and proof over generalities.",
-    "The connector": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
-    "The Driver": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
+    "The Social": "Values personal connections and reliable relationships. They prioritize feeling comfortable and being heard, focusing on trust and empathy.",
     "The Innovator": "Innovation-driven and creative. They value novelty, inspiration, and products that bring unique advantages or change the market landscape.",
-    "The Skeptic": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
-    "The Practical": "Highly focused on results and efficiency. They want to see how the product improves their situation, saves time, or reduces costs with tangible evidence.",
-    "The Curious": "Enthusiastic about exploring and learning. They are interested in technological innovations, seeking a deep understanding of how the product works and its added value.",
+    "The Thorough": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
+    "The Go-Getter": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
+    "The Emotional": "Follows their gut feeling quite often. Enthusiastic about new ideas and products that resonate with their emotions and values.",
 }
 
 profiles_extended_description = {
@@ -127,37 +108,32 @@ profiles_extended_description = {
         "and make decisions. They appreciate structured, well-supported arguments and take time "
         "to analyze all available information."
     ),
-    "The connector": (
-        "A Friend profile is defined by a strong focus on building personal connections and "
+    "The Social": (
+        "A Social profile is defined by a strong focus on building personal connections and "
         "fostering trust. These individuals value relationships and seek meaningful, empathetic "
         "interactions. They prefer working with those who take the time to understand their unique "
         "needs, creating a sense of comfort and confidence in the process."
-    ),
-    "The Driver": (
-        "A Driver profile is characterized by a results-oriented mindset and a preference for decisive, "
-        "quick actions. These individuals focus on achieving tangible outcomes and maintaining control "
-        "throughout the process. They value efficiency, clarity, and directness, seeking clear paths to "
-        "solve immediate problems and reach their goals."
     ),
     "The Innovator": (
         "An Innovator profile is marked by a fascination with creativity, unique solutions, and forward-thinking "
         "ideas. These individuals are drawn to products or concepts that stand out, offer added value, and push boundaries. "
         "They thrive on inspiration and enjoy exploring the transformative potential of innovative approaches."
     ),
-    "The Skeptic": (
-        "A Skeptic profile is defined by a cautious and discerning approach, emphasizing risk assessment and reliability. "
+    "The Thorough": (
+        "A Thorough profile is defined by a cautious and discerning approach, emphasizing risk assessment and reliability. "
         "These individuals tend to question assumptions, look for flaws, and require reassurance before committing to decisions. "
         "They value transparency, realistic guarantees, and thorough validation of a product's capabilities."
     ),
-    "The Practical": (
-        "A Practical profile is characterized by a goal-oriented and pragmatic outlook, with a focus on achieving efficiency "
-        "and tangible benefits. These individuals prioritize solutions that save time, reduce costs, or directly improve their situation. "
-        "They prefer straightforward, functional approaches that align closely with their objectives."
+    "The Go-Getter": (
+        "A Go-Getter profile is characterized by a results-oriented mindset and a preference for decisive, "
+        "quick actions. These individuals focus on achieving tangible outcomes and maintaining control "
+        "throughout the process. They value efficiency, clarity, and directness, seeking clear paths to "
+        "solve immediate problems and reach their goals."
     ),
-    "The Curious": (
-        "A Curious profile is defined by an intrinsic interest in technology, innovation, and exploration. "
-        "These individuals are eager to delve deeply into how products work, what makes them unique, and how they advance "
-        "beyond existing solutions. They thrive on learning and appreciate detailed explanations of a product's advanced features and capabilities."
+    "The Emotional": (
+        "An Emotional profile is defined by a strong reliance on feelings, intuition, and personal values. "
+        "These individuals are driven by emotional resonance and seek products or ideas that align with their "
+        "core beliefs and aspirations. They value authenticity, enthusiasm, and emotional connections in their interactions."
     ),
 }
 
@@ -167,56 +143,49 @@ profiles_explanation = {
         "needs": "Requires precise details and answers to technical questions.",
         "recommendations": "Provide presentations with numerical data, examples or proof of the product's success, detailed explanations, and structured answers to complex questions. This customer values time for thinking and drawing conclusions, and will not make decisions quickly.",
     },
-    "The connector": {
+    "The Social": {
         "characteristics": "Looks for personal connection and trustworthy relationships, wants to feel comfortable and heard.",
         "needs": "Requires personalized attention and trust throughout the process.",
         "recommendations": "Approach them personally, take time to understand their specific needs, emphasize post-sale support and service, and create a warm, empathetic conversation. This customer responds well to confidence and a sense of care."
-    },
-    "The Driver": {
-        "characteristics": "Focused on results, aims to make decisions quickly, and prefers to maintain control in the process.",
-        "needs": "Wants to see how the product solves immediate problems and seeks a clear business advantage.",
-        "recommendations": "Be direct, clear, and to the point. Highlight the product’s value and results, showcase competitive advantages, and avoid unnecessary details. Allow them to feel in control, but provide a clear picture of how the product will help achieve their goals."
     },
     "The Innovator": {
         "characteristics": "Values innovation, creative ideas, and products that offer added value and uniqueness.",
         "needs": "Craves inspiration, creative ideas, and excitement about the product.",
         "recommendations": "Share innovative ideas and the unique benefits of the product, demonstrate its ability to change the market, and provide examples of diverse uses. This customer will respond well to a captivating, inspiring presentation and the impact the product will have on the future."
     },
-    "The Skeptic": {
+    "The Thorough": {
         "characteristics": "Tends to be cautious, looks for problems or flaws in the product, and needs reassurance.",
         "needs": "Requires proof and guarantees that the product will meet their expectations.",
         "recommendations": "Provide testimonials, reviews, previous successes, and demonstrations. Be prepared to answer numerous questions and allow for open, detailed conversations. This customer wants to ensure they’re not taking unnecessary risks and will need a realistic and transparent guarantee of the product’s value."
     },
-    "The Practical": {
-        "characteristics": "Goal-oriented, wants to know how the product will improve their situation or save time and money.",
-        "needs": "Needs proof that the product delivers significant added value.",
-        "recommendations": "Focus on the practical solutions the product provides and the economic advantages, showing how the product leads to improvement or savings. This customer is interested in the practical and functional value, so highlight how the product contributes to their business goals."
+    "The Go-Getter": {
+        "characteristics": "Focused on results, aims to make decisions quickly, and prefers to maintain control in the process.",
+        "needs": "Wants to see how the product solves immediate problems and seeks a clear business advantage.",
+        "recommendations": "Be direct, clear, and to the point. Highlight the product’s value and results, showcase competitive advantages, and avoid unnecessary details. Allow them to feel in control, but provide a clear picture of how the product will help achieve their goals."
     },
-    "The Curious": {
-        "characteristics": "Interested in technological innovations, seeks to understand the product deeply, and enjoys exploring.",
-        "needs": "Wants to know how the product works and what its added value is beyond the basic functions.",
-        "recommendations": "Provide detailed explanations of the technology and innovation behind the product, demonstrate how it applies advanced technologies, and answer in-depth questions about the product. This customer wants to know how the product is different and more advanced than others."
+    "The Emotional": {
+        "characteristics": "Driven by emotions, intuition, and personal values, seeks products that resonate with their beliefs.",
+        "needs": "Requires a strong emotional connection to the product and values authenticity and enthusiasm.",
+        "recommendations": "Appeal to their emotions, values, and personal beliefs. Share stories, testimonials, and examples that evoke positive feelings and demonstrate the product’s authenticity. This customer will respond well to a warm, enthusiastic approach and a genuine connection."
     },
 }
 
 profiles_colors = {
     "The Analytical": "#fed101",  # Yellow
-    "The connector": "#2b75de",      # Blue
-    "The Driver": "#e47253",      # Red
+    "The Social": "#2b75de",      # Blue
     "The Innovator": "#57cc99",   # Green
-    "The Skeptic": "#444c5f",     # Black
-    "The Practical": "#c1c6ff",   # Sky blue
-    "The Curious": "#ffb67f"      # Orange
+    "The Thorough": "#444c5f",     # Black
+    "The Go-Getter": "#c1c6ff",   # Sky blue
+    "The Emotional": "#ffb67f"      # Orange
 }
 
 profile_font_color = {
     "The Analytical": "#333333",  # Very dark gray for yellow background
-    "The connector": "#f0f0f0",      # Almost white for blue background
-    "The Driver": "#2e2e2e",      # Darker gray for red background
+    "The Social": "#f0f0f0",      # Almost white for blue background
     "The Innovator": "#2f2f2f",   # Dark gray for green background
-    "The Skeptic": "#cfcfcf",     # Light gray for black background
-    "The Practical": "#212121",   # Darkest gray for sky blue background
-    "The Curious": "#2a2a2a"      # Dark gray for orange background
+    "The Thorough": "#cfcfcf",     # Light gray for black background
+    "The Go-Getter": "#212121",   # Darkest gray for sky blue background
+    "The Emotional": "#2a2a2a"      # Dark gray for orange background
 }
 
 # Function to calculate the best profile

@@ -23,8 +23,8 @@ from common.utils import env_utils
 
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.dependencies.dependencies import companies_repository, persons_repository, tenants_repository
-from common.genie_logger import GenieLogger
+from data.data_common.repositories.users_repository import UsersRepository
+from common.genie_logger import GenieLogger, user_id
 
 logger = GenieLogger()
 CONSUMER_GROUP = "slack_consumer_group"
@@ -52,9 +52,9 @@ class SlackConsumer(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.company_repository: CompaniesRepository = companies_repository()
-        self.persons_repository: PersonsRepository = persons_repository()
-        self.tenants_repository: TenantsRepository = tenants_repository()
+        self.company_repository: CompaniesRepository = CompaniesRepository()
+        self.persons_repository: PersonsRepository = PersonsRepository()
+        self.users_repository: UsersRepository = UsersRepository()
         self.statuses_repository: StatusesRepository = StatusesRepository()
 
     async def process_event(self, event):
@@ -103,6 +103,7 @@ class SlackConsumer(GenieConsumer):
                 raise Exception("Could not find email in event body.")
         domain = email.split("@")[1] if (email and "@" in email) else None
         tenant_id = logger.get_tenant_id()
+        user_id = logger.get_user_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(email)
         if last_message_sent_at:
             time_period_delta = timedelta(seconds=TIME_PERIOD_TO_SENT_MESSAGE)
@@ -114,12 +115,18 @@ class SlackConsumer(GenieConsumer):
         company = None
         if domain:
             company = self.company_repository.get_company_from_domain(email.split("@")[1])
-        message = f"[CTX={logger.get_ctx_id()}] {f'[CTY={logger.clean_cty_id()}]'if logger.get_cty_id() else ''} failed to identify info for email: {email}."
-        if tenant_id:
-            tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
-            if tenant_email:
+        message = f"[CTX={logger.get_ctx_id()}] {f'[CTY={logger.get_cty_id()}]'if logger.get_cty_id() else ''} failed to identify info for email: {email}."
+        # if tenant_id:
+        #     tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
+        #     if tenant_email:
+        #         message += f"""
+        #             Originating user: {tenant_email}.
+        #             """
+        if user_id:
+            user_email = self.users_repository.get_email_by_user_id(user_id)
+            if user_email:
                 message += f"""
-                    Originating user: {tenant_email}.
+                    Originating user: {user_email}.
                     """
         if company:
             message += f"""
@@ -147,7 +154,7 @@ class SlackConsumer(GenieConsumer):
             send_message(message)
             return {"status": "failed", "message": "Person linkedin not found."}
         tenant_id = logger.get_tenant_id()
-
+        user_id = logger.get_user_id()
         last_message_sent_at = self.persons_repository.get_last_message_sent_at_by_email(person.email)
         if last_message_sent_at:
             time_period_delta = timedelta(seconds=TIME_PERIOD_TO_SENT_MESSAGE)
@@ -156,12 +163,16 @@ class SlackConsumer(GenieConsumer):
                 logger.info("Already sent message lately. Skipping...")
                 return {"status": "skipped", "message": "Already sent message lately. Skipping..."}
         message = f"[CTX={logger.get_ctx_id()}] failed to get profile picture for person: {person.name} and linkedin: {person.linkedin}."
-        if tenant_id:
-            email = self.tenants_repository.get_tenant_email(tenant_id)
-            if email:
-                message += f"""
-                    Originating user: {email}.
-                    """
+        # if tenant_id:
+        #     email = self.tenants_repository.get_tenant_email(tenant_id)
+        #     if email:
+        #         message += f"""
+        #             Originating user: {email}.
+        #             """
+        if user_id:
+            user_email = self.users_repository.get_email_by_user_id(user_id)
+            if user_email:
+                message += f""" \nOriginating user: {user_email}."""
         send_message(message)
         self.persons_repository.update_last_message_sent_at_by_email(person.email)
         return {"status": "ok"}
@@ -175,14 +186,18 @@ class SlackConsumer(GenieConsumer):
         recipient = event_body.get("recipient")
         subject = event_body.get("subject")
         tenant_id = logger.get_tenant_id()
-
+        user_id = logger.get_user_id()
         message = f"[CTX={logger.get_ctx_id()}] failed to send email to: {recipient} with subject: {subject}. Error: {error}."
-        if tenant_id:
-            email = self.tenants_repository.get_tenant_email(tenant_id)
-            if email:
-                message += f"""
-                    Originating user: {email}.
-                    """
+        # if tenant_id:
+        #     email = self.tenants_repository.get_tenant_email(tenant_id)
+        #     if email:
+        #         message += f"""
+        #             Originating user: {email}.
+        #             """
+        if user_id:
+            user_email = self.users_repository.get_email_by_user_id(user_id)
+            if user_email:
+                message += f"Originating user: {user_email}."
         send_message(message, channel="bugs")
         return {"status": "ok"}
 
@@ -263,8 +278,6 @@ class SlackConsumer(GenieConsumer):
         message = (f"{logger_info_str} error occurred in AI processing."
                      f"\nWhile processing {record}."
                         f" \nError: {error}.")
-
-
         send_message(message, channel="bugs")
         return {"status": "ok"}
 
