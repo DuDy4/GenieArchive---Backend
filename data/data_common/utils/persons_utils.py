@@ -12,7 +12,7 @@ companies_repository = CompaniesRepository()
 
 logger = GenieLogger()
 
-profiles = ["The Analytical", "The Social", "The Innovator", "The Thorough", "The Go-Getter", "The Emotional"]
+profiles = ["The Analytical", "The Social", "The Innovator", "The Thorough", "The Go-Getter", "The Intuitive"]
 
 sales_criteria_mapping = {
     profiles[0]: [
@@ -97,7 +97,7 @@ profiles_description = {
     "The Innovator": "Innovation-driven and creative. They value novelty, inspiration, and products that bring unique advantages or change the market landscape.",
     "The Thorough": "Cautious and detail-oriented. They look for potential flaws, requiring proof, guarantees, and transparency to overcome their natural hesitation.",
     "The Go-Getter": "Results-oriented and decisive. They prefer clear, concise communication and focus on how the product solves immediate problems with measurable outcomes.",
-    "The Emotional": "Follows their gut feeling quite often. Enthusiastic about new ideas and products that resonate with their emotions and values.",
+    "The Intuitive": "Follows their gut feeling quite often. Enthusiastic about new ideas and products that resonate with their emotions and values.",
 }
 
 profiles_extended_description = {
@@ -130,8 +130,8 @@ profiles_extended_description = {
         "throughout the process. They value efficiency, clarity, and directness, seeking clear paths to "
         "solve immediate problems and reach their goals."
     ),
-    "The Emotional": (
-        "An Emotional profile is defined by a strong reliance on feelings, intuition, and personal values. "
+    "The Intuitive": (
+        "An Intuitive profile is defined by a strong reliance on feelings, intuition, and personal values. "
         "These individuals are driven by emotional resonance and seek products or ideas that align with their "
         "core beliefs and aspirations. They value authenticity, enthusiasm, and emotional connections in their interactions."
     ),
@@ -163,7 +163,7 @@ profiles_explanation = {
         "needs": "Wants to see how the product solves immediate problems and seeks a clear business advantage.",
         "recommendations": "Be direct, clear, and to the point. Highlight the product’s value and results, showcase competitive advantages, and avoid unnecessary details. Allow them to feel in control, but provide a clear picture of how the product will help achieve their goals."
     },
-    "The Emotional": {
+    "The Intuitive": {
         "characteristics": "Driven by emotions, intuition, and personal values, seeks products that resonate with their beliefs.",
         "needs": "Requires a strong emotional connection to the product and values authenticity and enthusiasm.",
         "recommendations": "Appeal to their emotions, values, and personal beliefs. Share stories, testimonials, and examples that evoke positive feelings and demonstrate the product’s authenticity. This customer will respond well to a warm, enthusiastic approach and a genuine connection."
@@ -176,7 +176,7 @@ profiles_colors = {
     "The Innovator": "#57cc99",   # Green
     "The Thorough": "#444c5f",     # Black
     "The Go-Getter": "#c1c6ff",   # Sky blue
-    "The Emotional": "#ffb67f"      # Orange
+    "The Intuitive": "#ffb67f"      # Orange
 }
 
 profile_font_color = {
@@ -185,7 +185,7 @@ profile_font_color = {
     "The Innovator": "#2f2f2f",   # Dark gray for green background
     "The Thorough": "#cfcfcf",     # Light gray for black background
     "The Go-Getter": "#212121",   # Darkest gray for sky blue background
-    "The Emotional": "#2a2a2a"      # Dark gray for orange background
+    "The Intuitive": "#2a2a2a"      # Dark gray for orange background
 }
 
 # Function to calculate the best profile
