@@ -10,7 +10,7 @@ from common.genie_logger import GenieLogger
 logger = GenieLogger()
 
 
-class ArtifactSerivce():
+class ArtifactsService():
 
     def __init__(self):
         self.artifacts_repository = artifacts_repository()
@@ -72,14 +72,16 @@ class ArtifactSerivce():
         self.artifact_scores_repository.upsert_artifact_scores(param_scores_to_persist)
 
 
-    async def calculate_overall_params(self, perosn):
+    def calculate_overall_params(self, name, profile_uuid):
         """
         Calculate overall params for profile
         :param profile_uuid: UUID of profile
         """
         timestamp = datetime.datetime.now()
-        logger.info(f"Calculating overall params for person {perosn.email}")
-        artifacts = self.artifacts_repository.get_user_artifacts(perosn.uuid)
+        logger.info(f"Calculating overall params for person {name} | {profile_uuid}")
+        artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
+        if not artifacts:
+            return {}
         all_artifacts_scores = []
         for artifact in artifacts:
             artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
@@ -88,8 +90,8 @@ class ArtifactSerivce():
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
         for param, avg_score in param_averages.items():
             logger.info(f"{param}: {avg_score}")
-        logger.info(f"Calculated overall params for profile {perosn}. Duration: {datetime.datetime.now() - timestamp} ms")
-        return {"status": "success"}
+        logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
+        return param_averages
     
     
     def calculate_average_scores_per_param(self, artifact_scores: List[ArtifactScoreDTO]) -> Dict[str, float]:

@@ -1,8 +1,9 @@
 from common.utils import email_utils, env_utils
 from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
+from data.data_common.services.artifacts_service import ArtifactsService
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria, profiles_description
+from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     tenant_profiles_repository,
@@ -13,6 +14,8 @@ from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     companies_repository,
     hobbies_repository,
+    artifacts_repository,
+    artifact_scores_repository
 )
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
@@ -37,42 +40,10 @@ class ProfilesApiService:
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.hobbies_repository = hobbies_repository()
+        self.artifacts_repository = artifacts_repository()
+        self.artifact_scores_repository = artifact_scores_repository()
+        self.artifacts_service = ArtifactsService()
 
-    # def get_profiles_for_meeting(self, user_id, meeting_uuid):
-    #     meeting = self.meetings_repository.get_meeting_data(meeting_uuid)
-    #     if not meeting:
-    #         logger.error(f"Meeting not found for meeting_id: {meeting_uuid}")
-    #         raise HTTPException(status_code=404, detail="Meeting not found")
-    #     if meeting.user_id != user_id:
-    #         logger.error(f"Tenant mismatch for meeting_id: {meeting_uuid}, tenant_id: {user_id}")
-    #         raise HTTPException(status_code=403, detail="Tenant mismatch")
-    #
-    #     user_email = self.users_repository.get_email_by_user_id(user_id)
-    #     logger.info(f"User email: {user_email}")
-    #     participants_emails = meeting.participants_emails
-    #     user_domain = user_email.split("@")[1]
-    #
-    #     # Get additional domains in case the same company has multiple domains (or old ones)
-    #     additional_domains = self.companies_repository.get_additional_domains(user_domain)
-    #     filtered_participants_emails = filter_emails_with_additional_domains(user_email, participants_emails, additional_domains)
-    #     logger.info(f"Filtered participants emails: {filtered_participants_emails}")
-    #     filtered_emails = filtered_participants_emails
-    #     logger.info(f"Filtered emails: {filtered_emails}")
-    #     persons = []
-    #     for email in filtered_emails:
-    #         person = self.persons_repository.find_person_by_email(email)
-    #         if person:
-    #             persons.append(person)
-    #     logger.info(f"Got persons for the meeting: {[persons.uuid for persons in persons]}")
-    #     profiles = []
-    #     for person in persons:
-    #         profile = self.profiles_repository.get_profile_data(person.uuid)
-    #         logger.info(f"Got profile: {str(profile)[:300]}")
-    #         if profile:
-    #             profiles.append(profile)
-    #     persons_to_send = [person for person in persons if person.uuid not in [profile.uuid for profile in profiles]]
-    #     logger.info(f"Sending profiles: {[profile.uuid for profile in profiles]}")
-    #     return [MiniProfileResponse.from_profile_dto(profiles[i], persons_to_send[i]) for i in range(len(profiles))]
 
     def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
@@ -178,8 +149,8 @@ class ProfilesApiService:
         return AttendeeInfo(**profile)
 
     def get_profile_strengths(self, user_id, uuid):
+        email = self.users_repository.get_email_by_user_id(user_id)
         if not self.ownerships_repository.check_ownership(user_id, uuid):
-            email = self.users_repository.get_email_by_user_id(user_id)
             if email and email_utils.is_genie_admin(email):
                 logger.info(f"Genie admin has access to profile with uuid: {uuid}")
             else:
@@ -187,12 +158,13 @@ class ProfilesApiService:
                 raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
+        profile_v2 = self.get_profile_v2(profile.name, uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
             sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id) or profile.sales_criteria
-            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria, profile_category_v2=profile_v2)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
@@ -357,6 +329,14 @@ class ProfilesApiService:
             status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {user_id}"}
         )
     
+    def get_profile_v2(self, name, profile_uuid):
+        param_overall_scores = self.artifacts_service.calculate_overall_params(name, profile_uuid)
+        if not param_overall_scores:
+            logger.error(f"No overall scores found for {name} | {profile_uuid}")
+            return None
+        profile_v2_category = determine_profile_v2_category(param_overall_scores)
+        return profile_v2_category
+
     def get_profile_category_stats(self):
         profiles = self.profiles_repository.get_all_profiles()
         categories_count = {}
@@ -380,4 +360,3 @@ class ProfilesApiService:
 
 if __name__ == "__main__":
     profiles_api_service = ProfilesApiService()
-    profiles_api_service.get_profile_category_stats()

@@ -2,6 +2,7 @@ import asyncio
 import base64
 import datetime
 import json
+from data.data_common.utils.str_utils import remove_non_alphanumeric_strings
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from common.utils import env_utils
@@ -114,11 +115,9 @@ class ProfileParamsService:
             # Just in very rare cases, the sheet might not have been initialized
             await self._initialize_sheet()
         all_params = []
-        count = 0
         for row in self.data_rows:
             param_id = row[self.id_column_index]
-            if param_id and param_id != '0' and count < 6:
-                count = count + 1
+            if param_id and param_id != '0':
                 try: 
                     param_response = await self.evaluate_param(post, name, position, company, param_id)
                     if param_response:
@@ -133,15 +132,20 @@ class ProfileParamsService:
             'position': position,
             'company': company,
         }
-        for row in self.data_rows:
-            if row[self.id_column_index] == param_id:
-                logger.info(f"Found parameter in sheet. Row: {row}")
-                param_name = row[self.param_name_column_index]
-                min_range = row[self.min_range_column_index]
-                max_range = row[self.max_range_column_index]
-                param_explanation = row[self.param_explanation_column_index]
-                clues_list = row[self.clues_column_index].split(";")
-                break
+        try:
+            for row in self.data_rows:
+                if row[self.id_column_index] == param_id:
+                    logger.info(f"Found parameter in sheet. Row: {row}")
+                    param_name = row[self.param_name_column_index]
+                    min_range = row[self.min_range_column_index]
+                    max_range = row[self.max_range_column_index]
+                    param_explanation = row[self.param_explanation_column_index]
+                    clues_list = row[self.clues_column_index].split(";")
+                    break
+            clues_list = remove_non_alphanumeric_strings(clues_list)
+        except Exception as e:
+            logger.error(f"Failed to find parameter {param_id} in sheet. Error: {e}")
+            return {}
         param_data = {
             'param_name': param_name,
             'min_range': min_range,
@@ -149,16 +153,19 @@ class ProfileParamsService:
             'explanation': param_explanation,
             'clues': clues_list,
         }
-        response = await self.langsmith.get_param_evaluation(person, param_data, post)
-        if response:
-            response_dict = { 'param': param_name, 'param_id': param_id }
-            response['param'] = param_name
-            for i, response_clue in enumerate(response['clues']):
-                response_clue['clue'] = clues_list[i]
-            response_dict.update(response)
-            return response_dict
-        else:
-            logger.error(f"Failed to evaluate parameter {param_name} for person {name}")
+        try:
+            response = await self.langsmith.get_param_evaluation(person, param_data, post)
+            if response:
+                response_dict = { 'param': param_name, 'param_id': param_id }
+                response['param'] = param_name
+                for i, response_clue in enumerate(response['clues']):
+                    response_clue['clue'] = clues_list[i]
+                response_dict.update(response)
+                return response_dict
+            else:
+                logger.error(f"Failed to evaluate parameter {param_name} for person {name}")
+        except Exception as e:
+            logger.error(f"Failed to evaluate parameter {param_name} for person {name}. Error: {e}")
         return {}
     
     async def evaluate_posts(self, linkedin_url, num_posts, name, selected_params):

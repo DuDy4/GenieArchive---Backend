@@ -679,6 +679,11 @@ async def create_fake_meeting(request: Request) -> JSONResponse:
         body = await request.json()
         user_id = request.state.user_id
         emails = body.get("emails")
+        linkedins = body.get("linkedins")
+        if linkedins:
+            for linkedin in linkedins:
+                fake_linkedin_email = email_utils.create_fake_linkedin_email(linkedin)
+                emails.append(fake_linkedin_email)
         logger.info(f"Creating fake meeting for user: {user_id} and emails: {emails}")
         meetings_api_service.create_fake_meeting(user_id, emails)
         return JSONResponse(content={"status": "success", "message": "Fake meeting created"})

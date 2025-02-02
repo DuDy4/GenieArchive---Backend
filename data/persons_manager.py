@@ -19,6 +19,7 @@ from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.internal_services.azure_storage_picture_uploader import AzureProfilePictureUploader
+from common.utils import email_utils
 from data.data_common.utils.persons_utils import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
@@ -34,7 +35,7 @@ from data.data_common.dependencies.dependencies import (
     artifacts_repository,
 )
 
-from data.data_common.services.artifacts_service import ArtifactSerivce
+from data.data_common.services.artifacts_service import ArtifactsService
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
@@ -81,7 +82,7 @@ class PersonManager(GenieConsumer):
         # self.tenant_profiles_repository = tenant_profiles_repository()
         self.user_profiles_repository = UserProfilesRepository()
         self.azure_profile_picture_uploader = AzureProfilePictureUploader()
-        self.artifacts_service = ArtifactSerivce()
+        self.artifacts_service = ArtifactsService()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -207,12 +208,14 @@ class PersonManager(GenieConsumer):
             person_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
             if not person_uuid:
                 person_uuid = get_uuid4()
+            linkedin_url_from_fake_email = email_utils.get_fake_email_linkedin_url(email)
+            linkedin = "" if not linkedin_url_from_fake_email else linkedin_url_from_fake_email
             person = PersonDTO(
                 uuid=person_uuid,
                 name="",
                 company="",
                 email=email,
-                linkedin="",
+                linkedin=linkedin,
                 position="",
                 timezone="",
             )

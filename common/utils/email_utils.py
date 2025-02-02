@@ -27,6 +27,19 @@ async def fetch_public_domains():
 
 PUBLIC_DOMAIN = asyncio.run(fetch_public_domains())
 PUBLIC_DOMAIN["group.calendar.google.com"] = True
+FAKE_LINKEDIN_EMAIL_PREFIX = "linkedin-email-"
+FAKE_LINKEDIN_EMAIL_SUFFIX = "@stam.com"
+
+def create_fake_linkedin_email(linkedin_url: str) -> str:
+        linkedin_id = linkedin_url.split("in/")[1].replace("/", "")
+        return f"{FAKE_LINKEDIN_EMAIL_PREFIX}{linkedin_id}{FAKE_LINKEDIN_EMAIL_SUFFIX}"
+
+def get_fake_email_linkedin_url(email: str) -> str:
+    if FAKE_LINKEDIN_EMAIL_PREFIX in email:
+        linkedin_id = email.split(FAKE_LINKEDIN_EMAIL_PREFIX)[1].split(FAKE_LINKEDIN_EMAIL_SUFFIX)[0]
+        if linkedin_id:
+            return "linkedin.com/in/" + linkedin_id
+    return None
 
 
 def extract_email_from_url(url: str) -> str:

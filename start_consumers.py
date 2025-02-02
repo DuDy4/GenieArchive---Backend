@@ -23,14 +23,14 @@ logger = GenieLogger()
 
 consumers = [
     PersonManager(),
-    # LangsmithConsumer(),
-    # PDLConsumer(),
-    # MeetingManager(),
-    # SlackConsumer(),
-    # ApolloConsumer(),
-    # CompanyConsumer(),
+    LangsmithConsumer(),
+    PDLConsumer(),
+    MeetingManager(),
+    SlackConsumer(),
+    ApolloConsumer(),
+    CompanyConsumer(),
     ProfileParamsConsumer(),
-    # SalesMaterialConsumer(),
+    SalesMaterialConsumer(),
 ]
 
 
