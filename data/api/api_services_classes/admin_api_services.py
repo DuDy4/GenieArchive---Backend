@@ -56,6 +56,7 @@ class AdminApiService:
         self.profiles_repository = profiles_repository()
         self.companies_repository = companies_repository()
         self.user_profiles_repository = UserProfilesRepository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.personal_data_repository = personal_data_repository()
         self.embeddings_client = GenieEmbeddingsClient()
         self.langsmith = Langsmith()
@@ -280,9 +281,10 @@ class AdminApiService:
         if not participant_emails:
             logger.error(f"No participant emails found for meeting: {meeting.uuid}")
             return {"error": "No participant emails found"}
-        host_email = self.tenants_repository.get_tenant_email(meeting.tenant_id)
-        if not host_email or "@" not in host_email:
-            logger.error(f"No host email found for tenant: {meeting.tenant_id}")
+        # host_email = self.tenants_repository.get_tenant_email(meeting.tenant_id)
+        host_email = self.users_repository.get_email_by_user_id(meeting.user_id)
+        if not host_email:
+            logger.error(f"No host email found for user: {meeting.user_id}")
             return {"error": "No host email found"}
         self_email = [email for email in participant_emails if email.get("self")][0].get("email")
         if not self_email or self_email != host_email:
@@ -425,8 +427,8 @@ class AdminApiService:
                 logger.error(f"Error sending event for {uuid}: {e}")
                 break
 
-    def update_action_item(self, tenant_id, uuid, criteria, description):
-        result = self.user_profiles_repository.update_sales_action_item_description(tenant_id, uuid, criteria, description)
+    def update_action_item(self, user_id, uuid, criteria, description):
+        result = self.user_profiles_repository.update_sales_action_item_description(user_id, uuid, criteria, description)
         return {"status": "success"} if result else {"error": str(result)}
 
 
