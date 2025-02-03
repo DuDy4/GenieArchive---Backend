@@ -3,7 +3,7 @@ import json
 import os
 import sys
 
-from common.genie_logger import GenieLogger, tenant_id
+from common.genie_logger import GenieLogger
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
 from data.api_services.salesforce_manager import SalesforceManager
@@ -16,6 +16,7 @@ from data.data_common.repositories.contacts_repository import ContactsRepository
 from data.data_common.repositories.profiles_repository import ProfilesRepository
 from data.data_common.repositories.sf_creds_repository import SalesforceUsersRepository
 from data.data_common.repositories.tenants_repository import TenantsRepository
+from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
 from data.data_common.repositories.users_repository import UsersRepository
 
 logger = GenieLogger()
@@ -45,6 +46,7 @@ class SalesforceConsumer(GenieConsumer):
         self.users_repository = UsersRepository()
         self.tenants_repository = TenantsRepository()
         self.profiles_repository = ProfilesRepository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.sf_creds_repository = SalesforceUsersRepository()
         self.salesforce_manager = SalesforceManager(key_file=key_file, public_key_file=public_key_file)
 
@@ -115,18 +117,31 @@ class SalesforceConsumer(GenieConsumer):
         if not profile_uuid:
             logger.error("No profile_uuid")
             return
-
+        user_id = event_body.get("user_id") or logger.get_user_id()
+        if not user_id:
+            logger.error("No user_id")
+            return
         profile_category = self.profiles_repository.get_profile_category(profile_uuid)
+        sales_criteria, action_items = self.user_profiles_repository.get_sales_criteria_and_action_items(profile_uuid, user_id)
+        if not profile_category:
+            logger.error(f"No profile category found for profile: {profile_uuid}")
+            return
+
         profile_email = self.profiles_repository.get_email_by_uuid(profile_uuid)
         if not profile_email:
             logger.error(f"No email found for profile: {profile_uuid}")
             return
-        contact = self.contacts_repository.get_contact_by_email(profile_email)
+        contact = self.contacts_repository.get_contact_by_email(profile_email, user_id)
         sf_creds = self.sf_creds_repository.get_sf_creds_by_salesforce_user_id(contact.salesforce_user_id)
         if not contact:
             logger.error(f"No contact found for email: {profile_email}")
             return
-        self.salesforce_manager.update_contact(contact=contact, sf_creds=sf_creds, payload={"ProfileCategory__c": profile_category})
+        payload = {
+            "genieai__ProfileCategory__c": profile_category,
+            "genieai__SalesCriteria__c": json.dumps([sale_criteria.to_dict() for sale_criteria in sales_criteria]),
+            "genieai__ActionItems__c": json.dumps([action_item.to_dict() for action_item in action_items]),
+        }
+        self.salesforce_manager.update_contact(contact=contact, sf_creds=sf_creds, payload=payload)
 
     def create_sf_user(self, owner_email):
         user_id = get_uuid4()

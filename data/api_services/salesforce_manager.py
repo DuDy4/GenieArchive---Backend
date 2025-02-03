@@ -95,6 +95,8 @@ class SalesforceManager:
                     "owner_email": owner_email,
                 })
             logger.info(f"Processed contacts: {contacts}")
+            response = self.get_contact_fields(sf_creds)
+            logger.info(f"Contact fields: {response}")
             return contacts
         except Exception as e:
             logger.error(f"Failed to retrieve contacts: {e}")
@@ -102,8 +104,9 @@ class SalesforceManager:
         
     def update_contact(self, contact: ContactDTO, sf_creds: SalesforceCredsDTO, payload):
         logger.info(f"Updating contact {contact.id}")
-        for key, value in payload.items():
-            self.add_genie_category_field(sf_creds, key)
+        # for key, value in payload.items():
+        #     self.add_genie_category_field(sf_creds, key)
+        logger.info(f"Payload: {payload}")
         endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/{contact.id}"
 
         response = self.request_with_refresh_token(sf_creds, endpoint, payload, method="PATCH")
@@ -130,7 +133,12 @@ class SalesforceManager:
                 new_access_token = self.refresh_access_token(sf_creds.refresh_token)
                 if new_access_token:
                     headers["Authorization"] = f"Bearer {new_access_token}"
-                    response = requests.post(endpoint, headers=headers, json=payload)
+                    if method == "GET":
+                        response = requests.get(endpoint, headers=headers, params=payload)
+                    elif method == "POST":
+                        response = requests.post(endpoint, headers=headers, json=payload)
+                    elif method == "PATCH":
+                        response = requests.patch(endpoint, headers=headers, json=payload)
             return response
         except requests.exceptions.RequestException as e:
             logger.error(f"Error updating contact: {e}")
@@ -172,62 +180,87 @@ class SalesforceManager:
         except jwt.InvalidTokenError as e:
             print(f"Invalid JWT: {e}")
 
-    def test_flow(self):
-        # Create a signed JWT
-        signed_jwt = self.create_signed_jwt(self.client_id, "asaf-service@genieai.ai", self.private_key, "https://login.salesforce.com")
-        token_response = self.get_access_token(
-            jwt_token=signed_jwt,
-            login_url="https://login.salesforce.com"
-        )
-        print("Access Token Response:", token_response)
+    # def test_flow(self):
+    #     # Create a signed JWT
+    #     signed_jwt = self.create_signed_jwt(self.client_id, "asaf-service@genieai.ai", self.private_key, "https://login.salesforce.com")
+    #     token_response = self.get_access_token(
+    #         jwt_token=signed_jwt,
+    #         login_url="https://login.salesforce.com"
+    #     )
+    #     print("Access Token Response:", token_response)
+    #
+    #     if "access_token" in token_response:
+    #         access_token=token_response["access_token"]
+    #         instance_url=token_response["instance_url"]
+    #         headers = {
+    #             "Authorization": f"Bearer {access_token}",
+    #             "Content-Type": "application/json"
+    #         }
+    #         contacts = self.fetch_contacts(
+    #             headers,
+    #             instance_url
+    #         )
+    #         self.update_contact(headers, instance_url)
+    #         print("Contacts:", contacts)
+    #     else:
+    #         print("Error:", token_response)
 
-        if "access_token" in token_response:
-            access_token=token_response["access_token"]
-            instance_url=token_response["instance_url"]
-            headers = {
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json"
-            }
-            contacts = self.fetch_contacts(
-                headers,
-                instance_url
-            )
-            self.update_contact(headers, instance_url)
-            print("Contacts:", contacts)
-        else:
-            print("Error:", token_response)
+    def get_contact_fields(self, sf_creds: SalesforceCredsDTO):
+        """
+        Retrieve all fields available in the Contact object.
 
-    def add_genie_category_field(self, sf_creds: SalesforceCredsDTO, field_name):
-        # Clean up the field name to match Salesforce's requirements
-        cleaned_field_name = ''.join(char for char in field_name if char.isalnum()).capitalize()
+        Args:
+            sf_creds (SalesforceCredsDTO): Salesforce credentials.
 
-        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
-        payload = {
-            "fullName": f"Contact.{cleaned_field_name}__c",
-            "metadata": {
-                "label": field_name.replace('_', ' ').title(),
-                "type": "Text",
-                "length": 255
-            }
-        }
+        Returns:
+            list: List of field names in the Contact object.
+        """
+        endpoint = f"{sf_creds.instance_url}/services/data/v57.0/sobjects/Contact/describe"
 
         try:
-            response = self.request_with_refresh_token(sf_creds, endpoint, payload)
-            logger.info(f"Payload sent: {payload}")
-            if response.status_code == 201:
-                logger.info(f"Field {cleaned_field_name} created successfully.")
-            elif response.status_code == 400:
-                error_message = response.json()[0]
-                if error_message.get('errorCode') == "DUPLICATE_DEVELOPER_NAME":
-                    logger.info(f"Field {cleaned_field_name} already exists.")
-                elif error_message.get('errorCode') == "FIELD_INTEGRITY_EXCEPTION":
-                    logger.error(f"Field name validation failed: {error_message.get('message')}")
-                else:
-                    logger.error(f"Failed to create field {cleaned_field_name}: {response.text}")
-            else:
-                logger.error(f"Unexpected response: {response.status_code} - {response.text}")
-        except Exception as e:
-            logger.error(f"Exception while creating field {field_name}: {e}")
+            response = self.request_with_refresh_token(sf_creds, endpoint, method="GET")
+            response.raise_for_status()
+            fields = response.json().get("fields", [])
+            field_names = [field["name"] for field in fields]
+
+            logger.info(f"Retrieved Contact fields: {field_names}")
+            return field_names
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error retrieving Contact fields: {e}")
+            return []
+
+
+    # def add_genie_category_field(self, sf_creds: SalesforceCredsDTO, field_name):
+    #     # Clean up the field name to match Salesforce's requirements
+    #     cleaned_field_name = ''.join(char for char in field_name if char.isalnum()).capitalize()
+    #
+    #     endpoint = f"{sf_creds.instance_url}/services/data/v57.0/tooling/sobjects/CustomField"
+    #     payload = {
+    #         "fullName": f"Contact.{cleaned_field_name}__c",
+    #         "metadata": {
+    #             "label": field_name.replace('_', ' ').title(),
+    #             "type": "Text",
+    #             "length": 255
+    #         }
+    #     }
+    #
+    #     try:
+    #         response = self.request_with_refresh_token(sf_creds, endpoint, payload)
+    #         logger.info(f"Payload sent: {payload}")
+    #         if response.status_code == 201:
+    #             logger.info(f"Field {cleaned_field_name} created successfully.")
+    #         elif response.status_code == 400:
+    #             error_message = response.json()[0]
+    #             if error_message.get('errorCode') == "DUPLICATE_DEVELOPER_NAME":
+    #                 logger.info(f"Field {cleaned_field_name} already exists.")
+    #             elif error_message.get('errorCode') == "FIELD_INTEGRITY_EXCEPTION":
+    #                 logger.error(f"Field name validation failed: {error_message.get('message')}")
+    #             else:
+    #                 logger.error(f"Failed to create field {cleaned_field_name}: {response.text}")
+    #         else:
+    #             logger.error(f"Unexpected response: {response.status_code} - {response.text}")
+    #     except Exception as e:
+    #         logger.error(f"Exception while creating field {field_name}: {e}")
 
     def refresh_access_token(self, refresh_token):
         token_url = SALESFORCE_TOKEN_URL
@@ -249,24 +282,24 @@ class SalesforceManager:
             logger.error(f"Error refreshing access token: {e}")
             return None
 
-    def test_add_fields(self):
-        # Fetch the Salesforce credentials (assuming you've already stored them)
-        sf_creds = self.sf_creds_repository.get_sf_creds_by_salesforce_user_id("0059k0000001Vo9AAE")
-
-        if sf_creds:
-            # Add fields to the Contact object
-            self.add_fields_to_contact(sf_creds)
-        else:
-            logger.error("Salesforce credentials not found for the user.")
-
-    def add_fields_to_contact(self, sf_creds):
-        fields_to_add = ["NextActionItem", "SalesCriteria"]
-        for field_name in fields_to_add:
-            logger.info(f"Adding field: {field_name}")
-            self.add_genie_category_field(sf_creds, field_name)
+    # def test_add_fields(self):
+    #     # Fetch the Salesforce credentials (assuming you've already stored them)
+    #     sf_creds = self.sf_creds_repository.get_sf_creds_by_salesforce_user_id("0059k0000001Vo9AAE")
+    #
+    #     if sf_creds:
+    #         # Add fields to the Contact object
+    #         self.add_fields_to_contact(sf_creds)
+    #     else:
+    #         logger.error("Salesforce credentials not found for the user.")
+    #
+    # def add_fields_to_contact(self, sf_creds):
+    #     fields_to_add = ["NextActionItem", "SalesCriteria"]
+    #     for field_name in fields_to_add:
+    #         logger.info(f"Adding field: {field_name}")
+    #         self.add_genie_category_field(sf_creds, field_name)
 
 
 
 if __name__ == "__main__":
     manager = SalesforceManager(key_file="../../salesforce-genie-private.pem", public_key_file="../../salesforce-genie-public.pem")
-    manager.test_add_fields()
+    # manager.test_add_fields()

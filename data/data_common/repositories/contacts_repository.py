@@ -60,15 +60,15 @@ class ContactsRepository:
                 logger.error(f"Error checking contact exists: {error}")
                 return False
 
-    def get_contact_by_email(self, email: str) -> Optional[ContactDTO]:
+    def get_contact_by_email(self, email: str, user_id: str) -> Optional[ContactDTO]:
         select_query = """
         SELECT salesforce_id, name, email, user_id, salesforce_user_id FROM contacts
-        WHERE email = %s
+        WHERE email = %s AND user_id = %s
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (email,))
+                    cursor.execute(select_query, (email, user_id))
                     result = cursor.fetchone()
                     if result:
                         logger.info(f"Found contact: {result}")
