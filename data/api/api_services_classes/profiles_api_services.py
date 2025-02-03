@@ -1,8 +1,9 @@
 from common.utils import email_utils, env_utils
 from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
+from data.data_common.services.artifacts_service import ArtifactsService
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category, get_default_individual_sales_criteria, profiles_description
+from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     ownerships_repository,
@@ -11,6 +12,8 @@ from data.data_common.dependencies.dependencies import (
     personal_data_repository,
     companies_repository,
     hobbies_repository,
+    artifacts_repository,
+    artifact_scores_repository
 )
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.repositories.user_profiles_repository import UserProfilesRepository
@@ -33,6 +36,9 @@ class ProfilesApiService:
         self.personal_data_repository = personal_data_repository()
         self.companies_repository = companies_repository()
         self.hobbies_repository = hobbies_repository()
+        self.artifacts_repository = artifacts_repository()
+        self.artifact_scores_repository = artifact_scores_repository()
+        self.artifacts_service = ArtifactsService()
 
     def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
@@ -147,12 +153,13 @@ class ProfilesApiService:
                 raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
+        profile_v2 = self.get_profile_v2(profile.name, uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
             sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id) or profile.sales_criteria
-            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria, profile_category_v2=profile_v2)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
@@ -317,6 +324,14 @@ class ProfilesApiService:
             status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {user_id}"}
         )
     
+    def get_profile_v2(self, name, profile_uuid):
+        param_overall_scores = self.artifacts_service.calculate_overall_params(name, profile_uuid)
+        if not param_overall_scores:
+            logger.error(f"No overall scores found for {name} | {profile_uuid}")
+            return None
+        profile_v2_category = determine_profile_v2_category(param_overall_scores)
+        return profile_v2_category
+
     def get_profile_category_stats(self):
         profiles = self.profiles_repository.get_all_profiles()
         categories_count = {}

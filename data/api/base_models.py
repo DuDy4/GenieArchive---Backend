@@ -190,6 +190,7 @@ class StrengthsListResponse(BaseModel):
     strengths: List[Strength]
     profile_category: ProfileCategory
     sales_criteria: Optional[list[SalesCriteria]]
+    profile_category_v2: Optional[ProfileCategory] = None
 
 
 class Hobby(BaseModel):

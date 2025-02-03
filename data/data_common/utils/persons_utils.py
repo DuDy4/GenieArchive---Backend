@@ -188,6 +188,81 @@ profile_font_color = {
     "The Intuitive": "#2a2a2a"      # Dark gray for orange background
 }
 
+weights = {  
+    "The Analytical": {  
+        "Logic/Analysis vs Feeling/Intuition": 0.4,  
+        "Numbers": 0.3,  
+        "Technical": 0.2,  
+        "Perfectionist": 0.1,  
+    },  
+    "The Social": {  
+        "Relator": 0.4,  
+        "Social Influence": 0.3,  
+        "Feeling": 0.2,  
+        "Values": 0.1,  
+    },  
+    "The Innovator": {  
+        "Ideation": 0.4,  
+        "Risk Aversion vs Novelty": 0.3,  
+        "Technical": 0.2,  
+        "Associative vs Structured": 0.1,  
+    },  
+    "The Thorough": {  
+        "Risk Aversion vs Novelty": 0.4,  
+        "Perfectionist": 0.3,  
+        "Security": 0.2,  
+        "Values": 0.1,  
+    },  
+    "The Go-Getter": {  
+        "Pace": 0.4,  
+        "Achiever": 0.3,  
+        "Command": 0.2,  
+        "Responsive vs Disruptive": 0.1,  
+    },  
+    "The Emotional": {  
+        "Feeling": 0.4,  
+        "Emotional": 0.3,  
+        "Relator": 0.2,  
+        "Turbulent": 0.1,  
+    },  
+}  
+
+def determine_profile_v2_category(param_score):
+    raw_scores = {} 
+    # Calculate raw scores for each profile  
+    for profile, params in weights.items():  
+        raw_score = 0
+        for param, weight in params.items():
+            if param in param_score:
+                raw_score += param_score[param] * weight
+            else:
+                logger.error(f"Parameter {param} not found in user param scores")
+        raw_scores[profile] = raw_score  
+    
+    # Normalize the raw scores to calculate probabilities  
+    total_raw_score = sum(raw_scores.values())  
+    probabilities = {  
+        profile: raw_score / total_raw_score for profile, raw_score in raw_scores.items()  
+    }  
+    
+    best_profile = max(probabilities, key=probabilities.get) 
+    
+    print("\nProbabilities:")  
+    for profile, probability in probabilities.items():  
+        print(f"{profile}: {probability * 100:.2f}%")
+
+    profile_category_dict = {
+        "category": best_profile,
+        "scores": raw_scores,
+        "description": profiles_description.get(best_profile, ""),
+        "extended_description": profiles_extended_description.get(best_profile, ""),
+        "explanation": profiles_explanation.get(best_profile, {}),
+        "color": profiles_colors.get(best_profile, ""),
+        "font_color": profile_font_color.get(best_profile, ""),
+    }
+    return ProfileCategory.from_dict(profile_category_dict)
+    
+
 # Function to calculate the best profile
 def determine_profile_category(strengths_scores):
     total_strength_score = 0

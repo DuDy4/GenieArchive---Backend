@@ -1,3 +1,4 @@
+import re
 import asyncio
 import json
 import logging
@@ -422,9 +423,13 @@ class Langsmith:
                     response = response.replace("```json", "").strip("`").strip()
                     response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
                     response = json.loads(response)
+                else:
+                    response = self.extract_json(response)
+            else:
+                logger.error(f"Error parsing param evaluation from Langsmith: {response}")
         except Exception as e:
             logger.error(f"Error running param evaluation: {e}")          
-            response = f"Error: {e}"
+            return {}
         return response
 
     async def get_summary(self, data, max_words=50):
@@ -475,4 +480,15 @@ class Langsmith:
 
 
 
-    
+    def extract_json(self, text):
+        match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text
+        try:
+            json_obj = json.loads(json_str)
+            return json_obj
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON:", e)
+        return None
