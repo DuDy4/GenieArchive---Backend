@@ -130,7 +130,7 @@ class HandleLinkedinScrape:
                 post_date = datetime.strptime(str(post.date), "%Y-%m-%d")
 
             # Determine if the post is created by the user
-            is_original = linkedin_url in post.reshared
+            is_original = linkedin_url in post.reshared if post.reshared else False
             is_recent = post_date > ninety_days_ago
 
             # Categorize the post
