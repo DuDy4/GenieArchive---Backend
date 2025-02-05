@@ -6,8 +6,6 @@ import sys
 
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from data.data_common.services.artifacts_service import ArtifactsService
-from pydantic import HttpUrl
-from pydantic_core import Url
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -17,10 +15,7 @@ from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
 from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.repositories.personal_data_repository import PersonalDataRepository
-from data.data_common.dependencies.dependencies import persons_repository, personal_data_repository
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 from common.genie_logger import GenieLogger
 
@@ -40,8 +35,9 @@ class ProfileParamsConsumer(GenieConsumer):
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.persons_repository: PersonsRepository = persons_repository()
+        self.persons_repository: PersonsRepository = PersonsRepository()
         self.artifacts_service: ArtifactsService = ArtifactsService()
+
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -101,13 +97,13 @@ class ProfileParamsConsumer(GenieConsumer):
         profile_uuid = event_body.get("profile_uuid")
         person = self.persons_repository.get_person(profile_uuid)
         timestamp = datetime.datetime.now()
-        asyncio.create_task(self.artifacts_service.calculate_artifact_scores(artifact, person, timestamp))
-        # await self.artifacts_service.calculate_artifact_scores(artifact, person)
-        # event = GenieEvent(
-        #     topic=Topic.ARTIFACT_SCORES_CALCULATED,
-        #     data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
-        # )
-        # event.send()
+        calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(artifact, person, timestamp))
+        await calculate_task
+        event = GenieEvent(
+            topic=Topic.ARTIFACT_SCORES_CALCULATED,
+            data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
+        )
+        event.send()
         return {"status": "success"}
     
     
@@ -148,15 +144,10 @@ class ProfileParamsConsumer(GenieConsumer):
 
 
 if __name__ == "__main__":
-    profile_params_consumer = ProfileParamsConsumer()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    consumer = ProfileParamsConsumer()
 
     try:
-        loop.run_until_complete(profile_params_consumer.main())
-        loop.run_forever()  # ✅ Keeps the event loop running to avoid pending tasks being destroyed
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-    finally:
-        loop.close()
+        asyncio.run(consumer.main())  # ✅ Use GenieConsumer’s event loop management
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt, shutting down...")
+        asyncio.run(consumer.stop())  # ✅ Graceful shutdown
