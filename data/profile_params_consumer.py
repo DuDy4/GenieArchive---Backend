@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+import datetime
 import json
 import os
 import sys
@@ -93,15 +93,21 @@ class ProfileParamsConsumer(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        artifact = ArtifactDTO.from_dict(event_body.get("artifact"))
+        artifact_dict = event_body.get("artifact")
+        if not artifact_dict:
+            logger.error(f"No artifact data found for event {event_body}")
+            raise Exception("No artifact data found")
+        artifact = ArtifactDTO.from_dict(artifact_dict)
         profile_uuid = event_body.get("profile_uuid")
         person = self.persons_repository.get_person(profile_uuid)
-        await self.artifacts_service.calculate_artifact_scores(artifact, person)
-        event = GenieEvent(
-            topic=Topic.ARTIFACT_SCORES_CALCULATED,
-            data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
-        )
-        event.send()
+        timestamp = datetime.datetime.now()
+        asyncio.create_task(self.artifacts_service.calculate_artifact_scores(artifact, person, timestamp))
+        # await self.artifacts_service.calculate_artifact_scores(artifact, person)
+        # event = GenieEvent(
+        #     topic=Topic.ARTIFACT_SCORES_CALCULATED,
+        #     data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
+        # )
+        # event.send()
         return {"status": "success"}
     
     
@@ -138,23 +144,19 @@ class ProfileParamsConsumer(GenieConsumer):
             raise Exception("No person found for profile_uuid")
         self.artifacts_service.calculate_overall_params(person.email, profile_uuid)
         return {"status": "success"}
-        
+
 
 
 if __name__ == "__main__":
     profile_params_consumer = ProfileParamsConsumer()
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     try:
-        # profile_uuid = "00a64c11-da7d-45dc-bde5-dd6e30e5f0d2"
-        # artifact_uuid = "0aa0de26-7af6-482b-8432-0734b2751b25"
-        # logger.set_tenant_id('org_RPLWQRTI8t7EWU1L')
-        # logger.set_user_id('google-oauth2|102736324632194671211')
-        # # artifact = ArtifactDTO(uuid='0aa0de26-7af6-482b-8432-0734b2751b25', artifact_type=ArtifactType.POST, source=ArtifactSource.LINKEDIN, profile_uuid='00a64c11-da7d-45dc-bde5-dd6e30e5f0d2', artifact_url=HttpUrl('https://www.linkedin.com/feed/update/urn:li:activity:7073924589675757569/'), text='⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All Founders by Microsoft for Startups, Israel’s largest founders’ gathering was created to inspire and educate entrepreneurs. \n💡The event focuses on the essential role of the founder, whether they are a first-time founder, serial entrepreneur, or a technical founder. \n💡This event will feature the biggest names in the industry and celebrate our ability as an ecosystem to empower one another to achieve more! 👩🏼\u200d🎓🧕🏻🧑🏻\u200d💼👩🏽\u200d🏭\n\nSpeakers include:\nHans Yang Annie Pearl @Sarah Bird Michal Braverman-Blumenstyk Tomer Simon, PhD Roee Adler  Eyal Brill  Shimon Tolts  @Einat Orr Ron Reiter  Sivan Shamri Dahan  Dahan Yorai Fainmesser Amiram Shachar Gili Raanan  Gadi Evron \nRaz Bachar Meital Shamia  Adir Ron Nitzan Gal Yoav Shlesinger\n\n #startups #entrepreneurs #founders #microsoft #event', summary='⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All ', published_date=datetime(2023, 6, 12, 0, 0), created_at=datetime(2025, 1, 23, 13, 44, 32, 444295), metadata={'date': '2023-06-12', 'link': 'https://www.linkedin.com/feed/update/urn:li:activity:7073924589675757569/', 'text': '⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All Founders by Microsoft for Startups, Israel’s largest founders’ gathering was created to inspire and educate entrepreneurs. \n💡The event focuses on the essential role of the founder, whether they are a first-time founder, serial entrepreneur, or a technical founder. \n💡This event will feature the biggest names in the industry and celebrate our ability as an ecosystem to empower one another to achieve more! 👩🏼\u200d🎓🧕🏻🧑🏻\u200d💼👩🏽\u200d🏭\n\nSpeakers include:\nHans Yang Annie Pearl @Sarah Bird Michal Braverman-Blumenstyk Tomer Simon, PhD Roee Adler  Eyal Brill  Shimon Tolts  @Einat Orr Ron Reiter  Sivan Shamri Dahan  Dahan Yorai Fainmesser Amiram Shachar Gili Raanan  Gadi Evron \nRaz Bachar Meital Shamia  Adir Ron Nitzan Gal Yoav Shlesinger\n\n #startups #entrepreneurs #founders #microsoft #event', 'likes': 69, 'media': 'LinkedIn', 'title': '⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All ', 'images': ['https://media.licdn.com/dms/image/v2/D4D22AQH_o6gWx_SOIA/feedshare-shrink_2048_1536/feedshare-shrink_2048_1536/0/1686555048588?e=1740614400&v=beta&t=cIlD-q5N-Z-lo2VOZ-e2FpV_xJrASXvBWRGk20Cf3YM'], 'summary': None, 'reshared': 'https://www.linkedin.com/in/amit7200'})
-        # event = GenieEvent(
-        #     topic=Topic.ARTIFACT_SCORES_CALCULATED,
-        #     data={"profile_uuid": profile_uuid, "artifact_uuid": artifact_uuid},
-        # )
-        # event = event.prepare_event()
-        # asyncio.run(profile_params_consumer.calculate_overall_params(event))
-        asyncio.run(profile_params_consumer.main())
+        loop.run_until_complete(profile_params_consumer.main())
+        loop.run_forever()  # ✅ Keeps the event loop running to avoid pending tasks being destroyed
     except Exception as e:
         logger.error(f"An error occurred: {e}")
+    finally:
+        loop.close()

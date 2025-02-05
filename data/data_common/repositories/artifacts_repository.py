@@ -2,7 +2,7 @@ import traceback
 import psycopg2
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import db_connection
-from typing import List, Optional
+from typing import List, Optional, Any
 from data.data_common.data_transfer_objects.artifact_dto import (
     ArtifactDTO, ArtifactScoreDTO, ArtifactType, ArtifactSource
 )
@@ -56,7 +56,8 @@ class ArtifactsRepository:
                 traceback.print_exc()
                 return None
 
-    def get_user_artifacts(self, profile_uuid: str, artifact_type: ArtifactType = None) -> List[ArtifactScoreDTO]:
+    def get_user_artifacts(self, profile_uuid: str, artifact_type: ArtifactType = None) -> list[ArtifactDTO] | list[
+        Any]:
         select_query = """
         SELECT uuid, artifact_type, source, profile_uuid, artifact_url, text, summary, published_date, created_at, metadata
         FROM artifacts

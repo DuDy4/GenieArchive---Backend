@@ -112,19 +112,18 @@ class ProfileParamsService:
 
     async def evaluate_all_params(self, post, name, position, company):
         if not self.clues_column_index:
-            # Just in very rare cases, the sheet might not have been initialized
-            await self._initialize_sheet()
-        all_params = []
-        for row in self.data_rows:
-            param_id = row[self.id_column_index]
-            if param_id and param_id != '0':
-                try: 
-                    param_response = await self.evaluate_param(post, name, position, company, param_id)
-                    if param_response:
-                        all_params.append(param_response)
-                except Exception as e:
-                    logger.error(f"Failed to evaluate parameter {param_id} for person {name}. Error: {e}")
-        return all_params
+            await self._initialize_sheet()  # Ensure sheet is initialized
+
+        tasks = [
+            self.evaluate_param(post, name, position, company, row[self.id_column_index])
+            for row in self.data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
+        ]
+
+        # 🚀 Run all evaluation tasks concurrently
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter valid responses
+        return [resp for resp in responses if isinstance(resp, dict) and resp]
 
     async def evaluate_param(self, post, name, position, company, param_id):
         person = {
@@ -155,6 +154,7 @@ class ProfileParamsService:
         }
         try:
             response = await self.langsmith.get_param_evaluation(person, param_data, post)
+            logger.info(f"Got response for parameter {param_name}: {response}")
             if response:
                 response_dict = { 'param': param_name, 'param_id': param_id }
                 response['param'] = param_name

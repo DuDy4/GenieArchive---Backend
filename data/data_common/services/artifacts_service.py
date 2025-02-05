@@ -1,6 +1,9 @@
 import datetime
 from typing import Any, Dict, List
 from collections import defaultdict
+
+from pyarrow import timestamp
+
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
 from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
@@ -44,6 +47,7 @@ class ArtifactsService():
             if post.source == ArtifactSource.LINKEDIN and post.metadata and post.metadata.get('reshared') \
             and linkedin_url in post.metadata.get('reshared'):
                 self_written_posts.append(post)
+        self_written_posts = sorted(self_written_posts, key=lambda x: x.created_at, reverse=True)[:10]  # Only get the latest 10 posts for testing purposes
         return self_written_posts
     
     def get_artifact(self, artifact_uuid) -> ArtifactDTO:
@@ -55,15 +59,16 @@ class ArtifactsService():
         return self.artifacts_repository.get_artifact(artifact_uuid)
     
 
-    async def calculate_artifact_scores(self, artifact: ArtifactDTO, person):
+    async def calculate_artifact_scores(self, artifact: ArtifactDTO, person, timestamp: timestamp=None):
         """
         Calculate scores for artifact
         :param artifact: Artifact to calculate scores for
         """
-        timestamp = datetime.datetime.now()
+        # timestamp = datetime.datetime.now()
         logger.info(f"Calculating scores for artifact {artifact.uuid}")
         param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name, person.position, person.company)
-        logger.info(f"Calculated scores for artifact {artifact.uuid}. Duration: {datetime.datetime.now() - timestamp} ms")
+        if timestamp:
+            logger.info(f"Calculated scores for artifact {artifact.uuid}. Duration: {datetime.datetime.now() - timestamp} ms")
         param_scores_to_persist = []
         for param_score in param_scores:
             if param_score.get("score"):

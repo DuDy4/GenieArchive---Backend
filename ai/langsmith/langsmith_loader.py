@@ -348,6 +348,32 @@ class Langsmith:
                     raise e  # Raise exception if retries are exhausted
         raise Exception("Max retries exceeded")
 
+    async def _run_prompt_with_retry_artifacts(self, runnable, arguments, max_retries=5, base_wait=2):
+        """Retries LangSmith prompt execution with async support."""
+        for attempt in range(max_retries):
+            try:
+                loop = asyncio.get_running_loop()
+                response = await loop.run_in_executor(None, runnable.invoke, arguments)
+                if response:  # ✅ If successful, return the response
+                    return response
+            except LangSmithConnectionError as e:
+                logger.error(f"LangSmithConnectionError encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2**attempt) + random.uniform(0, 1)
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)  # ✅ Keep it async
+                else:
+                    raise e
+            except Exception as e:
+                logger.error(f"General error encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2**attempt) + random.uniform(0, 1)
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)  # ✅ Keep it async
+                else:
+                    raise e
+        raise Exception("Max retries exceeded")
+
     async def get_news(self, news_data: dict):
         prompt = hub.pull("post_summary")
         runnable = prompt | self.model
@@ -416,7 +442,7 @@ class Langsmith:
         }
         try:
             runnable = prompt | self.azure_model
-            response = await self._run_prompt_with_retry(runnable, arguments)            
+            response = await self._run_prompt_with_retry_artifacts(runnable, arguments)
             if response and response.content and isinstance(response.content, str):
                 response = response.content
                 if response.startswith("```"):
