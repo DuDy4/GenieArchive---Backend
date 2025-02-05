@@ -38,7 +38,7 @@ class ArtifactScoresRepository:
                 logger.error(f"Error creating tables: {error}")
                 traceback.print_exc()
 
-    def upsert_artifact_scores(conn, artifact_scores: List[ArtifactScoreDTO]):
+    def upsert_artifact_scores(self, artifact_scores: List[ArtifactScoreDTO]):
         """
         Inserts or updates artifact scores in batch using execute_values dynamically.
         
