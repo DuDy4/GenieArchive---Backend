@@ -965,18 +965,18 @@ async def handle_form(
     return JSONResponse(content=response)
 
 
-@v1_router.post("/salesforce/contact", response_class=JSONResponse)
-async def new_contact(request: Request):
-    """
-    Get new contact from salesforce and start the process of creating a new profile.
-    """
-    body = await request.json()
-    contact_email = body.get("email")
-    logger.info(f"Received new contact request for email: {contact_email}")
-    salesforce_id = body.get("salesforce_id")
-    logger.info(f"Received new contact request for salesforce_id: {salesforce_id}")
-    response = await salesforce_api_service.handle_new_contact(contact_email=contact_email, salesforce_user_id=salesforce_id)
-    return JSONResponse(content=response)
+# @v1_router.post("/salesforce/contact", response_class=JSONResponse)
+# async def new_contact(request: Request):
+#     """
+#     Get new contact from salesforce and start the process of creating a new profile.
+#     """
+#     body = await request.json()
+#     contact_email = body.get("email")
+#     logger.info(f"Received new contact request for email: {contact_email}")
+#     salesforce_id = body.get("salesforce_id")
+#     logger.info(f"Received new contact request for salesforce_id: {salesforce_id}")
+#     response = await salesforce_api_service.handle_new_contact(contact_email=contact_email, salesforce_user_id=salesforce_id)
+#     return JSONResponse(content=response)
 
 
 # @v1_router.get(
