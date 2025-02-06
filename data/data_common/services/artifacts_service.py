@@ -6,6 +6,7 @@ from pyarrow import timestamp
 
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifact
 from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
 from data.data_common.services.profile_params_service import ProfileParamsService
 from common.genie_logger import GenieLogger
@@ -59,16 +60,15 @@ class ArtifactsService():
         return self.artifacts_repository.get_artifact(artifact_uuid)
     
 
-    async def calculate_artifact_scores(self, artifact: ArtifactDTO, person, timestamp: timestamp=None):
+    async def calculate_artifact_scores(self, artifact: ArtifactDTO | WorkHistoryArtifact, person):
         """
         Calculate scores for artifact
         :param artifact: Artifact to calculate scores for
         """
         # timestamp = datetime.datetime.now()
         logger.info(f"Calculating scores for artifact {artifact.uuid}")
-        param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name, person.position, person.company)
-        if timestamp:
-            logger.info(f"Calculated scores for artifact {artifact.uuid}. Duration: {datetime.datetime.now() - timestamp} ms")
+        param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name,
+                                                                             person.position, person.company, isinstance(artifact, WorkHistoryArtifact))
         param_scores_to_persist = []
         for param_score in param_scores:
             if param_score.get("score"):
@@ -84,18 +84,20 @@ class ArtifactsService():
         """
         timestamp = datetime.datetime.now()
         logger.info(f"Calculating overall params for person {name} | {profile_uuid}")
-        artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
-        if not artifacts:
-            return {}
-        all_artifacts_scores = []
-        for artifact in artifacts:
-            artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
-            artifact_weight = 1 # Placeholder for Mazgan
-            all_artifacts_scores.extend(artifact_scores)
+        # artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
+        # if not artifacts:
+        #     return {}
+        # all_artifacts_scores = []
+        # for artifact in artifacts:
+        #     artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
+        #     artifact_weight = 1 # Placeholder for Mazgan
+        #     all_artifacts_scores.extend(artifact_scores)
+        all_artifacts_scores = self.artifact_scores_repository.get_all_artifact_scores_by_profile_uuid(profile_uuid)
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
         for param, avg_score in param_averages.items():
             logger.info(f"{param}: {avg_score}")
         logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
+        logger.info(f"Overall params: {param_averages}")
         return param_averages
     
     

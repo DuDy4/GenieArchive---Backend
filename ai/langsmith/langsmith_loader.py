@@ -432,6 +432,21 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    async def get_work_history_post(self, work_history_artifact: dict):
+        logger.info("Running Langsmith prompt for work history post")
+        prompt = hub.pull("work_history_post_generator")
+        arguments = {
+            "work_history": work_history_artifact
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+            if response and response.content and isinstance(response.content, str):
+                response = response.content
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
     async def get_param_evaluation(self, person, param_data, person_artifact):
         logger.info("Running Langsmith prompt for evaluating param")
         prompt = hub.pull("param-scoring-v2")

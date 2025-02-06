@@ -16,6 +16,8 @@ from data.data_common.dependencies.dependencies import (
 )
 
 logger = GenieLogger()
+WORK_HISTORY_PARAMS = ["""Logic/Analysis vs Feeling/Intuition""", "Technical", "Numbers", "Risk Aversion vs Novelty",
+                       "Security"]
 
 
 class ProfileParamsService:
@@ -59,6 +61,7 @@ class ProfileParamsService:
         self.definition_column_index = None
         self.param_explanation_column_index = None
         self.clues_column_index = None
+        self.work_history_params_ids = None
         # asyncio.run(self._initailze_sheet())
         self.linkedin_scrapper = HandleLinkedinScrape()
         self.persons_repository = persons_repository()
@@ -109,8 +112,28 @@ class ProfileParamsService:
         self.definition_column_index = headers.index(self.DEFINITION_COLUMN)
         self.param_explanation_column_index = headers.index(self.PARAM_EXPLANATION_COLUMN)
         self.clues_column_index = headers.index(self.CLUES_COLUMN)
+        self.work_history_params_ids = [
+            row[self.id_column_index]
+            for row in self.data_rows
+            if row[self.param_name_column_index] in WORK_HISTORY_PARAMS
+        ]
 
-    async def evaluate_all_params(self, post, name, position, company):
+    async def evaluate_all_params(self, post, name, position, company, is_work_history=False):
+        if not self.clues_column_index:
+            await self._initialize_sheet()  # Ensure sheet is initialized
+
+        tasks = [
+            self.evaluate_param(post, name, position, company, row[self.id_column_index])
+            for row in self.data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
+        ]
+
+        # 🚀 Run all evaluation tasks concurrently
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter valid responses
+        return [resp for resp in responses if isinstance(resp, dict) and resp]
+
+    async def evaluate_work_history_params(self, summary, name, position, company):
         if not self.clues_column_index:
             await self._initialize_sheet()  # Ensure sheet is initialized
 
@@ -225,3 +248,6 @@ class ProfileParamsService:
             self.personal_data_repository.update_news_list_to_db(uuid, posts)
 
         return posts
+
+
+

@@ -11,11 +11,13 @@ from data.data_common.utils.str_utils import get_uuid4
 
 class ArtifactType(Enum):
     POST = "post"
+    WORK_EXPERIENCE = "work_experience"
     OTHER = "other"
 
 
 class ArtifactSource(Enum):
     LINKEDIN = "linkedin"
+    WORK_EXPERIENCE = "work_experience"
     OTHER = "other"
 
 
@@ -25,7 +27,7 @@ class ArtifactDTO(BaseModel):
     artifact_type: ArtifactType
     source: ArtifactSource
     profile_uuid: str
-    artifact_url: HttpUrl
+    artifact_url: HttpUrl | None = None
     text: str
     summary: str = None
     published_date: datetime
@@ -156,7 +158,7 @@ class ArtifactScoreDTO(BaseModel):
             clues_scores=data,
             created_at=datetime.now()
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'uuid': self.uuid,
@@ -166,3 +168,5 @@ class ArtifactScoreDTO(BaseModel):
             'clues_scores': self.clues_scores,
             'created_at': self.created_at
         }
+    
+
