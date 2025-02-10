@@ -98,8 +98,8 @@ class ArtifactsService():
         #     all_artifacts_scores.extend(artifact_scores)
         all_artifacts_scores = self.artifact_scores_repository.get_all_artifact_scores_by_profile_uuid(profile_uuid)
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
-        for param, avg_score in param_averages.items():
-            logger.info(f"{param}: {avg_score}")
+        # for param, avg_score in param_averages.items():
+            # logger.info(f"{param}: {avg_score}")
         logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
         logger.info(f"Overall params: {param_averages}")
         return param_averages
@@ -138,3 +138,10 @@ class ArtifactsService():
         artifact_uuid = self.artifacts_repository.exists_work_history_element(work_history_artifact)
         has_score = self.artifact_scores_repository.exists_for_artifact(artifact_uuid)
         return artifact_uuid is not None and has_score
+    
+    def get_unique_profiles(self):
+        """
+        Get unique profiles
+        :return: List of unique profiles
+        """
+        return self.artifacts_repository.get_unique_users()

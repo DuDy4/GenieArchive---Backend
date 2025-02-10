@@ -110,6 +110,20 @@ class ArtifactsRepository:
                 logger.error(f"Error inserting artifact: {error.pgerror}")
                 traceback.print_exc()
                 return None
+            
+    def get_unique_users(self) -> List[str]:
+        select_query = """
+        SELECT DISTINCT profile_uuid FROM artifacts;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query)
+                    return [row[0] for row in cursor.fetchall()]
+            except psycopg2.Error as error:
+                logger.error(f"Error getting unique users: {error.pgerror}")
+                traceback.print_exc()
+                return
 
     def exists(self, uuid: str):
         select_query = """
