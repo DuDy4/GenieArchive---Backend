@@ -88,8 +88,8 @@ class ArtifactsService():
             artifact_weight = 1 # Placeholder for Mazgan
             all_artifacts_scores.extend(artifact_scores)
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
-        for param, avg_score in param_averages.items():
-            logger.info(f"{param}: {avg_score}")
+        # for param, avg_score in param_averages.items():
+            # logger.info(f"{param}: {avg_score}")
         logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
         return param_averages
     
@@ -117,3 +117,10 @@ class ArtifactsService():
         }
 
         return average_scores
+    
+    def get_unique_profiles(self):
+        """
+        Get unique profiles
+        :return: List of unique profiles
+        """
+        return self.artifacts_repository.get_unique_users()
