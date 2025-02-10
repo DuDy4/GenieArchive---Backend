@@ -1,4 +1,4 @@
-from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository, persons_repository
+from data.data_common.dependencies.dependencies import persons_repository
 from data.data_common.services.artifacts_service import ArtifactsService
 from ai.train.profile_predictions_data import ProfilePredictionsData
 import pandas as pd
@@ -25,8 +25,6 @@ all_profiles = [
 class ProfileParamWeights:
     def __init__(self):
         self.persons_repository = persons_repository()
-        self.artifacts_repository = artifacts_repository()
-        self.artifact_scores_repository = artifact_scores_repository()
         self.artifacts_service = ArtifactsService()
         self.profile_predictions_data = ProfilePredictionsData()
         self.predictions = self.profile_predictions_data.predictions
@@ -36,11 +34,14 @@ class ProfileParamWeights:
         for param in params:
             self.data[param] = []
 
+        self.prepare_data_for_training()
+
+
     def prepare_data_for_training(self):
-        unique_profile_uuids = self.artifacts_service.get_unique_profiles()
+        unique_profile_names = self.artifacts_service.get_unique_profiles()
         profiles_param_scores = {}
         people = []
-        for profile_uuid in unique_profile_uuids:
+        for profile_name in unique_profile_names:
             person = self.persons_repository.get_person(profile_uuid)
             if not person:
                 continue
@@ -65,7 +66,7 @@ class ProfileParamWeights:
             if prediction not in self.people_anaylsed:
                 logger.info(f"Person {prediction} not found in the data")
 
-        self.train2(training_data)
+        self.train(training_data)
 
     def create_data_dictionary(self, people):
         """
@@ -110,7 +111,7 @@ class ProfileParamWeights:
 
         return data
 
-    def train2(self, data):
+    def train(self, data):
         # Convert to DataFrame
         df = pd.DataFrame(data)
 
@@ -142,58 +143,6 @@ class ProfileParamWeights:
 
         print("\nModels, scaler, and mean trait values saved successfully!")
 
-    def train(self, data):
-        # Convert to DataFrame
-        df = pd.DataFrame(data)
-
-        # Define feature and label columns
-        feature_cols = df.columns[:28]
-        label_cols = df.columns[28:]
-
-        # 1. Handle missing values: Fill NaN with column mean
-        df[feature_cols] = df[feature_cols].apply(lambda x: x.fillna(x.mean()), axis=0)
-
-        # Check if NaNs remain
-        if df[feature_cols].isnull().sum().sum() > 0:
-            print("Warning: Missing values still exist after imputation!")
-
-        # 2. Normalize trait scores (100-200 → 0-1)
-        scaler = MinMaxScaler()
-        df[feature_cols] = scaler.fit_transform(df[feature_cols])
-
-        # 3. Train-test split (80/20)
-        X_train, X_test, y_train, y_test = train_test_split(df[feature_cols], df[label_cols], test_size=0.2, random_state=42)
-
-        # 4. Final NaN check after split
-        if np.isnan(X_train.values).sum() > 0:
-            print("NaNs detected in X_train after split! Applying final fillna.")
-            X_train = pd.DataFrame(X_train).fillna(0).values  # Fallback imputation with zero
-
-        # 5. Train Ridge Regression Models for Each Profile
-        models = {}
-        for class_label in label_cols:
-            model = Ridge()
-            model.fit(X_train, y_train[class_label])
-            models[class_label] = model
-
-        # Predict and Clip Probabilities
-        y_pred_probs = pd.DataFrame({class_label: models[class_label].predict(X_test) for class_label in label_cols})
-        y_pred_probs = y_pred_probs.clip(0, 1)
-
-        # Evaluate with MSE
-        mse_scores = {class_label: mean_squared_error(y_test[class_label], y_pred_probs[class_label]) for class_label in label_cols}
-
-        # Print MSE Results
-        print("\nMean Squared Error (MSE) for each profile:")
-        for class_label, mse in mse_scores.items():
-            print(f"{class_label}: {mse:.4f}")
-
-        # Save models (optional)
-        for class_label, model in models.items():
-            joblib.dump(model, f"{class_label}_ridge_regression.pkl")
-
-        print("\nRegression models trained and saved successfully!")
-
 
     def fetch_person_for_prediction(self, person_email):
         person = self.persons_repository.get_person_by_email(person_email)
@@ -204,12 +153,17 @@ class ProfileParamWeights:
         if not profile_param_score:
             logger.info(f"Profile param score not found for {person.name}")
             return None
-        person_scores = {param: profile_param_score[param] if param in profile_param_score else np.nan for param in params} 
+        # person_scores = {param: profile_param_score[param] if param in profile_param_score else np.nan for param in params} 
         # for param in params:
         #     if param not in profile_param_score:
         #         profile_param_score[param] = np.nan
         #     else:
         #         profile_param_score[param] = [profile_param_score[param]]
+        return self.normalize_param_scores(profile_param_score)
+    
+
+    def normalize_param_scores(self, profile_param_score):
+        person_scores = {param: profile_param_score[param] if param in profile_param_score else np.nan for param in params} 
         return person_scores
 
     def predict_for_new_person(self, new_person_traits):
@@ -250,6 +204,7 @@ if __name__ == "__main__":
     profile_param_weights = ProfileParamWeights()
     profile_param_weights.prepare_data_for_training()
     logger.info("Training complete.")
+    person_scores = profile_param_weights.fetch_person_for_prediction("amit.svarzenberg@microsoft.com")
     logger.info("Predicting for a new person...")
-    person_scores = profile_param_weights.fetch_person_for_prediction("example@genieai.ai")
     profile_param_weights.predict_for_new_person(person_scores)
+    logger.info("Prediction complete.")
