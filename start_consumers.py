@@ -29,7 +29,7 @@ consumers = [
     SlackConsumer(),
     ApolloConsumer(),
     CompanyConsumer(),
-    ProfileParamsConsumer(),
+    # ProfileParamsConsumer(),
     SalesMaterialConsumer()
 ]
 

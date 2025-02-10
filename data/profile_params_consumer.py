@@ -5,16 +5,16 @@ import os
 import sys
 from pydantic import ValidationError
 
+from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifact
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 from data.data_common.services.artifacts_service import ArtifactsService
-from data.test.data_test_work_post import artifact
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactSource, ArtifactType
+from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
@@ -44,6 +44,7 @@ class ProfileParamsConsumer(GenieConsumer):
         self.persons_repository: PersonsRepository = PersonsRepository()
         self.personal_data_repository: PersonalDataRepository = PersonalDataRepository()
         self.artifacts_service: ArtifactsService = ArtifactsService()
+        self.langsmith = Langsmith()
 
 
     async def process_event(self, event):
@@ -81,6 +82,9 @@ class ProfileParamsConsumer(GenieConsumer):
         if artifacts:
             event_batch = EventHubBatchManager()
             for artifact in artifacts:
+                if self.artifacts_service.check_existing_artifact(artifact):
+                    logger.info(f"Artifact {artifact.uuid} already exists")
+                    continue
                 event = GenieEvent(
                     topic=Topic.NEW_PERSON_ARTIFACT,
                     data={"profile_uuid": person_uuid, "artifact" : artifact.to_dict()},
@@ -185,19 +189,25 @@ class ProfileParamsConsumer(GenieConsumer):
         for work_history_element in work_history:
             work_history_artifact = None
             try:
-                work_history_artifact = WorkHistoryArtifact.from_pdl_element(work_history_element, profile_uuid)
+                work_history_artifact = WorkHistoryArtifactDTO.from_pdl_element(work_history_element, profile_uuid, personal_data.get("linkedin_url"))
             except ValidationError as error:
                 logger.error(f"Error creating work history artifact: {error}")
                 try:
-                    work_history_artifact = WorkHistoryArtifact.from_apollo_element(work_history_element, profile_uuid)
+                    work_history_artifact = WorkHistoryArtifactDTO.from_apollo_element(work_history_element, profile_uuid, personal_data.get("linkedin_url"))
                 except ValidationError as error:
                     logger.error(f"Error creating work history artifact: {error}")
                     continue
             finally:
                 if not work_history_artifact:
                     continue
-                calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(work_history_artifact, person))
-                work_history_tasks.append({"task": calculate_task, "artifact": work_history_artifact})
+            if self.artifacts_service.exists_work_history_element(work_history_artifact):
+                logger.info(f"Work history element {work_history_artifact.uuid} already exists")
+                continue
+            if not work_history_artifact.text:
+                work_history_artifact.text = await self.langsmith.get_work_history_post(work_history_artifact.to_dict())
+            self.artifacts_service.artifacts_repository.save_artifact(work_history_artifact)
+            calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(work_history_artifact, person, isWorkHistory=False))
+            work_history_tasks.append({"task": calculate_task, "artifact": work_history_artifact})
         tasks = [task.get("task") for task in work_history_tasks]
         artifacts = [task.get("artifact") for task in work_history_tasks]
         await asyncio.gather(*tasks)

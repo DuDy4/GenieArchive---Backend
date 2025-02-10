@@ -2,6 +2,8 @@ import asyncio
 import base64
 import datetime
 import json
+
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.utils.str_utils import remove_non_alphanumeric_strings
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -118,7 +120,7 @@ class ProfileParamsService:
             if row[self.param_name_column_index] in WORK_HISTORY_PARAMS
         ]
 
-    async def evaluate_all_params(self, post, name, position, company, is_work_history=False):
+    async def evaluate_all_params(self, post, name, position, company):
         if not self.clues_column_index:
             await self._initialize_sheet()  # Ensure sheet is initialized
 
@@ -133,13 +135,16 @@ class ProfileParamsService:
         # Filter valid responses
         return [resp for resp in responses if isinstance(resp, dict) and resp]
 
-    async def evaluate_work_history_params(self, summary, name, position, company):
+    async def evaluate_work_history_params(self, work_element, name, position, company):
         if not self.clues_column_index:
             await self._initialize_sheet()  # Ensure sheet is initialized
 
+        filtered_data_rows = [
+            row for row in self.data_rows if row[self.id_column_index] in self.work_history_params_ids
+        ]
         tasks = [
-            self.evaluate_param(post, name, position, company, row[self.id_column_index])
-            for row in self.data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
+            self.evaluate_param(work_element, name, position, company, row[self.id_column_index])
+            for row in filtered_data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
         ]
 
         # 🚀 Run all evaluation tasks concurrently

@@ -6,7 +6,7 @@ from pyarrow import timestamp
 
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
-from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifact
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
 from data.data_common.services.profile_params_service import ProfileParamsService
 from common.genie_logger import GenieLogger
@@ -60,15 +60,19 @@ class ArtifactsService():
         return self.artifacts_repository.get_artifact(artifact_uuid)
     
 
-    async def calculate_artifact_scores(self, artifact: ArtifactDTO | WorkHistoryArtifact, person):
+    async def calculate_artifact_scores(self, artifact: ArtifactDTO | WorkHistoryArtifactDTO, person, isWorkHistory=False):
         """
         Calculate scores for artifact
         :param artifact: Artifact to calculate scores for
         """
         # timestamp = datetime.datetime.now()
         logger.info(f"Calculating scores for artifact {artifact.uuid}")
-        param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name,
-                                                                             person.position, person.company, isinstance(artifact, WorkHistoryArtifact))
+        if isWorkHistory:
+            param_scores = await self.profile_params_service.evaluate_work_history_params(artifact.to_dict(), person.name,
+                                                                                          person.position, person.company)
+        else:
+            param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name,
+                                                                                person.position, person.company)
         param_scores_to_persist = []
         for param_score in param_scores:
             if param_score.get("score"):
@@ -124,3 +128,13 @@ class ArtifactsService():
         }
 
         return average_scores
+
+    def check_existing_artifact(self, artifact):
+        has_artifact = self.artifacts_repository.check_existing_artifact(artifact)
+        has_score = self.artifact_scores_repository.exists(artifact.uuid)
+        return has_artifact and has_score
+
+    def exists_work_history_element(self, work_history_artifact):
+        artifact_uuid = self.artifacts_repository.exists_work_history_element(work_history_artifact)
+        has_score = self.artifact_scores_repository.exists_for_artifact(artifact_uuid)
+        return artifact_uuid is not None and has_score

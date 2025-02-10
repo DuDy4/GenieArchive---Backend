@@ -4,8 +4,8 @@ from data.data_common.data_transfer_objects.profile_dto import SalesCriteria
 from pydantic import BaseModel, EmailStr, HttpUrl
 from uuid import UUID
 from enum import Enum
-from datetime import datetime
-from typing import Tuple, Dict, Any
+from datetime import datetime, date
+from typing import Tuple, Dict, Any, Optional
 from data.data_common.utils.str_utils import get_uuid4
 
 
@@ -17,7 +17,6 @@ class ArtifactType(Enum):
 
 class ArtifactSource(Enum):
     LINKEDIN = "linkedin"
-    WORK_EXPERIENCE = "work_experience"
     OTHER = "other"
 
 
@@ -29,8 +28,9 @@ class ArtifactDTO(BaseModel):
     profile_uuid: str
     artifact_url: HttpUrl | None = None
     text: str
-    summary: str = None
-    published_date: datetime
+    description: str | None = None
+    summary: str | None = None
+    published_date: Optional[date | datetime]
     created_at: datetime = datetime.now()
     metadata: Dict[str, Any]
 
@@ -42,6 +42,7 @@ class ArtifactDTO(BaseModel):
             self.profile_uuid,
             str(self.artifact_url),
             self.text,
+            self.description,
             self.summary,
             self.published_date,
             self.created_at,
@@ -57,10 +58,11 @@ class ArtifactDTO(BaseModel):
             profile_uuid=data[3],
             artifact_url=data[4],
             text=data[5],
-            summary=data[6],
-            published_date=data[7],
-            created_at=data[8],
-            metadata=data[9]
+            description=data[6],
+            summary=data[7],
+            published_date=data[8],
+            created_at=data[9],
+            metadata=data[10]
         )
     
     @classmethod
@@ -72,6 +74,7 @@ class ArtifactDTO(BaseModel):
             profile_uuid=data['profile_uuid'],
             artifact_url=data['artifact_url'],
             text=data['text'],
+            description=data.get('description'),
             summary=data['summary'],
             published_date=data['published_date'],
             created_at=data['created_at'],
@@ -87,6 +90,7 @@ class ArtifactDTO(BaseModel):
             profile_uuid=profile_uuid,
             artifact_url=post.link,
             text=post.text,
+            description=None,
             summary=post.summary if post.summary else post.text[:100],
             published_date=post.date,
             created_at=datetime.now(),
@@ -101,6 +105,7 @@ class ArtifactDTO(BaseModel):
             'profile_uuid': self.profile_uuid,
             'artifact_url': str(self.artifact_url),
             'text': self.text,
+            'description': self.description,
             'summary': self.summary,
             'published_date': str(self.published_date),
             'created_at': str(self.created_at),
@@ -112,7 +117,7 @@ class ArtifactScoreDTO(BaseModel):
     uuid: str
     artifact_uuid: str
     param: str
-    score: int
+    score: int | float
     clues_scores: Dict[str, Any]
     created_at: datetime
 

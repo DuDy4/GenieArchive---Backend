@@ -1,7 +1,7 @@
 import asyncio
 
 from ai.langsmith.langsmith_loader import Langsmith
-from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifact
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -49,7 +49,7 @@ pdl_element = {
     "location_names": []
 }
 
-artifact = WorkHistoryArtifact.from_pdl_element(pdl_element, "profile_uuid")
+artifact = WorkHistoryArtifactDTO.from_pdl_element(pdl_element, "profile_uuid", "https://linkedin.com/in/stoutstyle")
 
 # result = asyncio.run(langsmith.get_work_history_post(artifact.to_dict()))
 
@@ -77,7 +77,7 @@ apollo_element = {
 }
 
 profile_uuid = "some-profile-uuid"
-artifact = WorkHistoryArtifact.from_apollo_element(apollo_element, profile_uuid)
+artifact = WorkHistoryArtifactDTO.from_apollo_element(apollo_element, profile_uuid, "")
 result = asyncio.run(langsmith.get_work_history_post(artifact.to_dict()))
 
 logger.info(result)
