@@ -67,7 +67,7 @@ class ArtifactScoresRepository:
                 with conn.cursor() as cursor:
                     execute_values(cursor, query, data)
                     conn.commit()
-                    logger.info(f"Inserted artifact scores into database. Artifact Score IDs: {artifact_scores}")
+                    logger.info(f"Inserted artifact scores into database. Length: {len(artifact_scores)}")
             except psycopg2.Error as error:
                 logger.error(f"Error inserting artifact score: {error.pgerror}")
                 traceback.print_exc()

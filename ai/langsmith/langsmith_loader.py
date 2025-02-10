@@ -463,13 +463,18 @@ class Langsmith:
                 if response.startswith("```"):
                     response = response.replace("```json", "").strip("`").strip()
                     response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
-                    response = json.loads(response)
+                    response = response.split("```")[0].strip() if "```" in response else response
+                    response = json.loads(response, strict=False)
                 else:
                     response = self.extract_json(response)
             else:
                 logger.error(f"Error parsing param evaluation from Langsmith: {response}")
         except Exception as e:
-            logger.error(f"Error running param evaluation: {e}")          
+            logger.error(f"Error running param evaluation: {e}")
+            try:
+                logger.info(f"The response we got is: {response}")
+            except Exception as e:
+                logger.error(f"Did not even get a response: {e}")
             return {}
         return response
 

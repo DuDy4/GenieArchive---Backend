@@ -125,7 +125,14 @@ class ProfileParamsService:
             await self._initialize_sheet()  # Ensure sheet is initialized
 
         tasks = [
-            self.evaluate_param(post, name, position, company, row[self.id_column_index])
+            self.evaluate_param(post, name, position, company, {
+                'param_id': row[self.id_column_index],
+                'param_name': row[self.param_name_column_index],
+                'min_range': row[self.min_range_column_index],
+                'max_range': row[self.max_range_column_index],
+                'param_explanation': row[self.param_explanation_column_index],
+                'clues_list': row[self.clues_column_index].split(";")
+            })
             for row in self.data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
         ]
 
@@ -143,35 +150,41 @@ class ProfileParamsService:
             row for row in self.data_rows if row[self.id_column_index] in self.work_history_params_ids
         ]
         tasks = [
-            self.evaluate_param(work_element, name, position, company, row[self.id_column_index])
+            self.evaluate_param(work_element, name, position, company, {
+                'param_id': row[self.id_column_index],
+                'param_name': row[self.param_name_column_index],
+                'min_range': row[self.min_range_column_index],
+                'max_range': row[self.max_range_column_index],
+                'param_explanation': row[self.param_explanation_column_index],
+                'clues_list': row[self.clues_column_index].split(";")
+            })
             for row in filtered_data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
         ]
 
-        # 🚀 Run all evaluation tasks concurrently
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        results = []
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            if result:
+                results.append(result)
 
-        # Filter valid responses
-        return [resp for resp in responses if isinstance(resp, dict) and resp]
+        return results
 
-    async def evaluate_param(self, post, name, position, company, param_id):
+    async def evaluate_param(self, post, name, position, company, param_dict):
         person = {
             'name': name,
             'position': position,
             'company': company,
         }
         try:
-            for row in self.data_rows:
-                if row[self.id_column_index] == param_id:
-                    logger.info(f"Found parameter in sheet. Row: {row}")
-                    param_name = row[self.param_name_column_index]
-                    min_range = row[self.min_range_column_index]
-                    max_range = row[self.max_range_column_index]
-                    param_explanation = row[self.param_explanation_column_index]
-                    clues_list = row[self.clues_column_index].split(";")
-                    break
+            param_id = param_dict.get('param_id')
+            param_name = param_dict.get('param_name')
+            min_range = param_dict.get('min_range')
+            max_range = param_dict.get('max_range')
+            param_explanation = param_dict.get('param_explanation')
+            clues_list = param_dict.get('clues_list')
             clues_list = remove_non_alphanumeric_strings(clues_list)
         except Exception as e:
-            logger.error(f"Failed to find parameter {param_id} in sheet. Error: {e}")
+            logger.error(f"Failed to find parameter {param_id}: {param_name} in sheet. Error: {e}")
             return {}
         param_data = {
             'param_name': param_name,
@@ -186,8 +199,9 @@ class ProfileParamsService:
             if response:
                 response_dict = { 'param': param_name, 'param_id': param_id }
                 response['param'] = param_name
-                for i, response_clue in enumerate(response['clues']):
-                    response_clue['clue'] = clues_list[i]
+                response_clues = response.get('clues')
+                for i in range(min(len(response_clues), len(clues_list))):
+                    response['clues'][i]['clue'] = clues_list[i]
                 response_dict.update(response)
                 return response_dict
             else:
@@ -229,18 +243,7 @@ class ProfileParamsService:
                 responses.append(post_data)
         
         return responses
-        # for post in posts:
-        #     for param_id in selected_params:
-        #         response = await self.evaluate_param(post.text, name, "", "", param_id)
-        #         if response:
-        #             post_data = {
-        #                 "Full Name": name,
-        #                 'post': post.to_dict(),
-        #                 'params': response,
-        #             }
-        #             responses.append(post_data)
-        # return responses
-    
+
     async def fetch_linkedin_posts(self, linkedin_url, num_posts, name):
         linkedin_url = fix_linkedin_url(linkedin_url)
         uuid = "123-" + linkedin_url
