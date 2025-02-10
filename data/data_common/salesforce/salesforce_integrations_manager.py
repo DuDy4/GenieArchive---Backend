@@ -18,7 +18,6 @@ from common.utils import env_utils
 from data.data_common.repositories.tenants_repository import TenantsRepository
 from data.data_common.dependencies.dependencies import tenants_repository
 from data.data_common.utils.str_utils import get_uuid4
-from data.data_common.repositories.contacts_repository import ContactsRepository
 
 # from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.contact_dto import ContactDTO
@@ -75,11 +74,9 @@ class SalesforceAgent:
         self,
         sf_client: SalesforceClient,
         tenants_repository: TenantsRepository,
-        contacts_repository: ContactsRepository,
     ):
         self.sf_client = sf_client
         self.tenants_repository = tenants_repository
-        self.contacts_repository = contacts_repository
 
     def initialize_simple_sf_client(self, tenant_id: str):
         refresh_token = self.tenants_repository.get_refresh_token(tenant_id)
@@ -342,7 +339,7 @@ def get_new_access_token(refresh_token: str) -> str:
         client_secret=SALESFORCE_CLIENT_SECRET,
     )
     access_token = token_data["access_token"]
-    logger.debug(f"New access token: {access_token}")
+    logger.info(f"New access token: {access_token}")
     return access_token
 
 

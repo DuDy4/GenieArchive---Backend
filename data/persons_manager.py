@@ -39,7 +39,7 @@ from data.data_common.services.artifacts_service import ArtifactsService
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
-from common.genie_logger import GenieLogger, user_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 linkedin_scrapper = HandleLinkedinScrape()
@@ -791,6 +791,9 @@ class PersonManager(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
                 event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send)
                 event.send()
+            # If the profile is full, send finished profile event
+            event = GenieEvent(Topic.FINISHED_NEW_PROFILE, {"profile_uuid": str(person.uuid)})
+            event.send()
             return {"status": "success"}
         else:
             logger.warning("Profile does not exist in database")

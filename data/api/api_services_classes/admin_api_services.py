@@ -33,7 +33,6 @@ from data.data_common.dependencies.dependencies import (
     profiles_repository,
     companies_repository,
     personal_data_repository,
-    tenant_profiles_repository,
 )
 from common.genie_logger import GenieLogger
 import uuid
@@ -56,7 +55,7 @@ class AdminApiService:
         self.meetings_repository = meetings_repository()
         self.profiles_repository = profiles_repository()
         self.companies_repository = companies_repository()
-        self.tenant_profiles_repository = tenant_profiles_repository()
+        self.user_profiles_repository = UserProfilesRepository()
         self.user_profiles_repository = UserProfilesRepository()
         self.personal_data_repository = personal_data_repository()
         self.embeddings_client = GenieEmbeddingsClient()
@@ -92,7 +91,7 @@ class AdminApiService:
             if not profile:
                 logger.error(f"Profile not found: {profile_uuid}")
                 continue
-            # specific_get_to_know = self.tenant_profiles_repository.get_get_to_know(profile_uuid)
+            # specific_get_to_know = self.user_profiles_repository.get_get_to_know(profile_uuid)
             # if specific_get_to_know:
             #     profile.get_to_know = specific_get_to_know
 

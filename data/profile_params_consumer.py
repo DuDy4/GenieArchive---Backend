@@ -1,26 +1,26 @@
 import asyncio
-from datetime import datetime
+import datetime
 import json
 import os
 import sys
+from pydantic import ValidationError
 
+from ai.langsmith.langsmith_loader import Langsmith
+from data.data_common.data_transfer_objects.person_dto import PersonDTO
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 from data.data_common.services.artifacts_service import ArtifactsService
-from pydantic import HttpUrl
-from pydantic_core import Url
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactSource, ArtifactType
+from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
 from data.data_common.repositories.persons_repository import PersonsRepository
-from data.data_common.repositories.personal_data_repository import PersonalDataRepository
-from data.data_common.dependencies.dependencies import persons_repository, personal_data_repository
 
-from data.data_common.data_transfer_objects.person_dto import PersonDTO
 
 from common.genie_logger import GenieLogger
 
@@ -36,12 +36,16 @@ class ProfileParamsConsumer(GenieConsumer):
         super().__init__(
             topics=[
                 Topic.NEW_PERSONAL_NEWS,
+                Topic.NEW_PERSONAL_DATA,
                 Topic.NEW_PERSON_ARTIFACT,
             ],
             consumer_group=CONSUMER_GROUP,
         )
-        self.persons_repository: PersonsRepository = persons_repository()
+        self.persons_repository: PersonsRepository = PersonsRepository()
+        self.personal_data_repository: PersonalDataRepository = PersonalDataRepository()
         self.artifacts_service: ArtifactsService = ArtifactsService()
+        self.langsmith = Langsmith()
+
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -54,6 +58,9 @@ class ProfileParamsConsumer(GenieConsumer):
             case Topic.NEW_PERSON_ARTIFACT:
                 logger.info("Handling new artifact")
                 await self.handle_new_artifact(event)
+            case Topic.NEW_PERSONAL_DATA:
+                logger.info("Handling new personal data")
+                await self.handle_work_history(event)
             case _:
                 logger.error(f"Should not have reached here: {topic}, consumer_group: {CONSUMER_GROUP}")
 
@@ -75,6 +82,9 @@ class ProfileParamsConsumer(GenieConsumer):
         if artifacts:
             event_batch = EventHubBatchManager()
             for artifact in artifacts:
+                if self.artifacts_service.check_existing_artifact(artifact):
+                    logger.info(f"Artifact {artifact.uuid} already exists")
+                    continue
                 event = GenieEvent(
                     topic=Topic.NEW_PERSON_ARTIFACT,
                     data={"profile_uuid": person_uuid, "artifact" : artifact.to_dict()},
@@ -93,10 +103,15 @@ class ProfileParamsConsumer(GenieConsumer):
         event_body = json.loads(event_body)
         if isinstance(event_body, str):
             event_body = json.loads(event_body)
-        artifact = ArtifactDTO.from_dict(event_body.get("artifact"))
+        artifact_dict = event_body.get("artifact")
+        if not artifact_dict:
+            logger.error(f"No artifact data found for event {event_body}")
+            raise Exception("No artifact data found")
+        artifact = ArtifactDTO.from_dict(artifact_dict)
         profile_uuid = event_body.get("profile_uuid")
         person = self.persons_repository.get_person(profile_uuid)
-        await self.artifacts_service.calculate_artifact_scores(artifact, person)
+        calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(artifact, person))
+        await calculate_task
         event = GenieEvent(
             topic=Topic.ARTIFACT_SCORES_CALCULATED,
             data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
@@ -121,7 +136,7 @@ class ProfileParamsConsumer(GenieConsumer):
         if not person:
             logger.error(f"No person found for person {profile_uuid}")
             raise Exception("No person found for profile_uuid")
-        self.artifacts_service.calculate_overall_params(person.email, profile_uuid)
+        await self.artifacts_service.calculate_overall_params(person.email, profile_uuid)
         return {"status": "success"}
     
 
@@ -136,25 +151,79 @@ class ProfileParamsConsumer(GenieConsumer):
         if not person:
             logger.error(f"No person found for person {profile_uuid}")
             raise Exception("No person found for profile_uuid")
-        self.artifacts_service.calculate_overall_params(person.email, profile_uuid)
+        param_averages = self.artifacts_service.calculate_overall_params(person.email, profile_uuid)
+        logger.info(f"Calculated overall params for profile {person.email}: {param_averages}")
         return {"status": "success"}
-        
+
+    async def handle_work_history(self, event):
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {str(event_body)[:300]}")
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        person = event_body.get("person")
+        if not person:
+            logger.error(f"No person data found for person {person}")
+            raise Exception("No person data found")
+        person = PersonDTO.from_dict(person)
+        personal_data = event_body.get("personal_data")
+        profile_uuid = person.uuid
+        if not profile_uuid:
+            logger.error(f"No person data found for person {profile_uuid}")
+            raise Exception("No person data found")
+        if not personal_data:
+            personal_data = self.personal_data_repository.get_pdl_personal_data(profile_uuid)
+            if not personal_data:
+                personal_data = self.personal_data_repository.get_apollo_personal_data(profile_uuid)
+                if not personal_data:
+                    logger.error(f"No personal data found for person {profile_uuid}")
+                    raise Exception("No personal data found")
+        if not person:
+            logger.error(f"No person found for person {profile_uuid}")
+            raise Exception("No person found for profile_uuid")
+        work_history = personal_data.get("experience") if personal_data.get("experience") else personal_data.get("employment_history")
+        if not work_history:
+            logger.error(f"No work history found for person {person.email}")
+            raise Exception("No work history found")
+        work_history_tasks = []
+        for work_history_element in work_history:
+            work_history_artifact = None
+            try:
+                work_history_artifact = WorkHistoryArtifactDTO.from_pdl_element(work_history_element, profile_uuid, personal_data.get("linkedin_url"))
+            except ValidationError as error:
+                logger.error(f"Error creating work history artifact: {error}")
+                try:
+                    work_history_artifact = WorkHistoryArtifactDTO.from_apollo_element(work_history_element, profile_uuid, personal_data.get("linkedin_url"))
+                except ValidationError as error:
+                    logger.error(f"Error creating work history artifact: {error}")
+                    continue
+            finally:
+                if not work_history_artifact:
+                    continue
+            if self.artifacts_service.exists_work_history_element(work_history_artifact):
+                logger.info(f"Work history element {work_history_artifact.uuid} already exists")
+                continue
+            if not work_history_artifact.text:
+                work_history_artifact.text = await self.langsmith.get_work_history_post(work_history_artifact.to_dict())
+            self.artifacts_service.artifacts_repository.save_artifact(work_history_artifact)
+            calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(work_history_artifact, person, isWorkHistory=False))
+            work_history_tasks.append({"task": calculate_task, "artifact": work_history_artifact})
+        tasks = [task.get("task") for task in work_history_tasks]
+        artifacts = [task.get("artifact") for task in work_history_tasks]
+        await asyncio.gather(*tasks)
+        for artifact in artifacts:
+            event = GenieEvent(
+                topic=Topic.ARTIFACT_SCORES_CALCULATED,
+                data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
+            )
+            event.send()
+        return {"status": "success"}
 
 
 if __name__ == "__main__":
-    profile_params_consumer = ProfileParamsConsumer()
+    consumer = ProfileParamsConsumer()
     try:
-        # profile_uuid = "00a64c11-da7d-45dc-bde5-dd6e30e5f0d2"
-        # artifact_uuid = "0aa0de26-7af6-482b-8432-0734b2751b25"
-        # logger.set_tenant_id('org_RPLWQRTI8t7EWU1L')
-        # logger.set_user_id('google-oauth2|102736324632194671211')
-        # # artifact = ArtifactDTO(uuid='0aa0de26-7af6-482b-8432-0734b2751b25', artifact_type=ArtifactType.POST, source=ArtifactSource.LINKEDIN, profile_uuid='00a64c11-da7d-45dc-bde5-dd6e30e5f0d2', artifact_url=HttpUrl('https://www.linkedin.com/feed/update/urn:li:activity:7073924589675757569/'), text='⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All Founders by Microsoft for Startups, Israel’s largest founders’ gathering was created to inspire and educate entrepreneurs. \n💡The event focuses on the essential role of the founder, whether they are a first-time founder, serial entrepreneur, or a technical founder. \n💡This event will feature the biggest names in the industry and celebrate our ability as an ecosystem to empower one another to achieve more! 👩🏼\u200d🎓🧕🏻🧑🏻\u200d💼👩🏽\u200d🏭\n\nSpeakers include:\nHans Yang Annie Pearl @Sarah Bird Michal Braverman-Blumenstyk Tomer Simon, PhD Roee Adler  Eyal Brill  Shimon Tolts  @Einat Orr Ron Reiter  Sivan Shamri Dahan  Dahan Yorai Fainmesser Amiram Shachar Gili Raanan  Gadi Evron \nRaz Bachar Meital Shamia  Adir Ron Nitzan Gal Yoav Shlesinger\n\n #startups #entrepreneurs #founders #microsoft #event', summary='⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All ', published_date=datetime(2023, 6, 12, 0, 0), created_at=datetime(2025, 1, 23, 13, 44, 32, 444295), metadata={'date': '2023-06-12', 'link': 'https://www.linkedin.com/feed/update/urn:li:activity:7073924589675757569/', 'text': '⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All Founders by Microsoft for Startups, Israel’s largest founders’ gathering was created to inspire and educate entrepreneurs. \n💡The event focuses on the essential role of the founder, whether they are a first-time founder, serial entrepreneur, or a technical founder. \n💡This event will feature the biggest names in the industry and celebrate our ability as an ecosystem to empower one another to achieve more! 👩🏼\u200d🎓🧕🏻🧑🏻\u200d💼👩🏽\u200d🏭\n\nSpeakers include:\nHans Yang Annie Pearl @Sarah Bird Michal Braverman-Blumenstyk Tomer Simon, PhD Roee Adler  Eyal Brill  Shimon Tolts  @Einat Orr Ron Reiter  Sivan Shamri Dahan  Dahan Yorai Fainmesser Amiram Shachar Gili Raanan  Gadi Evron \nRaz Bachar Meital Shamia  Adir Ron Nitzan Gal Yoav Shlesinger\n\n #startups #entrepreneurs #founders #microsoft #event', 'likes': 69, 'media': 'LinkedIn', 'title': '⭐️Microsoft for Startups - All Founders 2023⭐️\n                  📍June 25th - Save the Date! \n\n💡All ', 'images': ['https://media.licdn.com/dms/image/v2/D4D22AQH_o6gWx_SOIA/feedshare-shrink_2048_1536/feedshare-shrink_2048_1536/0/1686555048588?e=1740614400&v=beta&t=cIlD-q5N-Z-lo2VOZ-e2FpV_xJrASXvBWRGk20Cf3YM'], 'summary': None, 'reshared': 'https://www.linkedin.com/in/amit7200'})
-        # event = GenieEvent(
-        #     topic=Topic.ARTIFACT_SCORES_CALCULATED,
-        #     data={"profile_uuid": profile_uuid, "artifact_uuid": artifact_uuid},
-        # )
-        # event = event.prepare_event()
-        # asyncio.run(profile_params_consumer.calculate_overall_params(event))
-        asyncio.run(profile_params_consumer.main())
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        asyncio.run(consumer.main())  # ✅ Use GenieConsumer’s event loop management
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt, shutting down...")
+        asyncio.run(consumer.stop())  # ✅ Graceful shutdown

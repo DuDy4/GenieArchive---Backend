@@ -1,4 +1,7 @@
-import asyncio
+
+import os
+import requests
+import datetime
 
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
@@ -12,7 +15,6 @@ from data.data_common.events.topics import Topic
 from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
-import datetime
 
 from data.internal_services.tenant_service import TenantService
 
@@ -20,6 +22,9 @@ logger = GenieLogger()
 
 REDIRECT_URI = env_utils.get("SELF_URL") + "/v1/google-oauth/callback"
 DEV_MODE = env_utils.get("DEV_MODE", "")
+consumer_key = env_utils.get("SALESFORCE_CONSUMER_KEY")
+consumer_secret = env_utils.get("SALESFORCE_CONSUMER_SECRET")
+salesforce_redirect_uri = f"{env_utils.get("SELF_URL")}/v1/salesforce-oauth/callback"
 
 
 class TenantsApiService:
@@ -236,6 +241,7 @@ class TenantsApiService:
         )
         return authorization_url
 
+
     def handle_google_oauth_callback(self, code: str):
         """Handles the OAuth callback, exchanges code for tokens, and saves to the database."""
         flow = Flow.from_client_config(
@@ -274,3 +280,4 @@ class TenantsApiService:
         except Exception as e:
             logger.error(f"Error during OAuth callback: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during OAuth callback")
+

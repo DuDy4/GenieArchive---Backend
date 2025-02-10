@@ -5,7 +5,7 @@ gmail*.json
 google*.json
 cert.pem
 key.pem
-Leads_updated_only_vagif.csv
+salesforce*.pem
 data/test/specific_persons_test
 data/test/data_test_meetings.py
 data/test/data_test_new_processed_profile.py

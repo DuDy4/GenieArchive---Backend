@@ -1,8 +1,11 @@
 import asyncio
+import datetime
+
+import requests
+
 
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -10,10 +13,9 @@ from googleapiclient.discovery import build
 from data.data_common.data_transfer_objects.user_dto import UserDTO
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
-from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
-import datetime
+
 from data.data_common.repositories.users_repository import UsersRepository
 from data.data_common.repositories.google_creds_repository import GoogleCredsRepository
 
@@ -272,3 +274,8 @@ class UsersApiService:
         except Exception as e:
             logger.error(f"Error during OAuth callback: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+
+
+
+

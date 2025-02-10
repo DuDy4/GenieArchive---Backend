@@ -17,7 +17,6 @@ from fastapi import HTTPException
 from data.api.base_models import *
 
 from data.api.api_services_classes.meetings_api_services import MeetingsApiService
-# from data.api.api_services_classes.tenants_api_services import TenantsApiService
 from data.api.api_services_classes.profiles_api_services import ProfilesApiService
 from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
@@ -25,8 +24,9 @@ from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
+# from data.api.api_services_classes.salesforce_api_services import SalesforceApiService
 
-from common.genie_logger import GenieLogger, tenant_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 SELF_URL = env_utils.get("PERSON_URL", "https://localhost:8000")
@@ -40,7 +40,6 @@ INTERNAL_API_KEY = env_utils.get("INTERNAL_API_KEY")
 v1_router = APIRouter(prefix="/v1")
 
 meetings_api_service = MeetingsApiService()
-# tenants_api_service = TenantsApiService()
 profiles_api_service = ProfilesApiService()
 admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
@@ -48,6 +47,7 @@ stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
 params_api_service = ParamsApiService()
 users_api_service = UsersApiService()
+# salesforce_api_service = SalesforceApiService()
 
 logger.info("Imported all services")
 
@@ -73,6 +73,30 @@ async def google_oauth_callback(request: Request, code: str = Query(...)):
     except Exception as e:
         logger.error(f"Error during OAuth callback: {str(e)}")
         raise HTTPException(status_code=500, detail="Error during OAuth callback")
+
+
+# @v1_router.get("/salesforce-oauth")
+# async def salesforce_oauth(request: Request):
+#     oauth_url = salesforce_api_service.generate_salesforce_oauth_url()
+#     return RedirectResponse(oauth_url)
+#
+#
+# @v1_router.get("/salesforce-oauth/callback")
+# async def salesforce_oauth_callback(background_tasks: BackgroundTasks, request: Request, code: str = Query(...), state: str = Query(...)):
+#     """Handles the OAuth callback and saves tokens to the database."""
+#     try:
+#         logger.info("Handling Salesforce OAuth callback")
+#         response = await salesforce_api_service.handle_salesforce_oauth_callback(code, state)
+#         if response:
+#             logger.info(f"About to start new Salesforce auth with: {response}")
+#             background_tasks.add_task(salesforce_api_service.handle_new_salesforce_auth, response)
+#             return JSONResponse(content={"status": "success", "message": "Tokens saved to database."})
+#         else:
+#             return JSONResponse(content={"status": "error", "message": "Error saving tokens to database."})
+#
+#     except Exception as e:
+#         logger.error(f"Error during Salesforce OAuth callback: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Error during Salesforce OAuth callback")
 
 
 @v1_router.post("/file-uploaded")
@@ -183,6 +207,8 @@ async def post_successful_login(
     """
     Returns a tenant ID.
     """
+    consumer_key = "3MVG9uq9ANVdsbAW4kjddHk9hFp6uB1LARAPKa4Qdmc30o1opMVaFK91jHCorAMBC.OT37Um3q4nAATDnCV0u"
+    consumer_secret = "C196892FDED6DF704A5D5C356113937993D4309827530A82B17312AEE801943D"
     logger.info("Received JWT data")
     auth_data = await request.json()
     logger.info(f"Received auth data: {auth_data}")
@@ -364,25 +390,6 @@ async def get_all_meetings_with_selected_date(
     return JSONResponse(content=response)
 
 
-# @v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=List[MiniProfileResponse])
-# def get_all_profiles_for_meeting(
-#     request: Request, user_id: str, meeting_id: str, impersonate_user_id: Optional[str] = Query(None)
-# ) -> Union[List[MiniProfileResponse], JSONResponse]:
-#     """
-#     Get all profile IDs and names for a specific meeting.
-#
-#     - **user_id**: Tenant ID - the right one is 'abcde'
-#     - **meeting_id**: Meeting ID
-#     """
-#     logger.info(f"Received profiles request for meeting: {meeting_id}")
-#     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-#     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-#     logger.info(f"Getting profile for user ID: {user_id}")
-#     response = profiles_api_service.get_profiles_for_meeting(user_id, meeting_id)
-#     logger.info(f"About to send response: {response}")
-#     return response
-
-
 @v1_router.get("/{user_id}/{meeting_id}/profiles", response_model=MiniProfilesAndPersonsListResponse)
 def get_all_profiles_and_persons_for_meeting(
         request: Request, user_id: str, meeting_id: str, impersonate_user_id: Optional[str] = Query(None)
@@ -490,31 +497,31 @@ def get_profile_get_to_know(
     logger.info(f"About to send response: {response}")
     return response
 
-
-@v1_router.get(
-    "/{user_id}/profiles/{uuid}/action-items",
-    response_model=ActionItemsResponse,
-    summary="Fetches action items information of a profile",
-)
-def get_profile_action_items(
-    request: Request,
-    uuid: str,
-    user_id: str,
-    impersonate_user_id: Optional[str] = Query(None),
-) -> ActionItemsResponse:
-    """
-    Get the action items information of a profile - Mock version.
-
-    - **user_id**: Tenant ID
-    - **uuid**: Profile UUID
-    """
-    logger.info(f"Got action items request for profile: {uuid}")
-
-    allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
-    user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_action_items(user_id, uuid)
-    logger.info(f"About to send response: {response}")
-    return response
+#
+# @v1_router.get(
+#     "/{user_id}/profiles/{uuid}/action-items",
+#     response_model=ActionItemsResponse,
+#     summary="Fetches action items information of a profile",
+# )
+# def get_profile_action_items(
+#     request: Request,
+#     uuid: str,
+#     user_id: str,
+#     impersonate_user_id: Optional[str] = Query(None),
+# ) -> ActionItemsResponse:
+#     """
+#     Get the action items information of a profile - Mock version.
+#
+#     - **user_id**: Tenant ID
+#     - **uuid**: Profile UUID
+#     """
+#     logger.info(f"Got action items request for profile: {uuid}")
+#
+#     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
+#     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
+#     response = profiles_api_service.get_profile_action_items(user_id, uuid)
+#     logger.info(f"About to send response: {response}")
+#     return response
 
 
 @v1_router.get("/{user_id}/profiles/{uuid}/good-to-know", response_model=GoodToKnowResponse)
@@ -955,6 +962,20 @@ async def handle_form(
     response = await params_api_service.evaluate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
 
     # Return parsed data
+    return JSONResponse(content=response)
+
+
+@v1_router.post("/salesforce/contact", response_class=JSONResponse)
+async def new_contact(request: Request):
+    """
+    Get new contact from salesforce and start the process of creating a new profile.
+    """
+    body = await request.json()
+    contact_email = body.get("email")
+    logger.info(f"Received new contact request for email: {contact_email}")
+    salesforce_id = body.get("salesforce_id")
+    logger.info(f"Received new contact request for salesforce_id: {salesforce_id}")
+    response = await salesforce_api_service.handle_new_contact(contact_email=contact_email, salesforce_user_id=salesforce_id)
     return JSONResponse(content=response)
 
 

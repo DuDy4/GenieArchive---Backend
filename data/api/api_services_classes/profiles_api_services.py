@@ -6,10 +6,8 @@ from data.api.base_models import *
 from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
-    tenant_profiles_repository,
     ownerships_repository,
     meetings_repository,
-    tenants_repository,
     persons_repository,
     personal_data_repository,
     companies_repository,
@@ -30,11 +28,9 @@ logger = GenieLogger()
 class ProfilesApiService:
     def __init__(self):
         self.profiles_repository = profiles_repository()
-        # self.tenant_profiles_repository = tenant_profiles_repository()
         self.user_profiles_repository = UserProfilesRepository()
         self.ownerships_repository = ownerships_repository()
         self.meetings_repository = meetings_repository()
-        # self.tenants_repository = tenants_repository()
         self.users_repository = UsersRepository()
         self.persons_repository = persons_repository()
         self.personal_data_repository = personal_data_repository()
@@ -43,7 +39,6 @@ class ProfilesApiService:
         self.artifacts_repository = artifacts_repository()
         self.artifact_scores_repository = artifact_scores_repository()
         self.artifacts_service = ArtifactsService()
-
 
     def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
@@ -149,8 +144,8 @@ class ProfilesApiService:
         return AttendeeInfo(**profile)
 
     def get_profile_strengths(self, user_id, uuid):
-        email = self.users_repository.get_email_by_user_id(user_id)
         if not self.ownerships_repository.check_ownership(user_id, uuid):
+            email = self.users_repository.get_email_by_user_id(user_id)
             if email and email_utils.is_genie_admin(email):
                 logger.info(f"Genie admin has access to profile with uuid: {uuid}")
             else:
@@ -358,5 +353,3 @@ class ProfilesApiService:
         for key, value in categories_count.items():
             print(f"{key} - {value}")
 
-if __name__ == "__main__":
-    profiles_api_service = ProfilesApiService()

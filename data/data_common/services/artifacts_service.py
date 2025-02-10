@@ -1,8 +1,12 @@
 import datetime
 from typing import Any, Dict, List
 from collections import defaultdict
+
+from pyarrow import timestamp
+
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
+from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
 from data.data_common.services.profile_params_service import ProfileParamsService
 from common.genie_logger import GenieLogger
@@ -44,6 +48,7 @@ class ArtifactsService():
             if post.source == ArtifactSource.LINKEDIN and post.metadata and post.metadata.get('reshared') \
             and linkedin_url in post.metadata.get('reshared'):
                 self_written_posts.append(post)
+        self_written_posts = sorted(self_written_posts, key=lambda x: x.created_at, reverse=True)[:10]  # Only get the latest 10 posts for testing purposes
         return self_written_posts
     
     def get_artifact(self, artifact_uuid) -> ArtifactDTO:
@@ -55,15 +60,19 @@ class ArtifactsService():
         return self.artifacts_repository.get_artifact(artifact_uuid)
     
 
-    async def calculate_artifact_scores(self, artifact: ArtifactDTO, person):
+    async def calculate_artifact_scores(self, artifact: ArtifactDTO | WorkHistoryArtifactDTO, person, isWorkHistory=False):
         """
         Calculate scores for artifact
         :param artifact: Artifact to calculate scores for
         """
-        timestamp = datetime.datetime.now()
+        # timestamp = datetime.datetime.now()
         logger.info(f"Calculating scores for artifact {artifact.uuid}")
-        param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name, person.position, person.company)
-        logger.info(f"Calculated scores for artifact {artifact.uuid}. Duration: {datetime.datetime.now() - timestamp} ms")
+        if isWorkHistory:
+            param_scores = await self.profile_params_service.evaluate_work_history_params(artifact.to_dict(), person.name,
+                                                                                          person.position, person.company)
+        else:
+            param_scores = await self.profile_params_service.evaluate_all_params(artifact.text, person.name,
+                                                                                person.position, person.company)
         param_scores_to_persist = []
         for param_score in param_scores:
             if param_score.get("score"):
@@ -79,18 +88,20 @@ class ArtifactsService():
         """
         timestamp = datetime.datetime.now()
         logger.info(f"Calculating overall params for person {name} | {profile_uuid}")
-        artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
-        if not artifacts:
-            return {}
-        all_artifacts_scores = []
-        for artifact in artifacts:
-            artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
-            artifact_weight = 1 # Placeholder for Mazgan
-            all_artifacts_scores.extend(artifact_scores)
+        # artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
+        # if not artifacts:
+        #     return {}
+        # all_artifacts_scores = []
+        # for artifact in artifacts:
+        #     artifact_scores = self.artifact_scores_repository.get_artifact_scores_by_artifact_uuid(artifact.uuid)
+        #     artifact_weight = 1 # Placeholder for Mazgan
+        #     all_artifacts_scores.extend(artifact_scores)
+        all_artifacts_scores = self.artifact_scores_repository.get_all_artifact_scores_by_profile_uuid(profile_uuid)
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
         # for param, avg_score in param_averages.items():
             # logger.info(f"{param}: {avg_score}")
         logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
+        logger.info(f"Overall params: {param_averages}")
         return param_averages
     
     
@@ -117,6 +128,16 @@ class ArtifactsService():
         }
 
         return average_scores
+
+    def check_existing_artifact(self, artifact):
+        has_artifact = self.artifacts_repository.check_existing_artifact(artifact)
+        has_score = self.artifact_scores_repository.exists(artifact.uuid)
+        return has_artifact and has_score
+
+    def exists_work_history_element(self, work_history_artifact):
+        artifact_uuid = self.artifacts_repository.exists_work_history_element(work_history_artifact)
+        has_score = self.artifact_scores_repository.exists_for_artifact(artifact_uuid)
+        return artifact_uuid is not None and has_score
     
     def get_unique_profiles(self):
         """

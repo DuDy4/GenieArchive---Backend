@@ -38,7 +38,7 @@ class ArtifactScoresRepository:
                 logger.error(f"Error creating tables: {error}")
                 traceback.print_exc()
 
-    def upsert_artifact_scores(conn, artifact_scores: List[ArtifactScoreDTO]):
+    def upsert_artifact_scores(self, artifact_scores: List[ArtifactScoreDTO]):
         """
         Inserts or updates artifact scores in batch using execute_values dynamically.
         
@@ -89,6 +89,22 @@ class ArtifactScoresRepository:
                 traceback.print_exc()
                 return []
 
+    def get_all_artifact_scores_by_profile_uuid(self, profile_uuid: str) -> List[ArtifactScoreDTO]:
+        select_query = """
+        SELECT uuid, artifact_uuid, param, score, clues_scores, created_at FROM artifact_scores
+        WHERE artifact_uuid IN (SELECT uuid::VARCHAR FROM artifacts WHERE profile_uuid = %s);
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (profile_uuid,))
+                    results = cursor.fetchall()
+                    return [ArtifactScoreDTO.from_tuple(result) for result in results]
+            except psycopg2.Error as error:
+                logger.error(f"Error getting artifact scores: {error.pgerror}")
+                traceback.print_exc()
+                return []
+
     def exists(self, uuid: str):
         select_query = """
         SELECT uuid FROM artifact_scores WHERE uuid = %s;
@@ -103,3 +119,16 @@ class ArtifactScoresRepository:
                 traceback.print_exc()
                 return False
 
+    def exists_for_artifact(self, artifact_uuid: str):
+        select_query = """
+        SELECT uuid FROM artifact_scores WHERE artifact_uuid = %s;
+        """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (artifact_uuid,))
+                    return cursor.fetchone() is not None
+            except psycopg2.Error as error:
+                logger.error(f"Error checking if deal exists: {error.pgerror}")
+                traceback.print_exc()
+                return False
