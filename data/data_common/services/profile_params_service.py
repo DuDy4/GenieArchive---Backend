@@ -12,10 +12,8 @@ from common.genie_logger import GenieLogger
 from ai.langsmith.langsmith_loader import Langsmith
 from data.api_services.linkedin_scrape import HandleLinkedinScrape
 from common.utils.str_utils import fix_linkedin_url
-from data.data_common.dependencies.dependencies import (
-    persons_repository,
-    personal_data_repository,
-)
+from data.data_common.repositories.persons_repository import PersonsRepository
+from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 
 logger = GenieLogger()
 WORK_HISTORY_PARAMS = ["""Logic/Analysis vs Feeling/Intuition""", "Technical", "Numbers", "Risk Aversion vs Novelty",
@@ -66,8 +64,8 @@ class ProfileParamsService:
         self.work_history_params_ids = None
         # asyncio.run(self._initailze_sheet())
         self.linkedin_scrapper = HandleLinkedinScrape()
-        self.persons_repository = persons_repository()
-        self.personal_data_repository = personal_data_repository()
+        self.persons_repository = PersonsRepository()
+        self.personal_data_repository = PersonalDataRepository()
 
     def refresh_credentials(self):
         """

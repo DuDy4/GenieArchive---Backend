@@ -1,5 +1,4 @@
 import math
-from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
 from data.data_common.services.artifacts_service import ArtifactsService
 import pandas as pd
 import numpy as np
