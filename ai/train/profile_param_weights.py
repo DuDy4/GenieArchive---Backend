@@ -29,6 +29,7 @@ class ProfileParamWeights:
         self.data = {}
         for param in params:
             self.data[param] = []
+        logger.info(f"Self predictions: {self.predictions}")
 
         # self.prepare_data_for_training()
 
@@ -48,12 +49,12 @@ class ProfileParamWeights:
 
         if people:
             training_data = self.create_data_dictionary(people)
-
+        training_data = None
         for prediction in self.predictions:
             if prediction not in self.people_anaylsed:
                 logger.info(f"Person {prediction} not found in the data")
-
-        self.train(training_data)
+        if training_data:
+            self.train(training_data)
 
 
     # def prepare_data_for_training(self):

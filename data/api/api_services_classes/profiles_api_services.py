@@ -153,13 +153,12 @@ class ProfilesApiService:
                 raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
-        profile_v2 = self.get_profile_v2(profile.name, uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
             sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id) or profile.sales_criteria
-            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria, profile_category_v2=profile_v2)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
@@ -353,4 +352,16 @@ class ProfilesApiService:
         logger.info(f"Profile categories count: {categories_count}")
         for key, value in categories_count.items():
             print(f"{key} - {value}")
+
+    def get_profile_category_v2(self, user_id, uuid):
+        if not self.ownerships_repository.check_ownership(user_id, uuid):
+            email = self.users_repository.get_email_by_user_id(user_id)
+            if email and email_utils.is_genie_admin(email):
+                logger.info(f"Genie admin has access to profile with uuid: {uuid}")
+            else:
+                logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
+                raise HTTPException(status_code=404, detail="Profile not found under this user")
+        profile = self.profiles_repository.get_profile_data(uuid)
+        profile_category_v2 = self.get_profile_v2(profile.name, uuid)
+        return profile_category_v2
 
