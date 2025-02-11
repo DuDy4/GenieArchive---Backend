@@ -1,6 +1,5 @@
 import json
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
-from data.data_common.data_transfer_objects.profile_dto import SalesCriteria
 from pydantic import BaseModel, EmailStr, HttpUrl
 from uuid import UUID
 from enum import Enum

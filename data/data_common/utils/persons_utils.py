@@ -232,7 +232,7 @@ weights = {
 def determine_profile_v2_category_v2(param_score):
     raw_scores = {}
     person_scores = profile_param_wights.normalize_param_scores(param_score)
-    probabilities = profile_param_wights.profile_param_weights.predict_for_new_person(person_scores)
+    probabilities = profile_param_wights.predict_for_new_person(person_scores)
     best_profile = max(probabilities, key=probabilities.get)
 
     profile_category_dict = {

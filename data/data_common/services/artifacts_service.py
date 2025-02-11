@@ -7,7 +7,8 @@ from pyarrow import timestamp
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
 from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
-from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
+from data.data_common.repositories.artifact_scores_repository import ArtifactScoresRepository
+from data.data_common.repositories.artifacts_repository import ArtifactsRepository
 from data.data_common.services.profile_params_service import ProfileParamsService
 from common.genie_logger import GenieLogger
 
@@ -17,8 +18,8 @@ logger = GenieLogger()
 class ArtifactsService():
 
     def __init__(self):
-        self.artifacts_repository = artifacts_repository()
-        self.artifact_scores_repository = artifact_scores_repository()
+        self.artifacts_repository = ArtifactsRepository()
+        self.artifact_scores_repository = ArtifactScoresRepository()
         self.profile_params_service = ProfileParamsService()    
 
     def save_linkedin_posts(self, profile_uuid, posts: List[SocialMediaPost]) -> List[str]:

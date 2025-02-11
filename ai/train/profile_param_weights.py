@@ -181,5 +181,5 @@ if __name__ == "__main__":
     logger.info("Training complete.")
     # person_scores = profile_param_weights.fetch_person_for_prediction("amit.svarzenberg@microsoft.com")
     logger.info("Predicting for a new person...")
-    profile_param_weights.predict_for_new_person(person_scores)
+    # profile_param_weights.predict_for_new_person(person_scores)
     logger.info("Prediction complete.")

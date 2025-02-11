@@ -11,7 +11,7 @@ from common.utils import env_utils
 from common.genie_logger import GenieLogger
 from ai.langsmith.langsmith_loader import Langsmith
 from data.api_services.linkedin_scrape import HandleLinkedinScrape
-from data.data_common.utils.persons_utils import fix_linkedin_url
+from common.utils.str_utils import fix_linkedin_url
 from data.data_common.dependencies.dependencies import (
     persons_repository,
     personal_data_repository,

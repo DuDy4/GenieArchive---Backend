@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost, NewsData
 from common.genie_logger import GenieLogger
-from data.data_common.dependencies.dependencies import personal_data_repository
 
 logger = GenieLogger()
 
