@@ -10,18 +10,40 @@ from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryA
 from data.data_common.repositories.artifact_scores_repository import ArtifactScoresRepository
 from data.data_common.repositories.artifacts_repository import ArtifactsRepository
 from data.data_common.services.profile_params_service import ProfileParamsService
+from ai.train.profile_param_weights import ProfileParamWeights
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
+profile_model_trained = False
 
 
 class ArtifactsService():
 
     def __init__(self):
+        global profile_model_trained
         self.artifacts_repository = ArtifactsRepository()
         self.artifact_scores_repository = ArtifactScoresRepository()
-        self.profile_params_service = ProfileParamsService()    
+        self.profile_params_service = ProfileParamsService()  
+        self.profile_param_weights = ProfileParamWeights()  
 
+        if not profile_model_trained:
+            profile_model_trained = True
+            self.prepare_data_for_training()
+
+
+    def prepare_data_for_training(self):
+        unique_profile_score_dicts = []
+        unique_profile_dicts = self.get_unique_profiles()
+        for profile_dict in unique_profile_dicts:
+            profile_name = profile_dict.get("name")
+            profile_uuid = profile_dict.get("uuid")
+            profile_param_score = self.calculate_overall_params(profile_name, profile_uuid)
+            if not profile_param_score:
+                continue
+            unique_profile_score_dicts.append({"name": profile_name, "scores": profile_param_score})
+        self.profile_param_weights.prepare_data_for_training2(unique_profile_score_dicts)
+
+        
     def save_linkedin_posts(self, profile_uuid, posts: List[SocialMediaPost]) -> List[str]:
         """
         Save linkedin posts to database

@@ -10,7 +10,7 @@ from ai.train.profile_param_weights import ProfileParamWeights
 
 personal_data_repository = PersonalDataRepository()
 companies_repository = CompaniesRepository()
-profile_param_wights = ProfileParamWeights()
+profile_param_weights = ProfileParamWeights()
 
 logger = GenieLogger()
 
@@ -231,13 +231,14 @@ weights = {
 
 def determine_profile_v2_category_v2(param_score):
     raw_scores = {}
-    person_scores = profile_param_wights.normalize_param_scores(param_score)
-    probabilities = profile_param_wights.predict_for_new_person(person_scores)
+    person_scores = profile_param_weights.normalize_param_scores(param_score)
+    probabilities = profile_param_weights.predict_for_new_person(person_scores)
     best_profile = max(probabilities, key=probabilities.get)
+    best_profile = "The " + best_profile
 
     profile_category_dict = {
         "category": best_profile,
-        "scores": raw_scores,
+        "scores": probabilities,
         "description": profiles_description.get(best_profile, ""),
         "extended_description": profiles_extended_description.get(best_profile, ""),
         "explanation": profiles_explanation.get(best_profile, {}),

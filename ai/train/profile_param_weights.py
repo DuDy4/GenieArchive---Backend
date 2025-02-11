@@ -1,4 +1,3 @@
-from data.data_common.services.artifacts_service import ArtifactsService
 from ai.train.profile_predictions_data import ProfilePredictionsData
 import pandas as pd
 import numpy as np
@@ -23,7 +22,6 @@ all_profiles = [
 
 class ProfileParamWeights:
     def __init__(self):
-        self.artifacts_service = ArtifactsService()
         self.profile_predictions_data = ProfilePredictionsData()
         self.predictions = self.profile_predictions_data.predictions
         self.people_anaylsed = []
@@ -32,24 +30,20 @@ class ProfileParamWeights:
         for param in params:
             self.data[param] = []
 
-        self.prepare_data_for_training()
+        # self.prepare_data_for_training()
 
 
-    def prepare_data_for_training(self):
-        unique_profile_dicts = self.artifacts_service.get_unique_profiles()
-        profiles_param_scores = {}
+    def prepare_data_for_training2(self, unique_profile_dicts):
         people = []
         for profile_dict in unique_profile_dicts:
             profile_name = profile_dict.get("name")
-            profile_uuid = profile_dict.get("uuid")
-            profile_param_score = self.artifacts_service.calculate_overall_params(profile_name, profile_uuid)
-            if not profile_param_score:
+            profile_param_scores = profile_dict.get("scores")
+            if not profile_param_scores:
                 continue
             if self.predictions.get(profile_name) is None:
                 logger.info(f"No predictions found for person {profile_name}")
                 continue
-            people.append({'name' : profile_name, 'traits' : profile_param_score, 'profiles' : self.predictions[profile_name]})
-            profiles_param_scores[profile_uuid] = profile_param_score
+            people.append({'name' : profile_name, 'traits' : profile_param_scores, 'profiles' : self.predictions[profile_name]})
             self.people_anaylsed.append(profile_name)
 
         if people:
@@ -60,6 +54,33 @@ class ProfileParamWeights:
                 logger.info(f"Person {prediction} not found in the data")
 
         self.train(training_data)
+
+
+    # def prepare_data_for_training(self):
+    #     unique_profile_score_dicts = self.artifacts_service.get_unique_profiles()
+    #     profiles_param_scores = {}
+    #     people = []
+    #     for profile_dict in unique_profile_score_dicts:
+    #         profile_name = profile_dict.get("name")
+    #         profile_uuid = profile_dict.get("uuid")
+    #         profile_param_score = self.artifacts_service.calculate_overall_params(profile_name, profile_uuid)
+    #         if not profile_param_score:
+    #             continue
+    #         if self.predictions.get(profile_name) is None:
+    #             logger.info(f"No predictions found for person {profile_name}")
+    #             continue
+    #         people.append({'name' : profile_name, 'traits' : profile_param_score, 'profiles' : self.predictions[profile_name]})
+    #         profiles_param_scores[profile_uuid] = profile_param_score
+    #         self.people_anaylsed.append(profile_name)
+
+    #     if people:
+    #         training_data = self.create_data_dictionary(people)
+
+    #     for prediction in self.predictions:
+    #         if prediction not in self.people_anaylsed:
+    #             logger.info(f"Person {prediction} not found in the data")
+
+    #     self.train(training_data)
 
     def create_data_dictionary(self, people):
         """
@@ -177,7 +198,7 @@ class ProfileParamWeights:
 
 if __name__ == "__main__":
     profile_param_weights = ProfileParamWeights()
-    profile_param_weights.prepare_data_for_training()
+    # profile_param_weights.prepare_data_for_training()
     logger.info("Training complete.")
     # person_scores = profile_param_weights.fetch_person_for_prediction("amit.svarzenberg@microsoft.com")
     logger.info("Predicting for a new person...")

@@ -1,12 +1,4 @@
 import math
-from data.data_common.dependencies.dependencies import artifacts_repository, artifact_scores_repository
-from data.data_common.services.artifacts_service import ArtifactsService
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss, roc_auc_score
 
 from common.genie_logger import GenieLogger
 
@@ -220,28 +212,6 @@ class ProfilePredictionsData:
         
         return memberships
 
-        # min_score = min(scores.values())
-        # if min_score < 0:
-        #     min_score = min_score - 1
-        #     shift = abs(min_score)
-        #     for profile in scores:
-        #         scores[profile] += shift
-        
-        # # Convert scores to probabilities
-        # total_score = sum(scores.values())
-        
-        # # If total_score == 0, distribute evenly or handle as needed
-        # if total_score == 0:
-        #     # fallback: assign equal probabilities
-        #     equal_prob = 1.0 / len(self.profiles) if self.profiles else 0
-        #     return {profile: equal_prob for profile in self.profiles}
-        
-        # # Otherwise, normalize each profile's score
-        # probabilities = {
-        #     profile: scores[profile] / total_score for profile in self.profiles
-        # }
-        
-        # return probabilities
 
     def _logistic(self, x):
         """

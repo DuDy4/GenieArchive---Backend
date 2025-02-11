@@ -3,7 +3,7 @@ from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
 from data.data_common.services.artifacts_service import ArtifactsService
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category
+from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category, determine_profile_v2_category_v2
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     ownerships_repository,
@@ -329,7 +329,8 @@ class ProfilesApiService:
         if not param_overall_scores:
             logger.error(f"No overall scores found for {name} | {profile_uuid}")
             return None
-        profile_v2_category = determine_profile_v2_category(param_overall_scores)
+        profile_v2_category = determine_profile_v2_category_v2(param_overall_scores)
+        # profile_v2_category = determine_profile_v2_category(param_overall_scores)
         return profile_v2_category
 
     def get_profile_category_stats(self):
