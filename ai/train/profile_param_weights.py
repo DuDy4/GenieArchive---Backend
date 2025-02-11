@@ -38,22 +38,25 @@ class ProfileParamWeights:
 
 
     def prepare_data_for_training(self):
-        unique_profile_names = self.artifacts_service.get_unique_profiles()
+        unique_profile_dicts = self.artifacts_service.get_unique_profiles()
         profiles_param_scores = {}
         people = []
-        for profile_name in unique_profile_names:
-            person = self.persons_repository.get_person(profile_uuid)
-            if not person:
-                continue
-            profile_param_score = self.artifacts_service.calculate_overall_params(person.name, profile_uuid)
+        for profile_dict in unique_profile_dicts:
+            # person = self.persons_repository.get_person(profile_dict.get("uuid"))
+            # if not person:
+            #     continue
+            profile_param_score = self.artifacts_service.calculate_overall_params(profile_dict.get("name"), profile_dict.get("uuid"))
             if not profile_param_score:
                 continue
-            if self.predictions.get(person.name) is None:
-                logger.info(f"No predictions found for person {person.name}")
-                continue
-            people.append({'name' : person.name, 'traits' : profile_param_score, 'profiles' : self.predictions[person.name]})
+            # if self.predictions.get(person.name) is None:
+            #     logger.info(f"No predictions found for person {person.name}")
+            #     continue
+            if self.predictions.get(profile_dict.get("name")) is None:
+                logger.info(f"No predictions found for person {profile_dict.get("name")}")
+            continue
+            people.append({'name' : profile_dict.get("name"), 'traits' : profile_param_score, 'profiles' : self.predictions[person.name]})
             profiles_param_scores[profile_uuid] = profile_param_score
-            self.people_anaylsed.append(person.name)
+            self.people_anaylsed.append(profile_dict.get("name"))
         
         # for profile_uuid, profile_param_score in profiles_param_scores.items():
         #     logger.info(f"Profile param score for {profile_uuid[:5]}: {profile_param_score}")

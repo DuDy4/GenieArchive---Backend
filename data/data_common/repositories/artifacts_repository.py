@@ -111,16 +111,16 @@ class ArtifactsRepository:
                 traceback.print_exc()
                 return None
             
-    def get_unique_users(self) -> List[str]:
+    def get_unique_users(self) -> List[dict]:
         select_query = """
-        SELECT DISTINCT p.name FROM artifacts a
+        SELECT DISTINCT p.uuid, p.name FROM artifacts a
 	        join persons p on p.uuid = a.profile_uuid;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
                     cursor.execute(select_query)
-                    return [row[0] for row in cursor.fetchall()]
+                    return [{"uuid": row[0], "name": row[1]} for row in cursor.fetchall()]
             except psycopg2.Error as error:
                 logger.error(f"Error getting unique users: {error.pgerror}")
                 traceback.print_exc()
