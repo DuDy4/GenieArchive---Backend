@@ -113,7 +113,8 @@ class ArtifactsRepository:
             
     def get_unique_users(self) -> List[str]:
         select_query = """
-        SELECT DISTINCT profile_uuid FROM artifacts;
+        SELECT DISTINCT p.name FROM artifacts a
+	        join persons p on p.uuid = a.profile_uuid;
         """
         with db_connection() as conn:
             try:

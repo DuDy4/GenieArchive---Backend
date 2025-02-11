@@ -6,9 +6,11 @@ from data.data_common.data_transfer_objects.profile_category_dto import ProfileC
 
 from data.data_common.repositories.companies_repository import CompaniesRepository
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
+from ai.train.profile_param_weights import ProfileParamWeights
 
 personal_data_repository = PersonalDataRepository()
 companies_repository = CompaniesRepository()
+profile_param_wights = ProfileParamWeights()
 
 logger = GenieLogger()
 
@@ -226,6 +228,23 @@ weights = {
         "Turbulent": 0.1,  
     },  
 }  
+
+def determine_profile_v2_category_v2(param_score):
+    raw_scores = {}
+    person_scores = profile_param_wights.normalize_param_scores(param_score)
+    probabilities = profile_param_wights.profile_param_weights.predict_for_new_person(person_scores)
+    best_profile = max(probabilities, key=probabilities.get)
+
+    profile_category_dict = {
+        "category": best_profile,
+        "scores": raw_scores,
+        "description": profiles_description.get(best_profile, ""),
+        "extended_description": profiles_extended_description.get(best_profile, ""),
+        "explanation": profiles_explanation.get(best_profile, {}),
+        "color": profiles_colors.get(best_profile, ""),
+        "font_color": profile_font_color.get(best_profile, ""),
+    }
+    return ProfileCategory.from_dict(profile_category_dict)
 
 def determine_profile_v2_category(param_score):
     raw_scores = {} 
