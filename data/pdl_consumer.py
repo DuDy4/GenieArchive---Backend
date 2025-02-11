@@ -26,7 +26,7 @@ from data.data_common.repositories.companies_repository import CompaniesReposito
 from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.events.genie_consumer import GenieConsumer
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
-from data.data_common.utils.persons_utils import create_person_from_pdl_personal_data
+from data.data_common.services.person_builder_service import create_person_from_pdl_personal_data
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()

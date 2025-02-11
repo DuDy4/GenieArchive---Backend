@@ -20,7 +20,7 @@ from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonS
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.internal_services.azure_storage_picture_uploader import AzureProfilePictureUploader
 from common.utils import email_utils
-from data.data_common.utils.persons_utils import (
+from data.data_common.services.person_builder_service import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
 )

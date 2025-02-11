@@ -16,7 +16,7 @@ all_profiles = [
     "Go-Getter",
     "Analytical",
     "Social",
-    "Emotional",
+    "Intuitive",
     "Thorough",
 ]
 
@@ -182,7 +182,7 @@ class ProfileParamWeights:
         new_person_scaled = scaler.transform(new_person_df)
 
         # Load saved models for each profile
-        profile_names = ["Innovator", "Go-Getter", "Analytical", "Social", "Emotional", "Thorough"]
+        profile_names = ["Innovator", "Go-Getter", "Analytical", "Social", "Intuitive", "Thorough"]
         models = {profile: joblib.load(f"{profile}_ridge_regression.pkl") for profile in profile_names}
 
         # Predict probabilities and clip between 0 and 1
@@ -198,7 +198,7 @@ class ProfileParamWeights:
 
 
 if __name__ == "__main__":
-    profile_param_weights = ProfileParamWeights()
+    # profile_param_weights = ProfileParamWeights()
     # profile_param_weights.prepare_data_for_training()
     logger.info("Training complete.")
     # person_scores = profile_param_weights.fetch_person_for_prediction("amit.svarzenberg@microsoft.com")

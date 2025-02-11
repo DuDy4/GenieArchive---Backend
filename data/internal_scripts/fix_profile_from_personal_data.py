@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from common.genie_logger import GenieLogger
 from data.api.api_services_classes.admin_api_services import AdminApiService
-from data.data_common.utils.persons_utils import (
+from data.data_common.services.person_builder_service import (
     get_company_and_position_from_pdl_experience,
     get_company_and_position_from_apollo_personal_data,
 )

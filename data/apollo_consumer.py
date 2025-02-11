@@ -17,7 +17,7 @@ from data.data_common.utils.str_utils import get_uuid4, to_custom_title_case
 from data.data_common.repositories.persons_repository import PersonsRepository
 from data.data_common.repositories.personal_data_repository import PersonalDataRepository
 from data.data_common.dependencies.dependencies import persons_repository, personal_data_repository
-from data.data_common.utils.persons_utils import create_person_from_apollo_personal_data
+from data.data_common.services.person_builder_service import create_person_from_apollo_personal_data
 
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 

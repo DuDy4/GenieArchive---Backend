@@ -8,7 +8,7 @@ logger = GenieLogger()
 class ProfilePredictionsData:
 
     def __init__(self):
-        self.profiles = ["Innovator", "Go-Getter", "Analytical", "Social", "Emotional", "Thorough"]
+        self.profiles = ["Innovator", "Go-Getter", "Analytical", "Social", "Intuitive", "Thorough"]
         self.w_top=2
         self.w_second=1
         self.w_last=-1
@@ -20,130 +20,130 @@ class ProfilePredictionsData:
         raw_data = """
             Adi Baltter,Innovator,Social,Analytical,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Innovator,Analytical,Thorough,https://www.linkedin.com/in/adibaltter/
-            Adi Baltter,Go-Getter,Innovator,Emotional,https://www.linkedin.com/in/adibaltter/
+            Adi Baltter,Go-Getter,Innovator,Intuitive,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Innovator,Go-Getter,Analytical,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Innovator,Analytical,Social,https://www.linkedin.com/in/adibaltter/
-            Adi Baltter,Social,Innovator,Emotional,https://www.linkedin.com/in/adibaltter/
+            Adi Baltter,Social,Innovator,Intuitive,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Analytical,Innovator,,https://www.linkedin.com/in/adibaltter/
-            Adi Baltter,Innovator,Analytical,Emotional,https://www.linkedin.com/in/adibaltter/
+            Adi Baltter,Innovator,Analytical,Intuitive,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Analytical,Innovator,Go-Getter,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Analytical,Innovator,Thorough,https://www.linkedin.com/in/adibaltter/
-            Adi Baltter,Analytical,Go-Getter,Emotional,https://www.linkedin.com/in/adibaltter/
+            Adi Baltter,Analytical,Go-Getter,Intuitive,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Go-Getter,Innovator,Analytical,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Social,Innovator,Go-Getter,
             Alon Stern,Social,Analytical,Innovator,https://www.linkedin.com/in/alon-stern-121766125/
-            Alon Stern,Emotional,Thorough,Innovator,https://www.linkedin.com/in/alon-stern-121766125/
+            Alon Stern,Intuitive,Thorough,Innovator,https://www.linkedin.com/in/alon-stern-121766125/
             Alon Stern,Thorough,Social,Innovator,https://www.linkedin.com/in/alon-stern-121766125/
-            Alon Stern,Analytical,Social,Emotional,https://www.linkedin.com/in/alon-stern-121766125/
-            Alon Stern,Go-Getter,Social,Emotional,https://www.linkedin.com/in/alon-stern-121766125/
-            Amit Greenberg,Analytical,Thorough,Emotional,https://www.linkedin.com/in/amit-greenberg-3639233/
-            Amit Zohar,Analytical,Thorough,Emotional,https://www.linkedin.com/in/a-zohar/
+            Alon Stern,Analytical,Social,Intuitive,https://www.linkedin.com/in/alon-stern-121766125/
+            Alon Stern,Go-Getter,Social,Intuitive,https://www.linkedin.com/in/alon-stern-121766125/
+            Amit Greenberg,Analytical,Thorough,Intuitive,https://www.linkedin.com/in/amit-greenberg-3639233/
+            Amit Zohar,Analytical,Thorough,Intuitive,https://www.linkedin.com/in/a-zohar/
             Amit Zohar,Analytical,Innovator,Social,https://www.linkedin.com/in/a-zohar/
             Amit Zohar,Analytical,Innovator,Thorough,https://www.linkedin.com/in/a-zohar/
             Asaf Savich,Innovator,Analytical,Go-Getter,https://www.linkedin.com/in/asaf-savich/
             Asaf Savich,Social,Go-Getter,Thorough,https://www.linkedin.com/in/asaf-savich/
-            Asaf savich,Thorough,Innovator,Emotional,https://www.linkedin.com/in/asaf-savich/
-            Asaf Savich,Analytical,Go-Getter,Emotional,https://www.linkedin.com/in/asaf-savich/
-            Asaf Savich,Go-Getter,Innovator,Emotional,https://www.linkedin.com/in/asaf-savich/
-            Asaf Savich,Social,Innovator,Emotional,https://www.linkedin.com/in/asaf-savich/
+            Asaf savich,Thorough,Innovator,Intuitive,https://www.linkedin.com/in/asaf-savich/
+            Asaf Savich,Analytical,Go-Getter,Intuitive,https://www.linkedin.com/in/asaf-savich/
+            Asaf Savich,Go-Getter,Innovator,Intuitive,https://www.linkedin.com/in/asaf-savich/
+            Asaf Savich,Social,Innovator,Intuitive,https://www.linkedin.com/in/asaf-savich/
             Avi Cohen,Innovator,Go-Getter,Thorough,
             Dafna Greenshpan ,Thorough,Analytical,Social,
             Danna Regev,Thorough,Analytical,Go-Getter,
-            Donna,Analytical,Emotional,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
-            Donna Regev,Analytical,Emotional,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
-            Efrat Greenberg,Go-Getter,Analytical,Emotional,https://www.linkedin.com/in/efratgreenberg/
+            Donna,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
+            Donna Regev,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
+            Efrat Greenberg,Go-Getter,Analytical,Intuitive,https://www.linkedin.com/in/efratgreenberg/
             Eyal Yona,Social,Analytical,Thorough,https://www.linkedin.com/in/eyal-yona/
             Eyal Yona,Innovator,Social,Analytical,https://www.linkedin.com/in/eyal-yona/
             Eyal Yona,Go-Getter,Analytical,Thorough,https://www.linkedin.com/in/eyal-yona/
             Eyal Yona,Analytical,Innovator,Thorough,https://www.linkedin.com/in/eyal-yona/
             Gal rettig ,Analytical,Social,Thorough,https://www.linkedin.com/in/gal-rettig-717332a1/
             Gal Walters,Social,Analytical,Innovator,https://www.linkedin.com/in/gal-walters-4a6b83233/
-            Gal Walters,Go-Getter,Innovator,Emotional,https://www.linkedin.com/in/gal-walters-4a6b83233/
+            Gal Walters,Go-Getter,Innovator,Intuitive,https://www.linkedin.com/in/gal-walters-4a6b83233/
             Gal Walters,Innovator,Analytical,Thorough,https://www.linkedin.com/in/gal-walters-4a6b83233/
             Golan Raz,Innovator,Go-Getter,Analytical,
-            Hadas shay,Social,Emotional,Go-Getter,
+            Hadas shay,Social,Intuitive,Go-Getter,
             Hilla katzir,Analytical,Thorough,Innovator,
-            Ilana Milshtain,Go-Getter,Analytical,Emotional,https://www.linkedin.com/in/ilana-milishtein-4b86b5226/
+            Ilana Milshtain,Go-Getter,Analytical,Intuitive,https://www.linkedin.com/in/ilana-milishtein-4b86b5226/
             Ilana Milshtain,Social,Go-Getter,Thorough,https://www.linkedin.com/in/ilana-milishtein-4b86b5226/
             Ilana Milshtain,Analytical,Social,Thorough,https://www.linkedin.com/in/ilana-milishtein-4b86b5226/
-            Itai Shachar,Thorough,Analytical,Emotional,https://www.linkedin.com/in/itai-shachar-8670b5111/
+            Itai Shachar,Thorough,Analytical,Intuitive,https://www.linkedin.com/in/itai-shachar-8670b5111/
             Itai Shachar,Social,Thorough,Analytical,https://www.linkedin.com/in/itai-shachar-8670b5111/
-            Itai Shachar,Analytical,Emotional,Social,https://www.linkedin.com/in/itai-shachar-8670b5111/
+            Itai Shachar,Analytical,Intuitive,Social,https://www.linkedin.com/in/itai-shachar-8670b5111/
             Itai Shachar,Thorough,Analytical,Go-Getter,https://www.linkedin.com/in/itai-shachar-8670b5111/
-            Itai Shachar,Social,Emotional,Innovator,https://www.linkedin.com/in/itai-shachar-8670b5111/
+            Itai Shachar,Social,Intuitive,Innovator,https://www.linkedin.com/in/itai-shachar-8670b5111/
             Itay Grushka,Go-Getter,Analytical,Thorough,
-            Jonatan Darr,Analytical,Innovator,Emotional,
-            Jonathan Barazany,Thorough,Analytical,Emotional,https://www.linkedin.com/in/jonathan-barazany-14925849/
-            Jonathan Barazany,Analytical,Go-Getter,Emotional,https://www.linkedin.com/in/jonathan-barazany-14925849/
+            Jonatan Darr,Analytical,Innovator,Intuitive,
+            Jonathan Barazany,Thorough,Analytical,Intuitive,https://www.linkedin.com/in/jonathan-barazany-14925849/
+            Jonathan Barazany,Analytical,Go-Getter,Intuitive,https://www.linkedin.com/in/jonathan-barazany-14925849/
             Joseph Haskin,Thorough,Social,Go-Getter,https://www.linkedin.com/in/sefi-haskin/
             Kim Berger,Social,Thorough,Go-Getter,https://www.linkedin.com/in/kim-berger-94684018b/
             Kim Berger,Social,Go-Getter,Analytical,https://www.linkedin.com/in/kim-berger-94684018b/
-            Kim Berger,Social,Emotional,Analytical,https://www.linkedin.com/in/kim-berger-94684018b/
-            Kim Berger,Innovator,Thorough,Emotional,https://www.linkedin.com/in/kim-berger-94684018b/
+            Kim Berger,Social,Intuitive,Analytical,https://www.linkedin.com/in/kim-berger-94684018b/
+            Kim Berger,Innovator,Thorough,Intuitive,https://www.linkedin.com/in/kim-berger-94684018b/
             Liat Egel,Social,Go-Getter,Thorough,
             Linoy Ravia,Go-Getter,Analytical,Social,https://www.linkedin.com/in/linoy-ravia/
             Linoy Ravia,Social,Thorough,Analytical,https://www.linkedin.com/in/linoy-ravia/
-            Linoy Ravia,Analytical,Emotional,Social,https://www.linkedin.com/in/linoy-ravia/
-            Menashe Haskin,Innovator,Analytical,Emotional,https://www.linkedin.com/in/menashe-haskin/
-            Michal Cohen,Emotional,Thorough,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
-            Michal Cohen,Emotional,Social,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
-            Michal Cohen,Emotional,Go-Getter,Social,https://www.linkedin.com/in/michal-cohen-972ba232b/
-            Michal Cohen,Social,Emotional,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
-            Michal Shor,Social,Emotional,Analytical,https://www.linkedin.com/in/michal-kunya-shor-107a0b1b1/
+            Linoy Ravia,Analytical,Intuitive,Social,https://www.linkedin.com/in/linoy-ravia/
+            Menashe Haskin,Innovator,Analytical,Intuitive,https://www.linkedin.com/in/menashe-haskin/
+            Michal Cohen,Intuitive,Thorough,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
+            Michal Cohen,Intuitive,Social,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
+            Michal Cohen,Intuitive,Go-Getter,Social,https://www.linkedin.com/in/michal-cohen-972ba232b/
+            Michal Cohen,Social,Intuitive,Analytical,https://www.linkedin.com/in/michal-cohen-972ba232b/
+            Michal Shor,Social,Intuitive,Analytical,https://www.linkedin.com/in/michal-kunya-shor-107a0b1b1/
             Michal Shor,Innovator,Thorough,Social,https://www.linkedin.com/in/michal-kunya-shor-107a0b1b1/
             Michal Shor,Analytical,Social,Go-Getter,https://www.linkedin.com/in/michal-kunya-shor-107a0b1b1/
             Chen ,Thorough,Analytical,Social,
-            Nadin Rafael,Thorough,Emotional,Innovator,-
+            Nadin Rafael,Thorough,Intuitive,Innovator,-
             Nadin Rafael,Go-Getter,Analytical,Social,-
-            Nadin Rafael,Innovator,Emotional,Analytical,-
-            Natalie Friedman,Go-Getter,Social,Emotional,
+            Nadin Rafael,Innovator,Intuitive,Analytical,-
+            Natalie Friedman,Go-Getter,Social,Intuitive,
             Niv Baltter,Innovator,Analytical,Social,https://www.linkedin.com/in/nivb/
             Niv Baltter,Analytical,Social,Innovator,https://www.linkedin.com/in/nivb/
-            Nofar Tsur,Emotional,Social,Analytical,https://www.linkedin.com/in/nofartsur/
-            Nofar Tsur,Emotional,Analytical,Innovator,https://www.linkedin.com/in/nofartsur/
-            Nofar Tsur,Go-Getter,Emotional,Thorough,https://www.linkedin.com/in/nofartsur/
+            Nofar Tsur,Intuitive,Social,Analytical,https://www.linkedin.com/in/nofartsur/
+            Nofar Tsur,Intuitive,Analytical,Innovator,https://www.linkedin.com/in/nofartsur/
+            Nofar Tsur,Go-Getter,Intuitive,Thorough,https://www.linkedin.com/in/nofartsur/
             Nurit Zimmermann-Haskin,Social,Innovator,Analytical,https://www.linkedin.com/in/nurit-zimmermann-haskin/
-            Opal Balter,Emotional,Social,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
-            Opal Balter,Emotional,Social,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
-            Opal Balter,Social,Emotional,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
-            Rani,Social,Innovator,Emotional,
-            Reef Baltter,Analytical,Go-Getter,Emotional,https://www.linkedin.com/in/reefb/
+            Opal Balter,Intuitive,Social,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
+            Opal Balter,Intuitive,Social,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
+            Opal Balter,Social,Intuitive,Analytical,https://www.linkedin.com/in/opal-balter-606079289/
+            Rani,Social,Innovator,Intuitive,
+            Reef Baltter,Analytical,Go-Getter,Intuitive,https://www.linkedin.com/in/reefb/
             Reef Baltter,Analytical,Thorough,Social,https://www.linkedin.com/in/reefb/
-            Reef Baltter,Analytical,Innovator,Emotional,https://www.linkedin.com/in/reefb/
-            Reef Baltter,Emotional,Go-Getter,Analytical,https://www.linkedin.com/in/reefb/
-            Reef Baltter,Analytical,Innovator,Emotional,https://www.linkedin.com/in/reefb/
+            Reef Baltter,Analytical,Innovator,Intuitive,https://www.linkedin.com/in/reefb/
+            Reef Baltter,Intuitive,Go-Getter,Analytical,https://www.linkedin.com/in/reefb/
+            Reef Baltter,Analytical,Innovator,Intuitive,https://www.linkedin.com/in/reefb/
             Reef Baltter,Analytical,Social,Thorough,https://www.linkedin.com/in/reefb/
             Sari Menaker,Social,Analytical,Innovator,
             Asaf Savich,Social,Innovator,Thorough,https://www.linkedin.com/in/asaf-savich/
-            Shai Yagil,Innovator,Thorough,Emotional,https://www.linkedin.com/in/shai-yagil-1b1004b9/
-            Shai Yagil,Thorough,Go-Getter,Emotional,https://www.linkedin.com/in/shai-yagil-1b1004b9/
+            Shai Yagil,Innovator,Thorough,Intuitive,https://www.linkedin.com/in/shai-yagil-1b1004b9/
+            Shai Yagil,Thorough,Go-Getter,Intuitive,https://www.linkedin.com/in/shai-yagil-1b1004b9/
             Shai Yagil,Analytical,Thorough,Innovator,https://www.linkedin.com/in/shai-yagil-1b1004b9/
-            Shai Yagil,Thorough,Analytical,Emotional,https://www.linkedin.com/in/shai-yagil-1b1004b9/
-            Shai Yagil,Thorough,Analytical,Emotional,https://www.linkedin.com/in/shai-yagil-1b1004b9/
+            Shai Yagil,Thorough,Analytical,Intuitive,https://www.linkedin.com/in/shai-yagil-1b1004b9/
+            Shai Yagil,Thorough,Analytical,Intuitive,https://www.linkedin.com/in/shai-yagil-1b1004b9/
             Shiraz Amit,Thorough,Analytical,Social,https://www.linkedin.com/in/amitshiraz/
             Shiraz Amit,Social,Analytical,Innovator,https://www.linkedin.com/in/amitshiraz/
             Shiraz Amit,Social,Thorough,Analytical,https://www.linkedin.com/in/amitshiraz/
-            Shiraz Amit,Social,Emotional,Go-Getter,https://www.linkedin.com/in/amitshiraz/
+            Shiraz Amit,Social,Intuitive,Go-Getter,https://www.linkedin.com/in/amitshiraz/
             Stav Eliezer,Thorough,Go-Getter,Innovator,-
             Stav Eliezer,Social,Thorough,Innovator,-
             Stav Eliezer,Analytical,Thorough,Innovator,-
             Tal Schachter ,Social,Thorough,Innovator,https://www.linkedin.com/in/tal-schachter-328a46a1/
-            Tal Schachter ,Analytical,Social,Emotional,https://www.linkedin.com/in/tal-schachter-328a46a1/
+            Tal Schachter ,Analytical,Social,Intuitive,https://www.linkedin.com/in/tal-schachter-328a46a1/
             Tal Zuriel,Social,Innovator,Analytical,https://www.linkedin.com/in/talzuriel/
             Tomer Katzav,Social,Analytical,Go-Getter,https://www.linkedin.com/in/tomer-katzav-8158a769/
-            Tomer Katzav,Social,Emotional,Innovator,https://www.linkedin.com/in/tomer-katzav-8158a769/
-            Tomer Katzav,Emotional,Thorough,Innovator,https://www.linkedin.com/in/tomer-katzav-8158a769/
+            Tomer Katzav,Social,Intuitive,Innovator,https://www.linkedin.com/in/tomer-katzav-8158a769/
+            Tomer Katzav,Intuitive,Thorough,Innovator,https://www.linkedin.com/in/tomer-katzav-8158a769/
             Tomer Katzav,Social,Go-Getter,Innovator,https://www.linkedin.com/in/tomer-katzav-8158a769/
-            Tomer Katzav ,Social,Emotional,Go-Getter,https://www.linkedin.com/in/tomer-katzav-8158a769/
-            Tomer Weiss,Analytical,Thorough,Emotional,-
-            Tomer Weiss,Analytical,Thorough,Emotional,-
-            Tzili golan,Social,Thorough,Emotional,
-            Yaron Regev,Go-Getter,Analytical,Emotional,https://www.linkedin.com/in/yaronregev/
-            Yaron Regev ,Thorough,Analytical,Emotional,https://www.linkedin.com/in/yaronregev/
+            Tomer Katzav ,Social,Intuitive,Go-Getter,https://www.linkedin.com/in/tomer-katzav-8158a769/
+            Tomer Weiss,Analytical,Thorough,Intuitive,-
+            Tomer Weiss,Analytical,Thorough,Intuitive,-
+            Tzili golan,Social,Thorough,Intuitive,
+            Yaron Regev,Go-Getter,Analytical,Intuitive,https://www.linkedin.com/in/yaronregev/
+            Yaron Regev ,Thorough,Analytical,Intuitive,https://www.linkedin.com/in/yaronregev/
             Yonatan Shor,Thorough,Analytical,Innovator,https://www.linkedin.com/in/yonatan-shor/
             Yonatan Shor,Thorough,Analytical,Innovator,https://www.linkedin.com/in/yonatan-shor/
             Yonatan Shor,Analytical,Social,Go-Getter,https://www.linkedin.com/in/yonatan-shor/
-            Yotam tzafrir,Analytical,Thorough,Emotional,
+            Yotam tzafrir,Analytical,Thorough,Intuitive,
             """.strip().splitlines()
 
         guesses_dict = {}
@@ -221,6 +221,6 @@ class ProfilePredictionsData:
         return 1.0 / (1.0 + math.exp(-self.alpha * (x - self.center)))
 
 
-
-if __name__ == "__main__":
-    profile_predictions_data = ProfilePredictionsData()
+#
+# if __name__ == "__main__":
+#     profile_predictions_data = ProfilePredictionsData()
