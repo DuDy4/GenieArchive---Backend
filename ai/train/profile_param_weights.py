@@ -195,13 +195,3 @@ class ProfileParamWeights:
 
         return predicted_probs
 
-
-
-if __name__ == "__main__":
-    # profile_param_weights = ProfileParamWeights()
-    # profile_param_weights.prepare_data_for_training()
-    logger.info("Training complete.")
-    # person_scores = profile_param_weights.fetch_person_for_prediction("amit.svarzenberg@microsoft.com")
-    logger.info("Predicting for a new person...")
-    # profile_param_weights.predict_for_new_person(person_scores)
-    logger.info("Prediction complete.")
