@@ -153,12 +153,13 @@ class ProfilesApiService:
                 raise HTTPException(status_code=404, detail="Profile not found under this user")
 
         profile = self.profiles_repository.get_profile_data(uuid)
+        profile_v2 = self.get_profile_v2(profile.name, uuid)
         if profile:
             strengths_formatted = "".join([f"\n{strength}\n" for strength in profile.strengths])
             logger.info(f"strengths: {strengths_formatted}")
             category = determine_profile_category(profile.strengths)
             sales_criteria = self.user_profiles_repository.get_sales_criteria(uuid, user_id) or profile.sales_criteria
-            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria)
+            return StrengthsListResponse(strengths=profile.strengths, profile_category=category, sales_criteria=sales_criteria, profile_category_v2=profile_v2)
 
         logger.error(f"Could not find profile with uuid: {uuid}")
         raise HTTPException(status_code=404, detail="Could not find profile")
