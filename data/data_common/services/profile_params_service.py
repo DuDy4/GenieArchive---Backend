@@ -122,23 +122,30 @@ class ProfileParamsService:
         if not self.clues_column_index:
             await self._initialize_sheet()  # Ensure sheet is initialized
 
-        tasks = [
-            self.evaluate_param(post, name, position, company, {
-                'param_id': row[self.id_column_index],
-                'param_name': row[self.param_name_column_index],
-                'min_range': row[self.min_range_column_index],
-                'max_range': row[self.max_range_column_index],
-                'param_explanation': row[self.param_explanation_column_index],
-                'clues_list': row[self.clues_column_index].split(";")
-            })
-            for row in self.data_rows if row[self.id_column_index] and row[self.id_column_index] != '0'
-        ]
+        tasks = []
+        for row in self.data_rows:
+            if row[self.id_column_index] and row[self.id_column_index] != '0':
+                task = asyncio.create_task(self.evaluate_param(post, name, position, company, {
+                    'param_id': row[self.id_column_index],
+                    'param_name': row[self.param_name_column_index],
+                    'min_range': row[self.min_range_column_index],
+                    'max_range': row[self.max_range_column_index],
+                    'param_explanation': row[self.param_explanation_column_index],
+                    'clues_list': row[self.clues_column_index].split(";")
+                }))
+                tasks.append(task)
 
-        # 🚀 Run all evaluation tasks concurrently
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        # 🚀 Process tasks as they complete
+        results = []
+        for completed_task in asyncio.as_completed(tasks):
+            try:
+                result = await completed_task
+                if isinstance(result, dict) and result:
+                    results.append(result)
+            except Exception as e:
+                logger.error(f"Error evaluating param: {e}")
 
-        # Filter valid responses
-        return [resp for resp in responses if isinstance(resp, dict) and resp]
+        return results  # Return only successful evaluations
 
     async def evaluate_work_history_params(self, work_element, name, position, company):
         if not self.clues_column_index:

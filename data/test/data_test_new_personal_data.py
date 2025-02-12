@@ -6,8 +6,9 @@ from data.data_common.repositories.personal_data_repository import PersonalDataR
 persons_repository = PersonsRepository()
 personal_data_repository = PersonalDataRepository()
 
-person = persons_repository.get_person("994a340c-6710-4826-9752-4e88fdceadfa")
-personal_data = personal_data_repository.get_pdl_personal_data("994a340c-6710-4826-9752-4e88fdceadfa")
+uuid = "e0527656-6c01-4a1f-862e-58b4758ba399"
+person = persons_repository.get_person(uuid)
+personal_data = personal_data_repository.get_pdl_personal_data(uuid)
 user_id = "google-oauth2|117881894742800328091"
 tenant_id = "org_N1U4UsHtTfESJPYB"
 

@@ -39,13 +39,13 @@ class ArtifactDTO(BaseModel):
             self.artifact_type.value,
             self.source.value,
             self.profile_uuid,
-            str(self.artifact_url),
+            str(self.artifact_url) if self.artifact_url else None,
             self.text,
             self.description,
             self.summary,
-            self.published_date,
-            self.created_at,
-            json.dumps(self.metadata)
+            self.published_date if self.published_date else None,
+            self.created_at if self.created_at else datetime.now(),
+            json.dumps(self.metadata) if self.metadata else None
         )
     
     @classmethod
@@ -106,8 +106,8 @@ class ArtifactDTO(BaseModel):
             'text': self.text,
             'description': self.description,
             'summary': self.summary,
-            'published_date': str(self.published_date),
-            'created_at': str(self.created_at),
+            'published_date': str(self.published_date) if self.published_date else None,
+            'created_at': str(self.created_at) if self.created_at else None,
             'metadata': self.metadata
         }
 

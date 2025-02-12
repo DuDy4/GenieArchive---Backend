@@ -46,6 +46,7 @@ class Topic:
     NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
     NEW_PERSON_CONTEXT = "new-person-context"
     NEW_PERSON_ARTIFACT = "new-person-artifact"
+    NEW_WORK_HISTORY_ARTIFACT = "new-work-history-artifact"
     ARTIFACT_SCORES_CALCULATED = "artifact-scores-calculated"
     NEW_MEETING_GOALS = (
         "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
