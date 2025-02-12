@@ -19,7 +19,7 @@ from data.data_common.dependencies.dependencies import (
     companies_repository,
 )
 
-from data.data_common.utils.persons_utils import (
+from data.data_common.services.person_builder_service import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
 )

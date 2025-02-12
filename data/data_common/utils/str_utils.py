@@ -82,6 +82,8 @@ ABBREVIATIONS = {
     "cro",
 }
 
+def remove_non_alphanumeric_strings(strings):
+    return [s for s in strings if any(c.isalnum() for c in s)]
 
 def get_uuid4():
     new_uuid = uuid.uuid4()

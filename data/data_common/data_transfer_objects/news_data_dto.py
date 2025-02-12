@@ -104,7 +104,7 @@ class SocialMediaPost(NewsData):
     title: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: Dict[str, Any]) -> "SocialMediaPost":
         """
         Create a SocialMediaPost instance from a dictionary.
         This method uses the same fields as NewsData and extends it with SocialMediaPost-specific fields.

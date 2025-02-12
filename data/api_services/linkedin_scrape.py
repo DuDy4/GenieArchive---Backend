@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost, NewsData
 from common.genie_logger import GenieLogger
-from data.data_common.dependencies.dependencies import personal_data_repository
 
 logger = GenieLogger()
 
@@ -130,7 +129,7 @@ class HandleLinkedinScrape:
                 post_date = datetime.strptime(str(post.date), "%Y-%m-%d")
 
             # Determine if the post is created by the user
-            is_original = linkedin_url in post.reshared
+            is_original = linkedin_url in post.reshared if post.reshared else False
             is_recent = post_date > ninety_days_ago
 
             # Categorize the post

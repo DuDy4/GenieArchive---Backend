@@ -191,7 +191,6 @@ class StrengthsListResponse(BaseModel):
     profile_category: ProfileCategory
     sales_criteria: Optional[list[SalesCriteria]]
 
-
 class Hobby(BaseModel):
     hobby_name: str
     icon_url: HttpUrl

@@ -1,3 +1,4 @@
+import re
 import asyncio
 import json
 import logging
@@ -347,6 +348,32 @@ class Langsmith:
                     raise e  # Raise exception if retries are exhausted
         raise Exception("Max retries exceeded")
 
+    async def _run_prompt_with_retry_artifacts(self, runnable, arguments, max_retries=5, base_wait=2):
+        """Retries LangSmith prompt execution with async support."""
+        for attempt in range(max_retries):
+            try:
+                loop = asyncio.get_running_loop()
+                response = await loop.run_in_executor(None, runnable.invoke, arguments)
+                if response:  # ✅ If successful, return the response
+                    return response
+            except LangSmithConnectionError as e:
+                logger.error(f"LangSmithConnectionError encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2**attempt) + random.uniform(0, 1)
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)  # ✅ Keep it async
+                else:
+                    raise e
+            except Exception as e:
+                logger.error(f"General error encountered on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2**attempt) + random.uniform(0, 1)
+                    logger.info(f"Retrying in {wait_time:.2f} seconds...")
+                    await asyncio.sleep(wait_time)  # ✅ Keep it async
+                else:
+                    raise e
+        raise Exception("Max retries exceeded")
+
     async def get_news(self, news_data: dict):
         prompt = hub.pull("post_summary")
         runnable = prompt | self.model
@@ -405,6 +432,21 @@ class Langsmith:
             response = f"Error: {e}"
         return response
 
+    async def get_work_history_post(self, work_history_artifact: dict):
+        logger.info("Running Langsmith prompt for work history post")
+        prompt = hub.pull("work_history_post_generator")
+        arguments = {
+            "work_history": work_history_artifact
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)
+            if response and response.content and isinstance(response.content, str):
+                response = response.content
+        except Exception as e:
+            response = f"Error: {e}"
+        return response
+
     async def get_param_evaluation(self, person, param_data, person_artifact):
         logger.info("Running Langsmith prompt for evaluating param")
         prompt = hub.pull("param-scoring-v2")
@@ -415,16 +457,25 @@ class Langsmith:
         }
         try:
             runnable = prompt | self.azure_model
-            response = await self._run_prompt_with_retry(runnable, arguments)            
+            response = await self._run_prompt_with_retry_artifacts(runnable, arguments)
             if response and response.content and isinstance(response.content, str):
                 response = response.content
                 if response.startswith("```"):
                     response = response.replace("```json", "").strip("`").strip()
                     response = response.replace("\\n", "\n").replace("\n", " ").replace('\\"', '"')
-                    response = json.loads(response)
+                    response = response.split("```")[0].strip() if "```" in response else response
+                    response = json.loads(response, strict=False)
+                else:
+                    response = self.extract_json(response)
+            else:
+                logger.error(f"Error parsing param evaluation from Langsmith: {response}")
         except Exception as e:
-            logger.error(f"Error running param evaluation: {e}")          
-            response = f"Error: {e}"
+            logger.error(f"Error running param evaluation: {e}")
+            try:
+                logger.info(f"The response we got is: {response}")
+            except Exception as e:
+                logger.error(f"Did not even get a response: {e}")
+            return {}
         return response
 
     async def get_summary(self, data, max_words=50):
@@ -475,4 +526,15 @@ class Langsmith:
 
 
 
-    
+    def extract_json(self, text):
+        match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = text
+        try:
+            json_obj = json.loads(json_str)
+            return json_obj
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON:", e)
+        return None

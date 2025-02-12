@@ -146,7 +146,7 @@ class UsersRepository:
                 result = cursor.fetchone()
                 return result[0] if result else None
 
-    def get_tenant_id_by_user_id(self, user_id: str) -> Optional[str]:
+    def get_tenant_id_by_user_id(self, user_id: str) -> str:
         select_query = """
             SELECT tenant_id FROM users WHERE user_id = %s
             """

@@ -166,6 +166,7 @@ class ProfileDTO(BaseModel):
     hobbies: Optional[List[UUID]] = []
     work_history_summary: Optional[str] = None
     sales_criteria: Optional[List[SalesCriteria]] = []
+    profile_category: Optional[str] = None
 
     @field_validator("name", "position")
     def not_empty(cls, value):
@@ -208,6 +209,7 @@ class ProfileDTO(BaseModel):
             "hobbies": [str(hobby) for hobby in self.hobbies],
             "work_history_summary": self.work_history_summary,
             "sales_criteria": [criteria.to_dict() for criteria in self.sales_criteria],
+            "profile_category": self.profile_category,
         }
         return profile_dict
 
@@ -229,6 +231,7 @@ class ProfileDTO(BaseModel):
             hobbies=[UUID(hobby) for hobby in data["hobbies"]],
             work_history_summary=data["work_history_summary"],
             sales_criteria=[SalesCriteria.from_dict(criteria) for criteria in (data["sales_criteria"] if data.get("sales_criteria") else ProfileDTO.calculate_individual_sales_criteria(data["strengths"]))] if data.get("sales_criteria") else [],
+            profile_category=data.get("profile_category") or determine_profile_category(data["strengths"]).category if data.get("strengths") else None,
         )
 
     def to_tuple(
@@ -246,6 +249,7 @@ class ProfileDTO(BaseModel):
         Optional[List[UUID]],
         Optional[str],
         Optional[List[dict]],
+        Optional[str],
     ]:
         return (
             self.uuid,
@@ -260,6 +264,7 @@ class ProfileDTO(BaseModel):
             self.hobbies,
             self.work_history_summary,
             (SalesCriteria.to_dict(criteria) for criteria in self.sales_criteria) if self.sales_criteria else None,
+            self.profile_category,
         )
 
     @classmethod
@@ -278,6 +283,7 @@ class ProfileDTO(BaseModel):
             Optional[List[UUID]],
             Optional[str],
             Optional[List[Dict | SalesCriteria]],
+            Optional[str],
         ],
     ) -> "ProfileDTO":
         return cls(
@@ -293,7 +299,8 @@ class ProfileDTO(BaseModel):
             hobbies=data[9],
             work_history_summary=data[10],
             sales_criteria=[(SalesCriteria.from_dict(criteria) if isinstance(criteria, dict) else criteria)
-                            for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]))],
+                            for criteria in (data[11] if data[11] else ProfileDTO.calculate_individual_sales_criteria(data[8]) if data[11] else [])],
+            profile_category=data[12] if len(data) > 11 else None or determine_profile_category(data[8]).category if data[8] else None,
         )
 
     @staticmethod

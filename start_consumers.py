@@ -13,6 +13,7 @@ from data.data_common.events.genie_consumer import GenieConsumer
 from data.apollo_consumer import ApolloConsumer
 from data.company_consumer import CompanyConsumer
 from data.sales_material_consumer import SalesMaterialConsumer
+from data.profile_params_consumer import ProfileParamsConsumer
 from common.genie_logger import GenieLogger
 from azure.monitor.opentelemetry import configure_azure_monitor
 
@@ -21,14 +22,15 @@ configure_azure_monitor()
 logger = GenieLogger()
 
 consumers = [
-    # PersonManager(),
-    # LangsmithConsumer(),
+    PersonManager(),
+    LangsmithConsumer(),
     PDLConsumer(),
-    # MeetingManager(),
+    MeetingManager(),
     SlackConsumer(),
     ApolloConsumer(),
     CompanyConsumer(),
-    # SalesMaterialConsumer(),
+    # ProfileParamsConsumer(),
+    SalesMaterialConsumer()
 ]
 
 

@@ -2,7 +2,7 @@ from typing import Optional, List, Union
 import json
 import psycopg2
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from common.utils import env_utils
 from data.data_common.data_transfer_objects.company_dto import SocialMediaLinks
@@ -1356,4 +1356,29 @@ class PersonalDataRepository:
             except Exception as e:
                 conn.rollback()
                 logger.error(f"Error updating news in the database: {e}")
+                raise
+
+    def update_news_last_updated_for_testing(self, email: str):
+        if not email:
+            logger.error("email is None or empty. Cannot update the database.")
+            return
+
+        update_query = """
+        UPDATE personalData
+        SET news_last_updated = %s
+        WHERE email = %s
+        """
+        with db_connection() as conn:
+
+            try:
+                news_last_updated = datetime.now() - timedelta(days=90)
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, (news_last_updated, email),)
+                    conn.commit()
+
+                logger.info(f"Successfully updated news with email: {email} ")
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error updating news last_updated in the database: {e}")
                 raise

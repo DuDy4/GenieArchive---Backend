@@ -45,6 +45,8 @@ class Topic:
     NEW_UPCOMING_MEETING = "new-upcoming-meeting"  # MeetingConsumer saved a new meeting
     NEW_EMBEDDED_DOCUMENT = "new-embedded-document"  # SalesMaterialConsumer embedded a document
     NEW_PERSON_CONTEXT = "new-person-context"
+    NEW_PERSON_ARTIFACT = "new-person-artifact"
+    ARTIFACT_SCORES_CALCULATED = "artifact-scores-calculated"
     NEW_MEETING_GOALS = (
         "new-meeting-goals"  # MeetingConsumer called for langsmith and saved goals in relevant meetings
     )
@@ -55,6 +57,7 @@ class Topic:
     NEW_COMPANY_DATA = "new-company-data"
     NEW_PERSON = "new-person"
     NEW_CONTACT = "new-contact"  # Also used for new person
+    NEW_SF_CONTACTS = "new-sf-contacts"
     NEW_INTERACTION = "new-interaction"
     NEW_EMAIL_ADDRESS_TO_PROCESS = (
         "new-email-address-to-process"  # Derived from new meetings and listened to by PersonManager

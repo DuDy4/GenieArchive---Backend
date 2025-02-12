@@ -19,7 +19,8 @@ from data.data_common.events.topics import Topic
 from data.data_common.data_transfer_objects.person_dto import PersonDTO, PersonStatus
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
 from data.internal_services.azure_storage_picture_uploader import AzureProfilePictureUploader
-from data.data_common.utils.persons_utils import (
+from common.utils import email_utils
+from data.data_common.services.person_builder_service import (
     create_person_from_pdl_personal_data,
     create_person_from_apollo_personal_data,
 )
@@ -31,13 +32,14 @@ from data.data_common.dependencies.dependencies import (
     ownerships_repository,
     meetings_repository,
     companies_repository,
-    tenant_profiles_repository,
+    artifacts_repository,
 )
 
+from data.data_common.services.artifacts_service import ArtifactsService
 from data.importers.profile_pictures import get_profile_picture
 from data.data_common.repositories.profiles_repository import DEFAULT_PROFILE_PICTURE
 from data.data_common.utils.str_utils import get_uuid4
-from common.genie_logger import GenieLogger, user_id
+from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
 linkedin_scrapper = HandleLinkedinScrape()
@@ -80,6 +82,7 @@ class PersonManager(GenieConsumer):
         # self.tenant_profiles_repository = tenant_profiles_repository()
         self.user_profiles_repository = UserProfilesRepository()
         self.azure_profile_picture_uploader = AzureProfilePictureUploader()
+        self.artifacts_service = ArtifactsService()
 
     async def process_event(self, event):
         logger.info(f"Person processing event: {str(event)[:300]}")
@@ -205,12 +208,14 @@ class PersonManager(GenieConsumer):
             person_uuid = self.personal_data_repository.get_personal_uuid_by_email(email)
             if not person_uuid:
                 person_uuid = get_uuid4()
+            linkedin_url_from_fake_email = email_utils.get_fake_email_linkedin_url(email)
+            linkedin = "" if not linkedin_url_from_fake_email else linkedin_url_from_fake_email
             person = PersonDTO(
                 uuid=person_uuid,
                 name="",
                 company="",
                 email=email,
-                linkedin="",
+                linkedin=linkedin,
                 position="",
                 timezone="",
             )
@@ -734,6 +739,8 @@ class PersonManager(GenieConsumer):
             final_news_data_list = list(set(news_data_objects + news_in_database))
             if final_news_data_list:
                 self.personal_data_repository.update_news_list_to_db(uuid, final_news_data_list, PersonalDataRepository.FETCHED)
+                # Nee method artifact persistence  
+                self.artifacts_service.save_linkedin_posts(uuid, final_news_data_list)
             if news_data_objects:
                 event = GenieEvent(Topic.NEW_PERSONAL_NEWS, {"person_uuid": uuid, "force": True})
                 event.send()
@@ -784,6 +791,9 @@ class PersonManager(GenieConsumer):
                 data_to_send = {"person": person.to_dict(), "personal_data": fetched_personal_data}
                 event = GenieEvent(Topic.NEW_PERSONAL_DATA, data_to_send)
                 event.send()
+            # If the profile is full, send finished profile event
+            event = GenieEvent(Topic.FINISHED_NEW_PROFILE, {"profile_uuid": str(person.uuid)})
+            event.send()
             return {"status": "success"}
         else:
             logger.warning("Profile does not exist in database")
