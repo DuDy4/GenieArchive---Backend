@@ -13,7 +13,6 @@ event_groups = [
     'sales_material_consumer_group',
     'slack_consumer_group',
     'salesforce_consumer_group',
-    'slack_consumer_group',
     'profile_params_consumer_group',
 ]
 
