@@ -24,7 +24,6 @@ from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
 from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
-# from data.api.api_services_classes.salesforce_api_services import SalesforceApiService
 
 from common.genie_logger import GenieLogger
 
@@ -47,7 +46,6 @@ stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
 params_api_service = ParamsApiService()
 users_api_service = UsersApiService()
-# salesforce_api_service = SalesforceApiService()
 
 logger.info("Imported all services")
 
