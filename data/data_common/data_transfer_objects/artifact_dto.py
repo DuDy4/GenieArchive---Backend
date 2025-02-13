@@ -90,7 +90,7 @@ class ArtifactDTO(BaseModel):
             artifact_url=post.link,
             text=post.text,
             description=None,
-            summary=post.summary if post.summary else post.text[:100],
+            summary=post.summary if post.summary else (post.text[:100] if post.text else None),
             published_date=post.date,
             created_at=datetime.now(),
             metadata= post.to_dict()

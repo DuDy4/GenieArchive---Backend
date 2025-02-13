@@ -64,8 +64,8 @@ class WorkHistoryArtifactDTO(ArtifactDTO):
             "company_name": self.company_name,
             "industry": self.industry,
             "company_size": self.company_size,
-            "start_date": str(self.start_date),
-            "end_date": str(self.end_date)
+            "start_date": str(self.start_date) if self.start_date else None,
+            "end_date": str(self.end_date) if self.end_date else None
         }
 
     # def to_tuple(self) -> Tuple:
