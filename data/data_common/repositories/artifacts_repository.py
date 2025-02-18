@@ -177,7 +177,7 @@ class ArtifactsRepository:
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (str(artifact.artifact_url,)))
+                    cursor.execute(select_query, (str(artifact.artifact_url),))
                     return cursor.fetchone()
             except psycopg2.Error as error:
                 logger.error(f"Error checking if artifact exists: {error.pgerror}")
