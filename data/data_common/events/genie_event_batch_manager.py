@@ -81,10 +81,12 @@ class EventHubBatchManager:
 
     async def send_batch(self):
         """Send the current batch after ensuring all events are added."""
+        if self.batch is None:
+            self.batch = self.producer.create_batch()
+            if self.batch is None:
+                raise RuntimeError("No batch to send. Ensure batch creation succeeded.")
         await self.add_events_to_batch()
 
-        if not self.batch:
-            raise RuntimeError("No batch to send. Ensure batch creation succeeded.")
 
         statuses_task = asyncio.create_task(self.update_status(self.events[:]))
 

@@ -164,6 +164,38 @@ class AdminApiService:
             event.send()
         return {"message": "Email sync initiated for " + person.email}
 
+    def sync_params(self, person_uuid):
+        self.validate_uuid(person_uuid)
+        person = self.persons_repository.get_person(person_uuid)
+        if not person:
+            logger.error(f"Person not found: {person_uuid}")
+            return {"error": "Person not found"}
+        logger.info(f"Got person: {person}")
+        # tenants = self.ownerships_repository.get_tenants_for_person(person_uuid)
+        users = self.ownerships_repository.get_users_for_person(person_uuid)
+        # needs to change here
+        # if not tenants or len(tenants) == 0:
+        #     logger.error(f"Person does not have any tenants: {person_uuid}")
+        #     return {"error": "Person does not have any tenants"}
+        personal_data = self.personal_data_repository.get_pdl_personal_data(person_uuid)
+        if not personal_data:
+            personal_data = self.personal_data_repository.get_apollo_personal_data(person_uuid)
+        if not personal_data:
+            logger.error(f"Person does not have any personal data: {person_uuid}")
+            return {"error": "Person does not have any personal data"}
+        for user in users:
+            event = GenieEvent(
+                topic=Topic.NEW_PERSONAL_DATA,
+                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person": person.to_dict(), "personal_data": personal_data},
+            )
+            event.send()
+            event = GenieEvent(
+                topic=Topic.NEW_PERSONAL_NEWS,
+                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person_uuid": person_uuid}
+            )
+            event.send()
+        return {"message": "Email sync initiated for " + person.email}
+
     def validate_uuid(self, uuid_string):
         try:
             val = uuid.UUID(uuid_string, version=4)
