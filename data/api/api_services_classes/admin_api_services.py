@@ -184,11 +184,11 @@ class AdminApiService:
             logger.error(f"Person does not have any personal data: {person_uuid}")
             return {"error": "Person does not have any personal data"}
         for user in users:
-            # event = GenieEvent(
-            #     topic=Topic.NEW_PERSONAL_DATA,
-            #     data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person": person.to_dict(), "personal_data": personal_data},
-            # )
-            # event.send()
+            event = GenieEvent(
+                topic=Topic.NEW_PERSONAL_DATA,
+                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person": person.to_dict(), "personal_data": personal_data},
+            )
+            event.send()
             event = GenieEvent(
                 topic=Topic.NEW_PERSONAL_NEWS,
                 data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person_uuid": person_uuid}

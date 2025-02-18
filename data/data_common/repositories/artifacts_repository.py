@@ -169,13 +169,15 @@ class ArtifactsRepository:
                 return False
 
     def check_existing_artifact(self, artifact: ArtifactDTO) -> Optional[str]:
+        if not artifact or not artifact.artifact_url:
+            raise Exception("Artifact URL is required to check if artifact exists")
         select_query = """
         SELECT uuid FROM artifacts WHERE artifact_url = %s;
         """
         with db_connection() as conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(select_query, (artifact.artifact_url,))
+                    cursor.execute(select_query, (str(artifact.artifact_url,)))
                     return cursor.fetchone()
             except psycopg2.Error as error:
                 logger.error(f"Error checking if artifact exists: {error.pgerror}")

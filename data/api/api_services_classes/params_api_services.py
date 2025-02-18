@@ -169,7 +169,7 @@ class ParamsApiService:
             evaluation_tasks.extend(post_tasks)
         
         # Run all evaluation tasks simultaneously
-        responses_raw = await asyncio.gather(*evaluation_tasks)
+        responses_raw = asyncio.as_completed(*evaluation_tasks)
         
         # Filter out None responses and construct post data
         responses = []

@@ -150,3 +150,4 @@ cython_debug/
 /data/test/data_test_company.py
 /data/test/migrations_scripts_testing/tenant_migration_script.py
 /data/test/data_test_get_strengths_by_emails.py
+/data/test/data_test_flow.py

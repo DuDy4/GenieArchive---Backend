@@ -88,7 +88,7 @@ class ArtifactDTO(BaseModel):
             source=ArtifactSource.LINKEDIN if post.media == "linkedin" else ArtifactSource.OTHER,
             profile_uuid=profile_uuid,
             artifact_url=post.link,
-            text=post.text,
+            text=post.text or '',
             description=None,
             summary=post.summary if post.summary else (post.text[:100] if post.text else None),
             published_date=post.date,

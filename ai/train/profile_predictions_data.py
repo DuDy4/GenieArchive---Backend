@@ -49,8 +49,8 @@ class ProfilePredictionsData:
             Avi Cohen,Innovator,Go-Getter,Thorough,
             Dafna Greenshpan ,Thorough,Analytical,Social,
             Danna Regev,Thorough,Analytical,Go-Getter,
-            Donna,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
-            Donna Regev,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
+            Danna Regev,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
+            Danna Regev,Analytical,Intuitive,Innovator,https://www.linkedin.com/in/danna-regev-5612662/
             Efrat Greenberg,Go-Getter,Analytical,Intuitive,https://www.linkedin.com/in/efratgreenberg/
             Eyal Yona,Social,Analytical,Thorough,https://www.linkedin.com/in/eyal-yona/
             Eyal Yona,Innovator,Social,Analytical,https://www.linkedin.com/in/eyal-yona/
