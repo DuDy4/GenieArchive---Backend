@@ -13,7 +13,7 @@ COPY .python-version .
 COPY data ./data
 COPY ai ./ai
 COPY templates ./templates
-COPY Analytical_ridge_regression.pkl
+COPY Analytical_ridge_regression.pkl .
 COPY Go-Getter_ridge_regression.pkl .
 COPY Innovator_ridge_regression.pkl .
 COPY Intuitive_ridge_regression.pkl .
