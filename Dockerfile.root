@@ -14,12 +14,13 @@ COPY data ./data
 COPY ai ./ai
 COPY templates ./templates
 COPY Analytical_ridge_regression.pkl
-COPY Go-Getter_ridge_regression.pkl
-COPY Innovator_ridge_regression.pkl
-COPY Intuitive_ridge_regression.pkl
-COPY Social_ridge_regression.pkl
-COPY Thorough_ridge_regression.pkl
-COPY trait_means.pkl
+COPY Go-Getter_ridge_regression.pkl .
+COPY Innovator_ridge_regression.pkl .
+COPY Intuitive_ridge_regression.pkl .
+COPY Social_ridge_regression.pkl .
+COPY Thorough_ridge_regression.pkl .
+COPY trait_means.pkl .
+COPY scaler.pkl .
 
 RUN uv sync
 ENV PYTHONPATH=/app/.venv/lib/python3.12/site-packages
