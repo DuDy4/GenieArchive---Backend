@@ -431,6 +431,26 @@ class Langsmith:
         except Exception as e:          
             response = f"Error: {e}"
         return response
+    
+
+    async def get_profile_param_reasoning(self, person_name, text, param_name, reasoning, profile):
+        logger.info("Running Langsmith prompt for profile-param-reasoning")
+        prompt = hub.pull("profile-param-reasoning")
+        arguments = {
+            "name": person_name,
+            "text": text,
+            "param": param_name,
+            "reasoning": reasoning,
+            "profile": profile
+        }
+        try:
+            runnable = prompt | self.model
+            response = await self._run_prompt_with_retry(runnable, arguments)            
+            if response and response.content and isinstance(response.content, str):
+                response = response.content
+        except Exception as e:          
+            response = f"Error: {e}"
+        return response
 
     async def get_work_history_post(self, work_history_artifact: dict):
         logger.info("Running Langsmith prompt for work history post")

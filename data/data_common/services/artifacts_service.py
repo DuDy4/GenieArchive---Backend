@@ -168,3 +168,10 @@ class ArtifactsService():
         :return: List of unique profiles
         """
         return self.artifacts_repository.get_unique_users()
+    
+
+
+if __name__ == "__main__":
+    artifacts_service = ArtifactsService()
+    artifacts_service.prepare_data_for_training()
+    # artifacts_service.calculate_overall_params
