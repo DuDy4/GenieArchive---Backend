@@ -1,6 +1,7 @@
 import math
 
 from common.genie_logger import GenieLogger
+import pandas as pd
 
 logger = GenieLogger()
 
@@ -24,7 +25,7 @@ class ProfilePredictionsData:
             Adi Baltter,Innovator,Go-Getter,Analytical,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Innovator,Analytical,Social,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Social,Innovator,Intuitive,https://www.linkedin.com/in/adibaltter/
-            Adi Baltter,Analytical,Innovator,,https://www.linkedin.com/in/adibaltter/
+            Adi Baltter,Analytical,Innovator,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Innovator,Analytical,Intuitive,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Analytical,Innovator,Go-Getter,https://www.linkedin.com/in/adibaltter/
             Adi Baltter,Analytical,Innovator,Thorough,https://www.linkedin.com/in/adibaltter/
@@ -146,6 +147,20 @@ class ProfilePredictionsData:
             Yotam tzafrir,Analytical,Thorough,Intuitive,
             """.strip().splitlines()
 
+        """Adi Baltter,Emotional,Social,Analytical Adi Baltter,Go-Getter,Analytical,Innovator Adi Baltter,Innovator,Go-Getter,Analytical Adi Baltter,Innovator,Thorough,Social Adi Baltter,Social,Emotional,Innovator   
+amiri,Analytical,Go-Getter,Emotional amiri,Analytical,Thorough,Emotional amiri,Go-Getter,Thorough,Emotional amiri,Go-Getter,Thorough,Innovator   
+Boaz,Analytical,Go-Getter,Emotional Boaz,Go-Getter,Innovator,Thorough Boaz,Innovator,Analytical,Emotional   
+Danny,Innovator,Analytical,Emotional Danny,Innovator,Emotional,Go-Getter Danny,Innovator,Go-Getter,Social   
+Dror,Analytical,Social,Thorough Dror,Go-Getter,Innovator,Analytical Dror,Innovator,Social,Thorough   
+Gal,Analytical,Go-Getter,Emotional Gal,Social,Emotional,Analytical Gal,Social,Thorough,Emotional Gal,Thorough,Social,Analytical Gal,Thorough,Social,Innovator   
+Guy,Analytical,Innovator,Emotional Guy,Go-Getter,Analytical,Innovator Guy,Go-Getter,Innovator,Emotional   
+Oded,Analytical,Go-Getter,Emotional Oded,Analytical,Go-Getter,Innovator Oded,Analytical,Innovator,Emotional Oded,Analytical,Thorough,Emotional   
+Shay,Analytical,Thorough,Emotional Shay,Social,Analytical,Emotional Shay,Social,Emotional,Thorough Shay,Social,Go-Getter,Analytical Shay,Thorough,Social,Innovator   
+Shimi,Analytical,Social,Emotional Shimi,Go-Getter,Social,Emotional Shimi,Thorough,Analytical,Emotional Shimi,Thorough,Social,Innovator   
+Tomer M,Analytical,Thorough,Innovator Tomer M,Emotional,Social,Innovator Tomer M,Social,Thorough,Emotional Tomer M,Thorough,Emotional,Social   
+Yaniv,Analytical,Go-Getter,Go-Getter Yaniv,Analytical,Social,Thorough Yaniv,Analytical,Thorough,Innovator Yaniv,Go-Getter,Emotional,Analytical Yaniv,Go-Getter,Thorough,Innovator Yaniv,Thorough,Analytical,Innovator   
+Yeftach,Analytical,Social,Innovator Yeftach,Analytical,Thorough,Social Yeftach,Social,Innovator,Go-Getter Yeftach,Thorough,Emotional,Emotional   """
+
         guesses_dict = {}
 
         for line in raw_data:
@@ -221,6 +236,43 @@ class ProfilePredictionsData:
         return 1.0 / (1.0 + math.exp(-self.alpha * (x - self.center)))
 
 
-#
-# if __name__ == "__main__":
-#     profile_predictions_data = ProfilePredictionsData()
+
+
+def excel_to_dict_list(file_path):
+    # Load the Excel file
+    df = pd.read_excel(file_path)
+
+    # Initialize an empty list to store the dictionaries
+    dict_list = []
+
+    # Slice out the first two columns (date and names)
+    date_and_names = df.iloc[:, 1]  # Get the "name" column (index 1)
+    data = df.iloc[:, 2:]  # Slice out everything starting from the 3rd column (index 2)
+
+    # Iterate through every 4 columns
+    for i in range(0, data.shape[1], 4):  # Step by 4 columns
+        group = data.iloc[:, i:i+4]  # Get the current group of 4 columns
+
+        # Iterate over each row in the group
+        for idx, row in group.iterrows():
+            # Ensure no empty rows are processed
+            if row.notna().all():  # Skip rows with NaN values
+                # Create a dictionary for the current profile
+                profile_dict = {
+                    "name": row.iloc[0],
+                    "most_likely": row.iloc[1],
+                    "second_likely": row.iloc[2],
+                    "least_likely": row.iloc[3]
+                }
+                dict_list.append(profile_dict)
+    dict_list_sorted = sorted(dict_list, key=lambda x: x['name'])
+    return dict_list_sorted
+
+# Example Usage
+file_path = "Genie_Profiling_Form2025-02-19_03_22_49.xlsx"  # Replace with your Excel file path
+profiles = excel_to_dict_list(file_path)
+
+# Print the results
+for profile in profiles:
+    print(profile)
+
