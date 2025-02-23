@@ -31,6 +31,26 @@ class ProfileCategoryExplanation(BaseModel):
             recommendations=data.get("recommendations"),
         )
 
+class ProfileCategoryReasoning(BaseModel):
+    text: str
+    param: str
+    reasoning: str
+
+    @staticmethod
+    def from_dict(data: dict) -> "ProfileCategoryReasoning":
+        return ProfileCategoryReasoning(
+            text=data.get("text"),
+            param=data.get("param"),
+            reasoning=data.get("reasoning"),
+        )
+    
+    
+    def to_dict(self) -> Dict[str, str | int]:
+        return {
+            "text": str(self.text),
+            "param": str(self.param),
+            "reasoning": str(self.reasoning),
+        }
 
 class ProfileCategory(BaseModel):
     category: str
@@ -38,6 +58,7 @@ class ProfileCategory(BaseModel):
     description: str
     extended_description: Optional[str] = None
     explanation: Optional[ProfileCategoryExplanation] = None
+    reasoning: Optional[list[ProfileCategoryReasoning]] = None
     icon: HttpUrl | None = '/images/image9.png'
     color: str = "#000000"
     font_color: str = "#FFFFFF"
@@ -50,6 +71,7 @@ class ProfileCategory(BaseModel):
             description=data["description"],
             extended_description=data.get("extended_description"),
             explanation=ProfileCategoryExplanation.from_dict(data["explanation"]) if data.get("explanation") else None,
+            reasoning=[ProfileCategoryReasoning.from_dict(reasoning) for reasoning in data["reasoning"]] if data.get("reasoning") else None,
             icon=env_utils.get("BLOB_FRONTEND_PROFILE_CATEGORY_URL", '/images/image9.png') +
                  (f"{'-'.join(data["category"].lower().split(' '))}.png" if data.get("category") else ''),
             color=data.get("color", "#000000"),

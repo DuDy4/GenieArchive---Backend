@@ -2,6 +2,7 @@ import json
 import traceback
 from typing import Union
 
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategoryReasoning
 import psycopg2
 
 from common.utils.str_utils import get_uuid4
@@ -36,6 +37,7 @@ class UserProfilesRepository:
                 get_to_know JSONB default '{}',
                 sales_criteria JSONB default '[]',
                 action_items JSONB default '[]'
+                reasoning JSONB default '[]'
             );
             """
         with db_connection() as conn:
@@ -146,6 +148,28 @@ class UserProfilesRepository:
                 traceback.print_exception(error)
         return None
 
+    def get_reasonings(self, uuid: str, user_id: str) -> list[ProfileCategoryReasoning]:
+        select_query = """
+            SELECT reasoning
+            FROM user_profiles
+            WHERE profile_uuid = %s
+            AND user_id = %s;
+            """
+        with db_connection() as conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (uuid, user_id))
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        action_items = [ProfileCategoryReasoning.from_dict(item) for item in row[0]]
+                        return action_items
+                    else:
+                        logger.warning(f"Couldn't find reasoning for {uuid}")
+            except Exception as error:
+                logger.error(f"Error fetching reasoning by uuid: {error}")
+                traceback.print_exception(error)
+        return None
+
     def get_sales_criteria_and_action_items(self, uuid: str, user_id: str) -> (
             tuple)[list[SalesCriteria] | None, list[SalesActionItem] | None]:
         select_query = """
@@ -170,30 +194,6 @@ class UserProfilesRepository:
                 traceback.print_exception(error)
                 return None, None
 
-    # def get_all_uuids_and_users_id_without_action_items(self, forced: bool = False):
-    #     select_query = f"""
-    #         SELECT o.person_uuid, o.user_id FROM ownerships o
-    #         join users u on u.user_id = o.user_id
-    #         join persons p on p.uuid = o.person_uuid
-    #         join profiles pr on pr.uuid = p.uuid
-    #         left join user_profiles up on p.uuid = up.profile_uuid AND o.user_id = up.user_id
-    #         {f"WHERE up.action_items = '[]' OR up.action_items IS NULL" if not forced else ""}
-    #         ORDER BY o.id desc;
-    #         """
-    #     with db_connection() as conn:
-    #         try:
-    #             with conn.cursor() as cursor:
-    #                 cursor.execute(select_query)
-    #                 rows = cursor.fetchall()
-    #                 result_object_list = []
-    #                 for row in rows:
-    #                     result_object_list.append({
-    #                         "profile_uuid": row[0],
-    #                         "user_id": row[1]
-    #                     })
-    #                 return result_object_list
-    #         except psycopg2.Error as error:
-    #             raise Exception(f"Error fetching uuids and tenants id without action items, because: {error.pgerror}")
 
     def update_sales_criteria(self, uuid: str, user_id: str, sales_criteria: list[SalesCriteria]):
         update_query = """
@@ -244,6 +244,32 @@ class UserProfilesRepository:
                     logger.info(f"Updated action items for {uuid}")
             except psycopg2.Error as error:
                 raise Exception(f"Error updating action items, because: {error.pgerror}")
+
+
+    def update_reasonings(self, uuid: str, user_id: str, reasonings: list[ProfileCategoryReasoning]):
+        update_query = """
+            UPDATE user_profiles
+            SET reasoning = %s
+            WHERE profile_uuid = %s
+            AND user_id = %s;
+            """
+        with db_connection() as conn:
+            try:
+                if not self.exists(uuid, user_id):
+                    self._insert(uuid, user_id)
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        update_query,
+                        (
+                            json.dumps([reasoning.to_dict() for reasoning in reasonings]),
+                            uuid,
+                            user_id,
+                        ),
+                    )
+                    conn.commit()
+                    logger.info(f"Updated reasoning for {uuid}")
+            except psycopg2.Error as error:
+                raise Exception(f"Error updating reasoning, because: {error.pgerror}")
 
 
     def update_get_to_know(self, uuid, get_to_know, user_id):

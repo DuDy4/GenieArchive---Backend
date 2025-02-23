@@ -474,7 +474,7 @@ def get_profile_strengths(
     response_model=ProfileCategory,
     summary="Fetches strengths of a profile",
 )
-def get_profile_category_v2(
+async def get_profile_category_v2(
         request: Request,
         uuid: str,
         user_id: str,
@@ -483,7 +483,7 @@ def get_profile_category_v2(
     logger.info(f"Received strengths request for profile: {uuid}")
     allowed_impersonate_user_id = get_user_id_to_impersonate(impersonate_user_id, request)
     user_id = allowed_impersonate_user_id if allowed_impersonate_user_id else user_id
-    response = profiles_api_service.get_profile_category_v2(user_id, uuid)
+    response = await profiles_api_service.get_profile_category_v2(user_id, uuid)
     logger.info(f"About to send response: {response}")
     if response:
         return response

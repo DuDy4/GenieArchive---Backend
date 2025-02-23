@@ -125,6 +125,40 @@ class ArtifactsRepository:
                 logger.error(f"Error getting unique users: {error.pgerror}")
                 traceback.print_exc()
                 return
+            
+    def get_params_max_scores(self, parmas: List[str], profile_uuid) -> List[ArtifactScoreDTO]:
+        select_query = """
+            SELECT DISTINCT ON (s.param)
+                s.param,
+                s.score,
+                s.clues_scores,
+                a.uuid, a.artifact_type, a.source, a.profile_uuid, a.artifact_url, a.text, a.description, a.summary, a.published_date, a.created_at, a.metadata
+            FROM artifact_scores AS s
+            JOIN artifacts AS a
+                ON s.artifact_uuid::uuid = a.uuid
+            WHERE a.profile_uuid = %s
+            AND s.param = ANY(%s::text[])
+            ORDER BY s.param, s.score DESC;
+        """
+
+        with db_connection() as conn:
+            artifacts = []
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(select_query, (profile_uuid, parmas))
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        artifacts.append({
+                            "param": row[0],
+                            "score": row[1],
+                            "clues_scores": row[2],
+                            "artifact" : ArtifactDTO.from_tuple(row[3:])
+                        })
+                    return artifacts
+            except psycopg2.Error as error:
+                logger.error(f"Error getting unique users: {error.pgerror}")
+                traceback.print_exc()
+                return artifacts
 
     def exists(self, uuid: str):
         select_query = """

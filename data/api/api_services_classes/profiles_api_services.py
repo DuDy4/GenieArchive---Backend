@@ -1,9 +1,9 @@
 from common.utils import email_utils, env_utils
-from common.utils.email_utils import filter_emails_with_additional_domains
 from common.utils.job_utils import fix_and_sort_experience_from_pdl, fix_and_sort_experience_from_apollo
+from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategoryReasoning
 from data.data_common.services.artifacts_service import ArtifactsService
 from data.api.base_models import *
-from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category, determine_profile_v2_category_v2
+from data.data_common.utils.persons_utils import determine_profile_category, determine_profile_v2_category, determine_profile_v2_category_v2, weights
 from data.data_common.dependencies.dependencies import (
     profiles_repository,
     ownerships_repository,
@@ -21,6 +21,7 @@ from fastapi import HTTPException
 
 from common.genie_logger import GenieLogger
 from data.data_common.utils.str_utils import to_custom_title_case
+from ai.langsmith.langsmith_loader import Langsmith
 
 logger = GenieLogger()
 
@@ -39,6 +40,7 @@ class ProfilesApiService:
         self.artifacts_repository = artifacts_repository()
         self.artifact_scores_repository = artifact_scores_repository()
         self.artifacts_service = ArtifactsService()
+        self.langsmith = Langsmith()
 
     def get_profiles_and_persons_for_meeting(self, user_id, meeting_id):
         meeting = self.meetings_repository.get_meeting_data(meeting_id)
@@ -324,13 +326,40 @@ class ProfilesApiService:
             status_code=404, detail={"error": f"Profile {uuid} was not found under tenant {user_id}"}
         )
     
-    def get_profile_v2(self, name, profile_uuid):
+    async def get_profile_v2(self, name, profile_uuid, user_id):
         param_overall_scores = self.artifacts_service.calculate_overall_params(name, profile_uuid)
         if not param_overall_scores:
             logger.error(f"No overall scores found for {name} | {profile_uuid}")
             return None
         profile_v2_category = determine_profile_v2_category_v2(param_overall_scores)
-        # profile_v2_category = determine_profile_v2_category(param_overall_scores)
+        relevant_params = list(weights[profile_v2_category.category].keys())
+        reasoning_params =self.artifacts_repository.get_params_max_scores(relevant_params, profile_uuid)
+        profile_reasonings = []
+        db_reasonings = self.user_profiles_repository.get_reasonings(profile_uuid, user_id)
+        for reasoning in reasoning_params:
+            basic_reasoning = reasoning['clues_scores']['overall_reasoning']
+            reasoning_dict = {
+                "text": reasoning['artifact'].text,
+                "param": reasoning['param'],
+                "reasoning": basic_reasoning,
+            }
+            reasoning_result = ProfileCategoryReasoning.from_dict(reasoning_dict)
+            if not db_reasonings:
+                ai_reason = await self.langsmith.get_profile_param_reasoning(name, reasoning['artifact'].text, reasoning['param'], basic_reasoning, profile_v2_category.category)
+                if ai_reason:
+                    reasoning_result.reasoning = ai_reason
+            else:
+                for db_reason in db_reasonings:
+                    if db_reason.text == reasoning_result.text:
+                        reasoning_result.reasoning = db_reason.reasoning
+            profile_reasonings.append(reasoning_result)
+
+        if not db_reasonings and profile_reasonings:
+            self.user_profiles_repository.update_reasonings(profile_uuid, user_id, profile_reasonings)
+
+        if profile_reasonings:
+            profile_v2_category.reasoning = profile_reasonings
+
         return profile_v2_category
 
     def get_profile_category_stats(self):
@@ -354,7 +383,7 @@ class ProfilesApiService:
         for key, value in categories_count.items():
             print(f"{key} - {value}")
 
-    def get_profile_category_v2(self, user_id, uuid):
+    async def get_profile_category_v2(self, user_id, uuid):
         if not self.ownerships_repository.check_ownership(user_id, uuid):
             email = self.users_repository.get_email_by_user_id(user_id)
             if email and email_utils.is_genie_admin(email):
@@ -363,6 +392,6 @@ class ProfilesApiService:
                 logger.error(f"Profile not found under user_id: {user_id} for uuid: {uuid}")
                 raise HTTPException(status_code=404, detail="Profile not found under this user")
         profile = self.profiles_repository.get_profile_data(uuid)
-        profile_category_v2 = self.get_profile_v2(profile.name, uuid)
+        profile_category_v2 = await self.get_profile_v2(profile.name, uuid, user_id)
         return profile_category_v2
 

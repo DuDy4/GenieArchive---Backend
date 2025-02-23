@@ -52,7 +52,7 @@ class ProfileParamWeights:
         training_data = None
         for prediction in self.predictions:
             if prediction not in self.people_anaylsed:
-                logger.info(f"Person {prediction} not found in the data")
+                logger.info(f"{prediction}")
         if training_data:
             self.train(training_data)
 
@@ -195,3 +195,8 @@ class ProfileParamWeights:
 
         return predicted_probs
 
+
+if __name__ == "__main__":
+    ppw = ProfileParamWeights()
+
+    ppw.predict_for_new_person(new_person_traits)
