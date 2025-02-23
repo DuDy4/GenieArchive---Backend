@@ -90,8 +90,8 @@ class ArtifactsRepository:
 
     def _insert_artifact(self, artifact: ArtifactDTO) -> Optional[str]:
         insert_query = f"""
-        INSERT INTO artifacts (uuid, artifact_type, source, profile_uuid, artifact_url, text, description, summary, published_date, {"created_at, " if artifact.created_at else ''} metadata)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, {'%s,' if artifact.created_at else ''} %s)
+        INSERT INTO artifacts (uuid, artifact_type, source, profile_uuid, artifact_url, text, description, summary, published_date, created_at, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING uuid;
         """
         artifact_data = artifact.to_tuple()

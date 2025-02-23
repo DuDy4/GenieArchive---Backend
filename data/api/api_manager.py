@@ -730,6 +730,20 @@ def sync_profile(person_uuid: str, api_key: str) -> JSONResponse:
     response = admin_api_service.sync_profile(person_uuid)
     return JSONResponse(content=response)
 
+@v1_router.get("/internal/sync-profile-params/{person_uuid}")
+def sync_profile_params(person_uuid: str, api_key: str) -> JSONResponse:
+    """
+    Sync a profile with the PDL API.
+
+    - **person_uuid**: The UUID of the person to sync.
+    - **api_key**: The internal API key
+    """
+    if api_key != INTERNAL_API_KEY:
+        logger.error(f"Invalid API key: {api_key}")
+        return JSONResponse(content={"error": "Invalid API key"})
+    response = admin_api_service.sync_params(person_uuid)
+    return JSONResponse(content=response)
+
 
 @v1_router.get("/internal/latest-profiles")
 def get_latest_profiles(request: Request, limit: int = 3, search_term: str = None) -> JSONResponse:

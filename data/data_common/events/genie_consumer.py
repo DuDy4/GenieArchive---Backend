@@ -12,7 +12,7 @@ from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 
 from common.utils.event_utils import extract_object_id
 from data.data_common.data_transfer_objects.status_dto import StatusEnum
-from data.data_common.dependencies.dependencies import statuses_repository
+from data.data_common.repositories.statuses_repository import StatusesRepository
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
@@ -52,7 +52,7 @@ class GenieConsumer:
         self.current_event = None
         self._shutdown_event = asyncio.Event()
         self.is_healthy = True
-        self.statuses_repository = statuses_repository()
+        self.statuses_repository = StatusesRepository()
 
         health_check_port = env_utils.get("HEALTH_CHECK_PORT")
         if health_check_port:

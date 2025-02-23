@@ -38,6 +38,7 @@ class ProfileParamsConsumer(GenieConsumer):
                 Topic.NEW_PERSONAL_NEWS,
                 Topic.NEW_PERSONAL_DATA,
                 Topic.NEW_PERSON_ARTIFACT,
+                Topic.NEW_WORK_HISTORY_ARTIFACT,
             ],
             consumer_group=CONSUMER_GROUP,
         )
@@ -61,6 +62,9 @@ class ProfileParamsConsumer(GenieConsumer):
             case Topic.NEW_PERSONAL_DATA:
                 logger.info("Handling new personal data")
                 await self.handle_work_history(event)
+            case Topic.NEW_WORK_HISTORY_ARTIFACT:
+                logger.info("Handling new work history artifact")
+                await self.process_work_history_artifact(event)
             case _:
                 logger.error(f"Should not have reached here: {topic}, consumer_group: {CONSUMER_GROUP}")
 
@@ -185,7 +189,8 @@ class ProfileParamsConsumer(GenieConsumer):
         if not work_history:
             logger.error(f"No work history found for person {person.email}")
             raise Exception("No work history found")
-        work_history_tasks = []
+
+        event_batch = EventHubBatchManager()
         for work_history_element in work_history:
             work_history_artifact = None
             try:
@@ -203,21 +208,51 @@ class ProfileParamsConsumer(GenieConsumer):
             if self.artifacts_service.exists_work_history_element(work_history_artifact):
                 logger.info(f"Work history element {work_history_artifact.uuid} already exists")
                 continue
+            event = GenieEvent(
+                topic=Topic.NEW_WORK_HISTORY_ARTIFACT,
+                data={"person": person.to_dict(), "work_history_artifact" : work_history_artifact.to_dict()},
+            )
+            event_batch.queue_event(event)
+
+        await event_batch.send_batch()
+
+
+    async def process_work_history_artifact(self, event):
+        event_body = event.body_as_str()
+        logger.info(f"Event body: {str(event_body)[:300]}")
+        event_body = json.loads(event_body)
+        if isinstance(event_body, str):
+            event_body = json.loads(event_body)
+        work_history_artifact_dict = event_body.get("work_history_artifact")
+        person_dict = event_body.get("person")
+        if not work_history_artifact_dict or not person_dict:
+            logger.error(f"No work history artifact or person data found for event {event_body}")
+            raise Exception("No work history artifact or person data found")
+        work_history_artifact = WorkHistoryArtifactDTO.from_dict(work_history_artifact_dict)
+        person = PersonDTO.from_dict(person_dict)
+
+
+        try:
             if not work_history_artifact.text:
                 work_history_artifact.text = await self.langsmith.get_work_history_post(work_history_artifact.to_dict())
+
+            # Save artifact
             self.artifacts_service.artifacts_repository.save_artifact(work_history_artifact)
-            calculate_task = asyncio.create_task(self.artifacts_service.calculate_artifact_scores(work_history_artifact, person, isWorkHistory=False))
-            work_history_tasks.append({"task": calculate_task, "artifact": work_history_artifact})
-        tasks = [task.get("task") for task in work_history_tasks]
-        artifacts = [task.get("artifact") for task in work_history_tasks]
-        await asyncio.gather(*tasks)
-        for artifact in artifacts:
+
+            # Calculate artifact scores
+            await self.artifacts_service.calculate_artifact_scores(work_history_artifact, person, isWorkHistory=False)
+
+            # Send event
             event = GenieEvent(
                 topic=Topic.ARTIFACT_SCORES_CALCULATED,
-                data={"profile_uuid": profile_uuid, "artifact_uuid": artifact.uuid},
+                data={"profile_uuid": person.uuid, "artifact_uuid": work_history_artifact.uuid},
             )
             event.send()
-        return {"status": "success"}
+
+        except Exception as e:
+            logger.error(f"Error processing work history artifact: {e}")
+
+
 
 
 if __name__ == "__main__":
