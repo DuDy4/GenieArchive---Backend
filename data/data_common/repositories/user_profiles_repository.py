@@ -36,7 +36,7 @@ class UserProfilesRepository:
                 connections JSONB default '[]',
                 get_to_know JSONB default '{}',
                 sales_criteria JSONB default '[]',
-                action_items JSONB default '[]'
+                action_items JSONB default '[]',
                 reasoning JSONB default '[]'
             );
             """
