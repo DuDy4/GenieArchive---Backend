@@ -198,20 +198,18 @@ def mark_badge_as_seen(request: Request):
     badges_api_service.mark_badges_as_seen(user_id)
     return JSONResponse(content={"status": "success", "message": "Badge marked as seen"})
 
-@v1_router.post("/successful-login")
-async def post_successful_login(
-    request: Request,
-):
-    """
-    Returns a tenant ID.
-    """
-    consumer_key = "3MVG9uq9ANVdsbAW4kjddHk9hFp6uB1LARAPKa4Qdmc30o1opMVaFK91jHCorAMBC.OT37Um3q4nAATDnCV0u"
-    consumer_secret = "C196892FDED6DF704A5D5C356113937993D4309827530A82B17312AEE801943D"
-    logger.info("Received JWT data")
-    auth_data = await request.json()
-    logger.info(f"Received auth data: {auth_data}")
-    response = users_api_service.post_successful_login(auth_data)
-    return {"verdict": "allow", "response": response}
+# @v1_router.post("/successful-login")
+# async def post_successful_login(
+#     request: Request,
+# ):
+#     """
+#     Returns a tenant ID.
+#     """
+#     logger.info("Received JWT data")
+#     auth_data = await request.json()
+#     logger.info(f"Received auth data: {auth_data}")
+#     response = users_api_service.post_successful_login(auth_data)
+#     return {"verdict": "allow", "response": response}
 
 @v1_router.get("/notifications/badges")
 async def badge_notifications_stream(request: Request):
