@@ -22,7 +22,7 @@ from data.api.api_services_classes.admin_api_services import AdminApiService
 from data.api.api_services_classes.user_materials_services import UserMaterialServices
 from data.api.api_services_classes.stats_api_services import StatsApiService
 from data.api.api_services_classes.badges_api_services import BadgesApiService
-from data.api.api_services_classes.params_api_services import ParamsApiService
+# from data.api.api_services_classes.params_api_services import ParamsApiService
 from data.api.api_services_classes.users_api_services import UsersApiService
 
 from common.genie_logger import GenieLogger
@@ -44,7 +44,7 @@ admin_api_service = AdminApiService()
 user_materials_service = UserMaterialServices()
 stats_api_service = StatsApiService()
 badges_api_service = BadgesApiService()
-params_api_service = ParamsApiService()
+# params_api_service = ParamsApiService()
 users_api_service = UsersApiService()
 
 logger.info("Imported all services")
@@ -962,39 +962,39 @@ async def get_form(request: Request):
     return templates.TemplateResponse("multi-post-form.html", {"request": request})
 
 
-@v1_router.post("/posts/submit")
-async def handle_posts_form(
-    request: Request,
-):
-    """
-    Handle form submission and return parsed data.
-    """
-    body = await request.json()
-    response = await params_api_service.evaluate_posts(body['linkedin'], body['num_posts'], body['name'], body['selected_numbers'])
+# @v1_router.post("/posts/submit")
+# async def handle_posts_form(
+#     request: Request,
+# ):
+#     """
+#     Handle form submission and return parsed data.
+#     """
+#     body = await request.json()
+#     response = await params_api_service.evaluate_posts(body['linkedin'], body['num_posts'], body['name'], body['selected_numbers'])
+#
+#     # Return parsed data
+#     return JSONResponse(content=response)
 
-    # Return parsed data
-    return JSONResponse(content=response)
-
-@v1_router.get("/params", response_class=HTMLResponse)
-async def get_form(request: Request):
-    """
-    Serve the form template.
-    """
-    return templates.TemplateResponse("form.html", {"request": request})
-
-@v1_router.post("/params/submit")
-async def handle_form(
-    request: Request,
-):
-    """
-    Handle form submission and return parsed data.
-    """
-    body = await request.json()
-    await params_api_service._initialize_sheet()
-    response = await params_api_service.evaluate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
-
-    # Return parsed data
-    return JSONResponse(content=response)
+# @v1_router.get("/params", response_class=HTMLResponse)
+# async def get_form(request: Request):
+#     """
+#     Serve the form template.
+#     """
+#     return templates.TemplateResponse("form.html", {"request": request})
+#
+# @v1_router.post("/params/submit")
+# async def handle_form(
+#     request: Request,
+# ):
+#     """
+#     Handle form submission and return parsed data.
+#     """
+#     body = await request.json()
+#     await params_api_service._initialize_sheet()
+#     response = await params_api_service.evaluate_param(body['artifact'], body['name'], body['position'], body['company'], body['param_id'])
+#
+#     # Return parsed data
+#     return JSONResponse(content=response)
 
 
 # @v1_router.post("/salesforce/contact", response_class=JSONResponse)
@@ -1011,29 +1011,29 @@ async def handle_form(
 #     return JSONResponse(content=response)
 
 
-# @v1_router.get(
-#     "/admin/tenants",
-#     response_class=JSONResponse,
-#     summary="Fetches all tenants for an admin",
-#     include_in_schema=False,
-# )
-# def fetch_all_tenants(
-#     request: Request,
-# ) -> JSONResponse:
-#     """
-#     Fetches all tenants for an admin
-#     """
-#     if (
-#         request.state
-#         and hasattr(request.state, "user_email")
-#         and email_utils.is_genie_admin(request.state.user_email)
-#     ):
-#         response = admin_api_service.fetch_all_tenants()
-#         logger.info(f"Returning tenants: {response}")
-#         return JSONResponse(content=response)
-#
-#     else:
-#         raise HTTPException(status_code=403, detail="Forbidden endpoint")
+@v1_router.get(
+    "/admin/tenants",
+    response_class=JSONResponse,
+    summary="Fetches all tenants for an admin",
+    include_in_schema=False,
+)
+def fetch_all_tenants(
+    request: Request,
+) -> JSONResponse:
+    """
+    Fetches all tenants for an admin
+    """
+    # if (
+    #     request.state
+    #     and hasattr(request.state, "user_email")
+    #     and email_utils.is_genie_admin(request.state.user_email)
+    # ):
+    response = admin_api_service.fetch_all_tenants()
+    logger.info(f"Returning tenants: {response}")
+    return JSONResponse(content=response)
+
+    # else:
+    #     raise HTTPException(status_code=403, detail="Forbidden endpoint")
 
 
 @v1_router.get(

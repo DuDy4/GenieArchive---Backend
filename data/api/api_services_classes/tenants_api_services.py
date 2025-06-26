@@ -1,18 +1,12 @@
-
-import os
-import requests
 import datetime
 
 from common.utils import env_utils
 from common.utils.str_utils import get_uuid4
-from data.data_common.data_transfer_objects.meeting_dto import MeetingDTO
 from data.data_common.dependencies.dependencies import tenants_repository, google_creds_repository
 from google_auth_oauthlib.flow import InstalledAppFlow, Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from data.data_common.events.genie_event import GenieEvent
-from data.data_common.events.topics import Topic
-from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
+# from data.data_common.events.genie_event import GenieEvent
+# from data.data_common.events.topics import Topic
+# from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
 
@@ -54,7 +48,7 @@ class TenantsApiService:
             "user_id": user_name,
         }
         self.tenants_repository.insert(tenant_data)
-        self.fetch_google_meetings(user_email)
+        # self.fetch_google_meetings(user_email)
         response = {
             "claims": {
                 "tenantId": user_tenant_id,
@@ -74,94 +68,94 @@ class TenantsApiService:
             logger.error(f"Error updating reminder subscription: {str(e)}")
             raise HTTPException(status_code=500, detail="Error updating reminder subscription")
 
-    def fetch_google_meetings(self, user_email, meetings_num=30):
-        logger.info(f"Received Google meetings request for tenant: {user_email}")
+    # def fetch_google_meetings(self, user_email, meetings_num=30):
+    #     logger.info(f"Received Google meetings request for tenant: {user_email}")
+    #
+    #     google_credentials = self.google_creds_repository.get_creds(user_email)
+    #     if not google_credentials:
+    #         logger.error("Google credentials not found for the tenant")
+    #         return {"error": "Google credentials not found"}
+    #
+    #     last_fetch_meetings = google_credentials.get("last_fetch_meetings")
+    #     if last_fetch_meetings:
+    #         # If last_fetch_meetings is already a datetime object, no need to parse it
+    #         if isinstance(last_fetch_meetings, datetime.datetime):
+    #             time_diff = datetime.datetime.now() - last_fetch_meetings
+    #         else:
+    #             # Otherwise, convert it from a string (if needed)
+    #             last_fetch_meetings = datetime.datetime.strptime(last_fetch_meetings, "%Y-%m-%d %H:%M:%S.%f")
+    #             time_diff = datetime.datetime.now() - last_fetch_meetings
+    #
+    #         if time_diff.total_seconds() < 30:
+    #             logger.info("Meetings already fetched in the last 30 seconds. Skipping.")
+    #             return {"message": "Meetings already fetched in the last 30 seconds. Skipping..."}
+    #     else:
+    #         logger.warning("Missing last_fetch_meetings. Skipping check.")
+    #
+    #     # Construct the Credentials object
+    #     credentials = Credentials(
+    #         token=google_credentials.get("access_token"),
+    #         refresh_token=google_credentials.get("refresh_token"),
+    #         client_id=self.google_client_id,
+    #         client_secret=self.google_client_secret,
+    #         token_uri=self.google_token_uri,
+    #     )
+    #
+    #     # Log credentials before using them
+    #
+    #     # Build the service using the credentials
+    #     service = build("calendar", "v3", credentials=credentials)
+    #
+    #     now = datetime.datetime.utcnow().isoformat() + "Z"
+    #     now_minus_10_hours = (datetime.datetime.utcnow() - datetime.timedelta(hours=10)).isoformat() + "Z"
+    #     logger.info(f"[EMAIL={user_email}] Fetching meetings starting from: {now_minus_10_hours}")
+    #
+    #     try:
+    #         events_result = (
+    #             service.events()
+    #             .list(
+    #                 calendarId="primary",
+    #                 timeMin=now_minus_10_hours,
+    #                 maxResults=meetings_num,
+    #                 singleEvents=True,
+    #                 orderBy="startTime",
+    #             )
+    #             .execute()
+    #         )
+    #         logger.info(f"Events result: {len(events_result)} events")
+    #     except Exception as e:
+    #         error_message = str(e)
+    #         if "invalid_grant" in error_message:
+    #             logger.error(f"Invalid grant error: {e}. The user may need to re-authenticate.")
+    #             raise HTTPException(
+    #                 status_code=401,
+    #                 detail="Invalid grant: Refresh token is no longer valid. Please re-authenticate.",
+    #             )
+    #         else:
+    #             logger.error(f"Error fetching events from Google Calendar: {e}")
+    #             raise HTTPException(
+    #                 status_code=500, detail=f"Error fetching events from Google Calendar: {e}"
+    #             )
+    #
+    #     meetings = events_result.get("items", [])
+    #     logger.info(f"Fetched events: {meetings}")
+    #
+    #     if not meetings:
+    #         self.google_creds_repository.update_last_fetch_meetings(user_email)
+    #         return {"message": "No upcoming events found."}
+    #     tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
+    #     logger.set_tenant_id(tenant_id)
+    #     event = GenieEvent(
+    #         topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
+    #     )
+    #     logger.info(f"Sending {len(meetings)} meetings to the processing queue")
+    #     event.send()
 
-        google_credentials = self.google_creds_repository.get_creds(user_email)
-        if not google_credentials:
-            logger.error("Google credentials not found for the tenant")
-            return {"error": "Google credentials not found"}
-
-        last_fetch_meetings = google_credentials.get("last_fetch_meetings")
-        if last_fetch_meetings:
-            # If last_fetch_meetings is already a datetime object, no need to parse it
-            if isinstance(last_fetch_meetings, datetime.datetime):
-                time_diff = datetime.datetime.now() - last_fetch_meetings
-            else:
-                # Otherwise, convert it from a string (if needed)
-                last_fetch_meetings = datetime.datetime.strptime(last_fetch_meetings, "%Y-%m-%d %H:%M:%S.%f")
-                time_diff = datetime.datetime.now() - last_fetch_meetings
-
-            if time_diff.total_seconds() < 30:
-                logger.info("Meetings already fetched in the last 30 seconds. Skipping.")
-                return {"message": "Meetings already fetched in the last 30 seconds. Skipping..."}
-        else:
-            logger.warning("Missing last_fetch_meetings. Skipping check.")
-
-        # Construct the Credentials object
-        credentials = Credentials(
-            token=google_credentials.get("access_token"),
-            refresh_token=google_credentials.get("refresh_token"),
-            client_id=self.google_client_id,
-            client_secret=self.google_client_secret,
-            token_uri=self.google_token_uri,
-        )
-
-        # Log credentials before using them
-
-        # Build the service using the credentials
-        service = build("calendar", "v3", credentials=credentials)
-
-        now = datetime.datetime.utcnow().isoformat() + "Z"
-        now_minus_10_hours = (datetime.datetime.utcnow() - datetime.timedelta(hours=10)).isoformat() + "Z"
-        logger.info(f"[EMAIL={user_email}] Fetching meetings starting from: {now_minus_10_hours}")
-
-        try:
-            events_result = (
-                service.events()
-                .list(
-                    calendarId="primary",
-                    timeMin=now_minus_10_hours,
-                    maxResults=meetings_num,
-                    singleEvents=True,
-                    orderBy="startTime",
-                )
-                .execute()
-            )
-            logger.info(f"Events result: {len(events_result)} events")
-        except Exception as e:
-            error_message = str(e)
-            if "invalid_grant" in error_message:
-                logger.error(f"Invalid grant error: {e}. The user may need to re-authenticate.")
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid grant: Refresh token is no longer valid. Please re-authenticate.",
-                )
-            else:
-                logger.error(f"Error fetching events from Google Calendar: {e}")
-                raise HTTPException(
-                    status_code=500, detail=f"Error fetching events from Google Calendar: {e}"
-                )
-
-        meetings = events_result.get("items", [])
-        logger.info(f"Fetched events: {meetings}")
-
-        if not meetings:
-            self.google_creds_repository.update_last_fetch_meetings(user_email)
-            return {"message": "No upcoming events found."}
-        tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
-        logger.set_tenant_id(tenant_id)
-        event = GenieEvent(
-            topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": tenant_id, "meetings": meetings}
-        )
-        logger.info(f"Sending {len(meetings)} meetings to the processing queue")
-        event.send()
-
-
-        self.google_creds_repository.update_last_fetch_meetings(user_email)
-        logger.info(f"Sent {len(meetings)} meetings to the processing queue")
-
-        return {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
+        #
+        # self.google_creds_repository.update_last_fetch_meetings(user_email)
+        # logger.info(f"Sent {len(meetings)} meetings to the processing queue")
+        #
+        # return {"status": "success", "message": f"Sent {len(meetings)} meetings to the processing queue"}
 
     def create_tenant(self, tenant_data):
         tenant_id = tenant_data.get("tenantId")
@@ -184,7 +178,7 @@ class TenantsApiService:
 
             if self.tenants_repository.exists(tenant_id):
                 self.google_creds_repository.save_creds(user_email, user_access_token, user_refresh_token)
-                self.fetch_google_meetings(user_email)
+                # self.fetch_google_meetings(user_email)
             elif self.tenants_repository.email_exists(user_email):
 
                 old_tenant_id = self.tenants_repository.get_tenant_id_by_email(user_email)
@@ -218,7 +212,7 @@ class TenantsApiService:
         tenant_email = self.tenants_repository.get_tenant_email(tenant_id)
         if not tenant_email:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        return self.fetch_google_meetings(tenant_email, meetings_num)
+        # return self.fetch_google_meetings(tenant_email, meetings_num)
 
     def start_google_oauth(self):
         """Initiates the OAuth flow and returns an authorization URL."""

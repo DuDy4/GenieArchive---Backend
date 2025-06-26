@@ -3,15 +3,15 @@ import logging
 logger = logging.getLogger("genie_logger")
 logger.setLevel(logging.INFO)
 # Suppress azure logs by setting their log level to WARNING
-logging.getLogger("azure.core").setLevel(logging.WARNING)
-logging.getLogger("azure.monitor").setLevel(logging.WARNING)
-logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
-logging.getLogger("aiohttp").setLevel(logging.WARNING)
-logging.getLogger("asyncio.default_exception_handler").setLevel(logging.CRITICAL + 1)
-logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-logging.getLogger("pinecone_plugin_interface.logging").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
+# logging.getLogger("azure.core").setLevel(logging.WARNING)
+# logging.getLogger("azure.monitor").setLevel(logging.WARNING)
+# logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
+# logging.getLogger("aiohttp").setLevel(logging.WARNING)
+# logging.getLogger("asyncio.default_exception_handler").setLevel(logging.CRITICAL + 1)
+# logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
+# logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+# logging.getLogger("pinecone_plugin_interface.logging").setLevel(logging.WARNING)
+# logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # log_format = "{asctime} [{levelname}] - {name}.{funcName}: {message}"

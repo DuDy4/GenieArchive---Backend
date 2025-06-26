@@ -436,16 +436,3 @@ class Person(BaseModel):
     personality_indicators: PersonalityIndicators
 
 
-# Create a person with specific values for their personality indicators
-person_a = Person(
-    name="John Doe",
-    personality_indicators={
-        "work_history": {"value": "Senior Developer at TechCorp"},
-        "education_background": {"value": "B.Sc. in Computer Science from MIT"},
-        "age": {"value": 34}
-        # Add values for other indicators as needed...
-    },
-)
-
-print(person_a)
-print(person_a.personality_indicators.age.value)  # Output: 34

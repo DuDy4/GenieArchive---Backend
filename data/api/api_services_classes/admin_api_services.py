@@ -1,6 +1,4 @@
 import asyncio
-import json
-from errno import EHOSTDOWN
 
 from common.utils import email_utils
 from data.data_common.data_transfer_objects.meeting_dto import (
@@ -9,7 +7,7 @@ from data.data_common.data_transfer_objects.meeting_dto import (
     AgendaItem,
     MeetingClassification,
 )
-from data.api_services.embeddings import GenieEmbeddingsClient
+# from data.api_services.embeddings import GenieEmbeddingsClient
 from ai.langsmith.langsmith_loader import Langsmith
 from data.data_common.data_transfer_objects.person_dto import PersonDTO
 from data.data_common.data_transfer_objects.profile_dto import ProfileDTO
@@ -38,8 +36,8 @@ from common.genie_logger import GenieLogger
 import uuid
 from fastapi import HTTPException
 
-from data.data_common.events.genie_event import GenieEvent
-from data.data_common.events.topics import Topic
+# from data.data_common.events.genie_event import GenieEvent
+# from data.data_common.events.topics import Topic
 from data.data_common.utils.postgres_connector import check_db_connection
 
 logger = GenieLogger()
@@ -58,7 +56,7 @@ class AdminApiService:
         self.user_profiles_repository = UserProfilesRepository()
         self.user_profiles_repository = UserProfilesRepository()
         self.personal_data_repository = personal_data_repository()
-        self.embeddings_client = GenieEmbeddingsClient()
+        # self.embeddings_client = GenieEmbeddingsClient()
         self.langsmith = Langsmith()
 
     def update_profiles(self, profiles):
@@ -128,8 +126,8 @@ class AdminApiService:
                     "tenant_id": user.get("tenant_id"),
                     "person": person.to_dict(),
                 }
-                event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
-                event.send()
+                # event = GenieEvent(Topic.NEW_PERSON, data_to_send, "public")
+                # event.send()
 
             # for tenant in all_tenants:
             #     data_to_send ={
@@ -156,12 +154,12 @@ class AdminApiService:
         # if not tenants or len(tenants) == 0:
         #     logger.error(f"Person does not have any tenants: {person_uuid}")
         #     return {"error": "Person does not have any tenants"}
-        for user in users:
-            event = GenieEvent(
-                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "email": person.email},
-            )
-            event.send()
+        # for user in users:
+            # event = GenieEvent(
+            #     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+            #     data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "email": person.email},
+            # )
+            # event.send()
         return {"message": "Email sync initiated for " + person.email}
 
     def sync_params(self, person_uuid):
@@ -183,17 +181,17 @@ class AdminApiService:
         if not personal_data:
             logger.error(f"Person does not have any personal data: {person_uuid}")
             return {"error": "Person does not have any personal data"}
-        for user in users:
-            event = GenieEvent(
-                topic=Topic.NEW_PERSONAL_DATA,
-                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person": person.to_dict(), "personal_data": personal_data},
-            )
-            event.send()
-            event = GenieEvent(
-                topic=Topic.NEW_PERSONAL_NEWS,
-                data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person_uuid": person_uuid}
-            )
-            event.send()
+        # for user in users:
+        #     event = GenieEvent(
+        #         topic=Topic.NEW_PERSONAL_DATA,
+        #         data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person": person.to_dict(), "personal_data": personal_data},
+        #     )
+        #     event.send()
+        #     event = GenieEvent(
+        #         topic=Topic.NEW_PERSONAL_NEWS,
+        #         data={"tenant_id": user.get("tenant_id"), "user_id": user.get("user_id"), "person_uuid": person_uuid}
+        #     )
+        #     event.send()
         return {"message": "Email sync initiated for " + person.email}
 
     def validate_uuid(self, uuid_string):
@@ -213,37 +211,37 @@ class AdminApiService:
         response = {"admin": True, "users": [user.to_dict() for user in all_users]}
         return response
 
-    def process_meeting_from_scratch(self, meeting: MeetingDTO):
-        participant_emails = meeting.participants_emails
-        try:
-            self_email = [email for email in participant_emails if email.get("self")][0].get("email")
-        except IndexError:
-            logger.error(f"Could not find self email in {participant_emails}")
-            return
-        self_domain = self_email.split("@")[1] if "@" in self_email else None
-        if self_domain:
-            additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
-            emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
-        else:
-            emails_to_process = email_utils.filter_emails(self_email, participant_emails)
-        logger.info(f"Emails to process: {emails_to_process}")
-        for email in emails_to_process:
-            event = GenieEvent(
-                topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-                data={"tenant_id": meeting.tenant_id, "email": email},
-            )
-            event.send()
-            event = GenieEvent(
-                topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, data={"tenant_id": meeting.tenant_id, "email": email}
-            )
-            event.send()
-        event = GenieEvent(
-            topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-            data={"tenant_id": meeting.tenant_id, "email": self_email},
-        )
-        event.send()
-        logger.info("processed meeting from scratch - finished")
-        return {"status": "success"}
+    # def process_meeting_from_scratch(self, meeting: MeetingDTO):
+    #     participant_emails = meeting.participants_emails
+    #     try:
+    #         self_email = [email for email in participant_emails if email.get("self")][0].get("email")
+    #     except IndexError:
+    #         logger.error(f"Could not find self email in {participant_emails}")
+    #         return
+    #     self_domain = self_email.split("@")[1] if "@" in self_email else None
+    #     if self_domain:
+    #         additional_domains = self.companies_repository.get_additional_domains(self_email.split("@")[1])
+    #         emails_to_process = email_utils.filter_emails_with_additional_domains(self_email, participant_emails, additional_domains)
+    #     else:
+    #         emails_to_process = email_utils.filter_emails(self_email, participant_emails)
+    #     logger.info(f"Emails to process: {emails_to_process}")
+    #     for email in emails_to_process:
+    #         event = GenieEvent(
+    #             topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+    #             data={"tenant_id": meeting.tenant_id, "email": email},
+    #         )
+    #         event.send()
+    #         event = GenieEvent(
+    #             topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN, data={"tenant_id": meeting.tenant_id, "email": email}
+    #         )
+    #         event.send()
+    #     event = GenieEvent(
+    #         topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+    #         data={"tenant_id": meeting.tenant_id, "email": self_email},
+    #     )
+    #     event.send()
+    #     logger.info("processed meeting from scratch - finished")
+    #     return {"status": "success"}
 
     def process_agenda_to_all_meetings(self, number_of_meetings=10):
         all_meetings = self.meetings_repository.get_all_external_meetings_without_agenda()
@@ -255,11 +253,11 @@ class AdminApiService:
                 logger.info("Meeting has agenda")
             else:
                 meeting_goals = self.meetings_repository.get_meeting_goals(meeting.uuid)
-                if meeting_goals:
-                    event = GenieEvent(topic=Topic.NEW_MEETING_GOALS, data={"meeting_uuid": meeting.uuid})
-                    event.send()
-                else:
-                    self.process_meeting_from_scratch(meeting)
+                # if meeting_goals:
+                #     event = GenieEvent(topic=Topic.NEW_MEETING_GOALS, data={"meeting_uuid": meeting.uuid})
+                #     event.send()
+                # else:
+                #     self.process_meeting_from_scratch(meeting)
         logger.info("Finished processing all meetings")
         all_meetings = self.meetings_repository.get_all_external_meetings_without_agenda()
         logger.info(f"After processing, found {len(all_meetings)} meetings without agenda")
@@ -346,9 +344,9 @@ class AdminApiService:
             return {"error": f"No strengths found for any participant for meeting: {meeting.uuid}"}
         profile = profiles[0]
         seller_context = None
-        if self_email:
-            seller_context = self.embeddings_client.search_materials_by_prospect_data(self_email, profile)
-            seller_context = " || ".join(seller_context) if seller_context else None
+        # if self_email:
+        #     seller_context = self.embeddings_client.search_materials_by_prospect_data(self_email, profile)
+        #     seller_context = " || ".join(seller_context) if seller_context else None
         logger.info(f"About to run ask langsmith for meeting guidelines for meeting {meeting.uuid}")
         meeting_guidelines = asyncio.run(
             self.langsmith.run_prompt_get_meeting_guidelines(profile, meeting, goals, seller_context)
@@ -364,11 +362,11 @@ class AdminApiService:
             return {"error": f"Error converting agenda to AgendaItem: {e}"}
         meeting.agenda = agendas
         self.meetings_repository.save_meeting(meeting)
-        event = GenieEvent(
-            topic=Topic.UPDATED_AGENDA_FOR_MEETING,
-            data={"meeting": meeting.to_dict()},
-        )
-        event.send()
+        # event = GenieEvent(
+        #     topic=Topic.UPDATED_AGENDA_FOR_MEETING,
+        #     data={"meeting": meeting.to_dict()},
+        # )
+        # event.send()
         return {"status": f"Created Agenda for meeting {meeting.uuid}"}
 
     def handle_meeting_without_goals(self, meeting: MeetingDTO, self_email: str):
@@ -393,11 +391,11 @@ class AdminApiService:
             return {"error": "No target personal data found"}
         # Else, we have a target personal data and company data
         seller_context = None
-        if self_email:
-            seller_context = self.embeddings_client.search_materials_by_prospect_data(
-                self_email, target_personal_data
-            )
-            seller_context = " || ".join(seller_context) if seller_context else None
+        # if self_email:
+        #     seller_context = self.embeddings_client.search_materials_by_prospect_data(
+        #         self_email, target_personal_data
+        #     )
+        #     seller_context = " || ".join(seller_context) if seller_context else None
         logger.info(f"About to run ask langsmith for meeting goals for meeting {meeting.uuid}")
         meetings_goals = asyncio.run(
             self.langsmith.run_prompt_get_meeting_goals(
@@ -411,11 +409,11 @@ class AdminApiService:
             return {"error": "No meeting goals found"}
         logger.info(f"Meetings goals: {meetings_goals}")
         self.meetings_repository.save_meeting_goals(meeting.uuid, meetings_goals)
-        event = GenieEvent(
-            topic=Topic.NEW_MEETING_GOALS,
-            data={"meeting_uuid": meeting.uuid, "seller_context": seller_context},
-        )
-        event.send()
+        # event = GenieEvent(
+        #     topic=Topic.NEW_MEETING_GOALS,
+        #     data={"meeting_uuid": meeting.uuid, "seller_context": seller_context},
+        # )
+        # event.send()
         return {"status": f"Created Meeting goals. Proceeding to Create agenda"}
 
     def check_database_connection(self):
@@ -452,8 +450,8 @@ class AdminApiService:
                 if not person.email:
                     logger.error(f"Person with uuid {uuid} has no email")
                     continue
-                event = GenieEvent(topic=Topic.APOLLO_NEW_PERSON_TO_ENRICH, data={"person": person.to_dict()})
-                event.send()
+                # event = GenieEvent(topic=Topic.APOLLO_NEW_PERSON_TO_ENRICH, data={"person": person.to_dict()})
+                # event.send()
                 logger.info(f"Sent event for {person.email}")
             except Exception as e:
                 logger.error(f"Error sending event for {uuid}: {e}")

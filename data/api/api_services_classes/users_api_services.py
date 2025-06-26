@@ -11,8 +11,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 from data.data_common.data_transfer_objects.user_dto import UserDTO
-from data.data_common.events.genie_event import GenieEvent
-from data.data_common.events.topics import Topic
+# from data.data_common.events.genie_event import GenieEvent
+# from data.data_common.events.topics import Topic
 from common.genie_logger import GenieLogger
 from fastapi import HTTPException
 
@@ -159,10 +159,10 @@ class UsersApiService:
         user = self.users_repository.get_user_by_email(user_email)
         logger.set_tenant_id(user.tenant_id)
         logger.set_user_id(user.user_id)
-        event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": user.tenant_id,
-                                                                      "user_id": user.user_id, "meetings": meetings})
-        logger.info(f"Sending {len(meetings)} meetings to the processing queue")
-        event.send()
+        # event = GenieEvent(topic=Topic.NEW_MEETINGS_TO_PROCESS, data={"tenant_id": user.tenant_id,
+        #                                                               "user_id": user.user_id, "meetings": meetings})
+        # logger.info(f"Sending {len(meetings)} meetings to the processing queue")
+        # event.send()
 
         self.google_creds_repository.update_last_fetch_meetings(user_email)
         logger.info(f"Sent {len(meetings)} meetings to the processing queue")

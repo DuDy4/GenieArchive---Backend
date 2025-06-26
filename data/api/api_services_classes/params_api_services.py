@@ -2,8 +2,6 @@ import asyncio
 import base64
 import datetime
 import json
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
 from common.utils import env_utils
 from common.genie_logger import GenieLogger
 from ai.langsmith.langsmith_loader import Langsmith
@@ -67,11 +65,7 @@ class ParamsApiService:
         """
         Reinitialize the credentials to ensure they are always fresh.
         """
-        self.credentials = service_account.Credentials.from_service_account_info(
-            self.google_creds, scopes=self.SCOPES
-        )
-        # Reinitialize the Sheets API service
-        self.service = build("sheets", "v4", credentials=self.credentials)
+        pass
 
     async def _initialize_sheet(self):
         range_name = f"{self.SHEET_NAME}!A:I"

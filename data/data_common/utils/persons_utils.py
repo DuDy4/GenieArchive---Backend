@@ -2,10 +2,6 @@ from common.genie_logger import GenieLogger
 
 
 from data.data_common.data_transfer_objects.profile_category_dto import ProfileCategory, SalesCriteriaType, SalesCriteria
-from ai.train.profile_param_weights import ProfileParamWeights
-
-profile_param_weights = ProfileParamWeights()
-
 
 logger = GenieLogger()
 
@@ -225,22 +221,7 @@ weights = {
 }  
 
 def determine_profile_v2_category_v2(param_score):
-    raw_scores = {}
-    person_scores = profile_param_weights.normalize_param_scores(param_score)
-    probabilities = profile_param_weights.predict_for_new_person(person_scores)
-    best_profile = max(probabilities, key=probabilities.get)
-    best_profile = "The " + best_profile
-
-    profile_category_dict = {
-        "category": best_profile,
-        "scores": probabilities,
-        "description": profiles_description.get(best_profile, ""),
-        "extended_description": profiles_extended_description.get(best_profile, ""),
-        "explanation": profiles_explanation.get(best_profile, {}),
-        "color": profiles_colors.get(best_profile, ""),
-        "font_color": profile_font_color.get(best_profile, ""),
-    }
-    return ProfileCategory.from_dict(profile_category_dict)
+    pass
 
 def determine_profile_v2_category(param_score):
     raw_scores = {} 

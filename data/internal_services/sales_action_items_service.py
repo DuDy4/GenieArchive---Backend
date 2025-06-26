@@ -53,44 +53,10 @@ class SalesActionItemsService:
         """
         Reinitialize the credentials to ensure they are always fresh.
         """
-        self.credentials = service_account.Credentials.from_service_account_info(
-            self.google_creds, scopes=self.SCOPES
-        )
-        # Reinitialize the Sheets API service
-        self.service = build("sheets", "v4", credentials=self.credentials)
+        pass
 
     def _initailze_sheet(self):
-        range_name = f"{self.SHEET_NAME}!A:E"
-        sheet = self.service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=self.SPREADSHEET_ID, range=range_name).execute()
-        rows = result.get("values", [])
-
-        # Extract headers and data
-        if len(rows) < 2:
-            raise Exception("Sheet is empty or does not have enough data.")
-
-        headers = rows[0]
-        self.data_rows = rows[1:]
-
-        if self.SALES_CRITERIA_COLUMN not in headers or self.ACTION_ITEM_COLUMN not in headers or self.DETAILED_ACTION_ITEM_COLUMN not in headers:
-            raise Exception("Required columns are missing.")
-
-        # Get column indices
-        self.criteria_index = headers.index(self.SALES_CRITERIA_COLUMN)
-        self.action_item_index = headers.index(self.ACTION_ITEM_COLUMN)
-        self.detailed_item_index = headers.index(self.DETAILED_ACTION_ITEM_COLUMN)
-        self.category_index = headers.index(self.ACTION_ITEM_CATEGORY_COLUMN)
-
-        # Fill down the Sales Criteria for merged cells
-        last_criteria = None
-        for row in self.data_rows:
-            if len(row) > self.criteria_index and row[self.criteria_index].strip():
-                last_criteria = row[self.criteria_index].strip()  # Update the last non-empty value
-            elif last_criteria:
-                # Fill the empty cell with the last non-empty value
-                if len(row) <= self.criteria_index:
-                    row.extend([""] * (self.criteria_index - len(row) + 1))  # Extend the row if it's too short
-                row[self.criteria_index] = last_criteria
+        pass
 
     def get_action_items(self, sales_criteria: list[SalesCriteria]) -> list[SalesActionItem]:
         """
@@ -110,74 +76,10 @@ class SalesActionItemsService:
                 raise e
             
     def _fetch_x_action_items(self, sales_criteria: list[SalesCriteria], num_items = 5) -> list[SalesActionItem]:
-        action_items = []
-        descending_sales_criteria = sorted(sales_criteria, key=lambda x: x.target_score, reverse=True)
-        criteria_cycle = cycle(descending_sales_criteria) 
-        used_suggestions = set()
-        for i in range(num_items):
-            sale_criteria = next(criteria_cycle)
-            normalized_criteria = sale_criteria.criteria.value.strip().lower().replace("_", " ")
-
-            # Filter rows matching the criteria
-            suggestions = [
-                (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None)
-                for row in self.data_rows
-                if len(row) > self.criteria_index
-                and row[self.criteria_index].strip().lower().replace("_", " ") == normalized_criteria
-                and len(row) > self.action_item_index
-                and row[self.action_item_index].strip()  # Exclude rows with empty Action Item
-                and (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None) not in used_suggestions
-            ]
-
-            if suggestions:
-                action_item_tuple = random.choice(suggestions) 
-                used_suggestions.add(action_item_tuple)  
-                action_item, detailed_item, category = action_item_tuple
-                if category:
-                    category = category.strip().upper().replace(" ", "_")
-                    action_item_category = SalesActionItemCategory(category)
-                action_items.append(SalesActionItem(
-                    criteria=sale_criteria.criteria,
-                    action_item=action_item,
-                    detailed_action_item=detailed_item,
-                    score=int(sale_criteria.target_score * 0.25),  # Placeholder - 25% of the target score
-                    category=action_item_category if category else SalesActionItemCategory.GENERIC
-                ))
-
-        return action_items
+        pass
 
     def _fetch_action_items(self, sales_criteria: list[SalesCriteria]) -> list[SalesActionItem]:
-        """
-        Internal method to fetch action items from the Google Sheet.
-        """
-        action_items = []
-        for sale_criteria in sales_criteria:
-            normalized_criteria = sale_criteria.criteria.value.strip().lower().replace("_", " ")
-
-            # Filter rows matching the criteria
-            suggestions = [
-                (row[self.action_item_index], row[self.detailed_item_index], row[self.category_index] if len(row) > self.category_index else None)
-                for row in self.data_rows
-                if len(row) > self.criteria_index
-                and row[self.criteria_index].strip().lower().replace("_", " ") == normalized_criteria
-                and len(row) > self.action_item_index
-                and row[self.action_item_index].strip()  # Exclude rows with empty Action Item
-            ]
-
-            if suggestions:
-                action_item, detailed_item, category = random.choice(suggestions)
-                if category:
-                    category = category.strip().upper().replace(" ", "_")
-                    action_item_category = SalesActionItemCategory(category)
-                action_items.append(SalesActionItem(
-                    criteria=sale_criteria.criteria,
-                    action_item=action_item,
-                    detailed_action_item=detailed_item,
-                    score=int(sale_criteria.target_score * 0.25),  # Placeholder - 25% of the target score
-                    category=action_item_category if category else SalesActionItemCategory.GENERIC
-                ))
-
-        return action_items
+        pass
     
     # def get_or_create_action_items(self, uuid, tenant_id):
     #     existing_action_items = self.tenant_profiles_repository.get_sales_action_items(uuid, tenant_id)
