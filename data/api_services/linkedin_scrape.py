@@ -1,4 +1,3 @@
-from pyarrow import scalar
 
 from common.utils import env_utils
 import requests

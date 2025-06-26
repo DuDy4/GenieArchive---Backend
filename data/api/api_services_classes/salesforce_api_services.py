@@ -4,9 +4,9 @@ from common.utils import env_utils
 from common.utils.jwt_utils import generate_pkce_pair
 from data.api_services.salesforce_manager import SalesforceManager
 from data.data_common.data_transfer_objects.sf_creds_dto import SalesforceCredsDTO
-from data.data_common.events.genie_event import GenieEvent
-from data.data_common.events.topics import Topic
-from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
+# from data.data_common.events.genie_event import GenieEvent
+# from data.data_common.events.topics import Topic
+# from data.data_common.events.genie_event_batch_manager import EventHubBatchManager
 from common.genie_logger import GenieLogger
 
 from data.data_common.repositories.sf_creds_repository import SalesforceUsersRepository
@@ -47,21 +47,16 @@ class SalesforceApiService:
         if not user_id or not tenant_id:
             logger.error(f"No user found for salesforce_user_id={salesforce_user_id}")
             return
-        # event = GenieEvent(
-        #     topic=Topic.NEW_CONTACT,
-        #     data={"contact_email": contact_email, "user_id": user_id, "tenant_id": tenant_id},
-        # )
-        # event.send()
-        event_batch = EventHubBatchManager()
-        event_batch.queue_event(GenieEvent(
-            topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
-            data={"email": contact_email, "user_id": user_id, "tenant_id": tenant_id},
-        ))
-        event_batch.queue_event(GenieEvent(
-            topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
-            data={"email": contact_email, "user_id": user_id, "tenant_id": tenant_id},
-        ))
-        await event_batch.send_batch()
+        # event_batch = EventHubBatchManager()
+        # event_batch.queue_event(GenieEvent(
+        #     topic=Topic.NEW_EMAIL_ADDRESS_TO_PROCESS,
+        #     data={"email": contact_email, "user_id": user_id, "tenant_id": tenant_id},
+        # ))
+        # event_batch.queue_event(GenieEvent(
+        #     topic=Topic.NEW_EMAIL_TO_PROCESS_DOMAIN,
+        #     data={"email": contact_email, "user_id": user_id, "tenant_id": tenant_id},
+        # ))
+        # await event_batch.send_batch()
         logger.info(f"Sent events for contact email: {contact_email}")
         return {"message": f"Sent events for {contact_email}"}
 
@@ -133,14 +128,14 @@ class SalesforceApiService:
             print(f"Error during Salesforce token exchange: {e}")
             return {"error": str(e)}
 
-    async def handle_new_salesforce_auth(self, user_creds: SalesforceCredsDTO):
-        contacts = await self.get_user_contacts(user_creds)
-        if contacts:
-            event = GenieEvent(
-                topic=Topic.NEW_SF_CONTACTS,
-                data={"contacts": contacts, "salesforce_user_id": user_creds.salesforce_user_id},
-            )
-            event.send()
+    # async def handle_new_salesforce_auth(self, user_creds: SalesforceCredsDTO):
+    #     contacts = await self.get_user_contacts(user_creds)
+    #     if contacts:
+    #         event = GenieEvent(
+    #             topic=Topic.NEW_SF_CONTACTS,
+    #             data={"contacts": contacts, "salesforce_user_id": user_creds.salesforce_user_id},
+    #         )
+    #         event.send()
 
 
 

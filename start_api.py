@@ -6,9 +6,9 @@ from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from azure.monitor.opentelemetry import configure_azure_monitor
-from common.utils import jwt_utils
+# from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+# from azure.monitor.opentelemetry import configure_azure_monitor
+# from common.utils import jwt_utils
 from common.genie_logger import GenieLogger
 from data.data_common.utils.postgres_connector import check_db_connection
 
@@ -16,7 +16,7 @@ from data.data_common.utils.postgres_connector import check_db_connection
 load_dotenv()
 logger = GenieLogger()
 logger.info("Logger initialized")
-configure_azure_monitor()
+# configure_azure_monitor()
 
 
 from starlette.middleware.cors import CORSMiddleware
@@ -38,33 +38,33 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 # Optional JWT validation function
-async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = True):
-    if not token:
-        if mandatory:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        return None
-    try:
-        return jwt_utils.decode_jwt_token(token)
-    except Exception as e:
-        logger.error(f"API JWT error: {traceback.format_exc()}")
-        if mandatory:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        logger.info("Optional JWT token not valid, but continuing")
-        return None
+# async def jwt_validation(token: str = Depends(oauth2_scheme), mandatory: bool = True):
+#     if not token:
+#         if mandatory:
+#             raise HTTPException(status_code=401, detail="Not authenticated")
+#         return None
+#     try:
+#         return jwt_utils.decode_jwt_token(token)
+#     except Exception as e:
+#         logger.error(f"API JWT error: {traceback.format_exc()}")
+#         if mandatory:
+#             raise HTTPException(status_code=401, detail="Invalid token")
+#         logger.info("Optional JWT token not valid, but continuing")
+#         return None
 
 
-class JWTValidationMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path not in ALLOWED_ROUTES:
-            token = request.headers.get("Authorization")
-            payload = await jwt_validation(token, mandatory=False)
-            if payload:
-                request.state.user_email = jwt_utils.get_user_email(payload)
-                request.state.tenant_id = jwt_utils.get_tenant_id(payload)
-                request.state.user_id = jwt_utils.get_user_id(payload)
-
-        response = await call_next(request)
-        return response
+# class JWTValidationMiddleware(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next):
+#         if request.url.path not in ALLOWED_ROUTES:
+#             token = request.headers.get("Authorization")
+#             payload = await jwt_validation(token, mandatory=False)
+#             if payload:
+#                 request.state.user_email = jwt_utils.get_user_email(payload)
+#                 request.state.tenant_id = jwt_utils.get_tenant_id(payload)
+#                 request.state.user_id = jwt_utils.get_user_id(payload)
+#
+#         response = await call_next(request)
+#         return response
 
 
 async def genie_metrics(request: Request):
@@ -114,9 +114,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
-app.add_middleware(GenieContextMiddleware)
-app.add_middleware(JWTValidationMiddleware)
+# app.add_middleware(SessionMiddleware, secret_key=env_utils.get("APP_SECRET_KEY"), max_age=3600)
+# app.add_middleware(GenieContextMiddleware)
+# app.add_middleware(JWTValidationMiddleware)
 
 
 @app.exception_handler(Exception)

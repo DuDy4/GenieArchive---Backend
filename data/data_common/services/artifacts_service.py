@@ -2,15 +2,12 @@ import datetime
 from typing import Any, Dict, List
 from collections import defaultdict
 
-from pyarrow import timestamp
-
 from data.data_common.data_transfer_objects.artifact_dto import ArtifactDTO, ArtifactScoreDTO, ArtifactSource, ArtifactType
 from data.data_common.data_transfer_objects.news_data_dto import SocialMediaPost
 from data.data_common.data_transfer_objects.work_history_dto import WorkHistoryArtifactDTO
 from data.data_common.repositories.artifact_scores_repository import ArtifactScoresRepository
 from data.data_common.repositories.artifacts_repository import ArtifactsRepository
 from data.data_common.services.profile_params_service import ProfileParamsService
-from ai.train.profile_param_weights import ProfileParamWeights
 from common.genie_logger import GenieLogger
 
 logger = GenieLogger()
@@ -24,7 +21,6 @@ class ArtifactsService():
         self.artifacts_repository = ArtifactsRepository()
         self.artifact_scores_repository = ArtifactScoresRepository()
         self.profile_params_service = ProfileParamsService()  
-        self.profile_param_weights = ProfileParamWeights()  
 
         if not profile_model_trained:
             profile_model_trained = True
@@ -41,7 +37,6 @@ class ArtifactsService():
             if not profile_param_score:
                 continue
             unique_profile_score_dicts.append({"name": profile_name, "scores": profile_param_score})
-        self.profile_param_weights.prepare_data_for_training2(unique_profile_score_dicts)
 
         
     def save_linkedin_posts(self, profile_uuid, posts: List[SocialMediaPost]) -> List[str]:
@@ -110,7 +105,7 @@ class ArtifactsService():
         :param profile_uuid: UUID of profile
         """
         timestamp = datetime.datetime.now()
-        logger.info(f"Calculating overall params for person {name} | {profile_uuid}")
+        # logger.info(f"Calculating overall params for person {name} | {profile_uuid}")
         # artifacts = self.artifacts_repository.get_user_artifacts(profile_uuid)
         # if not artifacts:
         #     return {}
@@ -123,8 +118,8 @@ class ArtifactsService():
         param_averages = self.calculate_average_scores_per_param(all_artifacts_scores)
         # for param, avg_score in param_averages.items():
             # logger.info(f"{param}: {avg_score}")
-        logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
-        logger.info(f"Overall params: {param_averages}")
+        # logger.info(f"Calculated overall params for profile {name}. Duration: {datetime.datetime.now() - timestamp} ms")
+        # logger.info(f"Overall params: {param_averages}")
         return param_averages
     
     

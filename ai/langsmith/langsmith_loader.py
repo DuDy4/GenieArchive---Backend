@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langsmith.utils import LangSmithConnectionError
 from dotenv import load_dotenv
 from common.genie_logger import GenieLogger
-from data.api_services.embeddings import GenieEmbeddingsClient
+# from data.api_services.embeddings import GenieEmbeddingsClient
 from data.data_common.events.genie_event import GenieEvent
 from data.data_common.events.topics import Topic
 
@@ -50,7 +50,7 @@ class Langsmith:
             openai_api_version=OPENAI_API_VERSION,
         )
         self.model = self.azure_model
-        self.embeddings_client = GenieEmbeddingsClient()
+        # self.embeddings_client = GenieEmbeddingsClient()
         self.setup_custom_logging()
         
 

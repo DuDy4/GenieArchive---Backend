@@ -1,5 +1,4 @@
 from datetime import datetime
-from os.path import exists
 
 from common.utils import email_utils
 from data.data_common.data_transfer_objects.file_upload_dto import FileUploadDTO, FileCategoryEnum
@@ -10,7 +9,7 @@ from data.data_common.dependencies.dependencies import (
 from common.utils.file_utils import get_file_name_from_url
 from common.genie_logger import GenieLogger
 from data.data_common.repositories.users_repository import UsersRepository
-from data.internal_services.files_upload_service import FileUploadService
+# from data.internal_services.files_upload_service import FileUploadService
 from fastapi import HTTPException
 from data.data_common.utils.str_utils import (
     upload_file_name_validation,
@@ -108,16 +107,16 @@ class UserMaterialServices:
         all_files_jsoned = [file.to_dict() for file in all_files] if all_files else []
         return {"files": all_files_jsoned, "categories": all_categories}
 
-    def generate_upload_url(self, tenant_id, file_name):
-        if not upload_file_name_validation(file_name):
-            raise HTTPException(
-                status_code=400,
-                detail=f"File name not supported. Must be: 1. Less than {MAX_FILE_NAME_LENGTH} characters 2. No special characters. 3. Only extensions supported: {ALLOWED_EXTENSIONS}",
-            )
-
-        upload_url = FileUploadService.generate_upload_url(tenant_id, file_name)
-        logger.info(f"Succesfullly create update url: {upload_url}")
-        if upload_url:
-            return upload_url
-        else:
-            raise HTTPException(status_code=500, detail="Failed to generate upload url")
+    # def generate_upload_url(self, tenant_id, file_name):
+    #     if not upload_file_name_validation(file_name):
+    #         raise HTTPException(
+    #             status_code=400,
+    #             detail=f"File name not supported. Must be: 1. Less than {MAX_FILE_NAME_LENGTH} characters 2. No special characters. 3. Only extensions supported: {ALLOWED_EXTENSIONS}",
+    #         )
+    #
+    #     upload_url = FileUploadService.generate_upload_url(tenant_id, file_name)
+    #     logger.info(f"Succesfullly create update url: {upload_url}")
+    #     if upload_url:
+    #         return upload_url
+    #     else:
+    #         raise HTTPException(status_code=500, detail="Failed to generate upload url")
